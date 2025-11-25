@@ -3,214 +3,17 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart' show rootBundle; // 🔑 Necessário para ler o arquivo SQL como asset
+
+// ✅ Importações corrigidas:
+import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
-
-const List<String> kFullDatabaseCreationScripts = [
-  // =======================================================
-  // DOMÍNIO 1: ACESSO E IDENTIDADE (Tabelas)
-  // =======================================================
-
-  '''
-  CREATE TABLE papeis (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL UNIQUE,
-      descricao TEXT,
-      e_padrao INTEGER DEFAULT 0,
-      criado_em TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
-  );
-  ''',
-
-  '''
-  CREATE TABLE permissoes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      codigo TEXT NOT NULL UNIQUE,
-      descricao TEXT
-  );
-  ''',
-
-  '''
-  CREATE TABLE usuarios (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      matricula_funcional TEXT NOT NULL UNIQUE,
-      papel_id INTEGER NOT NULL,
-      nome_completo TEXT NOT NULL,
-      ativo INTEGER DEFAULT 1,
-      hash_pin_offline TEXT,
-      criado_em TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-      atualizado_em TEXT,
-      versao INTEGER DEFAULT 1,
-      device_id TEXT,
-      
-      FOREIGN KEY (papel_id) REFERENCES papeis(id) ON DELETE RESTRICT
-  );
-  ''',
-
-  '''
-  CREATE TABLE papel_permissoes (
-      papel_id INTEGER NOT NULL,
-      permissao_id INTEGER NOT NULL,
-      
-      PRIMARY KEY (papel_id, permissao_id),
-      FOREIGN KEY (papel_id) REFERENCES papeis(id) ON DELETE CASCADE,
-      FOREIGN KEY (permissao_id) REFERENCES permissoes(id) ON DELETE CASCADE
-  );
-  ''',
-
-  // =======================================================
-  // DOMÍNIO 2: CATÁLOGO DE DEFINIÇÕES (Tabelas)
-  // =======================================================
-
-  '''
-  CREATE TABLE tipos_achados (
-      id TEXT PRIMARY KEY,
-      nome TEXT NOT NULL,
-      caminho_icone TEXT,
-      schema_formulario_json TEXT,
-      versao INTEGER DEFAULT 1,
-      criado_em TEXT,
-      atualizado_em TEXT
-  );
-  ''',
-
-  '''
-  CREATE TABLE templates_diagrama (
-      id TEXT PRIMARY KEY,
-      nome TEXT NOT NULL,
-      caminho_svg TEXT,
-      criado_em TEXT,
-      atualizado_em TEXT
-  );
-  ''',
-
-  // =======================================================
-  // DOMÍNIO 3: OPERAÇÃO (Tabelas)
-  // =======================================================
-
-  '''
-  CREATE TABLE casos (
-      uuid TEXT PRIMARY KEY,
-      id_usuario_criador INTEGER NOT NULL,
-      numero_laudo_externo TEXT,
-      status TEXT DEFAULT 'RASCUNHO',
-      hash_integridade TEXT,
-      removido INTEGER DEFAULT 0,
-      versao INTEGER DEFAULT 1,
-      criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-      criado_em_rede_confiavel TEXT,
-      atualizado_em TEXT,
-      device_id TEXT,
-      proveniencia TEXT,
-      
-      FOREIGN KEY (id_usuario_criador) REFERENCES usuarios(id) ON DELETE RESTRICT
-  );
-  ''',
-
-  '''
-  CREATE TABLE diagramas_do_caso (
-      uuid TEXT PRIMARY KEY,
-      caso_uuid TEXT NOT NULL,
-      template_id TEXT NOT NULL,
-      removido INTEGER DEFAULT 0,
-      versao INTEGER DEFAULT 1,
-      criado_em TEXT,
-      atualizado_em TEXT,
-      device_id TEXT,
-      
-      FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
-      FOREIGN KEY (template_id) REFERENCES templates_diagrama(id) ON DELETE RESTRICT
-  );
-  ''',
-
-  '''
-  CREATE TABLE achados (
-      uuid TEXT PRIMARY KEY,
-      diagrama_caso_uuid TEXT NOT NULL,
-      tipo_achado_id TEXT NOT NULL,
-      numero_sequencial INTEGER,
-      pos_x REAL,
-      pos_y REAL,
-      esta_pendente INTEGER DEFAULT 1,
-      dados_preenchidos_json TEXT,
-      observacoes_texto TEXT,
-      removido INTEGER DEFAULT 0,
-      versao INTEGER DEFAULT 1,
-      criado_em TEXT,
-      atualizado_em TEXT,
-      device_id TEXT,
-      proveniencia TEXT,
-      
-      FOREIGN KEY (diagrama_caso_uuid) REFERENCES diagramas_do_caso(uuid) ON DELETE CASCADE,
-      FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT
-  );
-  ''',
-
-  '''
-  CREATE TABLE evidencias_multimidia (
-      uuid TEXT PRIMARY KEY,
-      achado_uuid TEXT NOT NULL,
-      substituida_por TEXT,
-      tipo TEXT DEFAULT 'FOTO',
-      caminho_arquivo_encriptado TEXT,
-      hash_arquivo TEXT,
-      hmac_arquivo TEXT,
-      salt_base64 TEXT,
-      chave_cifrada_base64 TEXT,
-      hash_exif TEXT,
-      removido INTEGER DEFAULT 0,
-      versao INTEGER DEFAULT 1,
-      criado_em TEXT,
-      atualizado_em TEXT,
-      device_id TEXT,
-      
-      FOREIGN KEY (achado_uuid) REFERENCES achados(uuid) ON DELETE CASCADE,
-      FOREIGN KEY (substituida_por) REFERENCES evidencias_multimidia(uuid) ON DELETE SET NULL
-  );
-  ''',
-
-  // =======================================================
-  // DOMÍNIO 4: AUDITORIA (Tabelas)
-  // =======================================================
-
-  '''
-  CREATE TABLE log_auditoria (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      caso_uuid TEXT,
-      id_usuario INTEGER,
-      codigo_acao TEXT,
-      transacao_uuid TEXT,
-      detalhes_json TEXT, 
-      timestamp TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-      device_id TEXT,
-      proveniencia TEXT,
-      
-      FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE SET NULL,
-      FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE SET NULL
-  );
-  ''',
-  
-  // =======================================================
-  // INDEXAÇÃO PARA ESCALABILIDADE
-  // =======================================================
-  
-  'CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);',
-  'CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);',
-  'CREATE INDEX idx_diagramas_caso ON diagramas_do_caso (caso_uuid);',
-  'CREATE INDEX idx_diagramas_template ON diagramas_do_caso (template_id);',
-  'CREATE INDEX idx_achados_diagrama ON achados (diagrama_caso_uuid);',
-  'CREATE INDEX idx_achados_tipo ON achados (tipo_achado_id);',
-  'CREATE INDEX idx_evidencias_achado ON evidencias_multimidia (achado_uuid);',
-  'CREATE INDEX idx_evidencias_substituta ON evidencias_multimidia (substituida_por);',
-  'CREATE INDEX idx_log_caso ON log_auditoria (caso_uuid);',
-  'CREATE INDEX idx_log_usuario ON log_auditoria (id_usuario);',
-  'CREATE INDEX idx_casos_status ON casos (status);',
-  'CREATE INDEX idx_achados_pendente ON achados (esta_pendente);',
-];
 
 
 class DatabaseHelper {
   static Database? _database;
   static const FlutterSecureStorage secureStorage = FlutterSecureStorage();
-  
+
   String? _encryptionKey;
 
   Future<Database> get database async {
@@ -224,38 +27,50 @@ class DatabaseHelper {
 
     String databasesPath = await getDatabasesPath();
     String path = join(databasesPath, kDatabaseName);
-    
+
+    // Configura o caminho global se necessário (depende da sua implementação)
     await databaseFactory.setDatabasesPath(databasesPath);
 
+    // O openDatabase é o ponto de inicialização e upgrade
     return await openDatabase(
       path,
       version: kDatabaseVersion,
       onCreate: _onCreate,
-      password: _encryptionKey, 
+      // O 'password' é o que ativa a criptografia com sqflite_sqlcipher
+      password: _encryptionKey,
     );
   }
 
   Future<String> _getEncryptionKey() async {
     const String keyName = 'db_encryption_key';
+    // Tenta ler a chave de criptografia armazenada de forma segura
     String? key = await secureStorage.read(key: keyName);
 
     if (key == null) {
-      // TODO  Em produção, gere uma chave criptograficamente segura (e.g., UUID gerado)
-      // Usando uma string simples aqui para fins de MVP/Teste
-      key = 'ChaveSecreta_MVP_CroquiForense_2025'; 
+      // TODO  Em produção, use uma biblioteca para gerar uma chave criptograficamente segura
+      // (e.g., UUIDs longos ou chaves geradas por pacotes de criptografia)
+      key = 'ChaveSecreta_MVP_CroquiForense_2025';
       await secureStorage.write(key: keyName, value: key);
     }
     return key;
   }
 
+  /// Método chamado apenas na primeira vez que o banco é aberto.
   Future _onCreate(Database db, int version) async {
+    // 1. Ativa a verificação de chaves estrangeiras (boa prática)
     await db.execute('PRAGMA foreign_keys = ON;');
 
-    for (String sql in kFullDatabaseCreationScripts) {
-      await db.execute(sql);
-    }
-    
+    // 2. Carrega o script SQL de criação de tabelas do arquivo asset
+    final String schemaSql = await rootBundle.loadString(kDatabaseSchemaAssetPath);
+
+    // 3. Executa o script SQL (que contém todos os CREATE TABLE e INDEXES)
+    await db.execute(schemaSql);
+
+    // 4. Popula o banco com dados iniciais (seeder)
     final seeder = DatabaseSeeder(db);
     await seeder.seedAll();
   }
+
+// Você pode adicionar um método onUpgrade aqui se for necessário
+// Future _onUpgrade(Database db, int oldVersion, int newVersion) async { ... }
 }

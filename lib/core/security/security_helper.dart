@@ -1,11 +1,8 @@
-
-
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
+// A chave é usar 'show sha256' para garantir que ele seja importado
+import 'package:crypto/crypto.dart' show sha256;
 
 class SecurityHelper {
-  // TODO::: Em produção, usaríamos um algoritmo mais forte como Argon2 ou Bcrypt,
-  // mas para o requisito MVP local, o SHA-256 é suficiente.
   static String hashPin(String pin) {
     final bytes = utf8.encode(pin);
     final digest = sha256.convert(bytes);
