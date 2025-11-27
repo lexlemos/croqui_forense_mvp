@@ -4,7 +4,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 
 class DatabaseSeeder {
-  final Database db;
+  final DatabaseExecutor db;
 
   DatabaseSeeder(this.db);
 
