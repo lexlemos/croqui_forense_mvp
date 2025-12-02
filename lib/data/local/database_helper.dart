@@ -1,76 +1,72 @@
-// lib/data/local/database_helper.dart
-
-import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 import 'package:path/path.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/services.dart' show rootBundle; // 🔑 Necessário para ler o arquivo SQL como asset
-
-// ✅ Importações corrigidas:
-import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
+import 'package:uuid/uuid.dart';
+import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
+import 'package:croqui_forense_mvp/data/local/database_factory_interface.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
-
-
+import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 class DatabaseHelper {
-  static Database? _database;
-  static const FlutterSecureStorage secureStorage = FlutterSecureStorage();
+  static const String _kDbName = 'croqui_forense_mvp.db';
+  static const int _kVersion = 1;
+  static const String _kEncKey = 'db_encryption_key';
 
-  String? _encryptionKey;
+  final IDatabaseFactory _dbFactory;
+  final IKeyStorage _keyStorage;
+
+  static DatabaseHelper? _instance;
+  
+  Database? _db;
+  DatabaseHelper(this._dbFactory, this._keyStorage);
+
+  static void init(IDatabaseFactory factory, IKeyStorage storage) {
+    _instance = DatabaseHelper(factory, storage);
+  }
+
+  static DatabaseHelper get instance {
+    if (_instance == null) {
+      throw Exception("DatabaseHelper não inicializado. Chame DatabaseHelper.init() no main.dart.");
+    }
+    return _instance!;
+  }
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+    if (_db != null && _db!.isOpen) return _db!;
+    _db = await _initDb();
+    return _db!;
   }
 
-  Future<Database> _initDatabase() async {
-    _encryptionKey = await _getEncryptionKey();
+  Future<Database> _initDb() async {
+    final dbPath = await _dbFactory.getDatabasesPath();
+    final path = join(dbPath, _kDbName);
 
-    String databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, kDatabaseName);
+    var key = await _keyStorage.read(_kEncKey);
+    if (key == null) {
+      key = const Uuid().v4() + const Uuid().v4(); 
+      await _keyStorage.write(_kEncKey, key);
+    }
 
-    // Configura o caminho global se necessário (depende da sua implementação)
-    await databaseFactory.setDatabasesPath(databasesPath);
-
-    // O openDatabase é o ponto de inicialização e upgrade
-    return await openDatabase(
+    return await _dbFactory.openDatabase(
       path,
-      version: kDatabaseVersion,
-      onCreate: _onCreate,
-      // O 'password' é o que ativa a criptografia com sqflite_sqlcipher
-      password: _encryptionKey,
+      version: _kVersion,
+      password: key,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
+      onCreate: (db, version) async {
+
+        await db.transaction((txn) async {
+          for (var sql in kFullDatabaseCreationScripts) {
+            await txn.execute(sql);
+          }
+          final seeder = DatabaseSeeder(txn); 
+          await seeder.seedAll();
+        });
+      },
     );
   }
-
-  Future<String> _getEncryptionKey() async {
-    const String keyName = 'db_encryption_key';
-    // Tenta ler a chave de criptografia armazenada de forma segura
-    String? key = await secureStorage.read(key: keyName);
-
-    if (key == null) {
-      // TODO  Em produção, use uma biblioteca para gerar uma chave criptograficamente segura
-      // (e.g., UUIDs longos ou chaves geradas por pacotes de criptografia)
-      key = 'ChaveSecreta_MVP_CroquiForense_2025';
-      await secureStorage.write(key: keyName, value: key);
-    }
-    return key;
+  
+  Future<void> close() async {
+    await _db?.close();
+    _db = null;
   }
-
-  /// Método chamado apenas na primeira vez que o banco é aberto.
-  Future _onCreate(Database db, int version) async {
-    // 1. Ativa a verificação de chaves estrangeiras (boa prática)
-    await db.execute('PRAGMA foreign_keys = ON;');
-
-    // 2. Carrega o script SQL de criação de tabelas do arquivo asset
-    final String schemaSql = await rootBundle.loadString(kDatabaseSchemaAssetPath);
-
-    // 3. Executa o script SQL (que contém todos os CREATE TABLE e INDEXES)
-    await db.execute(schemaSql);
-
-    // 4. Popula o banco com dados iniciais (seeder)
-    final seeder = DatabaseSeeder(db);
-    await seeder.seedAll();
-  }
-
-// Você pode adicionar um método onUpgrade aqui se for necessário
-// Future _onUpgrade(Database db, int oldVersion, int newVersion) async { ... }
 }
