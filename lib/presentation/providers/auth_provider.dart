@@ -3,19 +3,21 @@ import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService;
+  AuthService _authService;
   
   Usuario? _usuarioLogado;
   bool _isLoading = false;
 
-  // Getters para a UI
   Usuario? get usuario => _usuarioLogado;
   bool get isAuthenticated => _usuarioLogado != null;
   bool get isLoading => _isLoading;
 
   AuthProvider(this._authService);
 
-  /// Inicializa verificando se já existe sessão (Auto-Login)
+  void update(AuthService newService) {
+    _authService = newService;
+  }
+
   Future<void> checkSession() async {
     _setLoading(true);
     try {
