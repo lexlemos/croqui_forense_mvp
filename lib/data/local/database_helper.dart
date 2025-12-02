@@ -40,7 +40,7 @@ class DatabaseHelper {
 
     var key = await _keyStorage.read(_kEncKey);
     if (key == null) {
-      key = 'ChaveSecreta_MVP_CroquiForense_2025';
+      key = const Uuid().v4() + const Uuid().v4(); // Example: Generate a unique key. A longer, more random key is better.
       await _keyStorage.write(_kEncKey, key);
     }
 
