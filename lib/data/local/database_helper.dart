@@ -1,5 +1,6 @@
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:path/path.dart';
+import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/data/local/database_factory_interface.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
@@ -40,7 +41,7 @@ class DatabaseHelper {
 
     var key = await _keyStorage.read(_kEncKey);
     if (key == null) {
-      key = const Uuid().v4() + const Uuid().v4(); // Example: Generate a unique key. A longer, more random key is better.
+      key = const Uuid().v4() + const Uuid().v4(); 
       await _keyStorage.write(_kEncKey, key);
     }
 
