@@ -4,27 +4,26 @@ enum StatusCaso {
   rascunho,
   finalizado,
   sincronizado,
+  arquivado
 }
 
 class Caso {
-  // --- Identificadores e Relações ---
   final String uuid;
-  final int idUsuarioCriador; // FK para a tabela 'usuarios'
+  final int idUsuarioCriador;
   
-  // --- Dados do Negócio ---
   final String? numeroLaudoExterno;
   final StatusCaso status;
   
-  // --- Rastreabilidade e Segurança ---
-  final String? hashIntegridade; // Hash do caso finalizado [RF.SC.04]
-  final bool removido; // Soft Delete
+
+  final String? hashIntegridade;
+  final bool removido;
   final int versao;
   final String? deviceId;
-  final String? proveniencia; // APP, ADMIN, SCRIPT
+  final String? proveniencia; 
   
-  // --- Timestamps ---
+ 
   final DateTime criadoEmDispositivo;
-  final DateTime? criadoEmRedeConfiavel; // Trusted Timestamp [RF.SC.05]
+  final DateTime? criadoEmRedeConfiavel; 
   final DateTime? atualizadoEm;
 
   Caso({
@@ -42,7 +41,6 @@ class Caso {
     this.proveniencia,
   });
   
-  // Construtor para NOVO CASO (facilita o Repository)
   Caso.novo({
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
@@ -59,7 +57,6 @@ class Caso {
        deviceId = deviceId,
        proveniencia = proveniencia ?? 'APP';
 
-  // Factory Method: DB (Map) -> Dart (Objeto)
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
       uuid: map['uuid'] as String,
@@ -73,8 +70,7 @@ class Caso {
       hashIntegridade: map['hash_integridade'] as String?,
       removido: (map['removido'] as int) == 1,
       versao: map['versao'] as int,
-      
-      // Conversão de TEXT para DateTime
+
       criadoEmDispositivo: DateTime.parse(map['criado_em_dispositivo'] as String),
       criadoEmRedeConfiavel: map['criado_em_rede_confiavel'] != null ? DateTime.parse(map['criado_em_rede_confiavel'] as String) : null,
       atualizadoEm: map['atualizado_em'] != null ? DateTime.parse(map['atualizado_em'] as String) : null,
