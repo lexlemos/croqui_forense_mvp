@@ -1,11 +1,9 @@
-// lib/core/constants/database_constants.dart
+
 
 const String kDatabaseName = 'croqui_forense_mvp.db';
 const int kDatabaseVersion = 1;
 
-// =======================================================
 // NOMES DAS TABELAS (Para uso nos Repositórios)
-// =======================================================
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
 const String tablePermissoes = 'permissoes';
@@ -19,12 +17,8 @@ const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
 
 
-// =======================================================
 // SCRIPT DE CRIAÇÃO COMPLETO (EXECUTADO PELO DatabaseHelper)
-// =======================================================
-// Esta lista contém todos os CREATE TABLE e CREATE INDEX necessários.
 const List<String> kFullDatabaseCreationScripts = [
-  // PRAGMA ON
   'PRAGMA foreign_keys = ON;',
   
   // 1. DOMÍNIO 1: ACESSO E IDENTIDADE
