@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
 
 enum StatusCaso {
   rascunho,
@@ -13,7 +14,7 @@ class Caso {
   
   final String? numeroLaudoExterno;
   final StatusCaso status;
-  
+  final Map<String, dynamic> dadosLaudo;
 
   final String? hashIntegridade;
   final bool removido;
@@ -38,6 +39,7 @@ class Caso {
     this.criadoEmRedeConfiavel,
     this.atualizadoEm,
     this.deviceId,
+    required this.dadosLaudo,
     this.proveniencia,
   });
   
@@ -55,7 +57,17 @@ class Caso {
        criadoEmRedeConfiavel = null,
        atualizadoEm = null,
        deviceId = deviceId,
-       proveniencia = proveniencia ?? 'APP';
+       proveniencia = proveniencia ?? 'APP',
+       dadosLaudo = {
+         'cabecalho': {},
+         'historico': '',
+         'identificacao': {},
+         'achados': [],
+         'exame_interno': {},
+         'comentarios': '',
+         'quesitos': {},
+         'conclusao': ''
+       };
 
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
@@ -66,6 +78,7 @@ class Caso {
         (e) => e.name.toUpperCase() == (map['status'] as String).toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
+      dadosLaudo: map['dados_laudo_json'] != null ? jsonDecode(map['dados_laudo_json']) : {},
       
       hashIntegridade: map['hash_integridade'] as String?,
       removido: (map['removido'] as int) == 1,
@@ -86,6 +99,7 @@ class Caso {
       'id_usuario_criador': idUsuarioCriador,
       'numero_laudo_externo': numeroLaudoExterno,
       'status': status.name.toUpperCase(),
+      'dados_laudo_json': jsonEncode(dadosLaudo),
       
       'hash_integridade': hashIntegridade,
       'removido': removido ? 1 : 0,

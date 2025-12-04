@@ -100,6 +100,7 @@ const List<String> kFullDatabaseCreationScripts = [
       status TEXT DEFAULT 'RASCUNHO',
       hash_integridade TEXT,
       removido INTEGER DEFAULT 0,
+      dados_laudo_json TEXT,
       versao INTEGER DEFAULT 1,
       criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
       criado_em_rede_confiavel TEXT,
