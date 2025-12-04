@@ -1,9 +1,7 @@
 
 -- PRAGMA foreign_keys = ON;
 
--- =======================================================
 -- DOMÍNIO 1: ACESSO E IDENTIDADE
--- =======================================================
 
 -- Tabela: papeis
 CREATE TABLE papeis (
@@ -47,11 +45,7 @@ CREATE TABLE papel_permissoes (
     FOREIGN KEY (permissao_id) REFERENCES permissoes(id) ON DELETE CASCADE
 );
 
----
-
--- =======================================================
 -- DOMÍNIO 2: CATÁLOGO DE DEFINIÇÕES
--- =======================================================
 
 -- Tabela: tipos_achados
 CREATE TABLE tipos_achados (
@@ -73,11 +67,7 @@ CREATE TABLE templates_diagrama (
     atualizado_em TEXT
 );
 
----
-
--- =======================================================
 -- DOMÍNIO 3: OPERAÇÃO
--- =======================================================
 
 -- Tabela: casos
 CREATE TABLE casos (
@@ -86,7 +76,8 @@ CREATE TABLE casos (
     numero_laudo_externo TEXT,
     status TEXT DEFAULT 'RASCUNHO', -- Valores controlados em Dart: RASCUNHO, FINALIZADO, SINCRONIZADO
     hash_integridade TEXT,
-    removido INTEGER DEFAULT 0, -- SQLite usa INTEGER para boolean
+    removido INTEGER DEFAULT 0,
+    dados_laudo_json TEXT, -- Mapeado de JSON para TEXT
     versao INTEGER DEFAULT 1,
     criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
     criado_em_rede_confiavel TEXT,
@@ -108,7 +99,7 @@ CREATE TABLE diagramas_do_caso (
     atualizado_em TEXT,
     device_id TEXT,
     
-    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE, -- Exclusão em cascata para escalabilidade (limpeza de dados)
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
     FOREIGN KEY (template_id) REFERENCES templates_diagrama(id) ON DELETE RESTRICT
 );
 
@@ -121,7 +112,7 @@ CREATE TABLE achados (
     pos_x REAL,
     pos_y REAL,
     esta_pendente INTEGER DEFAULT 1,
-    dados_preenchidos_json TEXT, -- Mapeado de JSON para TEXT
+    dados_preenchidos_json TEXT, 
     observacoes_texto TEXT,
     removido INTEGER DEFAULT 0,
     versao INTEGER DEFAULT 1,
@@ -138,14 +129,14 @@ CREATE TABLE achados (
 CREATE TABLE evidencias_multimidia (
     uuid TEXT PRIMARY KEY,
     achado_uuid TEXT NOT NULL,
-    substituida_por TEXT, -- UUID da evidência que substituiu esta
+    substituida_por TEXT,
     tipo TEXT DEFAULT 'FOTO',
     caminho_arquivo_encriptado TEXT,
     hash_arquivo TEXT,
     hmac_arquivo TEXT,
     salt_base64 TEXT,
     chave_cifrada_base64 TEXT,
-    hash_exif TEXT, -- Mapeado de JSON para TEXT
+    hash_exif TEXT, 
     removido INTEGER DEFAULT 0,
     versao INTEGER DEFAULT 1,
     criado_em TEXT,
@@ -153,14 +144,11 @@ CREATE TABLE evidencias_multimidia (
     device_id TEXT,
     
     FOREIGN KEY (achado_uuid) REFERENCES achados(uuid) ON DELETE CASCADE,
-    FOREIGN KEY (substituida_por) REFERENCES evidencias_multimidia(uuid) ON DELETE SET NULL -- Se a substituta for removida, este campo é zerado
+    FOREIGN KEY (substituida_por) REFERENCES evidencias_multimidia(uuid) ON DELETE SET NULL 
 );
 
----
 
--- =======================================================
 -- DOMÍNIO 4: AUDITORIA
--- =======================================================
 
 -- Tabela: log_auditoria
 CREATE TABLE log_auditoria (
@@ -174,17 +162,14 @@ CREATE TABLE log_auditoria (
     device_id TEXT,
     proveniencia TEXT,
     
-    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE SET NULL, -- Se o caso for removido, o log permanece (com caso_uuid nulo)
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE SET NULL -- Se o usuário for removido, o log permanece (com id_usuario nulo)
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE SET NULL,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE SET NULL 
 );
 
----
 
--- =======================================================
--- INDEXAÇÃO PARA ESCALABILIDADE (CRUCIAL)
--- =======================================================
+-- INDEXAÇÃO PARA ESCALABILIDADE
 
--- Índices para Chaves Estrangeiras (melhora muito a performance de JOINs)
+-- Índices para Chaves Estrangeiras 
 CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);
 CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);
 CREATE INDEX idx_diagramas_caso ON diagramas_do_caso (caso_uuid);
