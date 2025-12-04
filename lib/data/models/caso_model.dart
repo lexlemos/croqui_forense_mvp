@@ -1,30 +1,33 @@
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
+
+enum SortCriteria { numero, data }
+enum SortOrder { asc, desc }
 
 enum StatusCaso {
   rascunho,
   finalizado,
   sincronizado,
+  arquivado
 }
 
 class Caso {
-  // --- Identificadores e Relações ---
   final String uuid;
-  final int idUsuarioCriador; // FK para a tabela 'usuarios'
+  final int idUsuarioCriador;
   
-  // --- Dados do Negócio ---
   final String? numeroLaudoExterno;
   final StatusCaso status;
-  
-  // --- Rastreabilidade e Segurança ---
-  final String? hashIntegridade; // Hash do caso finalizado [RF.SC.04]
-  final bool removido; // Soft Delete
+  final Map<String, dynamic> dadosLaudo;
+
+  final String? hashIntegridade;
+  final bool removido;
   final int versao;
   final String? deviceId;
-  final String? proveniencia; // APP, ADMIN, SCRIPT
+  final String? proveniencia; 
   
-  // --- Timestamps ---
+ 
   final DateTime criadoEmDispositivo;
-  final DateTime? criadoEmRedeConfiavel; // Trusted Timestamp [RF.SC.05]
+  final DateTime? criadoEmRedeConfiavel; 
   final DateTime? atualizadoEm;
 
   Caso({
@@ -39,15 +42,16 @@ class Caso {
     this.criadoEmRedeConfiavel,
     this.atualizadoEm,
     this.deviceId,
+    required this.dadosLaudo,
     this.proveniencia,
   });
   
-  // Construtor para NOVO CASO (facilita o Repository)
   Caso.novo({
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
     String? deviceId,
     String? proveniencia,
+    this.dadosLaudo = const {},
   }) : uuid = const Uuid().v4(),
        status = StatusCaso.rascunho,
        hashIntegridade = null,
@@ -58,8 +62,8 @@ class Caso {
        atualizadoEm = null,
        deviceId = deviceId,
        proveniencia = proveniencia ?? 'APP';
+       
 
-  // Factory Method: DB (Map) -> Dart (Objeto)
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
       uuid: map['uuid'] as String,
@@ -69,12 +73,12 @@ class Caso {
         (e) => e.name.toUpperCase() == (map['status'] as String).toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
+      dadosLaudo: map['dados_laudo_json'] != null ? jsonDecode(map['dados_laudo_json']) : {},
       
       hashIntegridade: map['hash_integridade'] as String?,
       removido: (map['removido'] as int) == 1,
       versao: map['versao'] as int,
-      
-      // Conversão de TEXT para DateTime
+
       criadoEmDispositivo: DateTime.parse(map['criado_em_dispositivo'] as String),
       criadoEmRedeConfiavel: map['criado_em_rede_confiavel'] != null ? DateTime.parse(map['criado_em_rede_confiavel'] as String) : null,
       atualizadoEm: map['atualizado_em'] != null ? DateTime.parse(map['atualizado_em'] as String) : null,
@@ -90,6 +94,7 @@ class Caso {
       'id_usuario_criador': idUsuarioCriador,
       'numero_laudo_externo': numeroLaudoExterno,
       'status': status.name.toUpperCase(),
+      'dados_laudo_json': jsonEncode(dadosLaudo),
       
       'hash_integridade': hashIntegridade,
       'removido': removido ? 1 : 0,
