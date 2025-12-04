@@ -19,7 +19,6 @@ class CasoRepository {
     );
   }
 
-/// Faz o JOIN: Achados -> Diagramas -> Caso
   Future<List<Achado>> getAchadosPorCaso(String casoUuid) async {
     final db = await _dbHelper.database;
 
