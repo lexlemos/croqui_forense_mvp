@@ -1,6 +1,9 @@
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 
+enum SortCriteria { numero, data }
+enum SortOrder { asc, desc }
+
 enum StatusCaso {
   rascunho,
   finalizado,
@@ -48,6 +51,7 @@ class Caso {
     this.numeroLaudoExterno,
     String? deviceId,
     String? proveniencia,
+    this.dadosLaudo = const {},
   }) : uuid = const Uuid().v4(),
        status = StatusCaso.rascunho,
        hashIntegridade = null,
@@ -57,17 +61,8 @@ class Caso {
        criadoEmRedeConfiavel = null,
        atualizadoEm = null,
        deviceId = deviceId,
-       proveniencia = proveniencia ?? 'APP',
-       dadosLaudo = {
-         'cabecalho': {},
-         'historico': '',
-         'identificacao': {},
-         'achados': [],
-         'exame_interno': {},
-         'comentarios': '',
-         'quesitos': {},
-         'conclusao': ''
-       };
+       proveniencia = proveniencia ?? 'APP';
+       
 
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(

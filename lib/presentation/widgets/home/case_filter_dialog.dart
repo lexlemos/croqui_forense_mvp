@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:croqui_forense_mvp/data/models/caso_model.dart';
-
-enum SortCriteria { numero, data }
-enum SortOrder { asc, desc }
-
+import 'package:croqui_forense_mvp/data/models/caso_model.dart'; 
 class FilterResult {
   final SortCriteria sortCriteria;
   final SortOrder sortOrder;
-  final List<StatusCaso> selectedStatuses;
+
+  final Set<StatusCaso> selectedStatuses;
 
   FilterResult({
     required this.sortCriteria,
@@ -35,14 +32,14 @@ class CaseFilterDialog extends StatefulWidget {
 class _CaseFilterDialogState extends State<CaseFilterDialog> {
   late SortCriteria _criteria;
   late SortOrder _order;
-  late List<StatusCaso> _selectedStatuses;
+  late Set<StatusCaso> _selectedStatuses;
 
   @override
   void initState() {
     super.initState();
     _criteria = widget.currentCriteria;
     _order = widget.currentOrder;
-    _selectedStatuses = List.from(widget.currentStatuses);
+    _selectedStatuses = widget.currentStatuses.toSet();
   }
 
   void _handleSortClick(SortCriteria criteria) {
@@ -135,7 +132,8 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                     setState(() {
                       _criteria = SortCriteria.data;
                       _order = SortOrder.desc;
-                      _selectedStatuses = [StatusCaso.rascunho, StatusCaso.finalizado]; // Padrão
+                      // Reseta para o padrão usando Set
+                      _selectedStatuses = {StatusCaso.rascunho, StatusCaso.finalizado}; 
                     });
                   },
                   child: const Text('Limpar'),
@@ -152,7 +150,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                       FilterResult(
                         sortCriteria: _criteria,
                         sortOrder: _order,
-                        selectedStatuses: _selectedStatuses,
+                        selectedStatuses: _selectedStatuses, // Retorna o Set otimizado
                       ),
                     );
                   },
@@ -208,9 +206,9 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
     );
   }
 
-
   Widget _buildFilterChip(String label, StatusCaso status, Color color) {
     final isSelected = _selectedStatuses.contains(status);
+    
     return FilterChip(
       label: Text(label),
       selected: isSelected,
