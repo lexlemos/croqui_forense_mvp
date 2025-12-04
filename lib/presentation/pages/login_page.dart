@@ -10,13 +10,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // ✅ PRODUÇÃO: Controladores iniciam vazios
   final _matriculaController = TextEditingController();
   final _pinController = TextEditingController();
   
   final _formKey = GlobalKey<FormState>();
 
-  // Boa prática: Descartar controladores ao sair da tela
   @override
   void dispose() {
     _matriculaController.dispose();
@@ -26,7 +24,6 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Escuta o estado de autenticação (loading, erros)
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
@@ -50,13 +47,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 48),
                   
-                  // --- Campo Matrícula ---
                   TextFormField(
                     controller: _matriculaController,
                     decoration: const InputDecoration(
                       labelText: 'Matrícula Funcional',
                       prefixIcon: Icon(Icons.person),
-                      hintText: 'Ex: ADMIN001', // Dica visual, não valor
+                      hintText: 'Ex: ADMIN001',
                     ),
                     textInputAction: TextInputAction.next,
                     validator: (value) {
@@ -67,18 +63,16 @@ class _LoginPageState extends State<LoginPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  
-                  // --- Campo PIN ---
+
                   TextFormField(
                     controller: _pinController,
                     decoration: const InputDecoration(
                       labelText: 'PIN de Acesso',
                       prefixIcon: Icon(Icons.lock),
                     ),
-                    obscureText: true, // Senha oculta
+                    obscureText: true, 
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.done,
-                    // Submete ao dar Enter no teclado
                     onFieldSubmitted: (_) => _submitLogin(authProvider),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -92,7 +86,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // --- Botão de Login ---
                   if (authProvider.isLoading)
                     const Center(child: CircularProgressIndicator())
                   else
@@ -113,17 +106,13 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submitLogin(AuthProvider authProvider) async {
-    // 1. Valida o formulário visualmente
     if (!_formKey.currentState!.validate()) return;
 
-    // 2. Chama a camada de lógica (Provider -> Service -> Repo -> DB)
-    // O banco já está populado com ADMIN001 / 1234 pelo Seeder.
     final erro = await authProvider.login(
       _matriculaController.text.trim(),
       _pinController.text.trim(),
     );
 
-    // 3. Feedback visual em caso de erro
     if (erro != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -133,6 +122,5 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     }
-    // Se sucesso, o AuthProvider notifica o main.dart, que troca a tela automaticamente.
   }
 }
