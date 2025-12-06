@@ -120,7 +120,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
               const Divider(height: 40),
 
-              _buildSectionTitle('Subseção Identificação'),
+              _buildSectionTitle('Identificação'),
               _buildTextField(
                 controller: _vestesController,
                 label: 'Vestes',
@@ -156,7 +156,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           ),
           onPressed: _submit,
-          child: const Text('INICIAR EXAME'),
+          child: const Text('CADASTRAR CASO'),
         ),
       ],
     );
