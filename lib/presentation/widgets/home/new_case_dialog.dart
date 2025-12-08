@@ -33,7 +33,6 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   }
 
   void _submit() {
-    // Validação mínima: Precisa pelo menos do número da requisição ou nome da vítima
     if (_requisicaoController.text.isEmpty && _vitimaController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Preencha a Requisição ou o nome da Vítima.')),
@@ -41,12 +40,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
       return;
     }
 
-    // Monta o JSON (Map) estruturado conforme sua especificação
     final dadosIniciais = {
-      // Campos de controle rápido (usados na lista)
       'numero_laudo': _requisicaoController.text.trim(),
-      
-      // O formulário completo (dados_laudo_json)
       'dados_laudo': {
         'cabecalho': {
           'requisicao': _requisicaoController.text.trim(),
@@ -59,26 +54,22 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
           'caracteristicas': _caracteristicasController.text.trim(),
           'dados_tanatologicos': _tanatologiaController.text.trim(),
         },
-        // Inicializa as outras seções vazias para evitar null safety errors depois
         'historico': '',
-        'exame_externo': [], // Lista de achados virá daqui depois
+        'exame_externo': [], 
         'exame_interno': {},
         'quesitos': {},
         'conclusao': ''
       }
     };
-
-    // Retorna o mapa de dados para a HomePage
     Navigator.pop(context, dadosIniciais);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Usamos Dialog simples mas com scroll
     return AlertDialog(
       title: const Text('Novo Laudo Pericial Cadavérico'),
       content: SizedBox(
-        width: 600, // Largura maior para tablet
+        width: 600,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -120,7 +111,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
               const Divider(height: 40),
 
-              _buildSectionTitle('Subseção Identificação'),
+              _buildSectionTitle('Identificação'),
               _buildTextField(
                 controller: _vestesController,
                 label: 'Vestes',
@@ -156,7 +147,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           ),
           onPressed: _submit,
-          child: const Text('INICIAR EXAME'),
+          child: const Text('CADASTRAR CASO'),
         ),
       ],
     );
