@@ -75,15 +75,23 @@ class _HomePageState extends State<HomePage> {
                           message: 'Nenhum caso encontrado.', 
                           errorDetails: caseList.erro
                         )
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(24),
-                          itemCount: caseList.casos.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      
+                      : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 200, // <--- O PULO DO GATO: Largura máxima do card
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.95, // Proporção quase quadrada (Altura um pouco maior que largura)
+                        ),
+                        itemCount: caseList.casos.length,
                           itemBuilder: (context, index) {
                             return CaseCard(
                               caso: caseList.casos[index],
                               onTap: () {
-                                // TODO: Navegar para detalhes
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Abrindo caso ${caseList.casos[index].numeroLaudoExterno}...')),
+                                );
                               },
                             );
                           },
