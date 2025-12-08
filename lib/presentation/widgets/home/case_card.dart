@@ -12,37 +12,70 @@ class CaseCard extends StatelessWidget {
     required this.onTap,
   });
 
+  static const double _cardRadius = 12.0;
+  static const double _shadowBlur = 6.0;
+  static const Offset _shadowOffset = Offset(0, 3);
+  static const double _contentPadding = 10.0;
+  
+  static const double _tagFontSize = 9.0;
+  static const double _titleFontSize = 15.0;
+  static const double _subtitleFontSize = 10.0;
+  
+  static const double _iconContainerSize = 28.0;
+  static const double _iconSize = 14.0;
+
   @override
   Widget build(BuildContext context) {
-    final isFinalizado = caso.status == StatusCaso.finalizado;
-    
-    final corStatus = isFinalizado ? Colors.green[700]! : const Color(0xFF317FF5);
-    final bgStatus = isFinalizado ? Colors.green.withOpacity(0.1) : const Color(0xFF317FF5).withOpacity(0.1);
-    final textoStatus = isFinalizado ? 'FINALIZADO' : 'RASCUNHO';
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
+    final (Color corStatus, Color bgStatus, String textoStatus) = switch (caso.status) {
+      StatusCaso.finalizado => (
+        Colors.green[700]!,
+        Colors.green.withOpacity(0.1),
+        'FINALIZADO'
+      ),
+      StatusCaso.rascunho => (
+        colorScheme.primary,
+        colorScheme.primary.withOpacity(0.1),
+        'RASCUNHO'
+      ),
+      StatusCaso.sincronizado => (
+        Colors.indigo,
+        Colors.indigo.withOpacity(0.1),
+        'SINCRONIZADO'
+      ),
+      StatusCaso.arquivado => (
+        Colors.grey[700]!,
+        Colors.grey.withOpacity(0.1),
+        'ARQUIVADO'
+      ),
+    };
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(_cardRadius),
+        border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            blurRadius: _shadowBlur,
+            offset: _shadowOffset,
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_cardRadius),
           onTap: onTap,
           child: Stack(
             children: [
               Positioned(
-                top: 10,
-                right: 10,
+                top: _contentPadding,
+                right: _contentPadding,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
@@ -51,8 +84,8 @@ class CaseCard extends StatelessWidget {
                   ),
                   child: Text(
                     textoStatus,
-                    style: TextStyle(
-                      fontSize: 9, 
+                    style: textTheme.labelSmall?.copyWith(
+                      fontSize: _tagFontSize,
                       fontWeight: FontWeight.bold,
                       color: corStatus,
                     ),
@@ -61,25 +94,25 @@ class CaseCard extends StatelessWidget {
               ),
 
               Positioned(
-                top: 10,
-                left: 10,
+                top: _contentPadding,
+                left: _contentPadding,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       caso.numeroLaudoExterno ?? '---',
-                      style: const TextStyle(
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
-                        fontSize: 15, 
-                        color: Color(0xFF2C3A4B),
+                        fontSize: _titleFontSize,
+                        color: colorScheme.onSurface, 
                       ),
                     ),
                     const SizedBox(height: 1),
                     Text(
                       'Nº Laudo',
-                      style: TextStyle(
-                        fontSize: 10, 
-                        color: Colors.grey[500],
+                      style: textTheme.bodySmall?.copyWith(
+                        fontSize: _subtitleFontSize,
+                        color: colorScheme.onSurfaceVariant, 
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -88,35 +121,39 @@ class CaseCard extends StatelessWidget {
               ),
 
               Positioned(
-                bottom: 10,
-                right: 10,
+                bottom: _contentPadding,
+                right: _contentPadding,
                 child: Container(
-                  width: 28,
-                  height: 28,
+                  width: _iconContainerSize,
+                  height: _iconContainerSize,
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: colorScheme.surfaceContainerHighest, 
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_forward,
-                    size: 14, 
-                    color: Color(0xFF317FF5),
+                    size: _iconSize,
+                    color: colorScheme.primary,
                   ),
                 ),
               ),
 
               Positioned(
-                bottom: 10,
-                left: 10,
+                bottom: _contentPadding,
+                left: _contentPadding,
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_month, size: 10, color: Colors.grey[400]),
+                    Icon(
+                      Icons.calendar_month, 
+                      size: _subtitleFontSize, 
+                      color: colorScheme.outline 
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       DateFormat('dd/MM/yy').format(caso.criadoEmDispositivo),
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 10,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: _subtitleFontSize,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
