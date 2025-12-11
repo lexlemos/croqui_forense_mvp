@@ -5,9 +5,10 @@ import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/data/local/database_factory_interface.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
+
 class DatabaseHelper {
   static const String _kDbName = 'croqui_forense_mvp.db';
-  static const int _kVersion = 1;
+  static const int _kVersion = 2; 
   static const String _kEncKey = 'db_encryption_key';
 
   final IDatabaseFactory _dbFactory;
@@ -53,7 +54,6 @@ class DatabaseHelper {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
-
         await db.transaction((txn) async {
           for (var sql in kFullDatabaseCreationScripts) {
             await txn.execute(sql);
@@ -61,6 +61,12 @@ class DatabaseHelper {
           final seeder = DatabaseSeeder(txn); 
           await seeder.seedAll();
         });
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE usuarios ADD COLUMN salt TEXT');
+          print('--- MIGRATION: Tabela usuarios atualizada (v1 -> v2) com sucesso ---');
+        }
       },
     );
   }
