@@ -52,6 +52,7 @@ const List<String> kFullDatabaseCreationScripts = [
       atualizado_em TEXT,
       versao INTEGER DEFAULT 1,
       device_id TEXT,
+      salt TEXT,
       
       FOREIGN KEY (papel_id) REFERENCES papeis(id) ON DELETE RESTRICT
   );

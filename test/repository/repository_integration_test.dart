@@ -26,40 +26,29 @@ void main() {
   late Usuario adminUser;
 
   setUpAll(() async {
-    // Inicializa o binding para testes
     TestWidgetsFlutterBinding.ensureInitialized();
     
-    // Inicializa o FFI (SQLite para PC/Linux)
     sqfliteFfiInit(); 
-    // Define a factory global como FFI (para garantir compatibilidade)
     databaseFactory = databaseFactoryFfi;
 
-    // --- INJEÇÃO DE DEPENDÊNCIA DE TESTE ---
-    // Aqui está a mágica: Usamos a Factory FFI em vez da SQLCipher
     final dbFactory = FfiDatabaseFactory(); 
     final mockStorage = MockKeyStorage();
 
-    // O DatabaseHelper aceita nossa factory "falsa" (sem criptografia real)
     dbHelper = DatabaseHelper(dbFactory, mockStorage);
-
-    // Inicializa o banco (Roda onCreate, Seeder, etc.)
     await dbHelper.database; 
 
     usuarioRepo = UsuarioRepository(dbHelper);
     casoRepo = CasoRepository(dbHelper);
     
-    // Validação do Seeder
     final user = await usuarioRepo.getUsuarioByMatricula('ADMIN001');
     if (user == null) fail('Seeder falhou: Usuário ADMIN001 não encontrado');
     adminUser = user;
   });
 
-  // O resto dos testes permanece IGUAL...
   group('Fase 2 - Persistência (Via FFI)', () {
      test('1. Deve encontrar o usuário Admin padrão...', () async {
-        // ... (seu código de teste existente)
+
      });
      
-     // ... (seus outros testes)
   });
 }

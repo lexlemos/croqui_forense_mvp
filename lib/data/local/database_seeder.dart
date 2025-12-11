@@ -1,6 +1,6 @@
 // lib/data/local/database_seeder.dart
 
-import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart'; 
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 
 class DatabaseSeeder {
@@ -17,24 +17,36 @@ class DatabaseSeeder {
   }
 
   Future<void> _seedRoles() async {
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papeis'));
+    if (count != null && count > 0) return;
+
     await db.insert('papeis', {'nome': 'ADMIN', 'descricao': 'Administrador do Sistema', 'e_padrao': 0});
     await db.insert('papeis', {'nome': 'LEGISTA', 'descricao': 'Médico Perito', 'e_padrao': 1});
-    final adminId = await db.query('papeis', where: 'nome = ?', whereArgs: ['ADMIN']).then((list) => list.first['id']);
-    final legistaId = await db.query('papeis', where: 'nome = ?', whereArgs: ['LEGISTA']).then((list) => list.first['id']);
   }
 
   Future<void> _seedPermissions() async {
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM permissoes'));
+    if (count != null && count > 0) return;
+
     await db.insert('permissoes', {'codigo': 'CASO_CRIAR', 'descricao': 'Permite iniciar um novo caso.'});
     await db.insert('permissoes', {'codigo': 'CASO_EXPORTAR', 'descricao': 'Permite gerar o pacote ZIP final.'});
     await db.insert('permissoes', {'codigo': 'GESTAO_USUARIOS', 'descricao': 'Permite gerenciar usuários e papéis.'});
   }
 
   Future<void> _seedRolePermissions() async {
-    final adminId = await db.query('papeis', where: 'nome = ?', whereArgs: ['ADMIN']).then((list) => list.first['id']);
-    final legistaId = await db.query('papeis', where: 'nome = ?', whereArgs: ['LEGISTA']).then((list) => list.first['id']);
-    final criarPermId = await db.query('permissoes', where: 'codigo = ?', whereArgs: ['CASO_CRIAR']).then((list) => list.first['id']);
-    final exportPermId = await db.query('permissoes', where: 'codigo = ?', whereArgs: ['CASO_EXPORTAR']).then((list) => list.first['id']);
-    final gestaoPermId = await db.query('permissoes', where: 'codigo = ?', whereArgs: ['GESTAO_USUARIOS']).then((list) => list.first['id']);
+    final roles = await db.query('papeis');
+    if (roles.isEmpty) return;
+
+    final adminId = roles.firstWhere((r) => r['nome'] == 'ADMIN')['id'];
+    final legistaId = roles.firstWhere((r) => r['nome'] == 'LEGISTA')['id'];
+
+    final perms = await db.query('permissoes');
+    final criarPermId = perms.firstWhere((p) => p['codigo'] == 'CASO_CRIAR')['id'];
+    final exportPermId = perms.firstWhere((p) => p['codigo'] == 'CASO_EXPORTAR')['id'];
+    final gestaoPermId = perms.firstWhere((p) => p['codigo'] == 'GESTAO_USUARIOS')['id'];
+
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papel_permissoes'));
+    if (count != null && count > 0) return;
 
     await db.insert('papel_permissoes', {'papel_id': adminId, 'permissao_id': criarPermId});
     await db.insert('papel_permissoes', {'papel_id': adminId, 'permissao_id': exportPermId});
@@ -45,20 +57,30 @@ class DatabaseSeeder {
   }
 
   Future<void> _seedDefaultUser() async {
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM usuarios'));
+    if (count != null && count > 0) return;
+
     final adminId = await db.query('papeis', where: 'nome = ?', whereArgs: ['ADMIN']).then((list) => list.first['id']);
+    
     const String defaultPin = '1234';
-    final String hashedPin = SecurityHelper.hashPin(defaultPin);
+
+    final String salt = SecurityHelper.generateSalt();
+    final String hashedPin = SecurityHelper.hashPin(defaultPin, salt);
 
     await db.insert('usuarios', {
       'matricula_funcional': 'ADMIN001',
       'nome_completo': 'Administrador Padrao MVP',
       'papel_id': adminId,
       'hash_pin_offline': hashedPin,
+      'salt': salt,
       'ativo': 1,
+      'criado_em': DateTime.now().toIso8601String(),
     });
   }
 
   Future<void> _seedCatalogData() async {
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM tipos_achados'));
+    if (count != null && count > 0) return;
 
     const String hematomaSchema = '''
       {

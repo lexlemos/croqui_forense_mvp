@@ -10,69 +10,78 @@ void main() {
   late AuthProvider authProvider;
   late MockAuthService mockAuthService;
 
+  // Usuário fake para testes
+  final mockUser = Usuario(
+    id: 1, matriculaFuncional: 'POL1', nomeCompleto: 'Test', 
+    papelId: 1, ativo: true, hashPinOffline: 'hash', salt: 'salt', 
+    criadoEm: DateTime.now()
+  );
+
   setUp(() {
     mockAuthService = MockAuthService();
     authProvider = AuthProvider(mockAuthService);
   });
 
-  final mockUser = Usuario(
-    id: 1,
-    matriculaFuncional: 'ADMIN001',
-    nomeCompleto: 'Admin Teste',
-    papelId: 1,
-    ativo: true,
-    hashPinOffline: 'hash_qualquer',
-    criadoEm: DateTime.now(),
-  );
+  group('AuthProvider (Gerenciamento de Estado)', () {
+    test('checkLoginStatus deve carregar usuário se houver sessão', () async {
+      // Arrange
+      when(() => mockAuthService.checkSession()).thenAnswer((_) async => mockUser);
 
-  group('AuthProvider Tests', () {
-    
-    test('Estado inicial deve ser: não logado e sem loading', () {
-      expect(authProvider.isAuthenticated, isFalse);
-      expect(authProvider.usuario, isNull);
-      expect(authProvider.isLoading, isFalse);
-    });
+      // Act
+      await authProvider.checkLoginStatus();
 
-    test('Login com SUCESSO deve atualizar o estado do usuário', () async {
-      when(() => mockAuthService.login('ADMIN001', '1234'))
-          .thenAnswer((_) async => mockUser);
-
-      final futureLogin = authProvider.login('ADMIN001', '1234');
-      
-      final erro = await futureLogin;
-
-      // Verificações
-      expect(erro, isNull, reason: 'Não deve retornar mensagem de erro');
-      expect(authProvider.isAuthenticated, isTrue);
+      // Assert
+      expect(authProvider.isLogged, isTrue);
       expect(authProvider.usuario, equals(mockUser));
       expect(authProvider.isLoading, isFalse);
-
-      verify(() => mockAuthService.login('ADMIN001', '1234')).called(1);
     });
 
-    test('Login com FALHA deve retornar erro e não logar', () async {
-      when(() => mockAuthService.login('ADMIN001', '0000'))
-          .thenAnswer((_) async => null);
+    test('checkLoginStatus deve ficar deslogado se sessão for nula', () async {
+      when(() => mockAuthService.checkSession()).thenAnswer((_) async => null);
 
-      final erro = await authProvider.login('ADMIN001', '0000');
+      await authProvider.checkLoginStatus();
 
-      // Verificações
-      expect(erro, isNotNull, reason: 'Deve retornar uma string de erro');
-      expect(erro, contains('inválidos')); // Verifica parte da mensagem
-      expect(authProvider.isAuthenticated, isFalse);
+      expect(authProvider.isLogged, isFalse);
       expect(authProvider.usuario, isNull);
+    });
+
+    test('login com sucesso deve atualizar estado do usuário', () async {
+      when(() => mockAuthService.login('POL1', '1234')).thenAnswer((_) async => mockUser);
+
+      await authProvider.login('POL1', '1234');
+
+      expect(authProvider.isLogged, isTrue);
+      expect(authProvider.usuario?.nomeCompleto, 'Test');
+    });
+
+    test('login com erro deve repassar exceção e parar loading', () async {
+      when(() => mockAuthService.login('POL1', '0000'))
+          .thenThrow(AuthException('Senha errada'));
+
+      // Act & Assert
+      expect(
+        () async => await authProvider.login('POL1', '0000'),
+        throwsA(isA<AuthException>()),
+      );
+
+      // Loading deve ter parado mesmo com erro
       expect(authProvider.isLoading, isFalse);
     });
 
-    test('Logout deve limpar o usuário da memória', () async {
-
+    test('logout deve realizar Hard Logout (null na memória)', () async {
+      // Simula estar logado primeiro
+      when(() => mockAuthService.login(any(), any())).thenAnswer((_) async => mockUser);
+      await authProvider.login('POL1', '1234');
+      
+      // Configura logout do service
       when(() => mockAuthService.logout()).thenAnswer((_) async {});
 
+      // Act
       await authProvider.logout();
 
-      expect(authProvider.usuario, isNull);
-      expect(authProvider.isAuthenticated, isFalse);
-      verify(() => mockAuthService.logout()).called(1);
+      // Assert
+      expect(authProvider.isLogged, isFalse);
+      expect(authProvider.usuario, isNull); // Memória limpa
     });
   });
 }

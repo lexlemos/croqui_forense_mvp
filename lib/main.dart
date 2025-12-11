@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
-import 'package:croqui_forense_mvp/data/local/sqlcipher_database_factory.dart';
-import 'package:croqui_forense_mvp/data/local/database_helper.dart';
+import 'package:croqui_forense_mvp/data/local/database_factory_impl.dart';
+import 'package:croqui_forense_mvp/data/local/database_helper.dart'; 
 
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -12,25 +12,24 @@ import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
+
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
-import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final dbFactory = SqlCipherDatabaseFactory();
+  final dbFactory = DatabaseFactoryImpl();
   final keyStorage = SecureKeyStorage();
   
   DatabaseHelper.init(dbFactory, keyStorage);
   
-  // Warm-up do banco (garante que está aberto antes do app subir)
   try {
     await DatabaseHelper.instance.database;
     print("✅ Banco inicializado e pronto.");
   } catch (e) {
     print("❌ Erro fatal ao abrir banco: $e");
-    // Em um app real, mostraríamos uma tela de erro fatal aqui
   }
 
   runApp(const AppRoot());
@@ -41,14 +40,16 @@ class AppRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dbHelper = DatabaseHelper.instance;
     final keyStorage = SecureKeyStorage();
 
     return MultiProvider(
       providers: [
-        Provider<UsuarioRepository>(create: (_) => UsuarioRepository(dbHelper)),
-        Provider<CasoRepository>(create: (_) => CasoRepository(dbHelper)),
-
+        Provider<UsuarioRepository>(
+          create: (_) => UsuarioRepository(),
+        ),
+        Provider<CasoRepository>(
+          create: (_) => CasoRepository(DatabaseHelper.instance),
+        ),
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
@@ -56,14 +57,14 @@ class AppRoot extends StatelessWidget {
           update: (_, repo, __) => CaseService(repo),
         ),
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
-          create: (_) => AuthProvider(AuthService(UsuarioRepository(dbHelper), keyStorage)),
-          update: (_, authService, previous) => previous!..update(authService),
+          create: (_) => AuthProvider(AuthService(UsuarioRepository(), keyStorage)),
+          update: (_, authService, previous) => AuthProvider(authService),
         ),
-        ChangeNotifierProxyProvider<CaseService, CaseListProvider>(
-          create: (_) => CaseListProvider(CaseService(CasoRepository(dbHelper))),
 
+        ChangeNotifierProxyProvider<CaseService, CaseListProvider>(
+          create: (_) => CaseListProvider(CaseService(CasoRepository(DatabaseHelper.instance))),
           update: (_, caseService, previous) {
-             return previous ?? (CaseListProvider(caseService)..carregarCasos());
+             return previous ?? CaseListProvider(caseService);
           },
         ),
       ],
@@ -72,24 +73,49 @@ class AppRoot extends StatelessWidget {
   }
 }
 
-class CroquiApp extends StatelessWidget {
+class CroquiApp extends StatefulWidget {
   const CroquiApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+  State<CroquiApp> createState() => _CroquiAppState();
+}
 
+class _CroquiAppState extends State<CroquiApp> {
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().checkLoginStatus();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Croqui Forense MVP',
+      debugShowCheckedModeBanner: false, // Remove a faixa de debug
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF317FF5)), // Azul Institucional
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
           filled: true,
         ),
       ),
-      home: authProvider.isAuthenticated ? const HomePage() : const LoginPage(),
+      home: Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          if (auth.isLoading) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (auth.isLogged) {
+            return const HomePage();
+          }
+          return const LoginPage();
+        },
+      ),
     );
   }
 }

@@ -1,12 +1,14 @@
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 
 class SecureKeyStorage implements IKeyStorage {
   final FlutterSecureStorage _storage;
 
-  const SecureKeyStorage({FlutterSecureStorage? storage}) 
-      : _storage = storage ?? const FlutterSecureStorage();
+  SecureKeyStorage({FlutterSecureStorage? storage}) 
+      : _storage = storage ?? const FlutterSecureStorage(
+          aOptions: AndroidOptions(encryptedSharedPreferences: true),
+          iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+        );
 
   @override
   Future<String?> read(String key) => _storage.read(key: key);

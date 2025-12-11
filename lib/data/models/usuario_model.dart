@@ -5,7 +5,7 @@ class Usuario {
   final int papelId;
   final bool ativo;
   final String hashPinOffline;
-
+  final String? salt;
   final DateTime criadoEm;
   final String? deviceId;
 
@@ -17,6 +17,7 @@ class Usuario {
     required this.ativo,
     required this.hashPinOffline,
     required this.criadoEm,
+    this.salt,
     this.deviceId,
   });
 
@@ -27,6 +28,7 @@ class Usuario {
       nomeCompleto: map['nome_completo'] as String,
       papelId: map['papel_id'] as int,
       hashPinOffline: map['hash_pin_offline'] as String,
+      salt: map['salt'] as String?,
       ativo: (map['ativo'] as int) == 1, 
       criadoEm: DateTime.parse(map['criado_em'] as String),
       deviceId: map.containsKey('device_id') ? map['device_id'] as String? : null,
@@ -42,8 +44,10 @@ class Usuario {
       'hash_pin_offline': hashPinOffline,
       'ativo': ativo ? 1 : 0, 
       'criado_em': criadoEm.toIso8601String(),
+      'salt': salt,
       'device_id': deviceId,
     };
+    
   }
 }
 
