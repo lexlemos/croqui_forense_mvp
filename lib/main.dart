@@ -23,6 +23,8 @@ void main() async {
   final dbFactory = DatabaseFactoryImpl();
   final keyStorage = SecureKeyStorage();
   
+  await keyStorage.delete('user_session_id');
+
   DatabaseHelper.init(dbFactory, keyStorage);
   
   try {
@@ -48,7 +50,7 @@ class AppRoot extends StatelessWidget {
           create: (_) => UsuarioRepository(),
         ),
         Provider<CasoRepository>(
-          create: (_) => CasoRepository(DatabaseHelper.instance),
+          create: (_) => CasoRepository(),
         ),
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
@@ -62,7 +64,7 @@ class AppRoot extends StatelessWidget {
         ),
 
         ChangeNotifierProxyProvider<CaseService, CaseListProvider>(
-          create: (_) => CaseListProvider(CaseService(CasoRepository(DatabaseHelper.instance))),
+          create: (_) => CaseListProvider(CaseService(CasoRepository())),
           update: (_, caseService, previous) {
              return previous ?? CaseListProvider(caseService);
           },
