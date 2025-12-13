@@ -10,6 +10,7 @@ import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
+import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -58,6 +59,9 @@ class AppRoot extends StatelessWidget {
         ProxyProvider<CasoRepository, CaseService>(
           update: (_, repo, __) => CaseService(repo),
         ),
+        ProxyProvider<UsuarioRepository, UserService>(
+          update: (_, repo, __) => UserService(repo),
+        ),
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
           create: (_) => AuthProvider(AuthService(UsuarioRepository(), keyStorage)),
           update: (_, authService, previous) => AuthProvider(authService),
@@ -96,7 +100,7 @@ class _CroquiAppState extends State<CroquiApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Croqui Forense MVP',
-      debugShowCheckedModeBanner: false, // Remove a faixa de debug
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF317FF5)), // Azul Institucional
         useMaterial3: true,
