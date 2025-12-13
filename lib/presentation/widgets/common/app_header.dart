@@ -4,6 +4,7 @@ import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
+import 'package:croqui_forense_mvp/presentation/pages/user_management_page.dart';
 
 class AppHeader extends StatelessWidget {
   final Usuario? usuario;
@@ -25,6 +26,7 @@ class AppHeader extends StatelessWidget {
     }
     return partes.first.substring(0, 2).toUpperCase();
   }
+  bool get _isAdmin => usuario?.papelId == 1;
 
   @override
   Widget build(BuildContext context) {
@@ -63,108 +65,123 @@ class AppHeader extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.menu, color: Colors.black, size: 20), // Ícone Preto
+                child: const Icon(Icons.menu, color: Colors.black, size: 20),
               ),
               onSelected: (value) => _handleMenuSelection(context, value),
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-
-                _buildMenuItem(
-                  value: 'home',
-                  icon: Icons.dashboard_outlined,
-                  text: 'Início',
-                  isActive: isHome,
-                ),
-                
-                const PopupMenuDivider(height: 1),
-
-                _buildMenuItem(
-                  value: 'settings',
-                  icon: Icons.settings_outlined,
-                  text: 'Configurações',
-                  isActive: !isHome && title == 'Configurações',
-                ),
-                
-                const PopupMenuDivider(height: 1),
-
-                const PopupMenuItem<String>(
-                  value: 'logout',
-                  height: 48,
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
-                      SizedBox(width: 12),
-                      Text(
-                        'Sair',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+              itemBuilder: (BuildContext context) {
+                final List<PopupMenuEntry<String>> menuItems = [
+                   _buildMenuItem(
+                    value: 'home',
+                    icon: Icons.dashboard_outlined,
+                    text: 'Início',
+                    isActive: isHome,
                   ),
-                ),
-              ],
+                ];
+                if (_isAdmin) {
+                  menuItems.add(const PopupMenuDivider(height: 1));
+                  menuItems.add(
+                    _buildMenuItem(
+                      value: 'users',
+                      icon: Icons.manage_accounts_outlined, 
+                      text: 'Gestão de Usuários',
+                      isActive: title == 'Gestão de Usuários',
+                    ),
+                  );
+                }
+                menuItems.addAll([
+                  const PopupMenuDivider(height: 1),
+                  _buildMenuItem(
+                    value: 'settings',
+                    icon: Icons.settings_outlined,
+                    text: 'Configurações',
+                    isActive: !isHome && title == 'Configurações',
+                  ),
+                  const PopupMenuDivider(height: 1),
+                  const PopupMenuItem<String>(
+                    value: 'logout',
+                    height: 48,
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                        SizedBox(width: 12),
+                        Text(
+                          'Sair',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]);
+
+                return menuItems;
+              },
             ),
           ),
           
           const SizedBox(width: 20),
 
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-              fontFamily: 'Roboto',
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+                fontFamily: 'Roboto',
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           
-          const Spacer(),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'DR. ${usuario?.nomeCompleto.toUpperCase() ?? "PERITO"}',
+          if (usuario != null) ...[
+             const SizedBox(width: 12),
+             Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'DR. ${usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO"}',
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  _isAdmin ? 'ADMINISTRADOR' : 'MÉDICO LEGISTA',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _iniciais,
                 style: const TextStyle(
                   color: Colors.black87,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
-              const Text(
-                'MÉDICO LEGISTA',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE0E0E0)),
             ),
-            alignment: Alignment.center,
-            child: Text(
-              _iniciais,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -210,6 +227,13 @@ class AppHeader extends StatelessWidget {
             (route) => false,
           );
         }
+        break;
+      case 'users':
+        // Navegação para a nova tela
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserManagementPage()),
+        );
         break;
       case 'settings':
         if (title != 'Configurações') {
