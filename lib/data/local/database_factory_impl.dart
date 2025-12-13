@@ -24,6 +24,6 @@ class DatabaseFactoryImpl implements IDatabaseFactory {
 
   @override
   Future<String> getDatabasesPath() async {
-    return await getDatabasesPath();
+    return await databaseFactory.getDatabasesPath();
   }
 }
