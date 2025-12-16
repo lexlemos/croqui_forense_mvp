@@ -43,9 +43,7 @@ class DatabaseHelper {
     var key = await _keyStorage.read(key: _kEncKey);
     
     if (key == null) {
-    
       key = const Uuid().v4() + const Uuid().v4();
-      
       await _keyStorage.save(key: _kEncKey, value: key);
     }
 
@@ -66,9 +64,76 @@ class DatabaseHelper {
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        print("--- INICIANDO MIGRAÇÃO DE BANCO DE DADOS: v$oldVersion -> v$newVersion ---");
         
+        if (oldVersion < 2) {
+          await _migrateV1toV2(db);
+        }
+        
+        print("--- MIGRAÇÃO CONCLUÍDA COM SUCESSO ---");
       },
     );
+  }
+  Future<void> _migrateV1toV2(Database db) async {
+    await db.transaction((txn) async {
+      await txn.execute('PRAGMA foreign_keys = OFF');
+
+      await _performTableMigration(
+        txn, 
+        tableName: 'papeis', 
+        createScript: kFullDatabaseCreationScripts[0], 
+        copyScript: 'INSERT INTO papeis (id, nome, descricao, e_padrao) SELECT CAST(id AS TEXT), nome, descricao, e_padrao FROM papeis_old'
+      );
+
+      await _performTableMigration(
+        txn, 
+        tableName: 'permissoes', 
+        createScript: kFullDatabaseCreationScripts[1], 
+        copyScript: 'INSERT INTO permissoes (id, codigo, descricao) SELECT CAST(id AS TEXT), codigo, descricao FROM permissoes_old'
+      );
+
+      await _performTableMigration(
+        txn, 
+        tableName: 'usuarios', 
+        createScript: kFullDatabaseCreationScripts[2], 
+        copyScript: '''
+          INSERT INTO usuarios (id, matricula_funcional, papel_id, nome_completo, ativo, hash_pin_offline, deve_alterar_pin, criado_em, atualizado_em, versao, device_id, salt) 
+          SELECT CAST(id AS TEXT), matricula_funcional, CAST(papel_id AS TEXT), nome_completo, ativo, hash_pin_offline, deve_alterar_pin, criado_em, atualizado_em, versao, device_id, salt 
+          FROM usuarios_old
+        '''
+      );
+
+      await _performTableMigration(
+        txn, 
+        tableName: 'papel_permissoes', 
+        createScript: kFullDatabaseCreationScripts[3], 
+        copyScript: '''
+          INSERT INTO papel_permissoes (papel_id, permissao_id) 
+          SELECT CAST(papel_id AS TEXT), CAST(permissao_id AS TEXT) 
+          FROM papel_permissoes_old
+        '''
+      );
+
+      await txn.execute('PRAGMA foreign_keys = ON');
+    });
+  }
+
+  Future<void> _performTableMigration(Transaction txn, {
+    required String tableName,
+    required String createScript,
+    required String copyScript,
+  }) async {
+    final check = await txn.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
+    if (check.isEmpty) return; 
+    print('Migrando tabela: $tableName...');
+
+    await txn.execute('ALTER TABLE $tableName RENAME TO ${tableName}_old');
+
+    await txn.execute(createScript);
+
+    await txn.execute(copyScript);
+
+    await txn.execute('DROP TABLE ${tableName}_old');
   }
   
   Future<void> close() async {
