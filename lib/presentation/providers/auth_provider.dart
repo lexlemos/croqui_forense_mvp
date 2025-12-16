@@ -4,7 +4,7 @@ import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService;
+  AuthService _authService;
   Usuario? _usuario;
   bool _isLoading = true;
 
@@ -12,17 +12,26 @@ class AuthProvider extends ChangeNotifier {
     _init();
   }
 
+
+  void updateService(AuthService newService) {
+    _authService = newService;
+  }
+
   Usuario? get usuario => _usuario;
 
   bool get isLogged => _usuario != null; 
   bool get isAuthenticated => _usuario != null;
-  
   bool get isLoading => _isLoading;
 
   Future<void> _init() async {
-    _usuario = await _authService.checkSession();
-    _isLoading = false;
-    notifyListeners();
+    try {
+      _usuario = await _authService.checkSession();
+    } catch (e) {
+      _usuario = null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
   Future<void> checkLoginStatus() async {
     if (_usuario == null) {
@@ -46,7 +55,7 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      throw AuthException('Erro inesperado no login');
+      throw AuthException('Erro inesperado no login : $e');
     }
   }
 

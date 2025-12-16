@@ -67,17 +67,17 @@ class AppRoot extends StatelessWidget {
 
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
-          update: (_, authService, previous) => AuthProvider(authService),
+          update: (_, authService, previous) => previous!..updateService(authService),
         ),
 
         ChangeNotifierProxyProvider<CaseService, CaseListProvider>(
           create: (ctx) => CaseListProvider(ctx.read<CaseService>()),
-          update: (_, caseService, previous) => CaseListProvider(caseService),
+          update: (_, caseService, previous) => previous!..updateService(caseService),
         ),
         
         ChangeNotifierProxyProvider<UserService, UserManagementProvider>(
           create: (ctx) => UserManagementProvider(ctx.read<UserService>()),
-          update: (_, userService, previous) => UserManagementProvider(userService),
+          update: (_, userService, previous) => previous!..updateService(userService),
         ),
       ],
       child: const CroquiApp(),

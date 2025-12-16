@@ -5,7 +5,7 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
 
 class CaseListProvider extends ChangeNotifier {
-  final CaseService _caseService;
+  CaseService _caseService;
 
   List<Caso> _todosCasos = [];
   List<Caso> _casosFiltrados = [];
@@ -26,6 +26,10 @@ class CaseListProvider extends ChangeNotifier {
   List<StatusCaso> get statusFilter => List.unmodifiable(_statusFilter);
 
   CaseListProvider(this._caseService);
+  
+  void updateService(CaseService newService) {
+    _caseService = newService;
+  }
 
   Future<void> carregarCasos() async {
     _isLoading = true;
