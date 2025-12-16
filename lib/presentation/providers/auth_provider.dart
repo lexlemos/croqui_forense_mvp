@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
+import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
-
   Usuario? _usuario;
-  bool _isLoading = true; 
+  bool _isLoading = true;
+
+  AuthProvider(this._authService) {
+    _init();
+  }
+
   Usuario? get usuario => _usuario;
-  bool get isLogged => _usuario != null;
+  
+  bool get isLogged => _usuario != null; 
+  bool get isAuthenticated => _usuario != null;
+  
   bool get isLoading => _isLoading;
 
-  AuthProvider(this._authService);
+  Future<void> _init() async {
+    _usuario = await _authService.checkSession();
+    _isLoading = false;
+    notifyListeners();
+  }
   Future<void> checkLoginStatus() async {
-    _isLoading = true;
-    notifyListeners(); 
-
-    try {
-      final usuarioSalvo = await _authService.checkSession();
-      _usuario = usuarioSalvo;
-    } catch (e) {
-      _usuario = null;
-    } finally {
-      _isLoading = false;
-      notifyListeners(); 
+    if (_usuario == null) {
+      await _init();
     }
   }
 
@@ -32,22 +35,43 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final usuarioLogado = await _authService.login(matricula, pin);
-      _usuario = usuarioLogado;
-    } on AuthException {
-      rethrow;
-    } catch (e) {
-      throw Exception('Erro inesperado no login.');
-    } finally {
+      await _authService.login(matricula, pin);
+      _usuario = _authService.usuario; 
+      notifyListeners();
+    } on AuthException catch (_) {
       _isLoading = false;
       notifyListeners();
+      rethrow; 
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      throw AuthException('Erro inesperado no login');
     }
   }
 
   Future<void> logout() async {
     await _authService.logout();
     _usuario = null;
-    
     notifyListeners();
+  }
+
+  Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
+    if (_usuario == null) throw AuthException("Nenhum usuário logado");
+
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      await _authService.trocarPinObrigatorio(_usuario!, novoPin);
+
+      _usuario = await _authService.checkSession(); 
+      
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

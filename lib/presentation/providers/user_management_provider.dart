@@ -89,7 +89,7 @@ class UserManagementProvider extends ChangeNotifier {
   Future<void> criarUsuario({
     required String nome,
     required String matricula,
-    required int papelId,
+    required String papelId,
     required String pinInicial,
   }) async {
     _isLoading = true;
@@ -109,7 +109,7 @@ class UserManagementProvider extends ChangeNotifier {
       rethrow;
     }
   }
-  Future<void> toggleStatusUsuario(Usuario usuario, int idLogado) async {
+  Future<void> toggleStatusUsuario(Usuario usuario, String idLogado) async {
     try {
       await _userService.alternarStatusUsuario(
         usuarioAlvo: usuario, 
@@ -125,6 +125,7 @@ class UserManagementProvider extends ChangeNotifier {
           papelId: atual.papelId,
           ativo: !atual.ativo,
           hashPinOffline: atual.hashPinOffline,
+          deveAlterarPin: atual.deveAlterarPin,
           salt: atual.salt,
           criadoEm: atual.criadoEm,
         );

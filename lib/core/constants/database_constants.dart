@@ -1,5 +1,3 @@
-
-
 const String kDatabaseName = 'croqui_forense_mvp.db';
 const int kDatabaseVersion = 1;
 
@@ -16,15 +14,12 @@ const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
 
-
-// SCRIPT DE CRIAÇÃO COMPLETO (EXECUTADO PELO DatabaseHelper)
 const List<String> kFullDatabaseCreationScripts = [
-  'PRAGMA foreign_keys = ON;',
-  
+
   // 1. DOMÍNIO 1: ACESSO E IDENTIDADE
   '''
   CREATE TABLE papeis (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       nome TEXT NOT NULL UNIQUE,
       descricao TEXT,
       e_padrao INTEGER DEFAULT 0,
@@ -34,7 +29,7 @@ const List<String> kFullDatabaseCreationScripts = [
 
   '''
   CREATE TABLE permissoes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY, -- CORRIGIDO: Agora é TEXT (UUID ou String fixa)
       codigo TEXT NOT NULL UNIQUE,
       descricao TEXT
   );
@@ -42,12 +37,13 @@ const List<String> kFullDatabaseCreationScripts = [
 
   '''
   CREATE TABLE usuarios (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       matricula_funcional TEXT NOT NULL UNIQUE,
-      papel_id INTEGER NOT NULL,
+      papel_id TEXT NOT NULL, -- CORRIGIDO: Foreign Key agora é TEXT
       nome_completo TEXT NOT NULL,
       ativo INTEGER DEFAULT 1,
       hash_pin_offline TEXT,
+      deve_alterar_pin INTEGER DEFAULT 1,
       criado_em TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
       atualizado_em TEXT,
       versao INTEGER DEFAULT 1,
@@ -60,8 +56,8 @@ const List<String> kFullDatabaseCreationScripts = [
 
   '''
   CREATE TABLE papel_permissoes (
-      papel_id INTEGER NOT NULL,
-      permissao_id INTEGER NOT NULL,
+      papel_id TEXT NOT NULL, -- CORRIGIDO: Agora é TEXT
+      permissao_id TEXT NOT NULL, -- CORRIGIDO: Agora é TEXT
       
       PRIMARY KEY (papel_id, permissao_id),
       FOREIGN KEY (papel_id) REFERENCES papeis(id) ON DELETE CASCADE,
@@ -96,7 +92,7 @@ const List<String> kFullDatabaseCreationScripts = [
   '''
   CREATE TABLE casos (
       uuid TEXT PRIMARY KEY,
-      id_usuario_criador INTEGER NOT NULL,
+      id_usuario_criador TEXT NOT NULL,
       numero_laudo_externo TEXT,
       status TEXT DEFAULT 'RASCUNHO',
       hash_integridade TEXT,
@@ -178,9 +174,9 @@ const List<String> kFullDatabaseCreationScripts = [
   // 4. DOMÍNIO 4: AUDITORIA
   '''
   CREATE TABLE log_auditoria (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY, -- CORRIGIDO: Log agora usa UUID para evitar colisão na sincronia
       caso_uuid TEXT,
-      id_usuario INTEGER,
+      id_usuario TEXT, -- CORRIGIDO: Foreign Key agora é TEXT
       codigo_acao TEXT,
       transacao_uuid TEXT,
       detalhes_json TEXT, 

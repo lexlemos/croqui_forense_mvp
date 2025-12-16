@@ -1,7 +1,7 @@
 import 'package:sqflite/sqflite.dart';
-import 'package:croqui_forense_mvp/data/local/database_helper.dart'; // Ajuste o caminho se necessário
+import 'package:croqui_forense_mvp/data/local/database_helper.dart'; 
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
-import 'package:croqui_forense_mvp/data/models/papel_model.dart'; // Vamos criar este arquivo no passo 2
+import 'package:croqui_forense_mvp/data/models/papel_model.dart'; 
 
 class UsuarioRepository {
   late final DatabaseHelper _dbHelper = DatabaseHelper.instance;
@@ -19,12 +19,14 @@ class UsuarioRepository {
     return null;
   }
 
-  Future<Usuario?> getUsuarioById(int id) async {
+  Future<Usuario?> getUsuarioById(String id) async {
     final db = await database;
     final maps = await db.query('usuarios', where: 'id = ?', whereArgs: [id]);
+    
     if (maps.isNotEmpty) return Usuario.fromMap(maps.first);
     return null;
   }
+
   Future<List<Usuario>> getUsuarios({
     int page = 0,
     int pageSize = 20,
@@ -65,13 +67,14 @@ class UsuarioRepository {
 
   Future<List<Papel>> getAllPapeis() async {
     final db = await database;
-    final maps = await db.query('papeis', orderBy: 'id ASC'); 
+    final maps = await db.query('papeis', orderBy: 'nome ASC'); 
     return maps.map((e) => Papel.fromMap(e)).toList();
   }
 
   Future<void> createUsuario(Usuario usuario) async {
     final db = await database;
     try {
+     
       await db.insert('usuarios', usuario.toMap());
     } catch (e) {
       if (e.toString().contains('UNIQUE constraint failed')) {
@@ -80,8 +83,22 @@ class UsuarioRepository {
       rethrow;
     }
   }
+  Future<void> updatePin(String id, String novoHash, String novoSalt) async {
+    final db = await database;
+    await db.update(
+      'usuarios',
+      {
+        'hash_pin_offline': novoHash,
+        'salt': novoSalt,
+        'deve_alterar_pin': 0, 
+        'atualizado_em': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
-  Future<void> updateStatusUsuario(int id, bool ativo) async {
+  Future<void> updateStatusUsuario(String id, bool ativo) async {
     final db = await database;
     await db.update(
       'usuarios',

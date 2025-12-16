@@ -14,9 +14,11 @@ import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart'; // Adicione se tiver esse arquivo
 
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
+import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +26,11 @@ void main() async {
   final dbFactory = DatabaseFactoryImpl();
   final keyStorage = SecureKeyStorage();
   
-  await keyStorage.delete('user_session_id');
-
   DatabaseHelper.init(dbFactory, keyStorage);
   
   try {
     await DatabaseHelper.instance.database;
-    print("✅ Banco inicializado e pronto.");
+    print("✅ Banco inicializado e pronto (UUIDs configurados).");
   } catch (e) {
     print("❌ Erro fatal ao abrir banco: $e");
   }
@@ -53,6 +53,7 @@ class AppRoot extends StatelessWidget {
         Provider<CasoRepository>(
           create: (_) => CasoRepository(),
         ),
+
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
@@ -62,16 +63,20 @@ class AppRoot extends StatelessWidget {
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),
         ),
+
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
-          create: (_) => AuthProvider(AuthService(UsuarioRepository(), keyStorage)),
+          create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, previous) => AuthProvider(authService),
         ),
 
         ChangeNotifierProxyProvider<CaseService, CaseListProvider>(
-          create: (_) => CaseListProvider(CaseService(CasoRepository())),
-          update: (_, caseService, previous) {
-             return previous ?? CaseListProvider(caseService);
-          },
+          create: (ctx) => CaseListProvider(ctx.read<CaseService>()),
+          update: (_, caseService, previous) => CaseListProvider(caseService),
+        ),
+        
+        ChangeNotifierProxyProvider<UserService, UserManagementProvider>(
+          create: (ctx) => UserManagementProvider(ctx.read<UserService>()),
+           update: (_, userService, previous) => UserManagementProvider(userService),
         ),
       ],
       child: const CroquiApp(),
@@ -98,30 +103,34 @@ class _CroquiAppState extends State<CroquiApp> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
     return MaterialApp(
-      title: 'Croqui Forense MVP',
+      title: 'Croqui Forense',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF317FF5)), // Azul Institucional
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF317FF5)),
         useMaterial3: true,
+        scaffoldBackgroundColor: Colors.white,
+        fontFamily: 'Roboto',
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
           filled: true,
         ),
       ),
-      home: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          if (auth.isLoading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (auth.isLogged) {
-            return const HomePage();
-          }
-          return const LoginPage();
-        },
-      ),
+      home: authProvider.isLoading 
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _decideHome(authProvider),
     );
+  }
+
+  Widget _decideHome(AuthProvider auth) {
+    if (!auth.isLogged) {
+      return const LoginPage();
+    }
+    if (auth.usuario?.deveAlterarPin == true) {
+      return const ForceChangePinPage();
+    }
+    return const HomePage();
   }
 }
