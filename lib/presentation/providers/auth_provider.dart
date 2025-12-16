@@ -13,7 +13,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Usuario? get usuario => _usuario;
-  
+
   bool get isLogged => _usuario != null; 
   bool get isAuthenticated => _usuario != null;
   
@@ -37,6 +37,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.login(matricula, pin);
       _usuario = _authService.usuario; 
+      _isLoading = false;
       notifyListeners();
     } on AuthException catch (_) {
       _isLoading = false;
@@ -58,10 +59,9 @@ class AuthProvider extends ChangeNotifier {
   Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
     if (_usuario == null) throw AuthException("Nenhum usuário logado");
 
-    try {
       _isLoading = true;
       notifyListeners();
-
+    try {
       await _authService.trocarPinObrigatorio(_usuario!, novoPin);
 
       _usuario = await _authService.checkSession(); 

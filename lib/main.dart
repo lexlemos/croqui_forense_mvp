@@ -14,7 +14,7 @@ import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
-import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart'; // Adicione se tiver esse arquivo
+import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart'; // Se existir
 
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
@@ -30,7 +30,7 @@ void main() async {
   
   try {
     await DatabaseHelper.instance.database;
-    print("✅ Banco inicializado e pronto (UUIDs configurados).");
+    print("✅ Banco inicializado e pronto (Com migração v2 e UUIDs).");
   } catch (e) {
     print("❌ Erro fatal ao abrir banco: $e");
   }
@@ -44,16 +44,17 @@ class AppRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final keyStorage = SecureKeyStorage();
+    
+    final dbHelper = DatabaseHelper.instance; 
 
     return MultiProvider(
       providers: [
         Provider<UsuarioRepository>(
-          create: (_) => UsuarioRepository(),
+          create: (_) => UsuarioRepository(dbHelper), 
         ),
         Provider<CasoRepository>(
-          create: (_) => CasoRepository(),
+          create: (_) => CasoRepository(dbHelper), 
         ),
-
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
@@ -76,7 +77,7 @@ class AppRoot extends StatelessWidget {
         
         ChangeNotifierProxyProvider<UserService, UserManagementProvider>(
           create: (ctx) => UserManagementProvider(ctx.read<UserService>()),
-           update: (_, userService, previous) => UserManagementProvider(userService),
+          update: (_, userService, previous) => UserManagementProvider(userService),
         ),
       ],
       child: const CroquiApp(),

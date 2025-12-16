@@ -14,6 +14,8 @@ class DatabaseSeeder {
   static const String PERM_EXPORTAR_ID = 'perm_exportar_caso';
   static const String PERM_GESTAO_ID = 'perm_gestao_users';
 
+  static const String FIXED_DATE = '2024-01-01T12:00:00.000';
+
   Future<void> seedAll() async {
     await _seedRoles();
     await _seedPermissions();
@@ -95,7 +97,7 @@ class DatabaseSeeder {
       'salt': salt,
       'ativo': 1,
       'deve_alterar_pin': 1, 
-      'criado_em': DateTime.now().toIso8601String(),
+      'criado_em': FIXED_DATE,
     });
   }
 

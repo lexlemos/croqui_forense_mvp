@@ -6,14 +6,16 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 
 class CasoRepository {
 
-  late final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final DatabaseHelper _dbHelper;
+
+
+  CasoRepository(this._dbHelper); 
 
   Future<Database> get database async => _dbHelper.database;
 
-  CasoRepository(); 
 
   Future<void> insertCase(Caso novoCaso) async {
-    final db = await database; // Usa o getter
+    final db = await database;
     
     await db.insert(
       tableCasos,
