@@ -4,7 +4,9 @@ import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/papel_model.dart'; 
 
 class UsuarioRepository {
-  late final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final DatabaseHelper _dbHelper;
+
+  UsuarioRepository(this._dbHelper);
 
   Future<Database> get database async => _dbHelper.database;
 
