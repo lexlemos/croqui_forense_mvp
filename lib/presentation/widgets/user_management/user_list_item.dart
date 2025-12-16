@@ -17,7 +17,7 @@ class UserListItem extends StatelessWidget {
   Widget build(BuildContext context) {
 
     final color = usuario.ativo ? Colors.green : Colors.grey;
-    final papelNome = usuario.papelId == 1 ? 'Administrador' : 'Perito / Legista';
+    final papelNome = usuario.papelId == 'role_admin' ? 'Administrador' : 'Perito / Legista';
 
     return Card(
       elevation: 2,

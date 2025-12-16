@@ -4,7 +4,7 @@ import 'package:croqui_forense_mvp/data/models/papel_model.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 class UserManagementProvider extends ChangeNotifier {
-  final UserService _userService;
+  UserService _userService;
 
   List<Usuario> _usuarios = [];
   List<Papel> _papeis = [];
@@ -24,6 +24,10 @@ class UserManagementProvider extends ChangeNotifier {
   bool get temMaisPaginas => _usuarios.length < _totalItems;
 
   UserManagementProvider(this._userService);
+
+  void updateService(UserService newService) {
+    _userService = newService;
+  }
 
   Future<void> inicializar() async {
     _isLoading = true;

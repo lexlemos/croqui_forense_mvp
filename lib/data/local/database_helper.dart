@@ -113,7 +113,26 @@ class DatabaseHelper {
           FROM papel_permissoes_old
         '''
       );
-
+      await _performTableMigration(
+        txn,
+        tableName: 'casos',
+        createScript: kFullDatabaseCreationScripts[6], 
+        copyScript: '''
+          INSERT INTO casos (uuid, id_usuario_criador, numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia)
+          SELECT uuid, CAST(id_usuario_criador AS TEXT), numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia
+          FROM casos_old
+        '''
+      );
+      await _performTableMigration(
+        txn,
+        tableName: 'log_auditoria',
+        createScript: kFullDatabaseCreationScripts[10],
+        copyScript: '''
+          INSERT INTO log_auditoria (id, caso_uuid, id_usuario, codigo_acao, transacao_uuid, detalhes_json, timestamp, device_id, proveniencia)
+          SELECT CAST(id AS TEXT), caso_uuid, CAST(id_usuario AS TEXT), codigo_acao, transacao_uuid, detalhes_json, timestamp, device_id, proveniencia
+          FROM log_auditoria_old
+        '''
+      );
       await txn.execute('PRAGMA foreign_keys = ON');
     });
   }
@@ -125,14 +144,12 @@ class DatabaseHelper {
   }) async {
     final check = await txn.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
     if (check.isEmpty) return; 
+
     print('Migrando tabela: $tableName...');
 
     await txn.execute('ALTER TABLE $tableName RENAME TO ${tableName}_old');
-
     await txn.execute(createScript);
-
     await txn.execute(copyScript);
-
     await txn.execute('DROP TABLE ${tableName}_old');
   }
   
