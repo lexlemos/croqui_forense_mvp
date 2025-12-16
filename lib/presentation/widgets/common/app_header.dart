@@ -26,7 +26,7 @@ class AppHeader extends StatelessWidget {
     }
     return partes.first.substring(0, 2).toUpperCase();
   }
-  bool get _isAdmin => usuario?.papelId == 1;
+  bool get _isAdmin => usuario?.papelId == 'role_admin';
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +217,7 @@ class AppHeader extends StatelessWidget {
     );
   }
 
-  void _handleMenuSelection(BuildContext context, String value) {
+  void _handleMenuSelection(BuildContext context, String value) async {
     switch (value) {
       case 'home':
         if (!isHome) {
@@ -229,7 +229,6 @@ class AppHeader extends StatelessWidget {
         }
         break;
       case 'users':
-        // Navegação para a nova tela
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const UserManagementPage()),
@@ -243,9 +242,11 @@ class AppHeader extends StatelessWidget {
           );
         }
         break;
-      case 'logout':
-        context.read<AuthProvider>().logout();
+        case 'logout':
+        final authProvider = context.read<AuthProvider>();
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        await authProvider.logout();
         break;
-    }
+}
   }
 }

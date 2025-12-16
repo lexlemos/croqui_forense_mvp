@@ -12,15 +12,15 @@ class DatabaseHelper {
   static const String _kEncKey = 'db_encryption_key';
 
   final IDatabaseFactory _dbFactory;
-  final IKeyStorage _keyStorage;
+  final KeyStorageInterface _keyStorage;
 
   static DatabaseHelper? _instance;
-  
   Database? _db;
-  DatabaseHelper(this._dbFactory, this._keyStorage);
 
-  static void init(IDatabaseFactory factory, IKeyStorage storage) {
-    _instance = DatabaseHelper(factory, storage);
+  DatabaseHelper._internal(this._dbFactory, this._keyStorage);
+
+  static void init(IDatabaseFactory factory, KeyStorageInterface storage) {
+    _instance = DatabaseHelper._internal(factory, storage);
   }
 
   static DatabaseHelper get instance {
@@ -40,10 +40,13 @@ class DatabaseHelper {
     final dbPath = await _dbFactory.getDatabasesPath();
     final path = join(dbPath, _kDbName);
 
-    var key = await _keyStorage.read(_kEncKey);
+    var key = await _keyStorage.read(key: _kEncKey);
+    
     if (key == null) {
-      key = const Uuid().v4() + const Uuid().v4(); 
-      await _keyStorage.write(_kEncKey, key);
+    
+      key = const Uuid().v4() + const Uuid().v4();
+      
+      await _keyStorage.save(key: _kEncKey, value: key);
     }
 
     return await _dbFactory.openDatabase(
@@ -63,10 +66,7 @@ class DatabaseHelper {
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('ALTER TABLE usuarios ADD COLUMN salt TEXT');
-          print('--- MIGRATION: Tabela usuarios atualizada (v1 -> v2) com sucesso ---');
-        }
+        
       },
     );
   }

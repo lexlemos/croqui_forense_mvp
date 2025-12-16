@@ -13,19 +13,15 @@ enum StatusCaso {
 
 class Caso {
   final String uuid;
-  final int idUsuarioCriador;
-  
+  final String idUsuarioCriador; 
   final String? numeroLaudoExterno;
   final StatusCaso status;
-  final Map<String, dynamic> dadosLaudo;
-
+  final Map<String, dynamic> dadosLaudo; 
   final String? hashIntegridade;
   final bool removido;
   final int versao;
   final String? deviceId;
   final String? proveniencia; 
-  
- 
   final DateTime criadoEmDispositivo;
   final DateTime? criadoEmRedeConfiavel; 
   final DateTime? atualizadoEm;
@@ -52,7 +48,7 @@ class Caso {
     String? deviceId,
     String? proveniencia,
     this.dadosLaudo = const {},
-  }) : uuid = const Uuid().v4(),
+  }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
        hashIntegridade = null,
        removido = false,
@@ -61,27 +57,32 @@ class Caso {
        criadoEmRedeConfiavel = null,
        atualizadoEm = null,
        deviceId = deviceId,
-       proveniencia = proveniencia ?? 'APP';
-       
+       proveniencia = proveniencia ?? 'APP_TABLET';
 
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
       uuid: map['uuid'] as String,
-      idUsuarioCriador: map['id_usuario_criador'] as int,
+      idUsuarioCriador: map['id_usuario_criador'] as String,
       numeroLaudoExterno: map['numero_laudo_externo'] as String?,
       status: StatusCaso.values.firstWhere(
         (e) => e.name.toUpperCase() == (map['status'] as String).toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
-      dadosLaudo: map['dados_laudo_json'] != null ? jsonDecode(map['dados_laudo_json']) : {},
+      dadosLaudo: map['dados_laudo_json'] != null 
+          ? jsonDecode(map['dados_laudo_json']) as Map<String, dynamic> 
+          : {},
       
       hashIntegridade: map['hash_integridade'] as String?,
       removido: (map['removido'] as int) == 1,
       versao: map['versao'] as int,
 
       criadoEmDispositivo: DateTime.parse(map['criado_em_dispositivo'] as String),
-      criadoEmRedeConfiavel: map['criado_em_rede_confiavel'] != null ? DateTime.parse(map['criado_em_rede_confiavel'] as String) : null,
-      atualizadoEm: map['atualizado_em'] != null ? DateTime.parse(map['atualizado_em'] as String) : null,
+      criadoEmRedeConfiavel: map['criado_em_rede_confiavel'] != null 
+          ? DateTime.parse(map['criado_em_rede_confiavel'] as String) 
+          : null,
+      atualizadoEm: map['atualizado_em'] != null 
+          ? DateTime.parse(map['atualizado_em'] as String) 
+          : null,
       
       deviceId: map['device_id'] as String?,
       proveniencia: map['proveniencia'] as String?,
@@ -108,4 +109,3 @@ class Caso {
     };
   }
 }
-

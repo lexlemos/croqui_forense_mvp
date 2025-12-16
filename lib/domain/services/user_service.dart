@@ -2,6 +2,7 @@ import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/papel_model.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
+import 'package:uuid/uuid.dart';
 
 class UserService {
   final UsuarioRepository _repository;
@@ -26,19 +27,21 @@ class UserService {
   Future<void> cadastrarNovoUsuario({
     required String nome,
     required String matricula,
-    required int papelId,
+    required String papelId,
     required String pinInicial,
   }) async {
     final salt = SecurityHelper.generateSalt();
     final hashPin = SecurityHelper.hashPin(pinInicial, salt);
 
+    final newId = const Uuid().v4();
     final novoUsuario = Usuario(
-      id: 0, 
+      id: newId, 
       matriculaFuncional: matricula,
       nomeCompleto: nome,
       papelId: papelId,
       ativo: true,
       hashPinOffline: hashPin,
+      deveAlterarPin: true,
       salt: salt,
       criadoEm: DateTime.now(),
     );
@@ -47,7 +50,7 @@ class UserService {
   }
   Future<void> alternarStatusUsuario({
     required Usuario usuarioAlvo, 
-    required int idUsuarioLogado
+    required String idUsuarioLogado
   }) async {
     if (usuarioAlvo.id == idUsuarioLogado) {
       throw Exception('Você não pode desativar seu próprio usuário.');
