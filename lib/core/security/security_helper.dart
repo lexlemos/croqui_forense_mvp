@@ -8,7 +8,7 @@ import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/key_derivators/api.dart';
 
 class SecurityHelper {
-  static const int _iterations = 10000;
+  static const int _iterations = 310000;
   static const int _keyLength = 32; 
   static const int _saltLength = 16;
 

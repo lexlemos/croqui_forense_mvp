@@ -79,7 +79,7 @@ class UsuarioRepository {
      
       await db.insert('usuarios', usuario.toMap());
     } catch (e) {
-      if (e.toString().contains('UNIQUE constraint failed')) {
+      if (e is DatabaseException && e.isUniqueConstraintError()) {
         throw Exception('Matrícula já existente.');
       }
       rethrow;
