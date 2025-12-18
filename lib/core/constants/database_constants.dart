@@ -204,7 +204,7 @@ const Map<String, String> kTableScripts = {
   tableLogAuditoria: _kCreateLogAuditoria,
 };
 
-List<String> get kFullDatabaseCreationScripts => [
+final List<String> kFullDatabaseCreationScripts = [
   ...kTableScripts.values,
   ...kIndexCreationScripts,
 ];

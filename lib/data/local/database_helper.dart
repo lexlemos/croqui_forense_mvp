@@ -64,13 +64,11 @@ class DatabaseHelper {
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        print("--- INICIANDO MIGRAÇÃO DE BANCO DE DADOS: v$oldVersion -> v$newVersion ---");
-        
+
         if (oldVersion < 2) {
           await _migrateV1toV2(db);
         }
-        
-        print("--- MIGRAÇÃO CONCLUÍDA COM SUCESSO ---");
+
       },
     );
   }

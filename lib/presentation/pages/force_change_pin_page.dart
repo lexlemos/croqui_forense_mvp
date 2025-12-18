@@ -110,16 +110,18 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
 
     setState(() => _isLoading = true);
 
-    try {
+     try {
       final authProvider = context.read<AuthProvider>();
       await authProvider.atualizarPinPrimeiroAcesso(_pinController.text);
-      
-   
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
       );
-      setState(() => _isLoading = false);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 }
