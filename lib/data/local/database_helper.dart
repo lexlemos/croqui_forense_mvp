@@ -74,39 +74,51 @@ class DatabaseHelper {
       },
     );
   }
+  String _getScriptFor(String tableName) {
+    final script = kTableScripts[tableName];
+    if (script == null) {
+      throw Exception("Script de criação para tabela '$tableName' não encontrado em kTableScripts.");
+    }
+    return script;
+  }
+
   Future<void> _migrateV1toV2(Database db) async {
     await db.transaction((txn) async {
       await txn.execute('PRAGMA foreign_keys = OFF');
 
       await _performTableMigration(
         txn, 
-        tableName: 'papeis', 
-        createScript: kFullDatabaseCreationScripts[0], 
+        tableName: tablePapeis, 
+        createScript: _getScriptFor(tablePapeis), 
         copyScript: 'INSERT INTO papeis (id, nome, descricao, e_padrao) SELECT CAST(id AS TEXT), nome, descricao, e_padrao FROM papeis_old'
       );
-
       await _performTableMigration(
         txn, 
-        tableName: 'permissoes', 
-        createScript: kFullDatabaseCreationScripts[1], 
+        tableName: tablePermissoes, 
+        createScript: _getScriptFor(tablePermissoes), 
         copyScript: 'INSERT INTO permissoes (id, codigo, descricao) SELECT CAST(id AS TEXT), codigo, descricao FROM permissoes_old'
       );
 
       await _performTableMigration(
         txn, 
-        tableName: 'usuarios', 
-        createScript: kFullDatabaseCreationScripts[2], 
+        tableName: tableUsuarios, 
+        createScript: _getScriptFor(tableUsuarios), 
         copyScript: '''
-          INSERT INTO usuarios (id, matricula_funcional, papel_id, nome_completo, ativo, hash_pin_offline, deve_alterar_pin, criado_em, atualizado_em, versao, device_id, salt) 
-          SELECT CAST(id AS TEXT), matricula_funcional, CAST(papel_id AS TEXT), nome_completo, ativo, hash_pin_offline, deve_alterar_pin, criado_em, atualizado_em, versao, device_id, salt 
+          INSERT INTO usuarios (
+            id, matricula_funcional, papel_id, nome_completo, ativo, hash_pin_offline, 
+            deve_alterar_pin, criado_em, atualizado_em, versao, device_id, salt
+          ) 
+          SELECT 
+            CAST(id AS TEXT), matricula_funcional, CAST(papel_id AS TEXT), nome_completo, ativo, hash_pin_offline, 
+            1, criado_em, atualizado_em, versao, device_id, NULL 
           FROM usuarios_old
         '''
       );
 
       await _performTableMigration(
         txn, 
-        tableName: 'papel_permissoes', 
-        createScript: kFullDatabaseCreationScripts[3], 
+        tableName: tablePapelPermissoes, 
+        createScript: _getScriptFor(tablePapelPermissoes), 
         copyScript: '''
           INSERT INTO papel_permissoes (papel_id, permissao_id) 
           SELECT CAST(papel_id AS TEXT), CAST(permissao_id AS TEXT) 
@@ -115,24 +127,26 @@ class DatabaseHelper {
       );
       await _performTableMigration(
         txn,
-        tableName: 'casos',
-        createScript: kFullDatabaseCreationScripts[6], 
+        tableName: tableCasos,
+        createScript: _getScriptFor(tableCasos), 
         copyScript: '''
           INSERT INTO casos (uuid, id_usuario_criador, numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia)
           SELECT uuid, CAST(id_usuario_criador AS TEXT), numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia
           FROM casos_old
         '''
       );
+
       await _performTableMigration(
         txn,
-        tableName: 'log_auditoria',
-        createScript: kFullDatabaseCreationScripts[10],
+        tableName: tableLogAuditoria,
+        createScript: _getScriptFor(tableLogAuditoria),
         copyScript: '''
           INSERT INTO log_auditoria (id, caso_uuid, id_usuario, codigo_acao, transacao_uuid, detalhes_json, timestamp, device_id, proveniencia)
           SELECT CAST(id AS TEXT), caso_uuid, CAST(id_usuario AS TEXT), codigo_acao, transacao_uuid, detalhes_json, timestamp, device_id, proveniencia
           FROM log_auditoria_old
         '''
       );
+
       await txn.execute('PRAGMA foreign_keys = ON');
     });
   }

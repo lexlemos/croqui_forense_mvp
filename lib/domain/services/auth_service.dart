@@ -1,4 +1,3 @@
-// Imports ajustados
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
@@ -16,7 +15,6 @@ class AuthService {
   Usuario? get usuario => _usuarioLogado;
   bool get isLogged => _usuarioLogado != null;
 
-  // Login agora lança AuthException
   Future<void> login(String matricula, String pin) async {
     final usuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
     
@@ -32,9 +30,7 @@ class AuthService {
       throw AuthException('Erro de integridade nas credenciais');
     }
 
-    final hashInput = SecurityHelper.hashPin(pin, usuario.salt!);
-    
-    if (hashInput != usuario.hashPinOffline) {
+    if (!SecurityHelper.verifyPin(pin, usuario.hashPinOffline!, usuario.salt!)) {
       throw AuthException('PIN incorreto');
     }
 
@@ -47,7 +43,6 @@ class AuthService {
     await _keyStorage.delete(key: 'user_id');
   }
 
-  // MUDANÇA: Renomeado para checkSession e retorna Usuario?
   Future<Usuario?> checkSession() async {
     final String? id = await _keyStorage.read(key: 'user_id');
     
