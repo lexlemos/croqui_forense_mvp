@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
+import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -73,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
                     obscureText: true, 
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submitLogin(authProvider),
+                    onFieldSubmitted: (_) => _submitLogin(context),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Informe o PIN.';
@@ -90,7 +92,7 @@ class _LoginPageState extends State<LoginPage> {
                     const Center(child: CircularProgressIndicator())
                   else
                     FilledButton(
-                      onPressed: () => _submitLogin(authProvider),
+                      onPressed: () => _submitLogin(context),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -104,23 +106,31 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
-
-  Future<void> _submitLogin(AuthProvider authProvider) async {
+  Future<void> _submitLogin(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
+    final provider = Provider.of<AuthProvider>(context, listen: false);
 
-    final erro = await authProvider.login(
-      _matriculaController.text.trim(),
-      _pinController.text.trim(),
-    );
-
-    if (erro != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(erro),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
+    try {
+      await provider.login(
+        _matriculaController.text.trim(),
+        _pinController.text.trim(),
       );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showError(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Erro inesperado. Tente novamente.');
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }

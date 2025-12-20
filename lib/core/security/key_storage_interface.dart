@@ -1,5 +1,5 @@
-abstract class IKeyStorage {
-  Future<String?> read(String key);
-  Future<void> write(String key, String value);
-  Future<void> delete(String key);
+abstract class KeyStorageInterface {
+  Future<void> save({required String key, required String value});
+  Future<String?> read({required String key});
+  Future<void> delete({required String key});
 }
