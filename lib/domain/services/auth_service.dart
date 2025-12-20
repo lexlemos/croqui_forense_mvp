@@ -2,36 +2,72 @@ import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
+import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart'; // <--- Importe a exceção nova
 
 class AuthService {
   final UsuarioRepository _usuarioRepository;
-  final IKeyStorage _keyStorage;
-
-  static const String kSessionKey = 'user_session_id';
+  final KeyStorageInterface _keyStorage;
+  
+  Usuario? _usuarioLogado;
 
   AuthService(this._usuarioRepository, this._keyStorage);
 
-  Future<Usuario?> login(String matricula, String pin) async {
+  Usuario? get usuario => _usuarioLogado;
+  bool get isLogged => _usuarioLogado != null;
+
+  Future<void> login(String matricula, String pin) async {
     final usuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
-
-    if (usuario == null || !usuario.ativo) {
-      return null;
+    
+    if (usuario == null) {
+      throw AuthException('Usuário não encontrado');
     }
 
-    final hashedPin = SecurityHelper.hashPin(pin);
-    if (hashedPin == usuario.hashPinOffline) {
-      await _keyStorage.write(kSessionKey, usuario.id.toString());
-      return usuario;
+    if (usuario.ativo == false) {
+      throw AuthException('Usuário desativado. Contate o administrador.');
     }
 
-    return null;
+    if (usuario.hashPinOffline == null || usuario.salt == null) {
+      throw AuthException('Erro de integridade nas credenciais');
+    }
+
+    if (!SecurityHelper.verifyPin(pin, usuario.hashPinOffline!, usuario.salt!)) {
+      throw AuthException('PIN incorreto');
+    }
+
+    _usuarioLogado = usuario;
+    await _keyStorage.save(key: 'user_id', value: usuario.id);
   }
 
-  Future<bool> isLogged() async {
-    final sessionId = await _keyStorage.read(kSessionKey);
-    return sessionId != null;
-  }
   Future<void> logout() async {
-    await _keyStorage.delete(kSessionKey);
+    _usuarioLogado = null;
+    await _keyStorage.delete(key: 'user_id');
+  }
+
+  Future<Usuario?> checkSession() async {
+    final String? id = await _keyStorage.read(key: 'user_id');
+    
+    if (id != null) {
+      await _loadUsuario(id);
+    }
+    return _usuarioLogado;
+  }
+
+  Future<void> _loadUsuario(String id) async {
+    try {
+      final usuario = await _usuarioRepository.getUsuarioById(id);
+      if (usuario != null && usuario.ativo) {
+        _usuarioLogado = usuario;
+      } else {
+        await logout();
+      }
+    } catch (e) {
+      await logout();
+    }
+  }
+
+  Future<void> trocarPinObrigatorio(Usuario usuario, String novoPin) async {
+    final novoSalt = SecurityHelper.generateSalt();
+    final novoHash = SecurityHelper.hashPin(novoPin, novoSalt);
+    await _usuarioRepository.updatePin(usuario.id, novoHash, novoSalt);
   }
 }

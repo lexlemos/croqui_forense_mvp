@@ -1,67 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthService _authService;
-  
-  Usuario? _usuarioLogado;
-  bool _isLoading = false;
+  Usuario? _usuario;
+  bool _isLoading = true;
 
-  Usuario? get usuario => _usuarioLogado;
-  bool get isAuthenticated => _usuarioLogado != null;
-  bool get isLoading => _isLoading;
+  AuthProvider(this._authService) {
+    _init();
+  }
 
-  AuthProvider(this._authService);
 
-  void update(AuthService newService) {
+  void updateService(AuthService newService) {
     _authService = newService;
   }
 
-  Future<void> checkSession() async {
-    _setLoading(true);
+  Usuario? get usuario => _usuario;
+
+  bool get isLogged => _usuario != null; 
+  bool get isAuthenticated => _usuario != null;
+  bool get isLoading => _isLoading;
+
+  Future<void> _init() async {
     try {
-      final isLogged = await _authService.isLogged();
-      if (isLogged) {
-        // TODO: Para o MVP V1, se tiver sessão, precisaremos buscar o usuário completo no banco.
-        // Por enquanto, se tiver sessão, vamos forçar o logout para garantir integridade ou 
-        // implementar o 'getUsuarioById' no futuro.
-        // Para este passo, deixaremos como 'não logado' se não tivermos o objeto completo em memória.
-      }
+      _usuario = await _authService.checkSession();
     } catch (e) {
-      debugPrint('Erro ao verificar sessão: $e');
+      _usuario = null;
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  Future<void> checkLoginStatus() async {
+    if (_usuario == null) {
+      await _init();
     }
   }
 
-  Future<String?> login(String matricula, String pin) async {
-    _setLoading(true);
+  Future<void> login(String matricula, String pin) async {
+    _isLoading = true;
+    notifyListeners();
+
     try {
-      final user = await _authService.login(matricula, pin);
-      
-      if (user != null) {
-        _usuarioLogado = user;
-        notifyListeners();
-        return null;
-      } else {
-        return 'Matrícula ou PIN inválidos.';
-      }
+      await _authService.login(matricula, pin);
+      _usuario = _authService.usuario; 
+      _isLoading = false;
+      notifyListeners();
+    } on AuthException catch (_) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow; 
     } catch (e) {
-      return 'Erro interno: $e';
-    } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
+      throw AuthException('Erro inesperado no login : $e');
     }
   }
 
   Future<void> logout() async {
     await _authService.logout();
-    _usuarioLogado = null;
+    _usuario = null;
     notifyListeners();
   }
 
-  void _setLoading(bool value) {
-    _isLoading = value;
-    notifyListeners();
+  Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
+    if (_usuario == null) throw AuthException("Nenhum usuário logado");
+
+      _isLoading = true;
+      notifyListeners();
+    try {
+      await _authService.trocarPinObrigatorio(_usuario!, novoPin);
+
+      _usuario = await _authService.checkSession(); 
+      
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

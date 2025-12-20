@@ -1,5 +1,5 @@
 class Papel {
-  final int id;
+  final String id;
   final String nome;
   final String? descricao;
   final bool ePadrao;
@@ -16,7 +16,7 @@ class Papel {
 
   factory Papel.fromMap(Map<String, dynamic> map) {
     return Papel(
-      id: map['id'] as int,
+      id: map['id'] as String,
       nome: map['nome'] as String,
       descricao: map.containsKey('descricao') ? map['descricao'] as String : null,
       ePadrao: (map['e_padrao'] as int) == 1,
@@ -33,5 +33,6 @@ class Papel {
       'criado_em': criadoEm.toIso8601String(),
     };
   }
+  bool get isAdmin => id == 'role_admin';
 }
 
