@@ -20,6 +20,8 @@ import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
 
+import 'package:croqui_forense_mvp/debug_body_test.dart'; // Apenas para debug
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -126,6 +128,10 @@ class _CroquiAppState extends State<CroquiApp> {
   }
 
   Widget _decideHome(AuthProvider auth) {
+    return const DebugBodyTest(); 
+    
+    // Mantenha o código original comentado para voltar depois:
+    /*
     if (!auth.isLogged) {
       return const LoginPage();
     }
@@ -133,5 +139,6 @@ class _CroquiAppState extends State<CroquiApp> {
       return const ForceChangePinPage();
     }
     return const HomePage();
+    */
   }
 }
