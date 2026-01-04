@@ -1,10 +1,10 @@
 import 'dart:ui';
 
 class BodyPartDefinition {
-  final String id; // ID legível para usar no código (ex: 'frontal')
-  final int dbId;  // O ID numérico do seu banco de dados (ex: 1)
-  final String name; // O nome bonito para mostrar na tela (ex: 'Frontal')
-  final Color color; // A cor exata na máscara (no formato ARGB do Flutter)
+  final String id; 
+  final int dbId;  
+  final String name; 
+  final Color color; 
 
   const BodyPartDefinition({
     required this.id,
@@ -32,24 +32,20 @@ const List<BodyPartDefinition> kFrontBodyPartsList = [
   BodyPartDefinition(id: 'esternal', dbId: 16, name: 'Esternal', color: Color(0xff000010)),
   BodyPartDefinition(id: 'deltoidiana', dbId: 17, name: 'Deltoidiana', color: Color(0xff000011)),
   BodyPartDefinition(id: 'toracicas', dbId: 18, name: 'Torácicas', color: Color(0xff000012)),
-  BodyPartDefinition(id: 'mamarias', dbId: 19, name: 'Mamarias', color: Color(0xff000013)),
+  BodyPartDefinition(id: 'mamarias', dbId: 19, name: 'Mamarias', color: Color(0xff001013)),
   BodyPartDefinition(id: 'epigastrica', dbId: 20, name: 'Epigástrica', color: Color(0xff000014)),
   BodyPartDefinition(id: 'hipocondrios', dbId: 21, name: 'Hipocôndrios', color: Color(0xff000015)),
   BodyPartDefinition(id: 'abdominal_meso', dbId: 22, name: 'Abdominal (mesogástrico)', color: Color(0xff000016)),
   BodyPartDefinition(id: 'umbilical', dbId: 23, name: 'Umbilical', color: Color(0xff000017)),
-  // Pulei o 24 pois não estava na sua lista sequencial (foi de 23 pra 25 nos hexas que analisei na sua msg)
   BodyPartDefinition(id: 'hipogastrica', dbId: 24, name: 'Hipogástrica', color: Color(0xff000019)), 
   BodyPartDefinition(id: 'pubiana', dbId: 25, name: 'Pubiana', color: Color(0xff00001a)),
   BodyPartDefinition(id: 'flancos', dbId: 26, name: 'Flancos', color: Color(0xff00001b)),
   BodyPartDefinition(id: 'fossas_iliacas', dbId: 27, name: 'Fossas Ilíacas', color: Color(0xff00001c)),
   BodyPartDefinition(id: 'inguinais', dbId: 28, name: 'Inguinais', color: Color(0xff00001d)),
   BodyPartDefinition(id: 'crurais', dbId: 29, name: 'Crurais', color: Color(0xff00001e)),
-  BodyPartDefinition(id: 'peniana', dbId: 30, name: 'Peniana', color: Color(0xff00001f)),
-  // ATUALIZAÇÃO DO ESCROTAL (Sua mudança)
+  BodyPartDefinition(id: 'peniana', dbId: 30, name: 'Peniana', color: Color(0xff0001ff)),
   BodyPartDefinition(id: 'escrotal', dbId: 31, name: 'Escrotal', color: Color(0xff0099de)), 
 
-  // --- MEMBROS SUPERIORES (Vamos usar tons de VERMELHO e LARANJA distintos) ---
-  // Antes era 000021. Mude para cores fortes.
   BodyPartDefinition(id: 'bracos_sup', dbId: 32, name: 'Terços superiores dos braços', color: Color(0xffFF0000)), // Vermelho Puro
   BodyPartDefinition(id: 'bracos_med', dbId: 33, name: 'Terços Médios dos Braços', color: Color(0xffCC0000)), // Vermelho Escuro
   BodyPartDefinition(id: 'bracos_inf', dbId: 34, name: 'Terços Inferiores dos Braços', color: Color(0xff990000)), // Vinho
@@ -64,7 +60,6 @@ const List<BodyPartDefinition> kFrontBodyPartsList = [
   BodyPartDefinition(id: 'maos_concavos', dbId: 40, name: 'Concavos das mãos', color: Color(0xff00CC00)), // Verde Escuro
   BodyPartDefinition(id: 'maos_palmares', dbId: 41, name: 'Faces Palmares das mãos', color: Color(0xff009900)), // Verde Musgo
 
-  // --- MEMBROS INFERIORES (Vamos usar tons de AZUL e ROXO) ---
   BodyPartDefinition(id: 'coxas_sup', dbId: 42, name: 'Terços Superiores das Coxas', color: Color(0xff0000FF)), // Azul Puro
   BodyPartDefinition(id: 'coxas_med', dbId: 43, name: 'Terços Médios das Coxas', color: Color(0xff0000CC)), // Azul Escuro
   BodyPartDefinition(id: 'coxas_inf', dbId: 44, name: 'Terços Inferiores das Coxas', color: Color(0xff000099)), // Azul Marinho

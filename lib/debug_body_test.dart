@@ -4,8 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image/image.dart' as img;
-// IMPORTANTE: Importe o arquivo de dados que acabamos de criar
+
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
+import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
+import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart';
+import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart'; // <--- Crie este se não tiver!
+
+class CroquiScenario {
+  final String title;
+  final String svgPath;
+  final String maskPath;
+  final Map<int, String> colorToIdMap;
+  final Map<String, BodyPartDefinition> idToDefMap;
+
+  CroquiScenario({
+    required this.title,
+    required this.svgPath,
+    required this.maskPath,
+    required this.colorToIdMap,
+    required this.idToDefMap,
+  });
+}
 
 class DebugBodyTest extends StatefulWidget {
   const DebugBodyTest({super.key});
@@ -15,13 +34,12 @@ class DebugBodyTest extends StatefulWidget {
 }
 
 class _DebugBodyTestState extends State<DebugBodyTest> {
-  final String assetVisual = 'assets/images/croqui-frente.svg';
-  final String assetMask = 'assets/images/croqui-frente-mask.png';
-
+  late List<CroquiScenario> scenarios;
+  
+  int _currentIndex = 0; 
   img.Image? _maskImage;
-  String _status = "Carregando máscara...";
-  // Em vez de _lastColor, agora vamos guardar o nome da parte tocada
-  String _selectedPartName = "Nenhuma parte selecionada";
+  String _status = "Carregando...";
+  String _selectedPartName = "Toque para testar";
   bool _showMaskOverlay = false; 
   Offset? _lastTapPos;
 
@@ -30,38 +48,86 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
   @override
   void initState() {
     super.initState();
-    _loadMask();
+    
+    scenarios = [
+      CroquiScenario(
+        title: "Corpo Frente",
+        svgPath: 'assets/images/croqui-frente.svg',
+        maskPath: 'assets/images/croqui-frente-mask.png',
+        colorToIdMap: kColorToIdFrontMap,
+        idToDefMap: kIdToDefinitionFrontMap,
+      ),
+      // 2. CORPO COSTAS
+      CroquiScenario(
+        title: "Corpo Costas",
+        svgPath: 'assets/images/croqui-costas.svg',
+        maskPath: 'assets/images/croqui-costas-mask.png',
+        colorToIdMap: kColorToIdBackMap,
+        idToDefMap: kIdToDefinitionBackMap,
+      ),
+      // 3. ROSTO DIREITO (Lateral)
+      CroquiScenario(
+        title: "Rosto Lateral Dir.",
+        svgPath: 'assets/images/croqui-rosto-direito.svg',
+        maskPath: 'assets/images/croqui-rosto-direito-mask.png',
+        colorToIdMap: kColorToIdLateralRightMap,
+        idToDefMap: kIdToDefinitionLateralRightMap,
+      ),
+      CroquiScenario(
+        title: "Rosto Frente",
+        svgPath: 'assets/images/croqui-rosto-frente.svg',
+        maskPath: 'assets/images/croqui-rosto-frente-mask.png',
+        colorToIdMap: kColorToIdLateralLeftMap, 
+        idToDefMap: kIdToDefinitionLateralLeftMap,
+      ),
+    ];
+
+    _loadCurrentMask();
   }
 
-  Future<void> _loadMask() async {
+  Future<void> _loadCurrentMask() async {
+    setState(() {
+      _status = "Carregando máscara...";
+      _maskImage = null;
+      _selectedPartName = "Aguardando toque...";
+      _lastTapPos = null;
+    });
+
     try {
-      final ByteData data = await rootBundle.load(assetMask);
+      final current = scenarios[_currentIndex];
+      final ByteData data = await rootBundle.load(current.maskPath);
       final Uint8List bytes = data.buffer.asUint8List();
-      _maskImage = img.decodeImage(bytes);
-      setState(() => _status = "Pronto para testes.");
+      final decoded = img.decodeImage(bytes);
+      
+      setState(() {
+        _maskImage = decoded;
+        _status = "Máscara carregada: ${decoded!.width}x${decoded.height}";
+      });
     } catch (e) {
-      setState(() => _status = "Erro ao carregar máscara: $e");
+      setState(() => _status = "ERRO ao carregar ${scenarios[_currentIndex].maskPath}:\n$e");
     }
   }
 
-  void _zoomIn() {
-    final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scale(1.5);
-    _transformationController.value = matrix;
+  void _nextCroqui() {
+    if (_currentIndex < scenarios.length - 1) {
+      setState(() => _currentIndex++);
+      _transformationController.value = Matrix4.identity();
+      _loadCurrentMask();
+    }
   }
 
-  void _zoomOut() {
-    final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scale(1 / 1.5);
-    _transformationController.value = matrix;
-  }
-
-  void _resetZoom() {
-    _transformationController.value = Matrix4.identity();
+  void _prevCroqui() {
+    if (_currentIndex > 0) {
+      setState(() => _currentIndex--);
+      _transformationController.value = Matrix4.identity();
+      _loadCurrentMask();
+    }
   }
 
   void _handleTap(TapUpDetails details, Size renderSize) {
     if (_maskImage == null) return;
+
+    final currentScenario = scenarios[_currentIndex];
 
     final double scaleX = _maskImage!.width / renderSize.width;
     final double scaleY = _maskImage!.height / renderSize.height;
@@ -70,43 +136,58 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
     final int y = (details.localPosition.dy * scaleY).round();
 
     if (x < 0 || x >= _maskImage!.width || y < 0 || y >= _maskImage!.height) {
-      setState(() => _selectedPartName = "Toque fora dos limites");
+      setState(() => _selectedPartName = "Fora dos limites");
       return;
     }
 
-    // 1. Lê o pixel da imagem de máscara
     final pixel = _maskImage!.getPixel(x, y);
-    
-    // 2. Converte para o formato inteiro ARGB do Flutter (0xAARRGGBB)
-    // Assumindo que a máscara é 100% opaca onde tem cor (Alpha 255 ou 0xFF)
     int colorInt = (0xFF << 24) | (pixel.r.toInt() << 16) | (pixel.g.toInt() << 8) | pixel.b.toInt();
 
-    // 3. A MÁGICA: Usa o mapa para descobrir o ID baseado na cor
-    final String? foundId = kColorToIdFrontMap[colorInt];
+    final String? foundId = currentScenario.colorToIdMap[colorInt];
 
     setState(() {
       _lastTapPos = details.localPosition;
-
       if (foundId != null) {
-        // 4. Se achou o ID, busca os detalhes (como o nome bonito)
-        final definition = kIdToDefinitionFrontMap[foundId];
-        _selectedPartName = "PARTE: ${definition?.name.toUpperCase()} (ID: ${definition?.dbId})";
-        print("Found ID: $foundId, DB ID: ${definition?.dbId}");
+        final def = currentScenario.idToDefMap[foundId];
+        _selectedPartName = "PARTE: ${def?.name.toUpperCase()}\n(ID: ${def?.dbId})";
       } else {
-        // Se a cor não estiver no mapa (ex: clicou no fundo transparente ou na borda suavizada)
-        _selectedPartName = "Nenhuma parte identificada (Cor: ${colorInt.toRadixString(16)})";
+        _selectedPartName = "Não identificado\nCor: ${colorInt.toRadixString(16)}";
       }
     });
   }
 
+  void _zoomIn() {
+    final Matrix4 matrix = _transformationController.value.clone();
+    matrix.scale(1.5);
+    _transformationController.value = matrix;
+  }
+  void _zoomOut() {
+    final Matrix4 matrix = _transformationController.value.clone();
+    matrix.scale(1 / 1.5);
+    _transformationController.value = matrix;
+  }
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentScenario = scenarios[_currentIndex];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Validação de Mapeamento"),
+        title: Text(currentScenario.title),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: _currentIndex > 0 ? _prevCroqui : null, 
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_ios),
+            onPressed: _currentIndex < scenarios.length - 1 ? _nextCroqui : null,
+          ),
           Switch(
             value: _showMaskOverlay, 
             activeColor: Colors.white,
@@ -118,31 +199,30 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(heroTag: "btnZoomIn", onPressed: _zoomIn, child: const Icon(Icons.add)),
+          FloatingActionButton(heroTag: "zIn", onPressed: _zoomIn, mini: true, child: const Icon(Icons.add)),
           const SizedBox(height: 10),
-          FloatingActionButton(heroTag: "btnZoomOut", onPressed: _zoomOut, child: const Icon(Icons.remove)),
+          FloatingActionButton(heroTag: "zOut", onPressed: _zoomOut, mini: true, child: const Icon(Icons.remove)),
           const SizedBox(height: 10),
-          FloatingActionButton(heroTag: "btnReset", backgroundColor: Colors.redAccent, onPressed: _resetZoom, child: const Icon(Icons.refresh)),
+          FloatingActionButton(heroTag: "rst", backgroundColor: Colors.red, onPressed: _resetZoom, mini: true, child: const Icon(Icons.refresh)),
         ],
       ),
       body: Column(
         children: [
-          // Painel de Resultado (Mais destacado agora)
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-            color: _selectedPartName.startsWith("PARTE:") ? Colors.green[100] : Colors.grey[200],
+            padding: const EdgeInsets.all(12),
+            color: Colors.grey[200],
             width: double.infinity,
             child: Column(
               children: [
-                Text(_status, style: const TextStyle(fontSize: 12)),
-                const SizedBox(height: 10),
-                // Mostra o nome da parte em letras grandes
+                Text("Cenário ${_currentIndex + 1} de ${scenarios.length}", style: const TextStyle(color: Colors.grey)),
+                Text(_status, style: const TextStyle(fontSize: 10)),
+                const SizedBox(height: 5),
                 Text(_selectedPartName, 
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 20, 
-                    color: _selectedPartName.startsWith("PARTE:") ? Colors.green[900] : Colors.black87,
-                    fontWeight: FontWeight.bold
+                    fontSize: 18, 
+                    fontWeight: FontWeight.bold,
+                    color: _selectedPartName.startsWith("PARTE") ? Colors.green[800] : Colors.red,
                   )),
               ],
             ),
@@ -176,18 +256,21 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
                               onTapUp: (d) => _handleTap(d, Size(renderWidth, renderHeight)),
                               child: Stack(
                                 children: [
+                                  // 1. SVG
                                   Positioned.fill(
                                     child: SvgPicture.asset(
-                                      assetVisual,
+                                      currentScenario.svgPath,
                                       fit: BoxFit.fill,
+                                      placeholderBuilder: (ctx) => const Center(child: CircularProgressIndicator()),
                                     ),
                                   ),
+                                  // 2. Máscara (Toggle)
                                   if (_showMaskOverlay)
                                     Positioned.fill(
                                       child: Opacity(
-                                        opacity: 0.6, // Um pouco mais visível
+                                        opacity: 0.6,
                                         child: Image.asset(
-                                          assetMask,
+                                          currentScenario.maskPath,
                                           fit: BoxFit.fill,
                                           gaplessPlayback: true,
                                         ),
@@ -195,10 +278,10 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
                                     ),
                                   if (_lastTapPos != null)
                                     Positioned(
-                                      left: _lastTapPos!.dx - 5,
-                                      top: _lastTapPos!.dy - 5,
+                                      left: _lastTapPos!.dx - 10,
+                                      top: _lastTapPos!.dy - 10,
                                       child: Container(
-                                        width: 10, height: 10,
+                                        width: 20, height: 20,
                                         decoration: BoxDecoration(
                                           border: Border.all(color: Colors.white, width: 2),
                                           color: Colors.red,
