@@ -77,6 +77,12 @@ flutter:
     - assets/database/database_schema.sql
     - assets/images/croqui-frente.svg
     - assets/images/croqui-frente-mask.png
+    - assets/images/croqui-costas.svg
+    - assets/images/croqui-costas-mask.png
+    - assets/images/croqui-rosto-direito.svg
+    - assets/images/croqui-rosto-direito-mask.png
+    - assets/images/croqui-rosto-frente.svg
+    - assets/images/croqui-rosto-frente-mask.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
