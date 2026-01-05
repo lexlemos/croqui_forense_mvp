@@ -19,6 +19,7 @@ import 'package:croqui_forense_mvp/presentation/providers/user_management_provid
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
+import 'package:croqui_forense_mvp/pages/croqui_test_page.dart';
 
 import 'package:croqui_forense_mvp/debug_body_test.dart'; // Apenas para debug
 
@@ -37,7 +38,9 @@ void main() async {
     print("❌ Erro fatal ao abrir banco: $e");
   }
 
-  runApp(const AppRoot());
+ runApp(const MaterialApp(
+    home: CroquiTestPage(),
+  ));
 }
 
 class AppRoot extends StatelessWidget {
