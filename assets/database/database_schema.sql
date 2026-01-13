@@ -125,6 +125,22 @@ CREATE TABLE achados (
     FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE injury_markers (
+    id TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL,
+    croqui_type TEXT NOT NULL, 
+    body_part_id TEXT NOT NULL, 
+    x_percent REAL NOT NULL,
+    y_percent REAL NOT NULL,
+    type TEXT,                
+    size TEXT,
+    depth TEXT,
+    description TEXT,
+    photo_path TEXT,            
+    created_at INTEGER          
+    FOREIGN KEY(case_id) REFERENCES cases(id) 
+);
+
 -- Tabela: evidencias_multimidia
 CREATE TABLE evidencias_multimidia (
     uuid TEXT PRIMARY KEY,

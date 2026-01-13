@@ -33,22 +33,22 @@ class CaseCard extends StatelessWidget {
     final (Color corStatus, Color bgStatus, String textoStatus) = switch (caso.status) {
       StatusCaso.finalizado => (
         Colors.green[700]!,
-        Colors.green.withOpacity(0.1),
+        Colors.green.withValues(alpha: 0.1),
         'FINALIZADO'
       ),
       StatusCaso.rascunho => (
         colorScheme.primary,
-        colorScheme.primary.withOpacity(0.1),
+        colorScheme.primary.withValues(alpha: 0.1),
         'RASCUNHO'
       ),
       StatusCaso.sincronizado => (
         Colors.indigo,
-        Colors.indigo.withOpacity(0.1),
+        Colors.indigo.withValues(alpha: 0.1),
         'SINCRONIZADO'
       ),
       StatusCaso.arquivado => (
         Colors.grey[700]!,
-        Colors.grey.withOpacity(0.1),
+        Colors.grey.withValues(alpha: 0.1),
         'ARQUIVADO'
       ),
     };
@@ -60,7 +60,7 @@ class CaseCard extends StatelessWidget {
         border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: _shadowBlur,
             offset: _shadowOffset,
           ),

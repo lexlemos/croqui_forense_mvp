@@ -21,7 +21,7 @@ class DatabaseSeeder {
     await _seedPermissions();
     await _seedRolePermissions(); 
     await _seedDefaultUser();
-    await _seedCatalogData();
+    await _seedCatalogData(); 
   }
 
   Future<void> _seedRoles() async {
@@ -29,17 +29,10 @@ class DatabaseSeeder {
     if (count != null && count > 0) return;
 
     await db.insert('papeis', {
-      'id': ROLE_ADMIN_ID, 
-      'nome': 'ADMIN', 
-      'descricao': 'Administrador do Sistema', 
-      'e_padrao': 0
+      'id': ROLE_ADMIN_ID, 'nome': 'ADMIN', 'descricao': 'Administrador do Sistema', 'e_padrao': 0
     });
-    
     await db.insert('papeis', {
-      'id': ROLE_LEGISTA_ID, 
-      'nome': 'LEGISTA', 
-      'descricao': 'Médico Perito', 
-      'e_padrao': 1
+      'id': ROLE_LEGISTA_ID, 'nome': 'LEGISTA', 'descricao': 'Médico Perito', 'e_padrao': 1
     });
   }
 
@@ -47,23 +40,9 @@ class DatabaseSeeder {
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM permissoes'));
     if (count != null && count > 0) return;
 
-    await db.insert('permissoes', {
-      'id': PERM_CRIAR_ID, 
-      'codigo': 'CASO_CRIAR', 
-      'descricao': 'Permite iniciar um novo caso.'
-    });
-    
-    await db.insert('permissoes', {
-      'id': PERM_EXPORTAR_ID,
-      'codigo': 'CASO_EXPORTAR', 
-      'descricao': 'Permite gerar o pacote ZIP final.'
-    });
-    
-    await db.insert('permissoes', {
-      'id': PERM_GESTAO_ID,
-      'codigo': 'GESTAO_USUARIOS', 
-      'descricao': 'Permite gerenciar usuários e papéis.'
-    });
+    await db.insert('permissoes', {'id': PERM_CRIAR_ID, 'codigo': 'CASO_CRIAR', 'descricao': 'Permite iniciar um novo caso.'});
+    await db.insert('permissoes', {'id': PERM_EXPORTAR_ID, 'codigo': 'CASO_EXPORTAR', 'descricao': 'Permite gerar o pacote ZIP final.'});
+    await db.insert('permissoes', {'id': PERM_GESTAO_ID, 'codigo': 'GESTAO_USUARIOS', 'descricao': 'Permite gerenciar usuários e papéis.'});
   }
 
   Future<void> _seedRolePermissions() async {
@@ -73,7 +52,6 @@ class DatabaseSeeder {
     await db.insert('papel_permissoes', {'papel_id': ROLE_ADMIN_ID, 'permissao_id': PERM_CRIAR_ID});
     await db.insert('papel_permissoes', {'papel_id': ROLE_ADMIN_ID, 'permissao_id': PERM_EXPORTAR_ID});
     await db.insert('papel_permissoes', {'papel_id': ROLE_ADMIN_ID, 'permissao_id': PERM_GESTAO_ID});
-
     await db.insert('papel_permissoes', {'papel_id': ROLE_LEGISTA_ID, 'permissao_id': PERM_CRIAR_ID});
     await db.insert('papel_permissoes', {'papel_id': ROLE_LEGISTA_ID, 'permissao_id': PERM_EXPORTAR_ID});
   }
@@ -85,7 +63,6 @@ class DatabaseSeeder {
     const String defaultPin = '1234';
     final String salt = SecurityHelper.generateSalt();
     final String hashedPin = SecurityHelper.hashPin(defaultPin, salt);
-    
     final String adminUserId = const Uuid().v4(); 
 
     await db.insert('usuarios', {
@@ -102,29 +79,37 @@ class DatabaseSeeder {
   }
 
   Future<void> _seedCatalogData() async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM tipos_achados'));
-    if (count != null && count > 0) return;
-
-    const String hematomaSchema = '''
-      {
-        "fields": [
-          {"name": "dimensoes", "label": "Dimensões (cm)", "type": "text", "required": true},
-          {"name": "cor", "label": "Coloração", "type": "select", "options": ["Roxa", "Amarelada"], "required": true},
-          {"name": "profundidade", "label": "Profundidade (Tecido)", "type": "boolean", "required": false}
-        ]
-      }
-    ''';
-    
-    await db.insert('tipos_achados', {
-      'id': 'HEMATOMA',
-      'nome': 'Hematoma / Contusão',
-      'schema_formulario_json': hematomaSchema,
-    });
-    
     await db.insert('templates_diagrama', {
-      'id': 'ADULTO_FRENTE',
-      'nome': 'Adulto Masculino - Frente',
-      'caminho_svg': 'assets/diagrams/male_front.svg',
-    });
+      'id': 'corpo_humano_padrao',
+      'nome': 'Corpo Humano Completo',
+      'caminho_svg': 'assets/images/croqui-frente.svg', 
+      'criado_em': FIXED_DATE,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    final types = [
+      {'id': 'equimose', 'nome': 'Equimose'},
+      {'id': 'escoriacao', 'nome': 'Escoriação'},
+      {'id': 'ferida_contusa', 'nome': 'Ferida Contusa'},
+      {'id': 'ferida_cortante', 'nome': 'Ferida Cortante'},
+      {'id': 'perfuracao', 'nome': 'Perfuração'},
+      {'id': 'hematoma', 'nome': 'Hematoma'},
+      {'id': 'edema', 'nome': 'Edema'},
+      {'id': 'fratura', 'nome': 'Fratura'},
+      {'id': 'queimadura', 'nome': 'Queimadura'},
+      {'id': 'outro', 'nome': 'Outro'},
+    ];
+
+    const String defaultSchema = '{"fields": [{"name": "obs", "label": "Observações", "type": "text"}]}';
+
+    for (var t in types) {
+      await db.insert('tipos_achados', {
+        'id': t['id'],
+        'nome': t['nome'],
+        'caminho_icone': null,
+        'schema_formulario_json': defaultSchema,
+        'versao': 1,
+        'criado_em': FIXED_DATE,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
   }
 }

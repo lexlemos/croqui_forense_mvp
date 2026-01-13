@@ -14,14 +14,11 @@ import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
-import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart'; // Se existir
+import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
-import 'package:croqui_forense_mvp/pages/croqui_test_page.dart';
-
-import 'package:croqui_forense_mvp/debug_body_test.dart'; // Apenas para debug
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,14 +30,13 @@ void main() async {
   
   try {
     await DatabaseHelper.instance.database;
-    print("✅ Banco inicializado e pronto (Com migração v2 e UUIDs).");
+    print("✅ Banco inicializado e pronto (Com migração v3 - Achados).");
   } catch (e) {
     print("❌ Erro fatal ao abrir banco: $e");
+    // Criar uma tela de erro fatal depois, por enquanto segue.
   }
 
- runApp(const MaterialApp(
-    home: CroquiTestPage(),
-  ));
+  runApp(const AppRoot());
 }
 
 class AppRoot extends StatelessWidget {
@@ -49,7 +45,6 @@ class AppRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final keyStorage = SecureKeyStorage();
-    
     final dbHelper = DatabaseHelper.instance; 
 
     return MultiProvider(
@@ -60,6 +55,7 @@ class AppRoot extends StatelessWidget {
         Provider<CasoRepository>(
           create: (_) => CasoRepository(dbHelper), 
         ),
+
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
@@ -70,6 +66,7 @@ class AppRoot extends StatelessWidget {
           update: (_, repo, __) => UserService(repo),
         ),
 
+        // --- CAMADA 3: ViewModels / Providers (Dependem dos Serviços) ---
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, previous) => previous!..updateService(authService),
@@ -123,6 +120,10 @@ class _CroquiAppState extends State<CroquiApp> {
           border: OutlineInputBorder(),
           filled: true,
         ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF317FF5),
+          foregroundColor: Colors.white,
+        ),
       ),
       home: authProvider.isLoading 
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
@@ -131,17 +132,13 @@ class _CroquiAppState extends State<CroquiApp> {
   }
 
   Widget _decideHome(AuthProvider auth) {
-    return const DebugBodyTest(); 
-    
-    // Mantenha o código original comentado para voltar depois:
-    /*
     if (!auth.isLogged) {
       return const LoginPage();
     }
     if (auth.usuario?.deveAlterarPin == true) {
       return const ForceChangePinPage();
     }
+    
     return const HomePage();
-    */
   }
 }

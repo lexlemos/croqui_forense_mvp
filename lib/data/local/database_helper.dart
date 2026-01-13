@@ -8,7 +8,8 @@ import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class DatabaseHelper {
   static const String _kDbName = 'croqui_forense_mvp.db';
-  static const int _kVersion = 2; 
+  static const int _kVersion = 3; 
+  
   static const String _kEncKey = 'db_encryption_key';
 
   final IDatabaseFactory _dbFactory;
@@ -59,19 +60,33 @@ class DatabaseHelper {
           for (var sql in kFullDatabaseCreationScripts) {
             await txn.execute(sql);
           }
+
           final seeder = DatabaseSeeder(txn); 
           await seeder.seedAll();
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-
+        
         if (oldVersion < 2) {
           await _migrateV1toV2(db);
+        }
+
+        if (oldVersion < 3) {
+          await _migrateV2toV3(db);
         }
 
       },
     );
   }
+
+  Future<void> _migrateV2toV3(Database db) async {
+    print('Migrando banco V2 -> V3 (Criando tabela achados)...');
+    await db.transaction((txn) async {
+      final scriptAchados = _getScriptFor(tableAchados);
+      await txn.execute(scriptAchados);
+    });
+  }
+
   String _getScriptFor(String tableName) {
     final script = kTableScripts[tableName];
     if (script == null) {
