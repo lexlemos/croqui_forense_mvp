@@ -8,6 +8,10 @@ class InjuryMarker {
   final String? description; 
   final String? photoPath;  
 
+  final String type;
+  final String size;  
+  final String depth; 
+
   InjuryMarker({
     required this.id,
     required this.caseId,
@@ -17,6 +21,9 @@ class InjuryMarker {
     required this.yPercent,
     this.description,
     this.photoPath,
+    this.type = 'Não definido',
+    this.size = '',
+    this.depth = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +36,9 @@ class InjuryMarker {
       'y_percent': yPercent,
       'description': description,
       'photo_path': photoPath,
+      'type': type,
+      'size': size,
+      'depth': depth,
     };
   }
 
@@ -42,6 +52,9 @@ class InjuryMarker {
       yPercent: map['y_percent'],
       description: map['description'],
       photoPath: map['photo_path'],
+      type: map['type'] ?? 'Não definido',
+      size: map['size'] ?? '',
+      depth: map['depth'] ?? '',
     );
   }
 }

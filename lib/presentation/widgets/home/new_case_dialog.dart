@@ -8,14 +8,12 @@ class NewCaseDialog extends StatefulWidget {
 }
 
 class _NewCaseDialogState extends State<NewCaseDialog> {
-  // --- Controladores dos Campos ---
-  // Seção 1: Cabeçalho
+
   final _requisicaoController = TextEditingController();
   final _requisitanteController = TextEditingController();
   final _destinoController = TextEditingController();
   final _vitimaController = TextEditingController();
   
-  // Seção 2: Identificação
   final _vestesController = TextEditingController();
   final _caracteristicasController = TextEditingController();
   final _tanatologiaController = TextEditingController();
