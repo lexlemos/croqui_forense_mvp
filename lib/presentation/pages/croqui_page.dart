@@ -20,6 +20,9 @@ import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart';
 
+import 'dart:convert'; 
+import 'package:path_provider/path_provider.dart';  
+
 class CroquiPage extends StatefulWidget {
   final Caso caso; 
 
@@ -342,10 +345,59 @@ class _CroquiPageState extends State<CroquiPage> {
     }
   }
 
-  void _exportarCaso() {
+Future<void> _exportarCaso() async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Funcionalidade de Exportação em desenvolvimento.")),
+      const SnackBar(content: Text("Gerando arquivo de exportação...")),
     );
+
+    try {
+      final caseService = context.read<CaseService>();
+      final authProvider = context.read<AuthProvider>();
+      final String nomeExportador = authProvider.usuario?.nomeCompleto ?? 'Usuário Desconhecido';
+
+      String nomeCriador;
+      if (authProvider.usuario != null && authProvider.usuario!.id == _casoAtual.idUsuarioCriador) {
+        nomeCriador = authProvider.usuario!.nomeCompleto;
+      } else {
+        nomeCriador = "ID: ${_casoAtual.idUsuarioCriador}";
+      }
+
+      final Map<String, dynamic> dadosExportacao = await caseService.gerarJsonExportacao(
+        _casoAtual.uuid, 
+        nomeCriador,
+        nomeExportador 
+      );
+
+      final encoder = const JsonEncoder.withIndent('  ');
+      final String jsonString = encoder.convert(dadosExportacao);
+
+      final directory = await getTemporaryDirectory();
+      
+      final String safeLaudoNum = (_casoAtual.numeroLaudoExterno ?? 'sem_numero').replaceAll('/', '-');
+      final String fileName = 'export_laudo_$safeLaudoNum.json';
+      
+      final File file = File('${directory.path}/$fileName');
+      await file.writeAsString(jsonString);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Exportado com sucesso para: .../$fileName"),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao gerar JSON: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   List<InjuryMarker> _getMarkersForView(String view) {
@@ -368,7 +420,6 @@ class _CroquiPageState extends State<CroquiPage> {
   @override
   Widget build(BuildContext context) {
     const double sidebarWidth = 320.0;
-
     return DefaultTabController(
       length: 5,
       child: Scaffold(
@@ -492,12 +543,18 @@ class _CroquiPageState extends State<CroquiPage> {
       ),
     );
   }
+Map<String, dynamic> _safeMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
+  }
 
   Widget _buildInfoTab() {
     final dados = _casoAtual.dadosLaudo;
-    final cabecalho = dados['cabecalho'] ?? {};
-    final identificacao = dados['identificacao'] ?? {};
-    final conclusao = dados['conclusao']; 
+    
+    final cabecalho = _safeMap(dados['cabecalho']);
+    final identificacao = _safeMap(dados['identificacao']);
+    final conclusao = dados['conclusao'] != null ? _safeMap(dados['conclusao']) : null;
 
     final authProvider = context.watch<AuthProvider>();
     String responsavelNome = _casoAtual.idUsuarioCriador;
@@ -512,27 +569,27 @@ class _CroquiPageState extends State<CroquiPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInfoSection("DADOS DA REQUISIÇÃO", [
-            _buildInfoRow("Requisição:", cabecalho['requisicao']),
-            _buildInfoRow("Requisitante:", cabecalho['requisitante']),
-            _buildInfoRow("Destino:", cabecalho['destino']),
-            _buildInfoRow("Vítima:", cabecalho['vitima']),
+            _buildInfoRow("Requisição:", cabecalho['requisicao']?.toString()),
+            _buildInfoRow("Requisitante:", cabecalho['requisitante']?.toString()),
+            _buildInfoRow("Destino:", cabecalho['destino']?.toString()),
+            _buildInfoRow("Vítima:", cabecalho['vitima']?.toString()),
           ]),
           const SizedBox(height: 20),
           _buildInfoSection("IDENTIFICAÇÃO E EXAME", [
-            _buildInfoRow("Vestes:", identificacao['vestes']),
-            _buildInfoRow("Características:", identificacao['caracteristicas']),
-            _buildInfoRow("Dados Tanatológicos:", identificacao['dados_tanatologicos']),
+            _buildInfoRow("Vestes:", identificacao['vestes']?.toString()),
+            _buildInfoRow("Características:", identificacao['caracteristicas']?.toString()),
+            _buildInfoRow("Dados Tanatológicos:", identificacao['dados_tanatologicos']?.toString()),
           ]),
           const SizedBox(height: 20),
           
-          if (conclusao != null)
+          if (conclusao != null && conclusao.isNotEmpty)
              _buildInfoSection("CONCLUSÃO DO LAUDO", [
-               _buildInfoRow("1. Houve morte?", conclusao['pergunta_1']),
-               _buildInfoRow("2. Causa:", conclusao['pergunta_2']),
-               _buildInfoRow("3. Instrumento:", conclusao['pergunta_3']),
-               _buildInfoRow("4. Meio insidioso/cruel?", conclusao['pergunta_4']),
+               _buildInfoRow("1. Houve morte?", conclusao['pergunta_1']?.toString()),
+               _buildInfoRow("2. Causa:", conclusao['pergunta_2']?.toString()),
+               _buildInfoRow("3. Instrumento:", conclusao['pergunta_3']?.toString()),
+               _buildInfoRow("4. Meio insidioso/cruel?", conclusao['pergunta_4']?.toString()),
                const Divider(),
-               _buildInfoRow("Data Finalização:", _formatDate(conclusao['data_finalizacao'])),
+               _buildInfoRow("Data Finalização:", _formatDate(conclusao['data_finalizacao']?.toString())),
                _buildInfoRow("Perito Responsável:", responsavelNome),
              ], isDestak: true)
           else

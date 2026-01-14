@@ -2,7 +2,7 @@ import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
-import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart'; // <--- Importe a exceção nova
+import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 
 class AuthService {
   final UsuarioRepository _usuarioRepository;
