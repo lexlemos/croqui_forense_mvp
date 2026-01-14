@@ -132,7 +132,6 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                     setState(() {
                       _criteria = SortCriteria.data;
                       _order = SortOrder.desc;
-                      // Reseta para o padrão usando Set
                       _selectedStatuses = {StatusCaso.rascunho, StatusCaso.finalizado}; 
                     });
                   },
@@ -150,7 +149,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                       FilterResult(
                         sortCriteria: _criteria,
                         sortOrder: _order,
-                        selectedStatuses: _selectedStatuses, // Retorna o Set otimizado
+                        selectedStatuses: _selectedStatuses,
                       ),
                     );
                   },

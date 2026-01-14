@@ -6,7 +6,6 @@ class AchadoService {
 
   AchadoService(this._repository);
 
-  // Singleton
   static final AchadoService instance = AchadoService(AchadoRepository());
 
   Future<void> salvarAchado(Achado achado) async {
@@ -14,7 +13,6 @@ class AchadoService {
   }
 
   Future<void> atualizarAchado(Achado achado) async {
-    // Atualiza a data de modificação
     final achadoAtualizado = Achado(
       uuid: achado.uuid,
       diagramaCasoUuid: achado.diagramaCasoUuid,
@@ -26,9 +24,9 @@ class AchadoService {
       dadosPreenchidos: achado.dadosPreenchidos,
       observacoesTexto: achado.observacoesTexto,
       removido: achado.removido,
-      versao: achado.versao + 1, // Incrementa versão
+      versao: achado.versao + 1, 
       criadoEm: achado.criadoEm,
-      atualizadoEm: DateTime.now(), // Atualiza data
+      atualizadoEm: DateTime.now(),
       deviceId: achado.deviceId,
       proveniencia: achado.proveniencia,
     );

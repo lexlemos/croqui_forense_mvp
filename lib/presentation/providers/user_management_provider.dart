@@ -16,7 +16,6 @@ class UserManagementProvider extends ChangeNotifier {
   int _totalItems = 0;
   String _searchQuery = '';
 
-  // Getters
   List<Usuario> get usuarios => _usuarios;
   List<Papel> get papeis => _papeis;
   bool get isLoading => _isLoading;

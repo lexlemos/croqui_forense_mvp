@@ -8,7 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart';
-import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart'; // <--- Crie este se não tiver!
+import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart'; 
 
 class CroquiScenario {
   final String title;
@@ -57,7 +57,6 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
         colorToIdMap: kColorToIdFrontMap,
         idToDefMap: kIdToDefinitionFrontMap,
       ),
-      // 2. CORPO COSTAS
       CroquiScenario(
         title: "Corpo Costas",
         svgPath: 'assets/images/croqui-costas.svg',
@@ -65,7 +64,6 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
         colorToIdMap: kColorToIdBackMap,
         idToDefMap: kIdToDefinitionBackMap,
       ),
-      // 3. ROSTO DIREITO (Lateral)
       CroquiScenario(
         title: "Rosto Lateral Dir.",
         svgPath: 'assets/images/croqui-rosto-direito.svg',
@@ -256,7 +254,6 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
                               onTapUp: (d) => _handleTap(d, Size(renderWidth, renderHeight)),
                               child: Stack(
                                 children: [
-                                  // 1. SVG
                                   Positioned.fill(
                                     child: SvgPicture.asset(
                                       currentScenario.svgPath,
@@ -264,7 +261,6 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
                                       placeholderBuilder: (ctx) => const Center(child: CircularProgressIndicator()),
                                     ),
                                   ),
-                                  // 2. Máscara (Toggle)
                                   if (_showMaskOverlay)
                                     Positioned.fill(
                                       child: Opacity(

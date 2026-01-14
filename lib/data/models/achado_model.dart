@@ -1,4 +1,4 @@
-import 'dart:convert'; // Necessário para jsonDecode/jsonEncode
+import 'dart:convert'; 
 import 'package:uuid/uuid.dart';
 
 class Achado {

@@ -33,7 +33,6 @@ void main() async {
     print("✅ Banco inicializado e pronto (Com migração v3 - Achados).");
   } catch (e) {
     print("❌ Erro fatal ao abrir banco: $e");
-    // Criar uma tela de erro fatal depois, por enquanto segue.
   }
 
   runApp(const AppRoot());
@@ -65,8 +64,6 @@ class AppRoot extends StatelessWidget {
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),
         ),
-
-        // --- CAMADA 3: ViewModels / Providers (Dependem dos Serviços) ---
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, previous) => previous!..updateService(authService),
