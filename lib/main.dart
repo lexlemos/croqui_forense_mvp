@@ -30,7 +30,7 @@ void main() async {
   
   try {
     await DatabaseHelper.instance.database;
-    print("✅ Banco inicializado e pronto (Com migração v3 - Achados).");
+    print("✅ Banco inicializado e pronto.");
   } catch (e) {
     print("❌ Erro fatal ao abrir banco: $e");
   }
@@ -92,12 +92,18 @@ class CroquiApp extends StatefulWidget {
 }
 
 class _CroquiAppState extends State<CroquiApp> {
-  
+  bool _isInitializing = true; 
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().checkLoginStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<AuthProvider>().checkLoginStatus();
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
     });
   }
 
@@ -122,8 +128,8 @@ class _CroquiAppState extends State<CroquiApp> {
           foregroundColor: Colors.white,
         ),
       ),
-      home: authProvider.isLoading 
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+      home: _isInitializing 
+          ? const _SplashScreen() 
           : _decideHome(authProvider),
     );
   }
@@ -137,5 +143,19 @@ class _CroquiAppState extends State<CroquiApp> {
     }
     
     return const HomePage();
+  }
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF317FF5),
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
   }
 }

@@ -6,24 +6,21 @@ import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 class AuthProvider extends ChangeNotifier {
   AuthService _authService;
   Usuario? _usuario;
-  bool _isLoading = true;
+  bool _isLoading = false; 
 
-  AuthProvider(this._authService) {
-    _init();
-  }
-
+  AuthProvider(this._authService);
 
   void updateService(AuthService newService) {
     _authService = newService;
   }
 
   Usuario? get usuario => _usuario;
-
   bool get isLogged => _usuario != null; 
-  bool get isAuthenticated => _usuario != null;
   bool get isLoading => _isLoading;
 
-  Future<void> _init() async {
+  Future<void> checkLoginStatus() async {
+    _isLoading = true;
+    
     try {
       _usuario = await _authService.checkSession();
     } catch (e) {
@@ -33,29 +30,19 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  Future<void> checkLoginStatus() async {
-    if (_usuario == null) {
-      await _init();
-    }
-  }
 
   Future<void> login(String matricula, String pin) async {
     _isLoading = true;
-    notifyListeners();
+    notifyListeners(); 
 
     try {
       await _authService.login(matricula, pin);
       _usuario = _authService.usuario; 
-      _isLoading = false;
-      notifyListeners();
-    } on AuthException catch (_) {
-      _isLoading = false;
-      notifyListeners();
-      rethrow; 
     } catch (e) {
+      rethrow;
+    } finally {
       _isLoading = false;
-      notifyListeners();
-      throw AuthException('Erro inesperado no login : $e');
+      notifyListeners(); 
     }
   }
 
@@ -65,22 +52,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
+Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
     if (_usuario == null) throw AuthException("Nenhum usuário logado");
 
-      _isLoading = true;
-      notifyListeners();
+    _isLoading = true;
+    notifyListeners();
     try {
       await _authService.trocarPinObrigatorio(_usuario!, novoPin);
-
-      _usuario = await _authService.checkSession(); 
-      
-      notifyListeners();
+      _usuario = _authService.usuario; 
     } catch (e) {
       rethrow;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      notifyListeners(); 
     }
   }
 }
