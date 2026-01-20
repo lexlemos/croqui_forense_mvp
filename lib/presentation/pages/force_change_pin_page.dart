@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/force_change_pin_controller.dart';
 
 class ForceChangePinPage extends StatefulWidget {
   const ForceChangePinPage({super.key});
@@ -10,20 +11,31 @@ class ForceChangePinPage extends StatefulWidget {
 }
 
 class _ForceChangePinPageState extends State<ForceChangePinPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _pinController = TextEditingController();
-  final _confirmController = TextEditingController();
-  bool _isLoading = false;
+  late final ForceChangePinController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ForceChangePinController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Segurança'),
+        centerTitle: true,
         actions: [
-          TextButton(
+          TextButton.icon(
             onPressed: () => context.read<AuthProvider>().logout(),
-            child: const Text('Sair', style: TextStyle(color: Colors.red)),
+            icon: const Icon(Icons.logout, size: 18, color: Colors.red),
+            label: const Text('Sair', style: TextStyle(color: Colors.red)),
           )
         ],
       ),
@@ -33,68 +45,91 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
             child: Form(
-              key: _formKey,
+              key: _controller.formKey,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.lock_reset, size: 64, color: Colors.orange),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.lock_reset, size: 64, color: Colors.orange),
+                  ),
+                  
                   const SizedBox(height: 24),
+                  
                   Text(
                     'Troca de Senha Obrigatória',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold
+                    ),
                     textAlign: TextAlign.center,
                   ),
+                  
                   const SizedBox(height: 12),
+                  
                   const Text(
-                    'Por segurança, você deve definir um novo PIN pessoal para continuar acessando o sistema.',
+                    'Por segurança, defina um novo PIN pessoal de 4 dígitos para liberar seu acesso.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.grey, height: 1.5),
                   ),
+                  
                   const SizedBox(height: 32),
                   
                   TextFormField(
-                    controller: _pinController,
+                    controller: _controller.pinController,
                     keyboardType: TextInputType.number,
                     obscureText: true,
                     maxLength: 4,
                     decoration: const InputDecoration(
-                      labelText: 'Novo PIN (4 dígitos)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.length != 4) return 'Deve ter 4 dígitos';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  TextFormField(
-                    controller: _confirmController,
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    maxLength: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirme o Novo PIN',
+                      labelText: 'Novo PIN',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
+                      counterText: "",
                     ),
-                    validator: (v) {
-                      if (v != _pinController.text) return 'Os PINs não conferem';
-                      return null;
-                    },
+                    validator: _controller.validarPin,
+                    textInputAction: TextInputAction.next,
                   ),
+                  
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _controller.confirmController,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirme o PIN',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.check_circle_outline),
+                      counterText: "",
+                    ),
+                    validator: _controller.validarConfirmacao,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _controller.submitChange(context),
+                  ),
+                  
                   const SizedBox(height: 24),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: _isLoading ? null : _salvarNovoPin,
-                      child: _isLoading 
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('DEFINIR NOVA SENHA'),
-                    ),
+                  Selector<AuthProvider, bool>(
+                    selector: (_, provider) => provider.isLoading,
+                    builder: (context, isLoading, child) {
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: isLoading ? null : () => _controller.submitChange(context),
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 24, 
+                                  height: 24, 
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                )
+                              : const Text('DEFINIR NOVA SENHA'),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -103,25 +138,5 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _salvarNovoPin() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-     try {
-      final authProvider = context.read<AuthProvider>();
-      await authProvider.atualizarPinPrimeiroAcesso(_pinController.text);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
   }
 }

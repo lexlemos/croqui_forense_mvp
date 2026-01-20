@@ -23,6 +23,32 @@ class Usuario {
     this.deviceId,
   });
 
+  Usuario copyWith({
+    String? id,
+    String? matriculaFuncional,
+    String? nomeCompleto,
+    String? papelId,
+    bool? ativo,
+    String? hashPinOffline,
+    bool? deveAlterarPin,
+    String? salt,
+    DateTime? criadoEm,
+    String? deviceId,
+  }) {
+    return Usuario(
+      id: id ?? this.id,
+      matriculaFuncional: matriculaFuncional ?? this.matriculaFuncional,
+      nomeCompleto: nomeCompleto ?? this.nomeCompleto,
+      papelId: papelId ?? this.papelId,
+      ativo: ativo ?? this.ativo,
+      hashPinOffline: hashPinOffline ?? this.hashPinOffline,
+      deveAlterarPin: deveAlterarPin ?? this.deveAlterarPin,
+      salt: salt ?? this.salt,
+      criadoEm: criadoEm ?? this.criadoEm,
+      deviceId: deviceId ?? this.deviceId,
+    );
+  }
+
   factory Usuario.fromMap(Map<String, dynamic> map) {
     return Usuario(
       id: map['id'] as String,
@@ -31,7 +57,7 @@ class Usuario {
       papelId: map['papel_id'] as String,
       hashPinOffline: map['hash_pin_offline'] as String?,
       salt: map['salt'] as String?,
-      ativo: (map['ativo'] as int) == 1, 
+      ativo: (map['ativo'] as int) == 1,
       deveAlterarPin: (map['deve_alterar_pin'] ?? 0) == 1,
       criadoEm: DateTime.parse(map['criado_em'] as String),
       deviceId: map.containsKey('device_id') ? map['device_id'] as String? : null,
@@ -46,12 +72,10 @@ class Usuario {
       'papel_id': papelId,
       'hash_pin_offline': hashPinOffline,
       'deve_alterar_pin': deveAlterarPin ? 1 : 0,
-      'ativo': ativo ? 1 : 0, 
+      'ativo': ativo ? 1 : 0,
       'criado_em': criadoEm.toIso8601String(),
       'salt': salt,
       'device_id': deviceId,
     };
-    
   }
 }
-
