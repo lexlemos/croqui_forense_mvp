@@ -10,6 +10,7 @@ import 'package:croqui_forense_mvp/data/models/injury_marker_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/finalize_case_dialog.dart';
@@ -59,6 +60,17 @@ class CroquiController extends ChangeNotifier {
 
     if (result == null) return;
 
+    String? finalPhotoPath = result['photoPath'];
+    if (finalPhotoPath != null) {
+      try {
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+        finalPhotoPath = compressedFile.path;
+        print("✅ Imagem comprimida com sucesso: $finalPhotoPath");
+      } catch (e) {
+        print("⚠️ Falha na compressão (usando original): $e");
+      }
+    }
+
     final String tipoLesaoNome = result['type'];
     final String tipoLesaoId = _mapNameToId(tipoLesaoNome);
 
@@ -69,7 +81,7 @@ class CroquiController extends ChangeNotifier {
       'type_label': tipoLesaoNome,
       'size': result['size'],
       'depth': result['depth'],
-      'photo_path': result['photoPath'],
+      'photo_path': finalPhotoPath, 
     };
 
     final novoAchadoTemporario = Achado.novo(
@@ -102,13 +114,12 @@ class CroquiController extends ChangeNotifier {
       if (context.mounted) _snack(context, "Achado adicionado!");
     } catch (e) {
       print("❌ Erro: $e");
+      if (context.mounted) _snack(context, "Erro ao salvar: $e", color: Colors.red);
     }
   }
 
   Future<void> editAchado(BuildContext context, Achado achado) async {
-    if (isReadOnly) {
-      return; 
-    }
+    if (isReadOnly) return;
 
     final dados = achado.dadosPreenchidos;
     final String localNome = dados['local_anatomico_nome'] ?? _resolveBodyPartName(dados['view'], achado.tipoAchadoId);
@@ -138,6 +149,19 @@ class CroquiController extends ChangeNotifier {
 
     if (result == null) return;
 
+    String? finalPhotoPath = result['photoPath'];
+    String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
+
+    if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
+       try {
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+        finalPhotoPath = compressedFile.path;
+        print("✅ Nova imagem comprimida na edição");
+      } catch (e) {
+        print("⚠️ Falha na compressão (usando original): $e");
+      }
+    }
+
     final String tipoLesaoNome = result['type'];
     final String tipoLesaoId = _mapNameToId(tipoLesaoNome);
 
@@ -145,7 +169,7 @@ class CroquiController extends ChangeNotifier {
     novosDados['type_label'] = tipoLesaoNome;
     novosDados['size'] = result['size'];
     novosDados['depth'] = result['depth'];
-    novosDados['photo_path'] = result['photoPath'];
+    novosDados['photo_path'] = finalPhotoPath; 
 
     final achadoAtualizado = Achado(
       uuid: achado.uuid,
@@ -174,22 +198,6 @@ class CroquiController extends ChangeNotifier {
     await _loadAchados();
   }
 
-  Future<void> iniciarFinalizacao(BuildContext context) async {
-    final dadosConclusao = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (_) => const FinalizeCaseDialog(),
-    );
-
-    if (dadosConclusao == null) return;
-
-    try {
-      await _caseService.finalizarCaso(casoAtual.uuid, dadosConclusao);
-      await _reloadCaso();
-      if (context.mounted) _snack(context, "Caso finalizado!", color: Colors.green);
-    } catch (e) {
-      if (context.mounted) _snack(context, "Erro: $e");
-    }
-  }
 
   Future<void> reabrirCaso(BuildContext context) async {
     try {
@@ -240,6 +248,52 @@ class CroquiController extends ChangeNotifier {
          ScaffoldMessenger.of(context).hideCurrentSnackBar();
         _snack(context, "Erro ao gerar JSON: $e", color: Colors.red);
       }
+    }
+  }
+
+  void atualizarDadosLaudoMemoria(Map<String, dynamic> novosDados) {
+    casoAtual = Caso(
+      uuid: casoAtual.uuid,
+      idUsuarioCriador: casoAtual.idUsuarioCriador,
+      numeroLaudoExterno: casoAtual.numeroLaudoExterno,
+      status: casoAtual.status,
+      hashIntegridade: casoAtual.hashIntegridade,
+      removido: casoAtual.removido,
+      versao: casoAtual.versao,
+      criadoEmDispositivo: casoAtual.criadoEmDispositivo,
+      criadoEmRedeConfiavel: casoAtual.criadoEmRedeConfiavel,
+      atualizadoEm: DateTime.now(),
+      deviceId: casoAtual.deviceId,
+      dadosLaudo: novosDados,
+      proveniencia: casoAtual.proveniencia,
+    );
+  }
+
+  Future<void> finalizarCasoDireto(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Finalizar Laudo?"),
+        content: const Text("O caso será marcado como concluído e não poderá ser mais editado.\n\nConfirma que revisou todos os dados e quesitos?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text("FINALIZAR")
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
+      await _reloadCaso();
+      if (context.mounted) _snack(context, "Caso finalizado com sucesso!", color: Colors.green);
+    } catch (e) {
+      if (context.mounted) _snack(context, "Erro ao finalizar: $e", color: Colors.red);
     }
   }
 
