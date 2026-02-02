@@ -93,20 +93,6 @@ class _CroquiView extends StatelessWidget {
                   ),
                 ],
               ),
-            if (!controller.isReadOnly)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-                child: ElevatedButton.icon(
-                  onPressed: () => controller.iniciarFinalizacao(context),
-                  icon: const Icon(Icons.check_circle, size: 18),
-                  label: const Text("CONCLUIR"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.indigo,
-                    elevation: 0,
-                  ),
-                ),
-              )
           ],
           bottom: const TabBar(
             isScrollable: true,
@@ -139,7 +125,7 @@ class _CroquiView extends StatelessWidget {
                     _buildCroquiTab(context, controller, 'lateral_esq', 'assets/images/croqui-rosto-frente.svg',
                         'assets/images/croqui-rosto-frente-mask.png', kColorToIdLateralLeftMap, kIdToDefinitionLateralLeftMap),
                     
-                    CaseInfoTab(caso: controller.casoAtual),
+                    CaseInfoTab(),
                   ],
                 ),
               ),

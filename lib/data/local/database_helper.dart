@@ -62,6 +62,7 @@ class DatabaseHelper {
           }
 
           final seeder = DatabaseSeeder(txn); 
+          await _criarIndices(db);
           await seeder.seedAll();
         });
       },
@@ -72,6 +73,7 @@ class DatabaseHelper {
         }
 
         if (oldVersion < 3) {
+          await _criarIndices(db);
           await _migrateV2toV3(db);
         }
 
@@ -162,6 +164,18 @@ class DatabaseHelper {
 
       await txn.execute('PRAGMA foreign_keys = ON');
     });
+  }
+
+  Future<void> _criarIndices(Database db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_usuarios_papel ON usuarios (papel_id);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_casos_criador ON casos (id_usuario_criador);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_diagramas_caso ON diagramas_do_caso (caso_uuid);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_achados_diagrama ON achados (diagrama_caso_uuid);');
+    
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_casos_status ON casos (status);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_achados_pendente ON achados (esta_pendente);');
+    
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_casos_data ON casos (criado_em_dispositivo);');
   }
 
   Future<void> _performTableMigration(Transaction txn, {
