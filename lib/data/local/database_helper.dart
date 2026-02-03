@@ -8,8 +8,8 @@ import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class DatabaseHelper {
   static const String _kDbName = 'croqui_forense_mvp.db';
-  static const int _kVersion = 3; 
-  
+  static const int _kVersion = 4; 
+
   static const String _kEncKey = 'db_encryption_key';
 
   final IDatabaseFactory _dbFactory;
@@ -42,7 +42,7 @@ class DatabaseHelper {
     final path = join(dbPath, _kDbName);
 
     var key = await _keyStorage.read(key: _kEncKey);
-    
+
     if (key == null) {
       key = const Uuid().v4() + const Uuid().v4();
       await _keyStorage.save(key: _kEncKey, value: key);
@@ -61,13 +61,15 @@ class DatabaseHelper {
             await txn.execute(sql);
           }
 
-          final seeder = DatabaseSeeder(txn); 
-          await _criarIndices(db);
+          final seeder = DatabaseSeeder(txn);
           await seeder.seedAll();
+
+          await _createAndSeedInjuryTypes(txn);
+
+          await _criarIndices(db);
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        
         if (oldVersion < 2) {
           await _migrateV1toV2(db);
         }
@@ -77,9 +79,54 @@ class DatabaseHelper {
           await _migrateV2toV3(db);
         }
 
+        if (oldVersion < 4) {
+          await _migrateV3toV4(db);
+        }
       },
     );
   }
+
+  Future<void> _createAndSeedInjuryTypes(Transaction txn) async {
+    print('Criando e populando tabela injury_types...');
+    
+    await txn.execute('''
+      CREATE TABLE IF NOT EXISTS injury_types (
+        id TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        ordem INTEGER DEFAULT 0,
+        ativo INTEGER DEFAULT 1
+      )
+    ''');
+
+    List<Map<String, dynamic>> padroes = [
+      {'id': 'equimose', 'label': 'Equimose', 'ordem': 1},
+      {'id': 'escoriacao', 'label': 'Escoriação', 'ordem': 2},
+      {'id': 'ferida_contusa', 'label': 'Ferida Contusa', 'ordem': 3},
+      {'id': 'ferida_cortante', 'label': 'Ferida Cortante', 'ordem': 4},
+      {'id': 'perfuracao', 'label': 'Perfuração', 'ordem': 5},
+      {'id': 'hematoma', 'label': 'Hematoma', 'ordem': 6},
+      {'id': 'edema', 'label': 'Edema', 'ordem': 7},
+      {'id': 'fratura', 'label': 'Fratura', 'ordem': 8},
+      {'id': 'queimadura', 'label': 'Queimadura', 'ordem': 9},
+      {'id': 'tiro', 'label': 'Tiro / PAF', 'ordem': 10},
+      {'id': 'outro', 'label': 'Outro', 'ordem': 99},
+    ];
+
+    for (var item in padroes) {
+      final exists = await txn.rawQuery('SELECT 1 FROM injury_types WHERE id = ?', [item['id']]);
+      if (exists.isEmpty) {
+        await txn.insert('injury_types', item);
+      }
+    }
+  }
+
+  Future<void> _migrateV3toV4(Database db) async {
+    print('Migrando banco V3 -> V4 (Injury Types)...');
+    await db.transaction((txn) async {
+      await _createAndSeedInjuryTypes(txn);
+    });
+  }
+
 
   Future<void> _migrateV2toV3(Database db) async {
     print('Migrando banco V2 -> V3 (Criando tabela achados)...');
@@ -92,6 +139,7 @@ class DatabaseHelper {
   String _getScriptFor(String tableName) {
     final script = kTableScripts[tableName];
     if (script == null) {
+      if (tableName == 'injury_types') return ''; 
       throw Exception("Script de criação para tabela '$tableName' não encontrado em kTableScripts.");
     }
     return script;
@@ -102,22 +150,22 @@ class DatabaseHelper {
       await txn.execute('PRAGMA foreign_keys = OFF');
 
       await _performTableMigration(
-        txn, 
-        tableName: tablePapeis, 
-        createScript: _getScriptFor(tablePapeis), 
+        txn,
+        tableName: tablePapeis,
+        createScript: _getScriptFor(tablePapeis),
         copyScript: 'INSERT INTO papeis (id, nome, descricao, e_padrao) SELECT CAST(id AS TEXT), nome, descricao, e_padrao FROM papeis_old'
       );
       await _performTableMigration(
-        txn, 
-        tableName: tablePermissoes, 
-        createScript: _getScriptFor(tablePermissoes), 
+        txn,
+        tableName: tablePermissoes,
+        createScript: _getScriptFor(tablePermissoes),
         copyScript: 'INSERT INTO permissoes (id, codigo, descricao) SELECT CAST(id AS TEXT), codigo, descricao FROM permissoes_old'
       );
 
       await _performTableMigration(
-        txn, 
-        tableName: tableUsuarios, 
-        createScript: _getScriptFor(tableUsuarios), 
+        txn,
+        tableName: tableUsuarios,
+        createScript: _getScriptFor(tableUsuarios),
         copyScript: '''
           INSERT INTO usuarios (
             id, matricula_funcional, papel_id, nome_completo, ativo, hash_pin_offline, 
@@ -131,9 +179,9 @@ class DatabaseHelper {
       );
 
       await _performTableMigration(
-        txn, 
-        tableName: tablePapelPermissoes, 
-        createScript: _getScriptFor(tablePapelPermissoes), 
+        txn,
+        tableName: tablePapelPermissoes,
+        createScript: _getScriptFor(tablePapelPermissoes),
         copyScript: '''
           INSERT INTO papel_permissoes (papel_id, permissao_id) 
           SELECT CAST(papel_id AS TEXT), CAST(permissao_id AS TEXT) 
@@ -143,7 +191,7 @@ class DatabaseHelper {
       await _performTableMigration(
         txn,
         tableName: tableCasos,
-        createScript: _getScriptFor(tableCasos), 
+        createScript: _getScriptFor(tableCasos),
         copyScript: '''
           INSERT INTO casos (uuid, id_usuario_criador, numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia)
           SELECT uuid, CAST(id_usuario_criador AS TEXT), numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia
@@ -184,7 +232,7 @@ class DatabaseHelper {
     required String copyScript,
   }) async {
     final check = await txn.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
-    if (check.isEmpty) return; 
+    if (check.isEmpty) return;
 
     print('Migrando tabela: $tableName...');
 

@@ -299,6 +299,7 @@ Widget _buildTextField(String label, TextEditingController ctrl, {
         controller: ctrl,
         readOnly: false, 
         maxLines: maxLines,
+        onChanged: (_) => _salvarDadosNoController(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(

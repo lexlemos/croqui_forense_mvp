@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -210,9 +211,13 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> exportarCaso(BuildContext context) async {
-    _snack(context, "Gerando arquivo de exportação...");
+    _snack(context, "Salvando e gerando arquivo...");
 
     try {
+      if (!isReadOnly) {
+        await _caseService.salvarRascunho(casoAtual);
+      }
+
       final authProvider = context.read<AuthProvider>();
       final String nomeExportador = authProvider.usuario?.nomeCompleto ?? 'Usuário Desconhecido';
       
@@ -222,31 +227,31 @@ class CroquiController extends ChangeNotifier {
       } else {
         nomeCriador = "ID: ${casoAtual.idUsuarioCriador}";
       }
-      final Map<String, dynamic> dadosExportacao = await _caseService.gerarJsonExportacao(
-        casoAtual.uuid, 
-        nomeCriador,
-        nomeExportador
+
+      final directory = await getApplicationDocumentsDirectory(); 
+
+      final File arquivoGerado = await _caseService.exportarJsonUnicoComBase64(
+        casoUuid: casoAtual.uuid,
+        nomeCriador: nomeCriador,
+        nomeExportador: nomeExportador,
+        diretorioTemp: directory.path,
       );
-
-      final encoder = const JsonEncoder.withIndent('  ');
-      final String jsonString = encoder.convert(dadosExportacao);
-
-      final directory = await getTemporaryDirectory();
-      final String safeLaudoNum = (casoAtual.numeroLaudoExterno ?? 'sem_numero').replaceAll('/', '-');
-      final String fileName = 'export_laudo_$safeLaudoNum.json';
-      
-      final File file = File('${directory.path}/$fileName');
-      await file.writeAsString(jsonString);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        _snack(context, "Exportado: .../$fileName", color: Colors.green);
+        
+        final xFile = XFile(arquivoGerado.path);
+        await Share.shareXFiles(
+          [xFile],
+          text: 'Laudo exportado com sucesso.',
+          subject: 'Laudo ${casoAtual.numeroLaudoExterno}',
+        );
       }
 
     } catch (e) {
       if (context.mounted) {
          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        _snack(context, "Erro ao gerar JSON: $e", color: Colors.red);
+        _snack(context, "Erro ao exportar: $e", color: Colors.red);
       }
     }
   }
