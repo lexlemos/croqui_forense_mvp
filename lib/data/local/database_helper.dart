@@ -87,7 +87,6 @@ class DatabaseHelper {
   }
 
   Future<void> _createAndSeedInjuryTypes(Transaction txn) async {
-    print('Criando e populando tabela injury_types...');
     
     await txn.execute('''
       CREATE TABLE IF NOT EXISTS injury_types (
@@ -98,26 +97,9 @@ class DatabaseHelper {
       )
     ''');
 
-    List<Map<String, dynamic>> padroes = [
-      {'id': 'equimose', 'label': 'Equimose', 'ordem': 1},
-      {'id': 'escoriacao', 'label': 'Escoriação', 'ordem': 2},
-      {'id': 'ferida_contusa', 'label': 'Ferida Contusa', 'ordem': 3},
-      {'id': 'ferida_cortante', 'label': 'Ferida Cortante', 'ordem': 4},
-      {'id': 'perfuracao', 'label': 'Perfuração', 'ordem': 5},
-      {'id': 'hematoma', 'label': 'Hematoma', 'ordem': 6},
-      {'id': 'edema', 'label': 'Edema', 'ordem': 7},
-      {'id': 'fratura', 'label': 'Fratura', 'ordem': 8},
-      {'id': 'queimadura', 'label': 'Queimadura', 'ordem': 9},
-      {'id': 'tiro', 'label': 'Tiro / PAF', 'ordem': 10},
-      {'id': 'outro', 'label': 'Outro', 'ordem': 99},
-    ];
 
-    for (var item in padroes) {
-      final exists = await txn.rawQuery('SELECT 1 FROM injury_types WHERE id = ?', [item['id']]);
-      if (exists.isEmpty) {
-        await txn.insert('injury_types', item);
-      }
-    }
+    final seeder = DatabaseSeeder(txn);
+    await seeder.seedInjuryTypes();
   }
 
   Future<void> _migrateV3toV4(Database db) async {

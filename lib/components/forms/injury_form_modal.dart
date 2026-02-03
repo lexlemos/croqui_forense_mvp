@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/injury_marker_model.dart';
+import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
+import 'package:croqui_forense_mvp/data/models/injury_type_model.dart'; 
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -28,13 +30,12 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   String? _currentPhotoPath;
   String? _selectedType;
+  bool _isLoadingTypes = true; 
   
   final ImagePicker _picker = ImagePicker();
+  final InjuryTypeRepository _repository = InjuryTypeRepository(); 
 
-  final List<String> _injuryTypes = [
-    'Equimose', 'Escoriação', 'Ferida Contusa', 
-    'Ferida Cortante', 'Perfuração', 'Hematoma', 'Outro'
-  ];
+  List<InjuryType> _availableTypes = [];
 
   @override
   void initState() {
@@ -46,11 +47,36 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _obsController = TextEditingController(text: m?.description ?? '');
     
     _currentPhotoPath = m?.photoPath;
+    
+    _loadTypes(initialType: m?.type);
+  }
 
-    if (m != null && _injuryTypes.contains(m.type)) {
-      _selectedType = m.type;
-    } else {
-      _selectedType = null;
+  Future<void> _loadTypes({String? initialType}) async {
+    try {
+      final types = await _repository.getAllTypes();
+      
+      if (mounted) {
+        setState(() {
+          _availableTypes = types;
+          _isLoadingTypes = false;
+
+          if (initialType != null) {
+            final exists = _availableTypes.any((t) => t.label == initialType);
+            
+            if (exists) {
+              _selectedType = initialType;
+            } else {
+              _availableTypes.add(InjuryType(id: 'legacy', label: initialType));
+              _selectedType = initialType;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print("Erro ao carregar tipos de lesão: $e");
+      if (mounted) {
+        setState(() => _isLoadingTypes = false);
+      }
     }
   }
 
@@ -74,8 +100,13 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       if (photo == null) return;
 
       final Directory appDir = await getApplicationDocumentsDirectory();
+      final evidenciasDir = Directory('${appDir.path}/evidencias');
+      if (!await evidenciasDir.exists()) {
+        await evidenciasDir.create(recursive: true);
+      }
+
       final String fileName = '${const Uuid().v4()}.jpg';
-      final String localPath = '${appDir.path}/$fileName';
+      final String localPath = '${evidenciasDir.path}/$fileName';
 
       await File(photo.path).copy(localPath);
 
@@ -150,13 +181,22 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               ),
               const SizedBox(height: 16),
 
-              DropdownButtonFormField<String>(
-                value: _selectedType,
-                decoration: const InputDecoration(labelText: 'Tipo de Lesão', border: OutlineInputBorder()),
-                items: _injuryTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                onChanged: (v) => setState(() => _selectedType = v),
-                validator: (v) => v == null ? 'Selecione um tipo' : null,
-              ),
+              _isLoadingTypes 
+                  ? const Center(child: LinearProgressIndicator()) 
+                  : DropdownButtonFormField<String>(
+                      initialValue: _selectedType,
+                      decoration: const InputDecoration(labelText: 'Tipo de Lesão', border: OutlineInputBorder()),
+                      items: [
+                        for (final typeObj in _availableTypes)
+                           DropdownMenuItem<String>(
+                            value: typeObj.label,
+                            child: Text(typeObj.label),
+                          )
+                      ],
+                      onChanged: (v) => setState(() => _selectedType = v),
+                      validator: (v) => v == null ? 'Selecione um tipo' : null,
+                    ),
+              
               const SizedBox(height: 12),
 
               Row(

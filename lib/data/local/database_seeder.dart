@@ -23,6 +23,34 @@ class DatabaseSeeder {
     await _seedDefaultUser();
     await _seedCatalogData(); 
   }
+  Future<void> seedInjuryTypes() async {
+    
+    List<Map<String, dynamic>> padroes = [
+      {'id': 'equimose', 'label': 'Equimose', 'ordem': 1},
+      {'id': 'escoriacao', 'label': 'Escoriação', 'ordem': 2},
+      {'id': 'ferida_contusa', 'label': 'Ferida Contusa', 'ordem': 3},
+      {'id': 'ferida_cortante', 'label': 'Ferida Cortante', 'ordem': 4},
+      {'id': 'perfuracao', 'label': 'Perfuração', 'ordem': 5},
+      {'id': 'hematoma', 'label': 'Hematoma', 'ordem': 6},
+      {'id': 'edema', 'label': 'Edema', 'ordem': 7},
+      {'id': 'fratura', 'label': 'Fratura', 'ordem': 8},
+      {'id': 'queimadura', 'label': 'Queimadura', 'ordem': 9},
+      {'id': 'tiro', 'label': 'Tiro / PAF', 'ordem': 10},
+      {'id': 'outro', 'label': 'Outro', 'ordem': 99},
+    ];
+
+    for (var item in padroes) {
+      final List<Map<String, dynamic>> exists = await db.query(
+        'injury_types',
+        where: 'id = ?',
+        whereArgs: [item['id']],
+      );
+      
+      if (exists.isEmpty) {
+        await db.insert('injury_types', item);
+      }
+    }
+  }
 
   Future<void> _seedRoles() async {
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papeis'));
