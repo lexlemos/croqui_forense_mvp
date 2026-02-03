@@ -101,6 +101,25 @@ class CaseService {
     return {}; 
   }
 
+  Future<void> salvarRascunho(Caso caso) async {
+    final casoAtualizado = Caso(
+      uuid: caso.uuid,
+      idUsuarioCriador: caso.idUsuarioCriador,
+      numeroLaudoExterno: caso.numeroLaudoExterno,
+      status: caso.status,
+      hashIntegridade: caso.hashIntegridade,
+      removido: caso.removido,
+      versao: caso.versao,
+      criadoEmDispositivo: caso.criadoEmDispositivo,
+      criadoEmRedeConfiavel: caso.criadoEmRedeConfiavel,
+      atualizadoEm: DateTime.now(),
+      deviceId: caso.deviceId,
+      dadosLaudo: caso.dadosLaudo,
+      proveniencia: caso.proveniencia,
+    );
+    await _repository.updateCase(casoAtualizado);
+  }
+
   Future<File> exportarJsonUnicoComBase64({
     required String casoUuid,
     required String nomeCriador,
