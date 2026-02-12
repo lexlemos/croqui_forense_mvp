@@ -63,13 +63,8 @@ class CroquiController extends ChangeNotifier {
 
     String? finalPhotoPath = result['photoPath'];
     if (finalPhotoPath != null) {
-      try {
         final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
         finalPhotoPath = compressedFile.path;
-        print("✅ Imagem comprimida com sucesso: $finalPhotoPath");
-      } catch (e) {
-        print("⚠️ Falha na compressão (usando original): $e");
-      }
     }
 
     final String tipoLesaoNome = result['type'];
@@ -114,7 +109,6 @@ class CroquiController extends ChangeNotifier {
       await _loadAchados();
       if (context.mounted) _snack(context, "Achado adicionado!");
     } catch (e) {
-      print("❌ Erro: $e");
       if (context.mounted) _snack(context, "Erro ao salvar: $e", color: Colors.red);
     }
   }
@@ -154,13 +148,8 @@ class CroquiController extends ChangeNotifier {
     String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
 
     if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
-       try {
         final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
         finalPhotoPath = compressedFile.path;
-        print("✅ Nova imagem comprimida na edição");
-      } catch (e) {
-        print("⚠️ Falha na compressão (usando original): $e");
-      }
     }
 
     final String tipoLesaoNome = result['type'];

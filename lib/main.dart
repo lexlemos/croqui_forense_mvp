@@ -27,13 +27,6 @@ void main() async {
   final keyStorage = SecureKeyStorage();
   
   DatabaseHelper.init(dbFactory, keyStorage);
-  
-  try {
-    await DatabaseHelper.instance.database;
-    print("✅ Banco inicializado e pronto.");
-  } catch (e) {
-    print("❌ Erro fatal ao abrir banco: $e");
-  }
 
   runApp(const AppRoot());
 }

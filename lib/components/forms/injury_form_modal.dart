@@ -73,7 +73,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         });
       }
     } catch (e) {
-      print("Erro ao carregar tipos de lesão: $e");
       if (mounted) {
         setState(() => _isLoadingTypes = false);
       }
@@ -115,8 +114,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       });
     } catch (e) {
       if (mounted) {
+        debugPrint("Erro na câmera: $e");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro na câmera: $e')),
+          const SnackBar(content: Text('Ocorreu um erro ao usar a câmera.')),
         );
       }
     }
