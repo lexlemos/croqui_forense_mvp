@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image/image.dart' as img;
 import '../../data/models/injury_marker_model.dart';
+import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 
 typedef OnBodyPartSelected = void Function(
   String bodyPartId, 
@@ -16,7 +17,7 @@ class CroquiViewer extends StatefulWidget {
   final String svgPath;
   final String maskPath;
   final Map<int, String> colorToIdMap;     
-  final Map<String, dynamic> idToDefMap;   
+  final Map<String, BodyPartDefinition> idToDefMap;   
   final List<InjuryMarker> markers;        
   final OnBodyPartSelected onPartTap;      
 
@@ -39,7 +40,6 @@ class _CroquiViewerState extends State<CroquiViewer> {
   bool _isLoading = true;
   String? _errorMessage;
   
-  // Chave global para pegar o tamanho exato da imagem renderizada na tela
   final GlobalKey _imageKey = GlobalKey();
 
   @override

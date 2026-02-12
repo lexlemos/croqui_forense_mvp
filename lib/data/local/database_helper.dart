@@ -103,7 +103,6 @@ class DatabaseHelper {
   }
 
   Future<void> _migrateV3toV4(Database db) async {
-    print('Migrando banco V3 -> V4 (Injury Types)...');
     await db.transaction((txn) async {
       await _createAndSeedInjuryTypes(txn);
     });
@@ -111,7 +110,6 @@ class DatabaseHelper {
 
 
   Future<void> _migrateV2toV3(Database db) async {
-    print('Migrando banco V2 -> V3 (Criando tabela achados)...');
     await db.transaction((txn) async {
       final scriptAchados = _getScriptFor(tableAchados);
       await txn.execute(scriptAchados);
@@ -216,7 +214,6 @@ class DatabaseHelper {
     final check = await txn.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
     if (check.isEmpty) return;
 
-    print('Migrando tabela: $tableName...');
 
     await txn.execute('ALTER TABLE $tableName RENAME TO ${tableName}_old');
     await txn.execute(createScript);
