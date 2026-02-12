@@ -138,7 +138,7 @@ class _CroquiView extends StatelessWidget {
                 achados: controller.achados,
                 isReadOnly: controller.isReadOnly,
                 onEdit: (achado) => _showEditOrDetail(context, controller, achado),
-                onDelete: (uuid) => controller.deleteAchado(uuid),
+                onDelete: (uuid) => controller.deleteAchado(context, uuid),
               ),
             )
           ],
@@ -148,7 +148,7 @@ class _CroquiView extends StatelessWidget {
   }
 
   Widget _buildCroquiTab(BuildContext context, CroquiController controller, String view, String svg, String mask,
-      Map<int, String> colors, Map<String, dynamic> defs) {
+      Map<int, String> colors, Map<String, BodyPartDefinition> defs) {
     return CroquiViewer(
       svgPath: svg,
       maskPath: mask,

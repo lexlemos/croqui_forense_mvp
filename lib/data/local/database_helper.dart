@@ -119,7 +119,6 @@ class DatabaseHelper {
   String _getScriptFor(String tableName) {
     final script = kTableScripts[tableName];
     if (script == null) {
-      if (tableName == 'injury_types') return ''; 
       throw Exception("Script de criação para tabela '$tableName' não encontrado em kTableScripts.");
     }
     return script;
