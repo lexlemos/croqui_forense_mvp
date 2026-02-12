@@ -5,11 +5,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/injury_marker_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
-import 'package:croqui_forense_mvp/data/models/injury_type_model.dart'; 
+import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
-  final InjuryMarker? markerToEdit; 
+  final InjuryMarker? markerToEdit;
 
   const InjuryFormModal({
     super.key,
@@ -29,11 +29,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   late TextEditingController _obsController;
 
   String? _currentPhotoPath;
-  String? _selectedType;
-  bool _isLoadingTypes = true; 
+  InjuryType? _selectedType; 
+  bool _isLoadingTypes = true;
   
   final ImagePicker _picker = ImagePicker();
-  final InjuryTypeRepository _repository = InjuryTypeRepository(); 
+  final InjuryTypeRepository _repository = InjuryTypeRepository();
 
   List<InjuryType> _availableTypes = [];
 
@@ -48,10 +48,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     
     _currentPhotoPath = m?.photoPath;
     
-    _loadTypes(initialType: m?.type);
+    _loadTypes(initialTypeLabel: m?.type);
   }
 
-  Future<void> _loadTypes({String? initialType}) async {
+  Future<void> _loadTypes({String? initialTypeLabel}) async {
     try {
       final types = await _repository.getAllTypes();
       
@@ -60,19 +60,20 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           _availableTypes = types;
           _isLoadingTypes = false;
 
-          if (initialType != null) {
-            final exists = _availableTypes.any((t) => t.label == initialType);
-            
-            if (exists) {
-              _selectedType = initialType;
-            } else {
-              _availableTypes.add(InjuryType(id: 'legacy', label: initialType));
-              _selectedType = initialType;
-            }
+          if (initialTypeLabel != null) {
+            final found = _availableTypes.firstWhere(
+              (t) => t.label == initialTypeLabel,
+              orElse: () {
+                final legacy = InjuryType(id: 'legacy', label: initialTypeLabel);
+                _availableTypes.add(legacy);
+                return legacy;
+              },
+            );
+            _selectedType = found;
           }
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() => _isLoadingTypes = false);
       }
@@ -92,8 +93,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 50, 
-        maxWidth: 600,
-        maxHeight: 600,
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
 
       if (photo == null) return;
@@ -151,7 +152,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   void _saveForm() {
     if (_formKey.currentState!.validate()) {
       Navigator.pop(context, {
-        'type': _selectedType ?? 'Não especificado',
+        'type': _selectedType?.label ?? 'Não especificado',
+        'typeId': _selectedType?.id, 
         'size': _sizeController.text,
         'depth': _depthController.text,
         'description': _obsController.text,
@@ -175,24 +177,26 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             children: [
               Text(
                 widget.markerToEdit == null 
-                  ? "Novo Achado: ${widget.bodyPartName}" 
-                  : "Editando: ${widget.bodyPartName}",
+                    ? "Novo Achado: ${widget.bodyPartName}" 
+                    : "Editando: ${widget.bodyPartName}",
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
               ),
               const SizedBox(height: 16),
 
               _isLoadingTypes 
                   ? const Center(child: LinearProgressIndicator()) 
-                  : DropdownButtonFormField<String>(
-                      initialValue: _selectedType,
-                      decoration: const InputDecoration(labelText: 'Tipo de Lesão', border: OutlineInputBorder()),
-                      items: [
-                        for (final typeObj in _availableTypes)
-                           DropdownMenuItem<String>(
-                            value: typeObj.label,
-                            child: Text(typeObj.label),
-                          )
-                      ],
+                  : DropdownButtonFormField<InjuryType>( 
+                      value: _selectedType,
+                      decoration: const InputDecoration(
+                        labelText: 'Tipo de Lesão', 
+                        border: OutlineInputBorder()
+                      ),
+                      items: _availableTypes.map((typeObj) {
+                        return DropdownMenuItem<InjuryType>(
+                          value: typeObj,
+                          child: Text(typeObj.label),
+                        );
+                      }).toList(),
                       onChanged: (v) => setState(() => _selectedType = v),
                       validator: (v) => v == null ? 'Selecione um tipo' : null,
                     ),
@@ -204,6 +208,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                   Expanded(
                     child: TextFormField(
                       controller: _sizeController,
+                      keyboardType: TextInputType.number,
                       decoration: const InputDecoration(labelText: 'Tamanho (cm)', border: OutlineInputBorder()),
                     ),
                   ),

@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:uuid/uuid.dart'; 
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -14,7 +14,6 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/home/finalize_case_dialog.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart';
@@ -45,9 +44,28 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  // --- MÉTODOS PARA O CROQUI ---
+
+  List<InjuryMarker> getMarkersForView(String view) {
+    return achados
+        .where((a) => (a.dadosPreenchidos['view'] ?? '') == view)
+        .map((a) {
+          return InjuryMarker(
+            id: a.uuid,
+            caseId: a.diagramaCasoUuid,
+            croquiType: view,
+            bodyPartId: a.dadosPreenchidos['local_anatomico_id'] ?? 'desconhecido',
+            xPercent: a.posX,
+            yPercent: a.posY,
+            type: a.dadosPreenchidos['type_label'] ?? '',
+            photoPath: a.dadosPreenchidos['photo_path'],
+          );
+        }).toList();
+  }
+
   Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
     if (isReadOnly) {
-      _snack(context, "Caso finalizado. Edição bloqueada.");
+      if (context.mounted) _snack(context, "Caso finalizado. Edição bloqueada.");
       return;
     }
 
@@ -63,12 +81,14 @@ class CroquiController extends ChangeNotifier {
 
     String? finalPhotoPath = result['photoPath'];
     if (finalPhotoPath != null) {
-        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
-        finalPhotoPath = compressedFile.path;
+      final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+      finalPhotoPath = compressedFile.path;
     }
 
+    if (!context.mounted) return;
+
+    final String tipoLesaoId = result['typeId'] ?? 'outro';
     final String tipoLesaoNome = result['type'];
-    final String tipoLesaoId = _mapNameToId(tipoLesaoNome);
 
     final Map<String, dynamic> dadosExtras = {
       'view': viewType,
@@ -80,24 +100,16 @@ class CroquiController extends ChangeNotifier {
       'photo_path': finalPhotoPath, 
     };
 
-    final novoAchadoTemporario = Achado.novo(
+    final achadoFinal = Achado(
+      uuid: const Uuid().v4(),
       diagramaCasoUuid: casoAtual.uuid,
       tipoAchadoId: tipoLesaoId,
       numeroSequencial: achados.length + 1,
       posX: x,
       posY: y,
-    );
-
-    final achadoFinal = Achado(
-      uuid: novoAchadoTemporario.uuid,
-      diagramaCasoUuid: novoAchadoTemporario.diagramaCasoUuid,
-      tipoAchadoId: novoAchadoTemporario.tipoAchadoId,
-      numeroSequencial: novoAchadoTemporario.numeroSequencial,
-      posX: novoAchadoTemporario.posX,
-      posY: novoAchadoTemporario.posY,
       estaPendente: true,
       dadosPreenchidos: dadosExtras,
-      observacoesTexto: result['description'],
+      observacoesTexto: result['description'] ?? '',
       removido: false,
       versao: 1,
       criadoEm: DateTime.now(),
@@ -117,7 +129,8 @@ class CroquiController extends ChangeNotifier {
     if (isReadOnly) return;
 
     final dados = achado.dadosPreenchidos;
-    final String localNome = dados['local_anatomico_nome'] ?? _resolveBodyPartName(dados['view'], achado.tipoAchadoId);
+    final String localNome = dados['local_anatomico_nome'] ?? 
+                             _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
 
     final markerAdapter = InjuryMarker(
       id: achado.uuid,
@@ -148,12 +161,14 @@ class CroquiController extends ChangeNotifier {
     String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
 
     if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
-        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
-        finalPhotoPath = compressedFile.path;
+      final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+      finalPhotoPath = compressedFile.path;
     }
 
+    if (!context.mounted) return;
+
+    final String tipoLesaoId = result['typeId'] ?? achado.tipoAchadoId;
     final String tipoLesaoNome = result['type'];
-    final String tipoLesaoId = _mapNameToId(tipoLesaoNome);
 
     final Map<String, dynamic> novosDados = Map.from(achado.dadosPreenchidos);
     novosDados['type_label'] = tipoLesaoNome;
@@ -170,7 +185,7 @@ class CroquiController extends ChangeNotifier {
       posY: achado.posY,
       estaPendente: true,
       dadosPreenchidos: novosDados,
-      observacoesTexto: result['description'],
+      observacoesTexto: result['description'] ?? '',
       removido: false,
       versao: achado.versao + 1,
       criadoEm: achado.criadoEm,
@@ -178,72 +193,27 @@ class CroquiController extends ChangeNotifier {
       proveniencia: achado.proveniencia,
     );
 
-    await _achadoService.atualizarAchado(achadoAtualizado);
-    await _loadAchados();
+    try {
+      await _achadoService.atualizarAchado(achadoAtualizado);
+      await _loadAchados();
+      if (context.mounted) _snack(context, "Achado atualizado!");
+    } catch (e) {
+      if (context.mounted) _snack(context, "Erro ao atualizar: $e", color: Colors.red);
+    }
   }
 
-  Future<void> deleteAchado(String uuid) async {
+  Future<void> deleteAchado(BuildContext context, String uuid) async {
     if (isReadOnly) return;
-    await _achadoService.removerAchado(uuid);
-    await _loadAchados();
-  }
-
-
-  Future<void> reabrirCaso(BuildContext context) async {
     try {
-      await _caseService.reabrirCaso(casoAtual.uuid);
-      await _reloadCaso();
-      if (context.mounted) _snack(context, "Modo de edição habilitado.");
+      await _achadoService.removerAchado(uuid);
+      await _loadAchados();
+      if (context.mounted) _snack(context, "Achado removido.");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro: $e");
+      if (context.mounted) _snack(context, "Erro ao deletar", color: Colors.red);
     }
   }
 
-  Future<void> exportarCaso(BuildContext context) async {
-    _snack(context, "Salvando e gerando arquivo...");
-
-    try {
-      if (!isReadOnly) {
-        await _caseService.salvarRascunho(casoAtual);
-      }
-
-      final authProvider = context.read<AuthProvider>();
-      final String nomeExportador = authProvider.usuario?.nomeCompleto ?? 'Usuário Desconhecido';
-      
-      String nomeCriador;
-      if (authProvider.usuario != null && authProvider.usuario!.id == casoAtual.idUsuarioCriador) {
-        nomeCriador = authProvider.usuario!.nomeCompleto;
-      } else {
-        nomeCriador = "ID: ${casoAtual.idUsuarioCriador}";
-      }
-
-      final directory = await getApplicationDocumentsDirectory(); 
-
-      final File arquivoGerado = await _caseService.exportarJsonUnicoComBase64(
-        casoUuid: casoAtual.uuid,
-        nomeCriador: nomeCriador,
-        nomeExportador: nomeExportador,
-        diretorioTemp: directory.path,
-      );
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        
-        final xFile = XFile(arquivoGerado.path);
-        await Share.shareXFiles(
-          [xFile],
-          text: 'Laudo exportado com sucesso.',
-          subject: 'Laudo ${casoAtual.numeroLaudoExterno}',
-        );
-      }
-
-    } catch (e) {
-      if (context.mounted) {
-         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        _snack(context, "Erro ao exportar: $e", color: Colors.red);
-      }
-    }
-  }
+  // --- MÉTODOS PARA GERENCIAMENTO DO CASO (CaseInfoTab) ---
 
   void atualizarDadosLaudoMemoria(Map<String, dynamic> novosDados) {
     casoAtual = Caso(
@@ -261,6 +231,7 @@ class CroquiController extends ChangeNotifier {
       dadosLaudo: novosDados,
       proveniencia: casoAtual.proveniencia,
     );
+    notifyListeners();
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
@@ -268,7 +239,7 @@ class CroquiController extends ChangeNotifier {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Finalizar Laudo?"),
-        content: const Text("O caso será marcado como concluído e não poderá ser mais editado.\n\nConfirma que revisou todos os dados e quesitos?"),
+        content: const Text("O caso será marcado como concluído e não poderá ser mais editado."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
           ElevatedButton(
@@ -285,52 +256,49 @@ class CroquiController extends ChangeNotifier {
     try {
       await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
       await _reloadCaso();
-      if (context.mounted) _snack(context, "Caso finalizado com sucesso!", color: Colors.green);
+      if (context.mounted) _snack(context, "Caso finalizado!", color: Colors.green);
     } catch (e) {
       if (context.mounted) _snack(context, "Erro ao finalizar: $e", color: Colors.red);
     }
   }
 
+  Future<void> reabrirCaso(BuildContext context) async {
+    try {
+      await _caseService.reabrirCaso(casoAtual.uuid);
+      await _reloadCaso();
+      if (context.mounted) _snack(context, "Edição habilitada.");
+    } catch (e) {
+      if (context.mounted) _snack(context, "Erro ao reabrir", color: Colors.red);
+    }
+  }
+
+  Future<void> exportarCaso(BuildContext context) async {
+    if (context.mounted) _snack(context, "Preparando arquivo...");
+    try {
+      if (!isReadOnly) await _caseService.salvarRascunho(casoAtual);
+      if (!context.mounted) return;
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final String nomeExportador = auth.usuario?.nomeCompleto ?? 'Desconhecido';
+      final directory = await getApplicationDocumentsDirectory(); 
+      final File arquivoGerado = await _caseService.exportarJsonUnicoComBase64(
+        casoUuid: casoAtual.uuid,
+        nomeCriador: "Perito Responsável",
+        nomeExportador: nomeExportador,
+        diretorioTemp: directory.path,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      await Share.shareXFiles([XFile(arquivoGerado.path)], subject: 'Laudo ${casoAtual.numeroLaudoExterno}');
+    } catch (e) {
+      if (context.mounted) _snack(context, "Erro ao exportar", color: Colors.red);
+    }
+  }
+
+
   Future<void> _reloadCaso() async {
     final casos = await _caseService.listarCasos();
     casoAtual = casos.firstWhere((c) => c.uuid == casoAtual.uuid);
     notifyListeners(); 
-  }
-
-  List<InjuryMarker> getMarkersForView(String view) {
-    return achados
-        .where((a) => (a.dadosPreenchidos['view'] ?? '') == view)
-        .map((a) {
-          return InjuryMarker(
-            id: a.uuid,
-            caseId: a.diagramaCasoUuid,
-            croquiType: view,
-            bodyPartId: a.dadosPreenchidos['local_anatomico_id'] ?? 'desconhecido',
-            xPercent: a.posX,
-            yPercent: a.posY,
-            type: a.dadosPreenchidos['type_label'] ?? '',
-            photoPath: a.dadosPreenchidos['photo_path'],
-          );
-        }).toList();
-  }
-
-  void _snack(BuildContext context, String msg, {Color? color}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
-  }
-
-  String _mapNameToId(String name) {
-    switch (name) {
-      case 'Equimose': return 'equimose';
-      case 'Escoriação': return 'escoriacao';
-      case 'Ferida Contusa': return 'ferida_contusa';
-      case 'Ferida Cortante': return 'ferida_cortante';
-      case 'Perfuração': return 'perfuracao';
-      case 'Hematoma': return 'hematoma';
-      case 'Edema': return 'edema';
-      case 'Fratura': return 'fratura';
-      case 'Queimadura': return 'queimadura';
-      default: return 'outro';
-    }
   }
 
   String _resolveBodyPartName(String view, String partId) {
@@ -339,5 +307,12 @@ class CroquiController extends ChangeNotifier {
     if (view == 'lateral_dir' && kIdToDefinitionLateralRightMap.containsKey(partId)) return kIdToDefinitionLateralRightMap[partId]!.name;
     if (view == 'lateral_esq' && kIdToDefinitionLateralLeftMap.containsKey(partId)) return kIdToDefinitionLateralLeftMap[partId]!.name;
     return partId.replaceAll('_', ' ').toUpperCase();
+  }
+
+  void _snack(BuildContext context, String msg, {Color? color}) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 2))
+    );
   }
 }
