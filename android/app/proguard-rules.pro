@@ -1,7 +1,3 @@
-# --- OPÇÃO NUCLEAR: Ignorar avisos gerais ---
-# Isso diz ao R8: "Se faltar alguma classe de anotação, apenas continue"
--ignorewarnings
-
 # --- ErrorProne (Avisos do Google) ---
 -dontwarn com.google.errorprone.annotations.**
 -keep class com.google.errorprone.annotations.** { *; }
@@ -29,6 +25,17 @@
 -keep class io.flutter.view.** { *; }
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
+
+# Flutter/Dart
+-dontwarn io.flutter.**
+-dontwarn io.flutter.embedding.**
+
+# Image Picker e Camera (comuns em gerar avisos)
+-dontwarn com.google.android.gms.**
+-dontwarn androidx.camera.**
+
+# Pacote de PDF e Impressão (se houver avisos específicos)
+-dontwarn com.sun.pdfview.**
 
 # --- Manter nomes de métodos nativos (Essencial para SQLCipher) ---
 -keepclasseswithmembernames class * {
