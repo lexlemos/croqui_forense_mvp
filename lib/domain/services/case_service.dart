@@ -120,7 +120,7 @@ class CaseService {
     await _repository.updateCase(casoAtualizado);
   }
 
-  Future<File> exportarJsonUnicoComBase64({
+ Future<File> exportarJsonUnicoComBase64({
     required String casoUuid,
     required String nomeCriador,
     required String nomeExportador,
@@ -130,6 +130,7 @@ class CaseService {
     final caso = casos.firstWhere((c) => c.uuid == casoUuid);
     final achados = await _repository.getAchadosPorCaso(casoUuid);
 
+    // Agora o método é limpo e modular
     final Map<String, dynamic> dadosBase = _montarMapaBase(caso, achados, nomeCriador, nomeExportador);
 
     final Map<String, dynamic> jsonFinalMap = await compute(_gerarJsonBase64Background, {'dados_json': dadosBase});
@@ -144,103 +145,124 @@ class CaseService {
     return file; 
   }
 
+  // --- MÉTODOS REFACTORADOS (DECOMPOSIÇÃO) ---
+
   Map<String, dynamic> _montarMapaBase(Caso caso, List<Achado> achados, String nomeCriador, String nomeExportador) {
-     final dados = caso.dadosLaudo;
-     final cabecalho = dados['cabecalho'] ?? {};
-     final identificacao = dados['identificacao'] ?? {};
-     
-     final exames = dados['exames_complementares'] ?? {};
-     final conclusao = dados['conclusao'] ?? {};
+    return {
+      'documento': {'titulo': 'Laudo Pericial Cadavérico', 'versao_schema': '2.0'},
+      '1_cabecalho': _buildCabecalho(caso, nomeCriador),
+      '2_descritivo_lesoes': _buildListaAchados(achados),
+      '3_exames_complementares': _buildExamesComplementares(caso.dadosLaudo),
+      '4_analise_medico_legal': _buildAnaliseMedicoLegal(caso.dadosLaudo),
+      '5_respostas_quesitos': _buildRespostasQuesitos(caso.dadosLaudo),
+      '6_anexos_fotograficos': _buildGaleriaFotos(caso.dadosLaudo, achados),
+      '7_auditoria_exportacao': _buildAuditoria(nomeExportador)
+    };
+  }
 
-     final Map<String, dynamic> secaoInicial = {
-       'meta_info': {
-         'uuid': caso.uuid,
-         'data_criacao': caso.criadoEmDispositivo.toIso8601String(),
-         'data_exportacao': DateTime.now().toIso8601String(),
-         'perito_responsavel': nomeCriador, 
-         'numero_laudo': caso.numeroLaudoExterno,
-         'versao_app': '1.1.0'
-       },
-       'dados_requisicao': cabecalho,
-       'dados_identificacao': identificacao
-     };
+  Map<String, dynamic> _buildCabecalho(Caso caso, String nomeCriador) {
+    final cabecalho = caso.dadosLaudo['cabecalho'] ?? {};
+    final identificacao = caso.dadosLaudo['identificacao'] ?? {};
+    
+    return {
+      'meta_info': {
+        'uuid': caso.uuid,
+        'data_criacao': caso.criadoEmDispositivo.toIso8601String(),
+        'data_exportacao': DateTime.now().toIso8601String(),
+        'perito_responsavel': nomeCriador, 
+        'numero_laudo': caso.numeroLaudoExterno,
+        'versao_app': '1.1.0'
+      },
+      'dados_requisicao': cabecalho,
+      'dados_identificacao': identificacao
+    };
+  }
 
-     List<Map<String, dynamic>> listaAchadosTexto = achados.map((a) {
-       final d = a.dadosPreenchidos;
-       return {
-         'sequencial': a.numeroSequencial,
-         'tipo': d['type_label'],
-         'local': d['local_anatomico_nome'],
-         'tamanho': d['size'],
-         'profundidade': d['depth'],
-         'descricao': a.observacoesTexto,
-         'posicao_croqui': d['view'],
-       };
-     }).toList();
-     final Map<String, dynamic> secaoExames = {
-        'anatomo_patologico': exames['anatomo'],
-        'toxicologico': exames['toxicologico'],
-        'outros_exames': exames['outros'],
-     };
+  List<Map<String, dynamic>> _buildListaAchados(List<Achado> achados) {
+    return achados.map((a) {
+      final d = a.dadosPreenchidos;
+      return {
+        'sequencial': a.numeroSequencial,
+        'tipo': d['type_label'],
+        'local': d['local_anatomico_nome'],
+        'tamanho': d['size'],
+        'profundidade': d['depth'],
+        'descricao': a.observacoesTexto,
+        'posicao_croqui': d['view'],
+      };
+    }).toList();
+  }
 
-     final Map<String, dynamic> secaoAnalise = {
-        'discussao_do_caso': conclusao['discussao'],
-        'conclusao_texto': conclusao['conclusao_texto'],
-     };
+  Map<String, dynamic> _buildExamesComplementares(Map<String, dynamic> dados) {
+    final exames = dados['exames_complementares'] ?? {};
+    return {
+      'anatomo_patologico': exames['anatomo'],
+      'toxicologico': exames['toxicologico'],
+      'outros_exames': exames['outros'],
+    };
+  }
 
-     final Map<String, dynamic> secaoQuesitos = {
-        '1_houve_morte': conclusao['quesito_1_morte'],
-        '2_qual_causa': conclusao['quesito_2_causa'],
-        '3_qual_instrumento': conclusao['quesito_3_instrumento'],
-        '4_qual_meio': conclusao['quesito_4_meio'],
-     };
+  Map<String, dynamic> _buildAnaliseMedicoLegal(Map<String, dynamic> dados) {
+    final conclusao = dados['conclusao'] ?? {};
+    return {
+      'discussao_do_caso': conclusao['discussao'],
+      'conclusao_texto': conclusao['conclusao_texto'],
+    };
+  }
 
-     List<Map<String, String>> galeriaFotos = [];
-     
-     if (identificacao['fotos'] != null && identificacao['fotos'] is List) {
-       List<dynamic> fotosId = identificacao['fotos'];
-       for (int i = 0; i < fotosId.length; i++) {
-         galeriaFotos.add({
-           'contexto': 'IDENTIFICACAO',
-           'ordem': 'ID_${i+1}',
-           'titulo': 'Foto Identificação ${i + 1}',
-           'caminho_arquivo': fotosId[i].toString(),
-         });
-       }
-     }
+  Map<String, dynamic> _buildRespostasQuesitos(Map<String, dynamic> dados) {
+    final conclusao = dados['conclusao'] ?? {};
+    return {
+      '1_houve_morte': conclusao['quesito_1_morte'],
+      '2_qual_causa': conclusao['quesito_2_causa'],
+      '3_qual_instrumento': conclusao['quesito_3_instrumento'],
+      '4_qual_meio': conclusao['quesito_4_meio'],
+    };
+  }
 
-     for (var a in achados) {
-        final d = a.dadosPreenchidos;
-        List<String> fotos = [];
-        if (d['photos'] != null) {
-          fotos = List<String>.from(d['photos']);
-        } else if (d['photo_path'] != null) {
-          fotos.add(d['photo_path']);
-        }
+  List<Map<String, dynamic>> _buildGaleriaFotos(Map<String, dynamic> dados, List<Achado> achados) {
+    List<Map<String, dynamic>> galeria = [];
+    final identificacao = dados['identificacao'] ?? {};
+    
+    if (identificacao['fotos'] != null && identificacao['fotos'] is List) {
+      List<dynamic> fotosId = identificacao['fotos'];
+      for (int i = 0; i < fotosId.length; i++) {
+        galeria.add({
+          'contexto': 'IDENTIFICACAO',
+          'ordem': 'ID_${i + 1}',
+          'titulo': 'Foto Identificação ${i + 1}',
+          'caminho_arquivo': fotosId[i].toString(),
+        });
+      }
+    }
 
-        for (int i=0; i<fotos.length; i++) {
-          galeriaFotos.add({
-            'contexto': 'LESÃO',
-            'ordem': 'ACHADO_${a.numeroSequencial}',
-            'titulo': "Foto do Achado #${a.numeroSequencial} - ${d['type_label']}",
-            'descricao': "Local: ${d['local_anatomico_nome']}. Obs: ${a.observacoesTexto ?? ''}",
-            'caminho_arquivo': fotos[i]
-          });
-        }
-     }
-     return {
-       'documento': {'titulo': 'Laudo Pericial Cadavérico', 'versao_schema': '2.0'},
-       '1_cabecalho': secaoInicial,
-       '2_descritivo_lesoes': listaAchadosTexto,
-       '3_exames_complementares': secaoExames, 
-       '4_analise_medico_legal': secaoAnalise, 
-       '5_respostas_quesitos': secaoQuesitos, 
-       '6_anexos_fotograficos': galeriaFotos, 
-       '7_auditoria_exportacao': {
-          'responsavel_pela_exportacao': nomeExportador, 
-          'data_hora_exportado': DateTime.now().toIso8601String(), 
-          'software_origem': 'Croqui Forense App v1.1'
-       }
-     };
+    for (var a in achados) {
+      final d = a.dadosPreenchidos;
+      List<String> fotos = [];
+      if (d['photos'] != null) {
+        fotos = List<String>.from(d['photos']);
+      } else if (d['photo_path'] != null) {
+        fotos.add(d['photo_path']);
+      }
+
+      for (int i = 0; i < fotos.length; i++) {
+        galeria.add({
+          'contexto': 'LESÃO',
+          'ordem': 'ACHADO_${a.numeroSequencial}',
+          'titulo': "Foto do Achado #${a.numeroSequencial} - ${d['type_label']}",
+          'descricao': "Local: ${d['local_anatomico_nome']}. Obs: ${a.observacoesTexto ?? ''}",
+          'caminho_arquivo': fotos[i]
+        });
+      }
+    }
+    return galeria;
+  }
+
+  Map<String, dynamic> _buildAuditoria(String nomeExportador) {
+    return {
+      'responsavel_pela_exportacao': nomeExportador, 
+      'data_hora_exportado': DateTime.now().toIso8601String(), 
+      'software_origem': 'Croqui Forense App v1.1'
+    };
   }
 }

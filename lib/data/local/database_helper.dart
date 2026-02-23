@@ -70,18 +70,19 @@ class DatabaseHelper {
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await _migrateV1toV2(db);
-        }
-
-        if (oldVersion < 3) {
-          await _criarIndices(db);
-          await _migrateV2toV3(db);
-        }
-
-        if (oldVersion < 4) {
-          await _migrateV3toV4(db);
-        }
+       for (int i = oldVersion + 1; i <= newVersion; i++) {
+    switch (i) {
+      case 2:
+        await _migrateV1toV2(db);
+        break;
+      case 3:
+        await _migrateV2toV3(db);
+        break;
+      case 4:
+        await _migrateV3toV4(db); 
+        break;
+    }
+  }
       },
     );
   }
@@ -110,11 +111,19 @@ class DatabaseHelper {
 
 
   Future<void> _migrateV2toV3(Database db) async {
-    await db.transaction((txn) async {
+  await db.transaction((txn) async {
+    var tableCheck = await txn.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='achados'"
+    );
+
+    if (tableCheck.isEmpty) {
       final scriptAchados = _getScriptFor(tableAchados);
       await txn.execute(scriptAchados);
-    });
-  }
+    } else {
+        await txn.execute('ALTER TABLE achados ADD COLUMN profundidade TEXT');
+    }
+  });
+}
 
   String _getScriptFor(String tableName) {
     final script = kTableScripts[tableName];

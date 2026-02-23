@@ -1,14 +1,21 @@
 import '../../data/models/achado_model.dart';
 import '../../data/repositories/achado_repository.dart';
+import '../../data/repositories/diagrama_repository.dart';
 
 class AchadoService {
   final AchadoRepository _repository;
+  final DiagramaRepository _diagramaRepository;
 
-  AchadoService(this._repository);
+  
 
-  static final AchadoService instance = AchadoService(AchadoRepository());
+  AchadoService(this._repository, this._diagramaRepository);
+
+  static final AchadoService instance = AchadoService(AchadoRepository(), DiagramaRepository());
 
   Future<void> salvarAchado(Achado achado) async {
+    final casoUuid = achado.diagramaCasoUuid;
+    await _diagramaRepository.garantirExistencia(casoUuid, achado.diagramaCasoUuid);
+    
     await _repository.insertAchado(achado);
   }
 

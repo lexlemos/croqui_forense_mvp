@@ -9,15 +9,6 @@ class AchadoRepository {
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
     
-    await db.insert('diagramas_do_caso', {
-      'uuid': achado.diagramaCasoUuid, 
-      'caso_uuid': achado.diagramaCasoUuid,
-      'template_id': 'corpo_humano_padrao', 
-      'removido': 0,
-      'versao': 1,
-      'criado_em': DateTime.now().toIso8601String(),
-      'device_id': 'APP_TABLET',
-    }, conflictAlgorithm: ConflictAlgorithm.ignore); 
 
     await db.insert(
       'achados',
