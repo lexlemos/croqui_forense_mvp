@@ -18,7 +18,8 @@ const String _kCreateInjuryTypes = '''
   CREATE TABLE $tableInjuryTypes (
     id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
-    category TEXT
+    ordem INTEGER DEFAULT 0,
+    ativo INTEGER DEFAULT 1
   )
 ''';
 
