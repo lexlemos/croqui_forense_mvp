@@ -40,8 +40,9 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
 
 class CaseService {
   final CasoRepository _repository;
+  final UsuarioRepository _usuarioRepository;
 
-  CaseService(this._repository);
+  CaseService(this._repository, this._usuarioRepository);
 
   Future<Caso> createNewCase({required Usuario criador, required String numeroLaudo, Map<String, dynamic> dadosIniciais = const {}}) async {
     final novoCaso = Caso.novo(idUsuarioCriador: criador.id, numeroLaudoExterno: numeroLaudo, proveniencia: 'APP_TABLET', dadosLaudo: dadosIniciais);
@@ -120,9 +121,8 @@ class CaseService {
     await _repository.updateCase(casoAtualizado);
   }
 
- Future<File> exportarJsonUnicoComBase64({
+Future<File> exportarJsonUnicoComBase64({
     required String casoUuid,
-    required String nomeCriador,
     required String nomeExportador,
     required String diretorioTemp,
   }) async {
@@ -130,22 +130,19 @@ class CaseService {
     final caso = casos.firstWhere((c) => c.uuid == casoUuid);
     final achados = await _repository.getAchadosPorCaso(casoUuid);
 
-    // Agora o método é limpo e modular
-    final Map<String, dynamic> dadosBase = _montarMapaBase(caso, achados, nomeCriador, nomeExportador);
+    final usuarioCriador = await _usuarioRepository.getUserById(caso.idUsuarioCriador);
+    final String nomeRealCriador = usuarioCriador?.nomeCompleto ?? "Perito Desconhecido (ID: ${caso.idUsuarioCriador})";
+
+    final Map<String, dynamic> dadosBase = _montarMapaBase(
+      caso, 
+      achados, 
+      nomeRealCriador, 
+      nomeExportador
+    );
 
     final Map<String, dynamic> jsonFinalMap = await compute(_gerarJsonBase64Background, {'dados_json': dadosBase});
-
-    final String safeLaudoNum = (caso.numeroLaudoExterno ?? 'sem_numero').replaceAll('/', '-');
-    final String fileName = 'laudo_completo_$safeLaudoNum.json';
-    final File file = File('$diretorioTemp/$fileName');
-
-    final String jsonString = const JsonEncoder.withIndent('  ').convert(jsonFinalMap);
-    await file.writeAsString(jsonString, flush: true);
-
     return file; 
   }
-
-  // --- MÉTODOS REFACTORADOS (DECOMPOSIÇÃO) ---
 
   Map<String, dynamic> _montarMapaBase(Caso caso, List<Achado> achados, String nomeCriador, String nomeExportador) {
     return {
