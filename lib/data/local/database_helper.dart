@@ -112,18 +112,15 @@ class DatabaseHelper {
 
   Future<void> _migrateV2toV3(Database db) async {
   await db.transaction((txn) async {
-    var tableCheck = await txn.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='achados'"
-    );
+    final List<Map<String, dynamic>> columns = await txn.rawQuery("PRAGMA table_info(achados)");
+    
+    final bool columnExists = columns.any((col) => col['name'] == 'profundidade');
 
-    if (tableCheck.isEmpty) {
-      final scriptAchados = _getScriptFor(tableAchados);
-      await txn.execute(scriptAchados);
-    } else {
-        await txn.execute('ALTER TABLE achados ADD COLUMN profundidade TEXT');
-    }
-  });
-}
+      if (!columnExists) {
+      await txn.execute('ALTER TABLE achados ADD COLUMN profundidade TEXT');
+     }
+    });
+  }
 
   String _getScriptFor(String tableName) {
     final script = kTableScripts[tableName];
