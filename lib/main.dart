@@ -51,8 +51,8 @@ class AppRoot extends StatelessWidget {
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
-        ProxyProvider<CasoRepository, CaseService>(
-          update: (_, repo, __) => CaseService(repo),
+        ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
+          update: (context, casoRepo, usuarioRepo, previousService) => CaseService(casoRepo, usuarioRepo),
         ),
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),
