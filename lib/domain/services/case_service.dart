@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -121,7 +122,7 @@ class CaseService {
     await _repository.updateCase(casoAtualizado);
   }
 
-Future<File> exportarJsonUnicoComBase64({
+  Future<File> exportarJsonUnicoComBase64({
     required String casoUuid,
     required String nomeExportador,
     required String diretorioTemp,
@@ -130,9 +131,8 @@ Future<File> exportarJsonUnicoComBase64({
     final caso = casos.firstWhere((c) => c.uuid == casoUuid);
     final achados = await _repository.getAchadosPorCaso(casoUuid);
 
-    final usuarioCriador = await _usuarioRepository.getUserById(caso.idUsuarioCriador);
+    final usuarioCriador = await _usuarioRepository.getUsuarioById(caso.idUsuarioCriador);
     final String nomeRealCriador = usuarioCriador?.nomeCompleto ?? "Perito Desconhecido (ID: ${caso.idUsuarioCriador})";
-
     final Map<String, dynamic> dadosBase = _montarMapaBase(
       caso, 
       achados, 
@@ -141,6 +141,13 @@ Future<File> exportarJsonUnicoComBase64({
     );
 
     final Map<String, dynamic> jsonFinalMap = await compute(_gerarJsonBase64Background, {'dados_json': dadosBase});
+
+    final String safeLaudoNum = (caso.numeroLaudoExterno ?? 'sem_numero').replaceAll('/', '-');
+    final String fileName = 'laudo_completo_$safeLaudoNum.json';
+    final File file = File('$diretorioTemp/$fileName');
+    final String jsonString = const JsonEncoder.withIndent('  ').convert(jsonFinalMap);
+    await file.writeAsString(jsonString, flush: true);
+
     return file; 
   }
 
