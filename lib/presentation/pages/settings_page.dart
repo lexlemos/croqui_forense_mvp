@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart'; // Vamos criar este widget a seguir
+import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});

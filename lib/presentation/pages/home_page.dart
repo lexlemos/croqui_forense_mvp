@@ -5,14 +5,14 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
-
-
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/empty_state.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/home_action_bar.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/case_card.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
+
+import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -79,19 +79,26 @@ class _HomePageState extends State<HomePage> {
                       : GridView.builder(
                         padding: const EdgeInsets.all(16),
                         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 200, // <--- O PULO DO GATO: Largura máxima do card
+                          maxCrossAxisExtent: 200, 
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          childAspectRatio: 0.95, // Proporção quase quadrada (Altura um pouco maior que largura)
+                          childAspectRatio: 0.95, 
                         ),
                         itemCount: caseList.casos.length,
                           itemBuilder: (context, index) {
+                            final casoExistente = caseList.casos[index];
                             return CaseCard(
-                              caso: caseList.casos[index],
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Abrindo caso ${caseList.casos[index].numeroLaudoExterno}...')),
+                              caso: casoExistente,
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CroquiPage(caso: casoExistente),
+                                  ),
                                 );
+                                if (context.mounted) {
+                                  context.read<CaseListProvider>().carregarCasos();
+                                }
                               },
                             );
                           },
@@ -144,17 +151,25 @@ class _HomePageState extends State<HomePage> {
       final usuario = context.read<AuthProvider>().usuario;
       if (usuario == null) return;
 
-      await context.read<CaseService>().createNewCase(
+      final novoCaso = await context.read<CaseService>().createNewCase(
         criador: usuario, 
         numeroLaudo: numeroLaudo,
-        dadosIniciais: dadosLaudo, // <--- Passamos o JSON completo
+        dadosIniciais: dadosLaudo, 
       );
       
       if (context.mounted) {
         context.read<CaseListProvider>().carregarCasos(); 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Caso criado e dados iniciais salvos!')),
+        
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CroquiPage(caso: novoCaso),
+          ),
         );
+
+        if (context.mounted) {
+          context.read<CaseListProvider>().carregarCasos();
+        }
       }
     } catch (e) {
       if (context.mounted) {

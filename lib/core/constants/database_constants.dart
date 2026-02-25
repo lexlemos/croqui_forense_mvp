@@ -12,6 +12,16 @@ const String tableDiagramasDoCaso = 'diagramas_do_caso';
 const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
+const String tableInjuryTypes = 'injury_types';
+
+const String _kCreateInjuryTypes = '''
+  CREATE TABLE $tableInjuryTypes (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    ordem INTEGER DEFAULT 0,
+    ativo INTEGER DEFAULT 1
+  )
+''';
 
 const String _kCreatePapeis = '''
 CREATE TABLE papeis (
@@ -202,6 +212,7 @@ const Map<String, String> kTableScripts = {
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,
   tableLogAuditoria: _kCreateLogAuditoria,
+  tableInjuryTypes: _kCreateInjuryTypes,
 };
 
 final List<String> kFullDatabaseCreationScripts = [
