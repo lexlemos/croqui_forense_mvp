@@ -12,6 +12,7 @@ import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
@@ -22,6 +23,7 @@ import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart';
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
+  final PdfService _pdfService = PdfService();
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -43,8 +45,6 @@ class CroquiController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // --- MÉTODOS PARA O CROQUI ---
 
   List<InjuryMarker> getMarkersForView(String view) {
     return achados
@@ -272,8 +272,8 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
- Future<void> exportarCaso(BuildContext context) async {
-    if (context.mounted) _snack(context, "Preparando arquivo para exportação...");
+Future<void> exportarCaso(BuildContext context) async {
+    if (context.mounted) _snack(context, "Gerando laudo PDF oficial...");
 
     try {
       if (!isReadOnly) {
@@ -283,31 +283,33 @@ class CroquiController extends ChangeNotifier {
       if (!context.mounted) return;
 
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final String nomeExportador = auth.usuario?.nomeCompleto ?? 'Usuário Desconhecido';
-      
-      final directory = await getApplicationDocumentsDirectory(); 
+      final String nomePerito = auth.usuario?.nomeCompleto ?? 'Perito Responsável';
 
-      final File arquivoGerado = await _caseService.exportarJsonUnicoComBase64(
-        casoUuid: casoAtual.uuid,
-        nomeExportador: nomeExportador,
-        diretorioTemp: directory.path,
+      final pdfBytes = await _pdfService.gerarLaudoPdf(
+        caso: casoAtual,
+        achados: achados,
+        nomePerito: nomePerito,
       );
+
+      final tempDir = await getTemporaryDirectory();
+      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
+      final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
+      
+      await pdfFile.writeAsBytes(pdfBytes, flush: true);
 
       if (!context.mounted) return;
-
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  
+
       await Share.shareXFiles(
-        [XFile(arquivoGerado.path)],
-        text: 'Laudo Forense exportado.',
-        subject: 'Laudo ${casoAtual.numeroLaudoExterno}',
+        [XFile(pdfFile.path)],
+        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
       );
+
     } catch (e) {
-      debugPrint("Erro ao exportar: $e");
-      if (context.mounted) _snack(context, "Erro ao exportar", color: Colors.red);
+      debugPrint("Erro na exportação do PDF: $e");
+      if (context.mounted) _snack(context, "Erro ao gerar PDF", color: Colors.red);
     }
   }
-
 
   Future<void> _reloadCaso() async {
     final casos = await _caseService.listarCasos();

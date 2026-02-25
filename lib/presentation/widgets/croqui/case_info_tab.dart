@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -11,6 +13,7 @@ class CaseInfoTab extends StatefulWidget {
 
 class _CaseInfoTabState extends State<CaseInfoTab> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _picker = ImagePicker();
 
   late final TextEditingController _reqNumeroCtrl;
   late final TextEditingController _reqOrigemCtrl;
@@ -33,13 +36,16 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   late final TextEditingController _quesito3Ctrl;
   late final TextEditingController _quesito4Ctrl;
 
+  List<String> _fotosIdentificacao = [];
+
   @override
   void initState() {
     super.initState();
     final controller = context.read<CroquiController>();
     final dados = controller.casoAtual.dadosLaudo;
 
-    // Inicialização otimizada
+    _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
+    
     _reqNumeroCtrl = TextEditingController(text: controller.casoAtual.numeroLaudoExterno ?? '');
     _reqOrigemCtrl = TextEditingController(text: dados['cabecalho']?['requisitante'] ?? '');
     _reqDestinoCtrl = TextEditingController(text: dados['cabecalho']?['destino'] ?? '');
@@ -62,10 +68,19 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
   }
 
+  Future<void> _tirarFoto() async {
+    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    if (photo != null) {
+      setState(() {
+        _fotosIdentificacao.add(photo.path);
+      });
+      _salvarDadosNoController();
+    }
+  }
+
   @override
   void dispose() {
     _salvarDadosNoController();
-
     _reqNumeroCtrl.dispose();
     _reqOrigemCtrl.dispose();
     _reqDestinoCtrl.dispose();
@@ -82,13 +97,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _quesito2Ctrl.dispose();
     _quesito3Ctrl.dispose();
     _quesito4Ctrl.dispose();
-    
     super.dispose();
   }
 
   void _salvarDadosNoController() {
     if (!mounted) return;
-    
+
     final controller = context.read<CroquiController>();
     if (controller.isReadOnly) return;
 
@@ -107,6 +121,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'vestes': _vestesCtrl.text,
       'caracteristicas': _caracteristicasCtrl.text,
       'dados_tanatologicos': _tanatologiaCtrl.text,
+      'fotos_gerais': _fotosIdentificacao,
     };
 
     novosDados['exames_complementares'] = {
@@ -152,47 +167,93 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 Expanded(child: _buildTextField("Destino", _reqDestinoCtrl, readOnly: readOnly)),
               ],
             ),
-
             const SizedBox(height: 32),
             const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
             const SizedBox(height: 16),
             _buildTextField("Vestes", _vestesCtrl, readOnly: readOnly, maxLines: 2),
             _buildTextField("Características", _caracteristicasCtrl, readOnly: readOnly, maxLines: 2),
             _buildTextField("Dados Tanatológicos", _tanatologiaCtrl, readOnly: readOnly, maxLines: 2),
-
+            const SizedBox(height: 24),
+            const _SectionHeader(title: "Fotos de Identificação", icon: Icons.camera_alt),
+            const SizedBox(height: 16),
+            if (!readOnly)
+              ElevatedButton.icon(
+                onPressed: _tirarFoto,
+                icon: const Icon(Icons.add_a_photo),
+                label: const Text("ADICIONAR FOTO GERAL"),
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _fotosIdentificacao.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_fotosIdentificacao[index]),
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        if (!readOnly)
+                          Positioned(
+                            right: 0,
+                            child: IconButton(
+                              icon: const Icon(Icons.remove_circle, color: Colors.red),
+                              onPressed: () {
+                                setState(() => _fotosIdentificacao.removeAt(index));
+                                _salvarDadosNoController();
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 32),
             const _SectionHeader(title: "3. Exames Complementares", icon: Icons.science),
             const SizedBox(height: 16),
             _buildTextField("Anátomo-Patológico", _anatomoCtrl, readOnly: readOnly, hint: "Ex: Material coletado para análise..."),
             _buildTextField("Toxicológico", _toxicologicoCtrl, readOnly: readOnly, hint: "Ex: Negativo / Aguardando laudo..."),
             _buildTextField("Outros Exames", _outrosExamesCtrl, readOnly: readOnly),
-
             const SizedBox(height: 32),
             const _SectionHeader(title: "4. Discussão / Comentário", icon: Icons.chat),
             const SizedBox(height: 16),
             _buildTextField("Discussão do Caso", _discussaoCtrl, readOnly: readOnly, maxLines: 5),
-            
             const SizedBox(height: 24),
             const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
             _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: 3),
-
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.indigo.withValues(alpha: 0.05),
+                color: Colors.indigo.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.indigo.withValues(alpha: 0.05)),
+                border: Border.all(color: Colors.indigo.withOpacity(0.05)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(children: [
-                    Icon(Icons.gavel, color: Colors.indigo), 
-                    SizedBox(width: 10), 
-                    Text("Respostas aos Quesitos (Obrigatório)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo))
-                  ]),
+                  const Row(
+                    children: [
+                      Icon(Icons.gavel, color: Colors.indigo),
+                      SizedBox(width: 10),
+                      Text(
+                        "Respostas aos Quesitos (Obrigatório)",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
+                      )
+                    ],
+                  ),
                   const Divider(),
                   const SizedBox(height: 10),
                   _buildTextField("1. Houve Morte?", _quesito1Ctrl, readOnly: readOnly, required: true),
@@ -202,23 +263,24 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
-            
             if (!readOnly)
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.check_circle_outline),
-                  label: const Text("SALVAR DADOS E FINALIZAR CASO", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    "SALVAR DADOS E FINALIZAR CASO",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[700],
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () async {
-                    _salvarDadosNoController(); 
+                    _salvarDadosNoController();
                     if (_formKey.currentState!.validate()) {
                       await controller.finalizarCasoDireto(context);
                     } else {
@@ -226,22 +288,26 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         const SnackBar(
                           content: Text("Por favor, responda todos os quesitos obrigatórios."),
                           backgroundColor: Colors.orange,
-                        )
+                        ),
                       );
                     }
                   },
                 ),
               ),
-            
             if (readOnly)
               Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(30)),
-                  child: const Text("Caso Finalizado (Modo Leitura)", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Text(
+                    "Caso Finalizado (Modo Leitura)",
+                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-              
             const SizedBox(height: 40),
           ],
         ),
@@ -249,10 +315,10 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     );
   }
 
-Widget _buildTextField(String label, TextEditingController ctrl, {
-    bool readOnly = false, 
-    int maxLines = 1, 
-    String? hint, 
+  Widget _buildTextField(String label, TextEditingController ctrl, {
+    bool readOnly = false,
+    int maxLines = 1,
+    String? hint,
     bool required = false,
     bool isBold = false,
   }) {
@@ -262,9 +328,9 @@ Widget _buildTextField(String label, TextEditingController ctrl, {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.08), 
+          color: Colors.grey.withOpacity(0.08),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.transparent), 
+          border: Border.all(color: Colors.transparent),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +351,7 @@ Widget _buildTextField(String label, TextEditingController ctrl, {
                 fontSize: 15,
                 fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
                 color: Colors.black87,
-                height: 1.3, 
+                height: 1.3,
               ),
             ),
           ],
@@ -297,7 +363,7 @@ Widget _buildTextField(String label, TextEditingController ctrl, {
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: ctrl,
-        readOnly: false, 
+        readOnly: false,
         maxLines: maxLines,
         onChanged: (_) => _salvarDadosNoController(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
@@ -333,7 +399,10 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Icon(icon, color: Colors.blueGrey, size: 28),
         const SizedBox(width: 12),
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+        ),
       ],
     );
   }
