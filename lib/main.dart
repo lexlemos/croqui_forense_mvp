@@ -14,7 +14,7 @@ import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
-import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart'; // Se existir
+import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
@@ -27,13 +27,6 @@ void main() async {
   final keyStorage = SecureKeyStorage();
   
   DatabaseHelper.init(dbFactory, keyStorage);
-  
-  try {
-    await DatabaseHelper.instance.database;
-    print("✅ Banco inicializado e pronto (Com migração v2 e UUIDs).");
-  } catch (e) {
-    print("❌ Erro fatal ao abrir banco: $e");
-  }
 
   runApp(const AppRoot());
 }
@@ -44,7 +37,6 @@ class AppRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final keyStorage = SecureKeyStorage();
-    
     final dbHelper = DatabaseHelper.instance; 
 
     return MultiProvider(
@@ -55,6 +47,7 @@ class AppRoot extends StatelessWidget {
         Provider<CasoRepository>(
           create: (_) => CasoRepository(dbHelper), 
         ),
+
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
@@ -64,7 +57,6 @@ class AppRoot extends StatelessWidget {
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),
         ),
-
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, previous) => previous!..updateService(authService),
@@ -93,12 +85,18 @@ class CroquiApp extends StatefulWidget {
 }
 
 class _CroquiAppState extends State<CroquiApp> {
-  
+  bool _isInitializing = true; 
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().checkLoginStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<AuthProvider>().checkLoginStatus();
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
     });
   }
 
@@ -118,9 +116,13 @@ class _CroquiAppState extends State<CroquiApp> {
           border: OutlineInputBorder(),
           filled: true,
         ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF317FF5),
+          foregroundColor: Colors.white,
+        ),
       ),
-      home: authProvider.isLoading 
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+      home: _isInitializing 
+          ? const _SplashScreen() 
           : _decideHome(authProvider),
     );
   }
@@ -132,6 +134,21 @@ class _CroquiAppState extends State<CroquiApp> {
     if (auth.usuario?.deveAlterarPin == true) {
       return const ForceChangePinPage();
     }
+    
     return const HomePage();
+  }
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF317FF5),
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
   }
 }

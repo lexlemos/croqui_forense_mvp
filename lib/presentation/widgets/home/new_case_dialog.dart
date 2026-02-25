@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 class NewCaseDialog extends StatefulWidget {
   const NewCaseDialog({super.key});
@@ -8,21 +12,24 @@ class NewCaseDialog extends StatefulWidget {
 }
 
 class _NewCaseDialogState extends State<NewCaseDialog> {
-  // --- Controladores dos Campos ---
-  // Seção 1: Cabeçalho
-  final _requisicaoController = TextEditingController();
+  int _currentStep = 0;
+  final _formKey = GlobalKey<FormState>();
+
+  final _reqController = TextEditingController();
   final _requisitanteController = TextEditingController();
   final _destinoController = TextEditingController();
   final _vitimaController = TextEditingController();
-  
-  // Seção 2: Identificação
+
   final _vestesController = TextEditingController();
   final _caracteristicasController = TextEditingController();
   final _tanatologiaController = TextEditingController();
 
+  final List<String> _fotosIdentificacao = [];
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void dispose() {
-    _requisicaoController.dispose();
+    _reqController.dispose();
     _requisitanteController.dispose();
     _destinoController.dispose();
     _vitimaController.dispose();
@@ -32,137 +39,271 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     super.dispose();
   }
 
-  void _submit() {
-    if (_requisicaoController.text.isEmpty && _vitimaController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preencha a Requisição ou o nome da Vítima.')),
+  Future<void> _adicionarFoto() async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 50,
+        maxWidth: 800,
       );
-      return;
-    }
 
-    final dadosIniciais = {
-      'numero_laudo': _requisicaoController.text.trim(),
-      'dados_laudo': {
+      if (photo == null) return;
+
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      final String fileName = 'id_${const Uuid().v4()}.jpg';
+      final String localPath = '${appDir.path}/$fileName';
+
+      await File(photo.path).copy(localPath);
+
+      setState(() {
+        _fotosIdentificacao.add(localPath);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao capturar foto: $e')),
+        );
+      }
+    }
+  }
+
+  void _removerFoto(int index) {
+    setState(() {
+      _fotosIdentificacao.removeAt(index);
+    });
+  }
+
+  bool _validarPassoAtual() {
+    if (_currentStep == 0) {
+      bool isValid = true;
+      
+      if (_reqController.text.trim().isEmpty) isValid = false;
+
+      if (!isValid) {
+        _formKey.currentState!.validate();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("O número da requisição é obrigatório.")),
+        );
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      final dadosLaudo = {
         'cabecalho': {
-          'requisicao': _requisicaoController.text.trim(),
+          'requisicao': _reqController.text.trim(),
           'requisitante': _requisitanteController.text.trim(),
           'destino': _destinoController.text.trim(),
-          'vitima': _vitimaController.text.trim(),
+          'vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
         },
         'identificacao': {
           'vestes': _vestesController.text.trim(),
           'caracteristicas': _caracteristicasController.text.trim(),
           'dados_tanatologicos': _tanatologiaController.text.trim(),
+          'fotos': _fotosIdentificacao, 
         },
-        'historico': '',
-        'exame_externo': [], 
-        'exame_interno': {},
-        'quesitos': {},
-        'conclusao': ''
-      }
-    };
-    Navigator.pop(context, dadosIniciais);
+        'conclusao': null 
+      };
+
+      Navigator.pop(context, {
+        'numero_laudo': _reqController.text.trim(),
+        'dados_laudo': dadosLaudo,
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+         const SnackBar(content: Text("Verifique os erros no formulário.")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Novo Laudo Pericial Cadavérico'),
-      content: SizedBox(
-        width: 600,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionTitle('Dados da Requisição'),
-              _buildTextField(
-                controller: _requisicaoController,
-                label: 'Número da Requisição (Laudo)',
-                icon: Icons.assignment_ind,
-                autoFocus: true,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _requisitanteController,
-                      label: 'Autoridade Requisitante',
-                      icon: Icons.account_balance,
-                    ),
+    List<Step> steps = [
+      Step(
+        title: const Text("Dados da Requisição"),
+        isActive: _currentStep >= 0,
+        state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+        content: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _buildTextField(
+                    controller: _reqController, 
+                    label: "Nº Requisição", 
+                    icon: Icons.numbers, 
+                    required: true
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildTextField(
-                      controller: _destinoController,
-                      label: 'Destino do Laudo',
-                      icon: Icons.send,
-                    ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: _buildTextField(
+                    controller: _requisitanteController, 
+                    label: "Autoridade Requisitante", 
+                    icon: Icons.account_balance
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                controller: _vitimaController,
-                label: 'Nome da Vítima',
-                icon: Icons.person,
-              ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            _buildTextField(
+              controller: _destinoController, 
+              label: "Destino do Laudo", 
+              icon: Icons.place
+            ),
+            const SizedBox(height: 12),
 
-              const Divider(height: 40),
-
-              _buildSectionTitle('Identificação'),
-              _buildTextField(
-                controller: _vestesController,
-                label: 'Vestes',
-                icon: Icons.accessibility,
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                controller: _caracteristicasController,
-                label: 'Características de Identificação (Sinais, Tatuagens)',
-                icon: Icons.fingerprint,
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                controller: _tanatologiaController,
-                label: 'Dados Tanatológicos (Rigidez, Livores)',
-                icon: Icons.watch_later_outlined,
-                maxLines: 2,
-              ),
-            ],
-          ),
+            _buildTextField(
+              controller: _vitimaController, 
+              label: "Nome da Vítima", 
+              icon: Icons.person, 
+              required: false 
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
+      Step(
+        title: const Text("Identificação"),
+        isActive: _currentStep >= 1,
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTextField(controller: _vestesController, label: "Vestes / Objetos", icon: Icons.checkroom, maxLines: 2),
+            const SizedBox(height: 12),
+            _buildTextField(controller: _caracteristicasController, label: "Características Físicas", icon: Icons.accessibility, maxLines: 2),
+            const SizedBox(height: 12),
+            _buildTextField(controller: _tanatologiaController, label: "Dados Tanatológicos", icon: Icons.hourglass_bottom, maxLines: 2),
+            
+            const SizedBox(height: 20),
+            const Divider(),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Fotos de Identificação", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                TextButton.icon(
+                  onPressed: _adicionarFoto,
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text("Adicionar"),
+                )
+              ],
+            ),
+            
+            if (_fotosIdentificacao.isEmpty)
+              Container(
+                height: 80,
+                width: double.infinity,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!)
+                ),
+                child: const Text("Nenhuma foto adicionada", style: TextStyle(color: Colors.grey)),
+              )
+            else
+              SizedBox(
+                height: 110,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _fotosIdentificacao.length,
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(right: 8, top: 8),
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_fotosIdentificacao[index]),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () => _removerFoto(index),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        )
+                      ],
+                    );
+                  },
+                ),
+              )
+          ],
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF317FF5),
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          ),
-          onPressed: _submit,
-          child: const Text('CADASTRAR CASO'),
-        ),
-      ],
-    );
-  }
+      ),
+    ];
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[700],
-          letterSpacing: 1.0,
+    return AlertDialog(
+      title: const Text("Novo Caso"),
+      content: SizedBox(
+        width: 600, 
+        height: 550, 
+        child: Form(
+          key: _formKey,
+          child: Stepper(
+            type: StepperType.horizontal,
+            currentStep: _currentStep,
+            onStepContinue: () {
+              if (_currentStep < steps.length - 1) {
+                if (_validarPassoAtual()) {
+                   setState(() => _currentStep += 1);
+                }
+              } else {
+                _submit();
+              }
+            },
+            onStepCancel: () {
+              if (_currentStep > 0) {
+                setState(() => _currentStep -= 1);
+              } else {
+                Navigator.pop(context);
+              }
+            },
+            controlsBuilder: (context, details) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 20.0),
+                child: Row(
+                  children: [
+                    FilledButton(
+                      onPressed: details.onStepContinue,
+                      child: Text(_currentStep == steps.length - 1 ? "CRIAR CASO" : "PRÓXIMO"),
+                    ),
+                    const SizedBox(width: 12),
+                    TextButton(
+                      onPressed: details.onStepCancel,
+                      child: Text(_currentStep == 0 ? "CANCELAR" : "VOLTAR"),
+                    ),
+                  ],
+                ),
+              );
+            },
+            steps: steps,
+          ),
         ),
       ),
     );
@@ -172,21 +313,25 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    bool required = false,
     int maxLines = 1,
-    bool autoFocus = false,
   }) {
-    return TextField(
+    return TextFormField(
       controller: controller,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
         border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         isDense: true,
+        suffixIcon: required 
+          ? const Icon(Icons.star, size: 8, color: Colors.red) 
+          : null,
+        suffixIconConstraints: const BoxConstraints(minWidth: 16, minHeight: 0),
       ),
-      maxLines: maxLines,
-      autofocus: autoFocus,
-      textInputAction: maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
+      validator: required 
+        ? (val) => (val == null || val.trim().isEmpty) ? 'Obrigatório' : null 
+        : null,
     );
   }
 }

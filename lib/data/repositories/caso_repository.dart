@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart'; 
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart'; 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
@@ -8,11 +8,9 @@ class CasoRepository {
 
   final DatabaseHelper _dbHelper;
 
-
   CasoRepository(this._dbHelper); 
 
   Future<Database> get database async => _dbHelper.database;
-
 
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
@@ -21,6 +19,16 @@ class CasoRepository {
       tableCasos,
       novoCaso.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace, 
+    );
+  }
+
+  Future<void> updateCase(Caso caso) async {
+    final db = await database;
+    await db.update(
+      tableCasos,
+      caso.toMap(),
+      where: 'uuid = ?',
+      whereArgs: [caso.uuid],
     );
   }
 

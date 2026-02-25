@@ -1,8 +1,26 @@
+import 'package:flutter/foundation.dart'; 
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
-import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart'; // <--- Importe a exceção nova
+import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
+
+bool _verificarPinEmBackground(Map<String, String> dados) {
+
+  final pin = dados['pin']!;
+  final hash = dados['hash']!;
+  final salt = dados['salt']!;
+  
+  final resultado = SecurityHelper.verifyPin(pin, hash, salt);
+  
+  return resultado;
+}
+
+Map<String, String> _gerarCredenciaisEmBackground(String pin) {
+  final salt = SecurityHelper.generateSalt();
+  final hash = SecurityHelper.hashPin(pin, salt);
+  return {'hash': hash, 'salt': salt};
+}
 
 class AuthService {
   final UsuarioRepository _usuarioRepository;
@@ -16,26 +34,23 @@ class AuthService {
   bool get isLogged => _usuarioLogado != null;
 
   Future<void> login(String matricula, String pin) async {
-    final usuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
     
-    if (usuario == null) {
-      throw AuthException('Usuário não encontrado');
-    }
-
-    if (usuario.ativo == false) {
-      throw AuthException('Usuário desativado. Contate o administrador.');
-    }
+    final usuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
+    if (usuario == null) throw AuthException('Usuário não encontrado');
+    if (usuario.ativo == false) throw AuthException('Usuário desativado.');
 
     if (usuario.hashPinOffline == null || usuario.salt == null) {
       throw AuthException('Erro de integridade nas credenciais');
     }
 
-    if (!SecurityHelper.verifyPin(pin, usuario.hashPinOffline!, usuario.salt!)) {
-      throw AuthException('PIN incorreto');
-    }
+    final bool isPinValido = await compute(_verificarPinEmBackground, {
+      'pin': pin,
+      'hash': usuario.hashPinOffline!,
+      'salt': usuario.salt!,
+    });
+    if (!isPinValido) throw AuthException('PIN incorreto');
 
     _usuarioLogado = usuario;
-    await _keyStorage.save(key: 'user_id', value: usuario.id);
   }
 
   Future<void> logout() async {
@@ -66,8 +81,16 @@ class AuthService {
   }
 
   Future<void> trocarPinObrigatorio(Usuario usuario, String novoPin) async {
-    final novoSalt = SecurityHelper.generateSalt();
-    final novoHash = SecurityHelper.hashPin(novoPin, novoSalt);
-    await _usuarioRepository.updatePin(usuario.id, novoHash, novoSalt);
+    final resultado = await compute(_gerarCredenciaisEmBackground, novoPin);
+    
+    await _usuarioRepository.updatePin(
+      usuario.id, 
+      resultado['hash']!, 
+      resultado['salt']!
+    );
+
+    if (_usuarioLogado != null && _usuarioLogado!.id == usuario.id) {
+      _usuarioLogado = _usuarioLogado!.copyWith(deveAlterarPin: false);
+    }
   }
 }

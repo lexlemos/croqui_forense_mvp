@@ -1,12 +1,10 @@
 import 'package:uuid/uuid.dart';
 
 class DiagramaCaso {
-  // --- Chaves ---
   final String uuid;
-  final String casoUuid; // FK para a tabela 'casos'
-  final String templateId; // FK para a tabela 'templates_diagrama'
+  final String casoUuid;
+  final String templateId; 
   
-  // --- Controle ---
   final bool removido;
   final int versao;
   final DateTime criadoEm;
@@ -24,7 +22,6 @@ class DiagramaCaso {
     this.deviceId,
   });
 
-  // Construtor para NOVO DIAGRAMA
   DiagramaCaso.novo({
     required this.casoUuid,
     required this.templateId,
@@ -35,7 +32,6 @@ class DiagramaCaso {
        atualizadoEm = null,
        deviceId = null;
 
-  // Factory Method: DB (Map) -> Dart (Objeto)
   factory DiagramaCaso.fromMap(Map<String, dynamic> map) {
     return DiagramaCaso(
       uuid: map['uuid'] as String,
@@ -51,7 +47,6 @@ class DiagramaCaso {
     );
   }
 
-  // Método: Dart (Objeto) -> DB (Map)
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,

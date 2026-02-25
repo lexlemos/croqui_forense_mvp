@@ -8,7 +8,8 @@ import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class DatabaseHelper {
   static const String _kDbName = 'croqui_forense_mvp.db';
-  static const int _kVersion = 2; 
+  static const int _kVersion = 4; 
+
   static const String _kEncKey = 'db_encryption_key';
 
   final IDatabaseFactory _dbFactory;
@@ -41,7 +42,7 @@ class DatabaseHelper {
     final path = join(dbPath, _kDbName);
 
     var key = await _keyStorage.read(key: _kEncKey);
-    
+
     if (key == null) {
       key = const Uuid().v4() + const Uuid().v4();
       await _keyStorage.save(key: _kEncKey, value: key);
@@ -59,19 +60,68 @@ class DatabaseHelper {
           for (var sql in kFullDatabaseCreationScripts) {
             await txn.execute(sql);
           }
-          final seeder = DatabaseSeeder(txn); 
+
+          final seeder = DatabaseSeeder(txn);
           await seeder.seedAll();
+
+          await _createAndSeedInjuryTypes(txn);
+
+          await _criarIndices(db);
         });
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-
-        if (oldVersion < 2) {
-          await _migrateV1toV2(db);
-        }
-
+       for (int i = oldVersion + 1; i <= newVersion; i++) {
+    switch (i) {
+      case 2:
+        await _migrateV1toV2(db);
+        break;
+      case 3:
+        await _migrateV2toV3(db);
+        break;
+      case 4:
+        await _migrateV3toV4(db); 
+        break;
+    }
+  }
       },
     );
   }
+
+  Future<void> _createAndSeedInjuryTypes(Transaction txn) async {
+    
+    await txn.execute('''
+      CREATE TABLE IF NOT EXISTS injury_types (
+        id TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        ordem INTEGER DEFAULT 0,
+        ativo INTEGER DEFAULT 1
+      )
+    ''');
+
+
+    final seeder = DatabaseSeeder(txn);
+    await seeder.seedInjuryTypes();
+  }
+
+  Future<void> _migrateV3toV4(Database db) async {
+    await db.transaction((txn) async {
+      await _createAndSeedInjuryTypes(txn);
+    });
+  }
+
+
+  Future<void> _migrateV2toV3(Database db) async {
+  await db.transaction((txn) async {
+    final List<Map<String, dynamic>> columns = await txn.rawQuery("PRAGMA table_info(achados)");
+    
+    final bool columnExists = columns.any((col) => col['name'] == 'profundidade');
+
+      if (!columnExists) {
+      await txn.execute('ALTER TABLE achados ADD COLUMN profundidade TEXT');
+     }
+    });
+  }
+
   String _getScriptFor(String tableName) {
     final script = kTableScripts[tableName];
     if (script == null) {
@@ -85,22 +135,22 @@ class DatabaseHelper {
       await txn.execute('PRAGMA foreign_keys = OFF');
 
       await _performTableMigration(
-        txn, 
-        tableName: tablePapeis, 
-        createScript: _getScriptFor(tablePapeis), 
+        txn,
+        tableName: tablePapeis,
+        createScript: _getScriptFor(tablePapeis),
         copyScript: 'INSERT INTO papeis (id, nome, descricao, e_padrao) SELECT CAST(id AS TEXT), nome, descricao, e_padrao FROM papeis_old'
       );
       await _performTableMigration(
-        txn, 
-        tableName: tablePermissoes, 
-        createScript: _getScriptFor(tablePermissoes), 
+        txn,
+        tableName: tablePermissoes,
+        createScript: _getScriptFor(tablePermissoes),
         copyScript: 'INSERT INTO permissoes (id, codigo, descricao) SELECT CAST(id AS TEXT), codigo, descricao FROM permissoes_old'
       );
 
       await _performTableMigration(
-        txn, 
-        tableName: tableUsuarios, 
-        createScript: _getScriptFor(tableUsuarios), 
+        txn,
+        tableName: tableUsuarios,
+        createScript: _getScriptFor(tableUsuarios),
         copyScript: '''
           INSERT INTO usuarios (
             id, matricula_funcional, papel_id, nome_completo, ativo, hash_pin_offline, 
@@ -114,9 +164,9 @@ class DatabaseHelper {
       );
 
       await _performTableMigration(
-        txn, 
-        tableName: tablePapelPermissoes, 
-        createScript: _getScriptFor(tablePapelPermissoes), 
+        txn,
+        tableName: tablePapelPermissoes,
+        createScript: _getScriptFor(tablePapelPermissoes),
         copyScript: '''
           INSERT INTO papel_permissoes (papel_id, permissao_id) 
           SELECT CAST(papel_id AS TEXT), CAST(permissao_id AS TEXT) 
@@ -126,7 +176,7 @@ class DatabaseHelper {
       await _performTableMigration(
         txn,
         tableName: tableCasos,
-        createScript: _getScriptFor(tableCasos), 
+        createScript: _getScriptFor(tableCasos),
         copyScript: '''
           INSERT INTO casos (uuid, id_usuario_criador, numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia)
           SELECT uuid, CAST(id_usuario_criador AS TEXT), numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia
@@ -149,15 +199,26 @@ class DatabaseHelper {
     });
   }
 
+  Future<void> _criarIndices(Database db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_usuarios_papel ON usuarios (papel_id);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_casos_criador ON casos (id_usuario_criador);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_diagramas_caso ON diagramas_do_caso (caso_uuid);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_achados_diagrama ON achados (diagrama_caso_uuid);');
+    
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_casos_status ON casos (status);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_achados_pendente ON achados (esta_pendente);');
+    
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_casos_data ON casos (criado_em_dispositivo);');
+  }
+
   Future<void> _performTableMigration(Transaction txn, {
     required String tableName,
     required String createScript,
     required String copyScript,
   }) async {
     final check = await txn.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
-    if (check.isEmpty) return; 
+    if (check.isEmpty) return;
 
-    print('Migrando tabela: $tableName...');
 
     await txn.execute('ALTER TABLE $tableName RENAME TO ${tableName}_old');
     await txn.execute(createScript);
