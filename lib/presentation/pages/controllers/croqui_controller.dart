@@ -272,24 +272,38 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-  Future<void> exportarCaso(BuildContext context) async {
-    if (context.mounted) _snack(context, "Preparando arquivo...");
+ Future<void> exportarCaso(BuildContext context) async {
+    if (context.mounted) _snack(context, "Preparando arquivo para exportação...");
+
     try {
-      if (!isReadOnly) await _caseService.salvarRascunho(casoAtual);
+      if (!isReadOnly) {
+        await _caseService.salvarRascunho(casoAtual);
+      }
+
       if (!context.mounted) return;
+
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final String nomeExportador = auth.usuario?.nomeCompleto ?? 'Desconhecido';
+      final String nomeExportador = auth.usuario?.nomeCompleto ?? 'Usuário Desconhecido';
+      
       final directory = await getApplicationDocumentsDirectory(); 
+
       final File arquivoGerado = await _caseService.exportarJsonUnicoComBase64(
         casoUuid: casoAtual.uuid,
-        nomeCriador: "Perito Responsável",
         nomeExportador: nomeExportador,
         diretorioTemp: directory.path,
       );
+
       if (!context.mounted) return;
+
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      await Share.shareXFiles([XFile(arquivoGerado.path)], subject: 'Laudo ${casoAtual.numeroLaudoExterno}');
+  
+      await Share.shareXFiles(
+        [XFile(arquivoGerado.path)],
+        text: 'Laudo Forense exportado.',
+        subject: 'Laudo ${casoAtual.numeroLaudoExterno}',
+      );
     } catch (e) {
+      debugPrint("Erro ao exportar: $e");
       if (context.mounted) _snack(context, "Erro ao exportar", color: Colors.red);
     }
   }
