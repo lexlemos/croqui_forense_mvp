@@ -23,6 +23,8 @@ class ImageHelper {
       quality: 80, 
       minWidth: 1280, 
       minHeight: 1280,
+      rotate: 0, 
+      keepExif: false, 
     );
 
     if (result == null) {

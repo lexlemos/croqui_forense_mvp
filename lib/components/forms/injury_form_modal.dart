@@ -73,7 +73,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           }
         });
       }
-    } catch (_) {
+    }  catch(e, s) {
+      debugPrint("Erro ao carregar tipos de lesão: $e\n$s");
       if (mounted) {
         setState(() => _isLoadingTypes = false);
       }
