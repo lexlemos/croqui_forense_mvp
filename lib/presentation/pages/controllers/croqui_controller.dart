@@ -270,47 +270,51 @@ class CroquiController extends ChangeNotifier {
     } catch (e) {
       if (context.mounted) _snack(context, "Erro ao reabrir", color: Colors.red);
     }
-  }
+  }Future<void> exportarCaso(BuildContext context) async {
+  if (context.mounted) _snack(context, "Gerando laudo PDF oficial...");
 
-Future<void> exportarCaso(BuildContext context) async {
-    if (context.mounted) _snack(context, "Gerando laudo PDF oficial...");
+  try {
+    if (!isReadOnly) {
+      await _caseService.salvarRascunho(casoAtual);
+    }
 
-    try {
-      if (!isReadOnly) {
-        await _caseService.salvarRascunho(casoAtual);
-      }
+    if (!context.mounted) return;
 
-      if (!context.mounted) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    
+    final usuarioLogado = auth.usuario;
 
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final String nomePerito = auth.usuario?.nomeCompleto ?? 'Perito Responsável';
+    if (usuarioLogado == null) {
+      throw Exception("Usuário não autenticado. Não é possível assinar o laudo.");
+    }
 
-      final pdfBytes = await _pdfService.gerarLaudoPdf(
-        caso: casoAtual,
-        achados: achados,
-        nomePerito: nomePerito,
-      );
+    final pdfBytes = await _pdfService.gerarLaudoPdf(
+      caso: casoAtual,
+      achados: achados,
+      perito: usuarioLogado, 
+    );
 
-      final tempDir = await getTemporaryDirectory();
-      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
-      final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
-      
-      await pdfFile.writeAsBytes(pdfBytes, flush: true);
+    final tempDir = await getTemporaryDirectory();
+    final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
+    final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
+    
+    await pdfFile.writeAsBytes(pdfBytes, flush: true);
 
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
-      );
+    await Share.shareXFiles(
+      [XFile(pdfFile.path)],
+      subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
+    );
 
-    } catch (e) {
-      debugPrint("Erro na exportação do PDF: $e");
-      if (context.mounted) _snack(context, "Erro ao gerar PDF", color: Colors.red);
+  } catch (e) {
+    debugPrint("Erro na exportação do PDF: $e");
+    if (context.mounted) {
+      _snack(context, "Erro ao gerar PDF: ${e.toString()}", color: Colors.red);
     }
   }
-
+}
   Future<void> _reloadCaso() async {
     final casos = await _caseService.listarCasos();
     casoAtual = casos.firstWhere((c) => c.uuid == casoAtual.uuid);

@@ -169,6 +169,8 @@ class _UserManagementViewState extends State<_UserManagementView> {
         await context.read<UserManagementProvider>().criarUsuario(
           nome: result['nome'],
           matricula: result['matricula'],
+          crm: result['crm'],
+          classe: result['classe'],
           papelId: result['papelId'],
           pinInicial: result['pin'],
         );

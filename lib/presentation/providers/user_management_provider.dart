@@ -93,6 +93,8 @@ class UserManagementProvider extends ChangeNotifier {
     required String nome,
     required String matricula,
     required String papelId,
+    required String crm,
+    required String classe,
     required String pinInicial,
   }) async {
     _isLoading = true;
@@ -102,6 +104,8 @@ class UserManagementProvider extends ChangeNotifier {
       await _userService.cadastrarNovoUsuario(
         nome: nome,
         matricula: matricula,
+        crm: crm,
+        classe: classe,
         papelId: papelId,
         pinInicial: pinInicial,
       );
@@ -125,6 +129,8 @@ class UserManagementProvider extends ChangeNotifier {
           id: atual.id,
           matriculaFuncional: atual.matriculaFuncional,
           nomeCompleto: atual.nomeCompleto,
+          crm: atual.crm,
+          classe: atual.classe,
           papelId: atual.papelId,
           ativo: !atual.ativo,
           hashPinOffline: atual.hashPinOffline,

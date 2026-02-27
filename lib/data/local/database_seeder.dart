@@ -97,6 +97,8 @@ class DatabaseSeeder {
       'id': adminUserId, 
       'matricula_funcional': 'ADMIN001',
       'nome_completo': 'Administrador Padrao MVP',
+      'crm': '12347/SE',
+      'classe': '1',
       'papel_id': ROLE_ADMIN_ID,
       'hash_pin_offline': hashedPin,
       'salt': salt,

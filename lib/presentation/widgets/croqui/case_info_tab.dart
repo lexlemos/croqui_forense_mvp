@@ -15,14 +15,19 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
-  late final TextEditingController _reqNumeroCtrl;
+  late final TextEditingController _numeroLaudoCtrl; // Separado!
+  late final TextEditingController _requisicaoCtrl;  // Separado!
+  
   late final TextEditingController _reqOrigemCtrl;
   late final TextEditingController _reqDestinoCtrl;
   late final TextEditingController _nomeVitimaCtrl;
 
+  late final TextEditingController _historicoCtrl;
+
   late final TextEditingController _vestesCtrl;
   late final TextEditingController _caracteristicasCtrl;
-  late final TextEditingController _tanatologiaCtrl;
+  late final TextEditingController _tanatoImediatoCtrl;
+  late final TextEditingController _tanatoConsecutivoCtrl;
 
   late final TextEditingController _anatomoCtrl;
   late final TextEditingController _toxicologicoCtrl;
@@ -46,14 +51,24 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
     _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
     
-    _reqNumeroCtrl = TextEditingController(text: controller.casoAtual.numeroLaudoExterno ?? '');
+    // Agora o Laudo e a Requisição são independentes
+    _numeroLaudoCtrl = TextEditingController(text: controller.casoAtual.numeroLaudoExterno ?? '');
+    _requisicaoCtrl = TextEditingController(text: dados['cabecalho']?['requisicao'] ?? '');
+    
     _reqOrigemCtrl = TextEditingController(text: dados['cabecalho']?['requisitante'] ?? '');
     _reqDestinoCtrl = TextEditingController(text: dados['cabecalho']?['destino'] ?? '');
     _nomeVitimaCtrl = TextEditingController(text: dados['cabecalho']?['vitima'] ?? '');
 
-    _vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? '');
-    _caracteristicasCtrl = TextEditingController(text: dados['identificacao']?['caracteristicas'] ?? '');
-    _tanatologiaCtrl = TextEditingController(text: dados['identificacao']?['dados_tanatologicos'] ?? '');
+    _historicoCtrl = TextEditingController(
+      text: dados['identificacao']?['historico'] ?? 
+            "Consta em Boletim de Ocorrência de número XXX que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+    );
+
+    _vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
+    _caracteristicasCtrl = TextEditingController(text: dados['identificacao']?['caracteristicas'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
+    
+    _tanatoImediatoCtrl = TextEditingController(text: dados['identificacao']?['tanato_imediato'] ?? 'midríase paralítica bilateral, ausência de movimentos respiratórios e cardiocirculatórios, perda de consciência, imobilidade e insensibilidade;');
+    _tanatoConsecutivoCtrl = TextEditingController(text: dados['identificacao']?['tanato_consecutivo'] ?? 'hipóstases em região dorsal, hipotermia ao toque, rigidez cadavérica mais pronunciada em membros superiores e inferiores, desidratação das mucosas, depressão do globo ocular e opacificação da córnea.');
 
     _anatomoCtrl = TextEditingController(text: dados['exames_complementares']?['anatomo'] ?? '');
     _toxicologicoCtrl = TextEditingController(text: dados['exames_complementares']?['toxicologico'] ?? '');
@@ -81,13 +96,16 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   @override
   void dispose() {
     _salvarDadosNoController();
-    _reqNumeroCtrl.dispose();
+    _numeroLaudoCtrl.dispose();
+    _requisicaoCtrl.dispose();
     _reqOrigemCtrl.dispose();
     _reqDestinoCtrl.dispose();
     _nomeVitimaCtrl.dispose();
+    _historicoCtrl.dispose();
     _vestesCtrl.dispose();
     _caracteristicasCtrl.dispose();
-    _tanatologiaCtrl.dispose();
+    _tanatoImediatoCtrl.dispose();
+    _tanatoConsecutivoCtrl.dispose();
     _anatomoCtrl.dispose();
     _toxicologicoCtrl.dispose();
     _outrosExamesCtrl.dispose();
@@ -113,14 +131,16 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'requisitante': _reqOrigemCtrl.text,
       'destino': _reqDestinoCtrl.text,
       'vitima': _nomeVitimaCtrl.text,
-      'requisicao': _reqNumeroCtrl.text,
+      'requisicao': _requisicaoCtrl.text, // Salvando a requisição corretamente
     };
 
     novosDados['identificacao'] = {
       ...(novosDados['identificacao'] as Map<String, dynamic>? ?? {}),
+      'historico': _historicoCtrl.text,
       'vestes': _vestesCtrl.text,
       'caracteristicas': _caracteristicasCtrl.text,
-      'dados_tanatologicos': _tanatologiaCtrl.text,
+      'tanato_imediato': _tanatoImediatoCtrl.text,
+      'tanato_consecutivo': _tanatoConsecutivoCtrl.text,
       'fotos_gerais': _fotosIdentificacao,
     };
 
@@ -158,21 +178,53 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           children: [
             const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
             const SizedBox(height: 16),
-            _buildTextField("Número da Requisição", _reqNumeroCtrl, readOnly: true, isBold: true),
+            Row(
+              children: [
+                Expanded(child: _buildTextField("Número do Laudo", _numeroLaudoCtrl, readOnly: true, isBold: true)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTextField("Requisição (B.O.)", _requisicaoCtrl, readOnly: readOnly)),
+              ],
+            ),
             _buildTextField("Vítima", _nomeVitimaCtrl, readOnly: readOnly),
             Row(
               children: [
-                Expanded(child: _buildTextField("Requisitante / Origem", _reqOrigemCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Requisitante (Delegado)", _reqOrigemCtrl, readOnly: readOnly)),
                 const SizedBox(width: 16),
                 Expanded(child: _buildTextField("Destino", _reqDestinoCtrl, readOnly: readOnly)),
               ],
             ),
+            
+            const SizedBox(height: 32),
+            const _SectionHeader(title: "1. Histórico", icon: Icons.history),
+            const SizedBox(height: 16),
+            _buildTextField("Histórico do Caso", _historicoCtrl, readOnly: readOnly, maxLines: 3),
+
             const SizedBox(height: 32),
             const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
             const SizedBox(height: 16),
             _buildTextField("Vestes", _vestesCtrl, readOnly: readOnly, maxLines: 2),
-            _buildTextField("Características", _caracteristicasCtrl, readOnly: readOnly, maxLines: 2),
-            _buildTextField("Dados Tanatológicos", _tanatologiaCtrl, readOnly: readOnly, maxLines: 2),
+            _buildTextField("Características de Identificação", _caracteristicasCtrl, readOnly: readOnly, maxLines: 2),
+            
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Dados Tanatológicos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey)),
+                  const SizedBox(height: 4),
+                  const Text("A morte está evidenciada pela presença dos seguintes sinais:", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                  const SizedBox(height: 12),
+                  _buildTextField("A) Imediatos", _tanatoImediatoCtrl, readOnly: readOnly, maxLines: 3),
+                  _buildTextField("B) Consecutivos", _tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: 3),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 24),
             const _SectionHeader(title: "Fotos de Identificação", icon: Icons.camera_alt),
             const SizedBox(height: 16),
@@ -219,27 +271,31 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 },
               ),
             ),
+            
             const SizedBox(height: 32),
             const _SectionHeader(title: "3. Exames Complementares", icon: Icons.science),
             const SizedBox(height: 16),
             _buildTextField("Anátomo-Patológico", _anatomoCtrl, readOnly: readOnly, hint: "Ex: Material coletado para análise..."),
             _buildTextField("Toxicológico", _toxicologicoCtrl, readOnly: readOnly, hint: "Ex: Negativo / Aguardando laudo..."),
             _buildTextField("Outros Exames", _outrosExamesCtrl, readOnly: readOnly),
+            
             const SizedBox(height: 32),
-            const _SectionHeader(title: "4. Discussão / Comentário", icon: Icons.chat),
+            const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
-            _buildTextField("Discussão do Caso", _discussaoCtrl, readOnly: readOnly, maxLines: 5),
+            _buildTextField("Comentário Médico Forense", _discussaoCtrl, readOnly: readOnly, maxLines: 5),
+            
             const SizedBox(height: 24),
             const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
             _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: 3),
+            
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.indigo.withOpacity(0.05),
+                color: Colors.indigo.withAlpha(13),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.indigo.withOpacity(0.05)),
+                border: Border.all(color: Colors.indigo.withAlpha(13)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,6 +319,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 ],
               ),
             ),
+            
             const SizedBox(height: 40),
             if (!readOnly)
               SizedBox(
@@ -328,7 +385,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.08),
+          color: Colors.grey.withAlpha(20),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.transparent),
         ),
@@ -340,7 +397,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: Colors.indigo.withOpacity(0.7),
+                color: Colors.indigo.withAlpha(178),
                 letterSpacing: 0.5,
               ),
             ),

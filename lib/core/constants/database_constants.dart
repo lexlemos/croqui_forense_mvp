@@ -47,6 +47,8 @@ CREATE TABLE usuarios (
     matricula_funcional TEXT NOT NULL UNIQUE,
     papel_id TEXT NOT NULL,
     nome_completo TEXT NOT NULL,
+    crm TEXT,
+    classe TEXT,
     ativo INTEGER DEFAULT 1,
     hash_pin_offline TEXT,
     deve_alterar_pin INTEGER DEFAULT 1,
