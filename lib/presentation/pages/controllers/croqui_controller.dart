@@ -57,6 +57,7 @@ class CroquiController extends ChangeNotifier {
             bodyPartId: a.dadosPreenchidos['local_anatomico_id'] ?? 'desconhecido',
             xPercent: a.posX,
             yPercent: a.posY,
+            isInterno: a.dadosPreenchidos['isInterno'] ?? false,
             type: a.dadosPreenchidos['type_label'] ?? '',
             photoPath: a.dadosPreenchidos['photo_path'],
           );
@@ -89,6 +90,7 @@ class CroquiController extends ChangeNotifier {
 
     final String tipoLesaoId = result['typeId'] ?? 'outro';
     final String tipoLesaoNome = result['type'];
+    final bool isInterno = result['isInterno'] ?? false;
 
     final Map<String, dynamic> dadosExtras = {
       'view': viewType,
@@ -98,6 +100,7 @@ class CroquiController extends ChangeNotifier {
       'size': result['size'],
       'depth': result['depth'],
       'photo_path': finalPhotoPath, 
+      'is_interno': isInterno
     };
 
     final achadoFinal = Achado(
@@ -107,6 +110,7 @@ class CroquiController extends ChangeNotifier {
       numeroSequencial: achados.length + 1,
       posX: x,
       posY: y,
+      isInterno: isInterno,
       estaPendente: true,
       dadosPreenchidos: dadosExtras,
       observacoesTexto: result['description'] ?? '',
@@ -139,6 +143,7 @@ class CroquiController extends ChangeNotifier {
       bodyPartId: dados['local_anatomico_id'] ?? 'desconhecido',
       xPercent: achado.posX,
       yPercent: achado.posY,
+      isInterno: achado.isInterno,
       type: dados['type_label'] ?? '',
       size: dados['size'] ?? '',
       depth: dados['depth'] ?? '',
@@ -183,6 +188,7 @@ class CroquiController extends ChangeNotifier {
       numeroSequencial: achado.numeroSequencial,
       posX: achado.posX,
       posY: achado.posY,
+      isInterno: result['isInterno'] ?? achado.isInterno,
       estaPendente: true,
       dadosPreenchidos: novosDados,
       observacoesTexto: result['description'] ?? '',
@@ -213,7 +219,6 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-  // --- MÉTODOS PARA GERENCIAMENTO DO CASO (CaseInfoTab) ---
 
   void atualizarDadosLaudoMemoria(Map<String, dynamic> novosDados) {
     casoAtual = Caso(

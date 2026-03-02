@@ -7,7 +7,7 @@ class InjuryMarker {
   final double yPercent;   
   final String? description; 
   final String? photoPath;  
-
+  final bool isInterno;
   final String type;
   final String size;  
   final String depth; 
@@ -19,6 +19,7 @@ class InjuryMarker {
     required this.bodyPartId,
     required this.xPercent,
     required this.yPercent,
+    required this.isInterno,
     this.description,
     this.photoPath,
     this.type = 'Não definido',
@@ -34,6 +35,7 @@ class InjuryMarker {
       'body_part_id': bodyPartId,
       'x_percent': xPercent,
       'y_percent': yPercent,
+      'is_interno': isInterno,
       'description': description,
       'photo_path': photoPath,
       'type': type,
@@ -50,6 +52,7 @@ class InjuryMarker {
       bodyPartId: map['body_part_id'],
       xPercent: map['x_percent'],
       yPercent: map['y_percent'],
+      isInterno: map['is_interno'] ?? false,
       description: map['description'],
       photoPath: map['photo_path'],
       type: map['type'] ?? 'Não definido',

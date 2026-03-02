@@ -11,6 +11,7 @@ class Achado {
   final double posY;
   final bool estaPendente;
   
+  final bool isInterno;
 
   final Map<String, dynamic> dadosPreenchidos;
   final String? observacoesTexto; 
@@ -30,6 +31,7 @@ class Achado {
     required this.numeroSequencial,
     required this.posX,
     required this.posY,
+    required this.isInterno,
     required this.estaPendente,
     required this.dadosPreenchidos,
     this.observacoesTexto,
@@ -47,6 +49,7 @@ class Achado {
     required this.numeroSequencial,
     required this.posX,
     required this.posY,
+    required this.isInterno,
   }) : uuid = const Uuid().v4(),
        estaPendente = true, 
        dadosPreenchidos = const {},
@@ -69,6 +72,8 @@ class Achado {
       posY: map['pos_y'] as double,
       
       estaPendente: (map['esta_pendente'] as int) == 1,
+      
+      isInterno: (map['is_interno'] as int) == 1,
     
       dadosPreenchidos: map['dados_preenchidos_json'] != null ? jsonDecode(map['dados_preenchidos_json'] as String) : const {},
       observacoesTexto: map['observacoes_texto'] as String?,
@@ -92,6 +97,7 @@ class Achado {
       'pos_y': posY,
       
       'esta_pendente': estaPendente ? 1 : 0,
+      'is_interno': isInterno ? 1 : 0,
       
       'dados_preenchidos_json': jsonEncode(dadosPreenchidos),
       'observacoes_texto': observacoesTexto,

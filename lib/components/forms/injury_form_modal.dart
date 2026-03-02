@@ -31,6 +31,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   String? _currentPhotoPath;
   InjuryType? _selectedType; 
   bool _isLoadingTypes = true;
+  bool _isInterno = false;
   
   final ImagePicker _picker = ImagePicker();
   final InjuryTypeRepository _repository = InjuryTypeRepository();
@@ -47,6 +48,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _obsController = TextEditingController(text: m?.description ?? '');
     
     _currentPhotoPath = m?.photoPath;
+
+    if (m != null) {
+      try {
+        _isInterno = (m as dynamic).isInterno ?? false; 
+      } catch(e) {
+        _isInterno = false;
+      }
+    }
     
     _loadTypes(initialTypeLabel: m?.type);
   }
@@ -159,6 +168,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'depth': _depthController.text,
         'description': _obsController.text,
         'photoPath': _currentPhotoPath,
+        'isInterno': _isInterno, 
       });
     }
   }
@@ -202,7 +212,50 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                       validator: (v) => v == null ? 'Selecione um tipo' : null,
                     ),
               
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Classificação do Exame", 
+                      style: TextStyle(fontSize: 12, color: Colors.black54)
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<bool>(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text("Externo", style: TextStyle(fontSize: 14)),
+                            value: false,
+                            groupValue: _isInterno,
+                            activeColor: Colors.indigo,
+                            onChanged: (value) => setState(() => _isInterno = value!),
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<bool>(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text("Interno", style: TextStyle(fontSize: 14)),
+                            value: true,
+                            groupValue: _isInterno,
+                            activeColor: Colors.indigo,
+                            onChanged: (value) => setState(() => _isInterno = value!),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               Row(
                 children: [

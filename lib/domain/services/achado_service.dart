@@ -27,6 +27,7 @@ class AchadoService {
       numeroSequencial: achado.numeroSequencial,
       posX: achado.posX,
       posY: achado.posY,
+      isInterno: achado.isInterno,
       estaPendente: achado.estaPendente,
       dadosPreenchidos: achado.dadosPreenchidos,
       observacoesTexto: achado.observacoesTexto,

@@ -15,8 +15,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
-  late final TextEditingController _numeroLaudoCtrl; // Separado!
-  late final TextEditingController _requisicaoCtrl;  // Separado!
+  late final TextEditingController _numeroLaudoCtrl; 
+  late final TextEditingController _requisicaoCtrl;  
   
   late final TextEditingController _reqOrigemCtrl;
   late final TextEditingController _reqDestinoCtrl;
@@ -28,6 +28,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   late final TextEditingController _caracteristicasCtrl;
   late final TextEditingController _tanatoImediatoCtrl;
   late final TextEditingController _tanatoConsecutivoCtrl;
+  late final TextEditingController _tanatoObservacaoCtrl;
 
   late final TextEditingController _anatomoCtrl;
   late final TextEditingController _toxicologicoCtrl;
@@ -51,7 +52,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
     _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
     
-    // Agora o Laudo e a Requisição são independentes
     _numeroLaudoCtrl = TextEditingController(text: controller.casoAtual.numeroLaudoExterno ?? '');
     _requisicaoCtrl = TextEditingController(text: dados['cabecalho']?['requisicao'] ?? '');
     
@@ -67,8 +67,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
     _caracteristicasCtrl = TextEditingController(text: dados['identificacao']?['caracteristicas'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
     
-    _tanatoImediatoCtrl = TextEditingController(text: dados['identificacao']?['tanato_imediato'] ?? 'midríase paralítica bilateral, ausência de movimentos respiratórios e cardiocirculatórios, perda de consciência, imobilidade e insensibilidade;');
-    _tanatoConsecutivoCtrl = TextEditingController(text: dados['identificacao']?['tanato_consecutivo'] ?? 'hipóstases em região dorsal, hipotermia ao toque, rigidez cadavérica mais pronunciada em membros superiores e inferiores, desidratação das mucosas, depressão do globo ocular e opacificação da córnea.');
+    _tanatoImediatoCtrl = TextEditingController(text: dados['identificacao']?['tanato_imediato'] ?? 'XXX');
+    _tanatoConsecutivoCtrl = TextEditingController(text: dados['identificacao']?['tanato_consecutivo'] ?? 'XXX');
+    _tanatoObservacaoCtrl = TextEditingController(text: dados['identificacao']?['tanato_observacao'] ?? 'XXX');
 
     _anatomoCtrl = TextEditingController(text: dados['exames_complementares']?['anatomo'] ?? '');
     _toxicologicoCtrl = TextEditingController(text: dados['exames_complementares']?['toxicologico'] ?? '');
@@ -106,6 +107,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _caracteristicasCtrl.dispose();
     _tanatoImediatoCtrl.dispose();
     _tanatoConsecutivoCtrl.dispose();
+    _tanatoObservacaoCtrl.dispose();
     _anatomoCtrl.dispose();
     _toxicologicoCtrl.dispose();
     _outrosExamesCtrl.dispose();
@@ -131,7 +133,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'requisitante': _reqOrigemCtrl.text,
       'destino': _reqDestinoCtrl.text,
       'vitima': _nomeVitimaCtrl.text,
-      'requisicao': _requisicaoCtrl.text, // Salvando a requisição corretamente
+      'requisicao': _requisicaoCtrl.text, 
     };
 
     novosDados['identificacao'] = {
@@ -141,6 +143,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'caracteristicas': _caracteristicasCtrl.text,
       'tanato_imediato': _tanatoImediatoCtrl.text,
       'tanato_consecutivo': _tanatoConsecutivoCtrl.text,
+      'tanato_observacao': _tanatoObservacaoCtrl.text,
       'fotos_gerais': _fotosIdentificacao,
     };
 
@@ -221,6 +224,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   const SizedBox(height: 12),
                   _buildTextField("A) Imediatos", _tanatoImediatoCtrl, readOnly: readOnly, maxLines: 3),
                   _buildTextField("B) Consecutivos", _tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: 3),
+                  _buildTextField("C) Comentários Adicionais", _tanatoObservacaoCtrl, readOnly: readOnly, maxLines: 3),
                 ],
               ),
             ),

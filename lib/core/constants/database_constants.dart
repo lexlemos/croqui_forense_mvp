@@ -135,6 +135,7 @@ CREATE TABLE achados (
     numero_sequencial INTEGER,
     pos_x REAL,
     pos_y REAL,
+    is_interno INTEGER DEFAULT 0,
     esta_pendente INTEGER DEFAULT 1,
     dados_preenchidos_json TEXT,
     observacoes_texto TEXT,
