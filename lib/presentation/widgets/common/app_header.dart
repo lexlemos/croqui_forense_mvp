@@ -144,7 +144,7 @@ class AppHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'DR. ${usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO"}',
+                  '${usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO"}',
                   style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 14,
