@@ -15,7 +15,6 @@ class Achado {
 
   final Map<String, dynamic> dadosPreenchidos;
   final String? observacoesTexto; 
-  
 
   final bool removido;
   final int versao;
@@ -42,6 +41,17 @@ class Achado {
     this.deviceId,
     this.proveniencia,
   });
+
+  String get tamanho {
+    return dadosPreenchidos['size']?.toString() ?? 
+           dadosPreenchidos['tamanho']?.toString() ?? 
+           dadosPreenchidos['altura']?.toString() ?? '-';
+  }
+
+  String get profundidade {
+    return dadosPreenchidos['depth']?.toString() ?? 
+           dadosPreenchidos['profundidade']?.toString() ?? '-';
+  }
 
   Achado.novo({
     required this.diagramaCasoUuid,

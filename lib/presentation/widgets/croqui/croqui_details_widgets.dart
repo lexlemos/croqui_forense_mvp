@@ -128,7 +128,7 @@ class _AchadoCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis, 
               maxLines: 1),
           const SizedBox(height: 4),
-          Text("Tam: ${d['size'] ?? '-'}cm | Prof: ${d['depth'] ?? '-'}", 
+          Text("Tam: ${achado.tamanho}cm | Prof: ${achado.profundidade}",
               style: const TextStyle(fontSize: 10, color: Colors.black54)),
           if (achado.observacoesTexto?.isNotEmpty == true)
             Text(
