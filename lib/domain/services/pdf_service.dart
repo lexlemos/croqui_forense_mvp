@@ -203,6 +203,7 @@ class PdfService {
         for (var a in achadosGrupo) {
           final foto = anexos.cast<Map<String, dynamic>?>().firstWhere((f) => f != null && f['uuid'] == a.uuid, orElse: () => null);
           final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
+          final descTamanho = (a.tamanho != '-' && a.tamanho.isNotEmpty) ? " medindo ${a.tamanho}cm" : "";
           
           items.add(pw.Padding(padding: const pw.EdgeInsets.only(left: 30), child: pw.Bullet(text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto", style: const pw.TextStyle(fontSize: 10))));
         }
@@ -256,26 +257,66 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildEncerramento(Usuario perito) {
+  pw.Widget _buildEncerramento(Caso caso, Usuario perito) {
     final data = DateTime.now();
     const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
     final mesStr = meses[data.month - 1];
 
-    return pw.Wrap(children: [
-      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-        pw.Text(
-          "Nossa Senhora do Socorro, ${data.day.toString().padLeft(2, '0')} de $mesStr de ${data.year}", 
-          style: const pw.TextStyle(fontSize: 10),
-          textAlign: pw.TextAlign.center
+    final auditoria = caso.dadosLaudo['auditoria'];
+    final nomeAuditoria = auditoria?['perito_responsavel'] ?? perito.nomeCompleto;
+
+    String dataFinalizacao = "Não registrada";
+    if (auditoria?['data_finalizacao'] != null) {
+      final dt = DateTime.parse(auditoria!['data_finalizacao']).toLocal();
+      dataFinalizacao = DateFormat('dd/MM/yyyy às HH:mm').format(dt);
+    }
+
+    final dataExportacao = DateFormat('dd/MM/yyyy às HH:mm:ss').format(data);
+
+    return pw.Wrap(
+      children: [
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              "Nossa Senhora do Socorro, ${data.day.toString().padLeft(2, '0')} de $mesStr de ${data.year}",
+              style: const pw.TextStyle(fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+            pw.SizedBox(height: 50),
+            pw.Container(width: 250, child: pw.Divider(color: PdfColors.black, thickness: 1)),
+            pw.SizedBox(height: 8),
+            pw.Text(nomeAuditoria.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+            pw.Text("Perito Médico Legal", style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+            pw.SizedBox(height: 30),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text("REGISTRO DE AUDITORIA DO SISTEMA", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text("Laudo finalizado no sistema em: $dataFinalizacao", style: const pw.TextStyle(fontSize: 8)),
+                      pw.Text("Documento exportado em: $dataExportacao", style: const pw.TextStyle(fontSize: 8)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text("Autenticidade vinculada ao usuário logado no momento da finalização do caso.", style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                ],
+              ),
+            ),
+          ],
         ),
-        pw.SizedBox(height: 50),
-        pw.Container(width: 250, child: pw.Divider(color: PdfColors.black, thickness: 1)),
-        pw.Text("Dr. ${perito.nomeCompleto}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-        pw.Text("Médico Legista", style: const pw.TextStyle(fontSize: 10)),
-        pw.Text("CRM ${perito.crm}", style: const pw.TextStyle(fontSize: 10)),
-        pw.Text("Perito Médico Legal Classe ${perito.classe}", style: const pw.TextStyle(fontSize: 10)),
-      ]),
-    ]);
+      ],
+    );
   }
   
   List<Map<String, dynamic>> _prepararFotos(Caso caso, List<Achado> achados) {

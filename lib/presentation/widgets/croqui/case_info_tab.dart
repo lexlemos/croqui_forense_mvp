@@ -392,7 +392,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     if (readOnly) ...[
               Builder(
                 builder: (context) {
-                  // Buscando os dados do novo bloco que você sugeriu
                   final auditoria = controller.casoAtual.dadosLaudo['auditoria'];
                   final nomePerito = auditoria?['perito_responsavel'] ?? "Perito não identificado";
                   final dataIso = auditoria?['data_finalizacao'];
