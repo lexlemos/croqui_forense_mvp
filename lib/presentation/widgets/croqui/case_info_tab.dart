@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -161,6 +162,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'quesito_2_causa': _quesito2Ctrl.text,
       'quesito_3_instrumento': _quesito3Ctrl.text,
       'quesito_4_meio': _quesito4Ctrl.text,
+    };
+
+    novosDados['auditoria'] = {
+      ...(novosDados['auditoria'] as Map<String, dynamic>? ?? {}),
+      'perito_responsavel': nomePerito,
       'data_finalizacao': DateTime.now().toIso8601String(),
     };
 
@@ -383,42 +389,72 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     bool required = false,
     bool isBold = false,
   }) {
-    if (readOnly) {
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.grey.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.transparent),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo.withAlpha(178),
-                letterSpacing: 0.5,
+    if (readOnly) ...[
+              Builder(
+                builder: (context) {
+                  // Buscando os dados do novo bloco que você sugeriu
+                  final auditoria = controller.casoAtual.dadosLaudo['auditoria'];
+                  final nomePerito = auditoria?['perito_responsavel'] ?? "Perito não identificado";
+                  final dataIso = auditoria?['data_finalizacao'];
+                  
+                  String dataFormatada = "Data não registrada";
+                  if (dataIso != null) {
+                    final dataHora = DateTime.parse(dataIso);
+                    dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(dataHora);
+                  }
+
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.verified_user, color: Colors.green, size: 40),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "LAUDO FINALIZADO E BLOQUEADO",
+                          style: TextStyle(
+                            fontSize: 14, 
+                            fontWeight: FontWeight.bold, 
+                            color: Colors.grey,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          nomePerito,
+                          style: const TextStyle(
+                            fontSize: 18, 
+                            fontWeight: FontWeight.bold, 
+                            color: Colors.black87
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Em $dataFormatada",
+                          style: const TextStyle(
+                            fontSize: 14, 
+                            fontWeight: FontWeight.w500, 
+                            color: Colors.indigo
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "Assinado digitalmente. Nenhuma alteração permitida.",
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  );
+                }
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              ctrl.text.isEmpty ? "-" : ctrl.text,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                color: Colors.black87,
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+            ],
+            const SizedBox(height: 40),
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),

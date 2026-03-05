@@ -189,8 +189,8 @@ class CaseService {
         'sequencial': a.numeroSequencial,
         'tipo': d['type_label'],
         'local': d['local_anatomico_nome'],
-        'tamanho': d['size'],
-        'profundidade': d['depth'],
+        'tamanho': a.tamanho,
+        'profundidade': a.profundidade,
         'descricao': a.observacoesTexto,
         'posicao_croqui': d['view'],
       };
