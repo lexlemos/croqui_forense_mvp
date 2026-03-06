@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 
 class CaseInfoTab extends StatefulWidget {
@@ -127,6 +128,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     final controller = context.read<CroquiController>();
     if (controller.isReadOnly) return;
 
+    final authProvider = context.read<AuthProvider>();
+    final nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
+
     final Map<String, dynamic> novosDados = Map<String, dynamic>.from(controller.casoAtual.dadosLaudo);
 
     novosDados['cabecalho'] = {
@@ -173,7 +177,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     controller.atualizarDadosLaudoMemoria(novosDados);
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();
     final bool readOnly = controller.isReadOnly;
@@ -361,35 +365,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   },
                 ),
               ),
-            if (readOnly)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: const Text(
-                    "Caso Finalizado (Modo Leitura)",
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController ctrl, {
-    bool readOnly = false,
-    int maxLines = 1,
-    String? hint,
-    bool required = false,
-    bool isBold = false,
-  }) {
-    if (readOnly) ...[
+            if (readOnly) ...[
               Builder(
                 builder: (context) {
                   final auditoria = controller.casoAtual.dadosLaudo['auditoria'];
@@ -454,6 +430,55 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               ),
             ],
             const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController ctrl, {
+    bool readOnly = false,
+    int maxLines = 1,
+    String? hint,
+    bool required = false,
+    bool isBold = false,
+  }) {
+    if (readOnly) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.grey.withAlpha(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.transparent),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.withAlpha(178),
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              ctrl.text.isEmpty ? "-" : ctrl.text,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                color: Colors.black87,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
