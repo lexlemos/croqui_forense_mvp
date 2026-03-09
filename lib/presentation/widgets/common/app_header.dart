@@ -244,7 +244,6 @@ class AppHeader extends StatelessWidget {
         break;
         case 'logout':
         final authProvider = context.read<AuthProvider>();
-        Navigator.of(context).popUntil((route) => route.isFirst);
         await authProvider.logout();
         break;
 }

@@ -18,7 +18,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   final ImagePicker _picker = ImagePicker();
 
   late final TextEditingController _numeroLaudoCtrl; 
-  late final TextEditingController _requisicaoCtrl;  
+  late final TextEditingController _boCtrl; 
+  late final TextEditingController _picCtrl;
   
   late final TextEditingController _reqOrigemCtrl;
   late final TextEditingController _reqDestinoCtrl;
@@ -34,6 +35,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
   late final TextEditingController _anatomoCtrl;
   late final TextEditingController _toxicologicoCtrl;
+  late final TextEditingController _geneticaCtrl; 
   late final TextEditingController _outrosExamesCtrl;
 
   late final TextEditingController _discussaoCtrl;
@@ -55,7 +57,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
     
     _numeroLaudoCtrl = TextEditingController(text: controller.casoAtual.numeroLaudoExterno ?? '');
-    _requisicaoCtrl = TextEditingController(text: dados['cabecalho']?['requisicao'] ?? '');
+    _boCtrl = TextEditingController(text: dados['cabecalho']?['bo'] ?? ''); 
+    _picCtrl = TextEditingController(text: dados['cabecalho']?['pic'] ?? '');
     
     _reqOrigemCtrl = TextEditingController(text: dados['cabecalho']?['requisitante'] ?? '');
     _reqDestinoCtrl = TextEditingController(text: dados['cabecalho']?['destino'] ?? '');
@@ -75,8 +78,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
     _anatomoCtrl = TextEditingController(text: dados['exames_complementares']?['anatomo'] ?? '');
     _toxicologicoCtrl = TextEditingController(text: dados['exames_complementares']?['toxicologico'] ?? '');
+    _geneticaCtrl = TextEditingController(text: dados['exames_complementares']?['genetica'] ?? '');
     _outrosExamesCtrl = TextEditingController(text: dados['exames_complementares']?['outros'] ?? '');
-
+    
     _discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
     _conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
 
@@ -86,21 +90,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
   }
 
-  Future<void> _tirarFoto() async {
-    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-    if (photo != null) {
-      setState(() {
-        _fotosIdentificacao.add(photo.path);
-      });
-      _salvarDadosNoController();
-    }
-  }
-
   @override
   void dispose() {
     _salvarDadosNoController();
     _numeroLaudoCtrl.dispose();
-    _requisicaoCtrl.dispose();
+    _boCtrl.dispose();
+    _picCtrl.dispose(); 
     _reqOrigemCtrl.dispose();
     _reqDestinoCtrl.dispose();
     _nomeVitimaCtrl.dispose();
@@ -112,6 +107,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _tanatoObservacaoCtrl.dispose();
     _anatomoCtrl.dispose();
     _toxicologicoCtrl.dispose();
+    _geneticaCtrl.dispose();
     _outrosExamesCtrl.dispose();
     _discussaoCtrl.dispose();
     _conclusaoCtrl.dispose();
@@ -138,7 +134,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'requisitante': _reqOrigemCtrl.text,
       'destino': _reqDestinoCtrl.text,
       'vitima': _nomeVitimaCtrl.text,
-      'requisicao': _requisicaoCtrl.text, 
+      'requisicao': _numeroLaudoCtrl.text, // Mapeado para o laudo para manter compatibilidade
+      'bo': _boCtrl.text, 
+      'pic': _picCtrl.text, 
     };
 
     novosDados['identificacao'] = {
@@ -155,6 +153,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     novosDados['exames_complementares'] = {
       'anatomo': _anatomoCtrl.text,
       'toxicologico': _toxicologicoCtrl.text,
+      'genetica': _geneticaCtrl.text, 
       'outros': _outrosExamesCtrl.text,
     };
 
@@ -177,7 +176,15 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     controller.atualizarDadosLaudoMemoria(novosDados);
   }
 
-@override
+  Future<void> _tirarFoto() async {
+    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    if (photo != null) {
+      setState(() => _fotosIdentificacao.add(photo.path));
+      _salvarDadosNoController();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();
     final bool readOnly = controller.isReadOnly;
@@ -191,14 +198,20 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           children: [
             const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
             const SizedBox(height: 16),
+            
+            // CAMPO ÚNICO: NÚMERO DO LAUDO
+            _buildTextField("Número do Laudo / Requisição", _numeroLaudoCtrl, readOnly: true, isBold: true),
+
             Row(
               children: [
-                Expanded(child: _buildTextField("Número do Laudo", _numeroLaudoCtrl, readOnly: true, isBold: true)),
+                Expanded(child: _buildTextField("Boletim de Ocorrência", _boCtrl, readOnly: readOnly)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Requisição (B.O.)", _requisicaoCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Nº PIC", _picCtrl, readOnly: readOnly)),
               ],
             ),
+
             _buildTextField("Vítima", _nomeVitimaCtrl, readOnly: readOnly),
+
             Row(
               children: [
                 Expanded(child: _buildTextField("Requisitante (Delegado)", _reqOrigemCtrl, readOnly: readOnly)),
@@ -291,6 +304,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 16),
             _buildTextField("Anátomo-Patológico", _anatomoCtrl, readOnly: readOnly, hint: "Ex: Material coletado para análise..."),
             _buildTextField("Toxicológico", _toxicologicoCtrl, readOnly: readOnly, hint: "Ex: Negativo / Aguardando laudo..."),
+            _buildTextField("Genética", _geneticaCtrl, readOnly: readOnly, hint: "Ex: Coleta de material biológico para DNA..."), 
             _buildTextField("Outros Exames", _outrosExamesCtrl, readOnly: readOnly),
             
             const SizedBox(height: 32),
@@ -392,31 +406,18 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         const SizedBox(height: 16),
                         const Text(
                           "LAUDO FINALIZADO E BLOQUEADO",
-                          style: TextStyle(
-                            fontSize: 14, 
-                            fontWeight: FontWeight.bold, 
-                            color: Colors.grey,
-                            letterSpacing: 1.2,
-                          ),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           nomePerito,
-                          style: const TextStyle(
-                            fontSize: 18, 
-                            fontWeight: FontWeight.bold, 
-                            color: Colors.black87
-                          ),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           "Em $dataFormatada",
-                          style: const TextStyle(
-                            fontSize: 14, 
-                            fontWeight: FontWeight.w500, 
-                            color: Colors.indigo
-                          ),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.indigo),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -451,30 +452,13 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         decoration: BoxDecoration(
           color: Colors.grey.withAlpha(20),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.transparent),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo.withAlpha(178),
-                letterSpacing: 0.5,
-              ),
-            ),
+            Text(label.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo.withAlpha(178), letterSpacing: 0.5)),
             const SizedBox(height: 6),
-            Text(
-              ctrl.text.isEmpty ? "-" : ctrl.text,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                color: Colors.black87,
-                height: 1.3,
-              ),
-            ),
+            Text(ctrl.text.isEmpty ? "-" : ctrl.text, style: TextStyle(fontSize: 15, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: Colors.black87, height: 1.3)),
           ],
         ),
       );
@@ -484,7 +468,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: ctrl,
-        readOnly: false,
         maxLines: maxLines,
         onChanged: (_) => _salvarDadosNoController(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
@@ -496,12 +479,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           filled: true,
           fillColor: Colors.white,
           border: const OutlineInputBorder(),
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey.shade400),
-          ),
-          focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.indigo, width: 2),
-          ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
       ),
@@ -520,10 +497,7 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Icon(icon, color: Colors.blueGrey, size: 28),
         const SizedBox(width: 12),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-        ),
+        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
       ],
     );
   }

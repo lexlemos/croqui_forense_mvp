@@ -14,7 +14,6 @@ import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
 class PdfService {
-  
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
@@ -59,57 +58,45 @@ class PdfService {
             pw.SizedBox(height: 20),
             _buildTextoAbertura(caso, perito),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("1. HISTÓRICO"),
             PdfHelpers.buildParagrafoComRecuo(caso.dadosLaudo['identificacao']?['historico'] ?? "XXX"),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("2. IDENTIFICAÇÃO"),
             _buildIdentificacaoOficial(caso),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("3. EXAME EXTERNO (Visum et Repertum)"),
             ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("4. EXAME INTERNO (Cavidades)"),
             ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("5. EXAMES COMPLEMENTARES"),
             _buildDadosComplementares(caso),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("6. RASCUNHOS E ESQUEMAS DE LESÃO"),
             if (croquisWidgets.isEmpty)
               PdfHelpers.buildParagrafoComRecuo("Sem rascunhos anexados.")
             else
               ...croquisWidgets,
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("7. REGISTRO FOTOGRÁFICO"),
             if (anexosFotos.isEmpty)
               PdfHelpers.buildParagrafoComRecuo("Sem fotografias anexadas.")
             else
               ..._buildSecaoFotos(anexosFotos),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("8. COMENTÁRIO MÉDICO FORENSE"),
             PdfHelpers.buildParagrafoComRecuo((caso.dadosLaudo['conclusao']?['discussao']?.toString().isNotEmpty == true) ? caso.dadosLaudo['conclusao']!['discussao'] : "XXX"),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("9. CONCLUSÃO"),
             PdfHelpers.buildParagrafoComRecuo((caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString().isNotEmpty == true) ? caso.dadosLaudo['conclusao']!['conclusao_texto'] : "XXX"),
             pw.SizedBox(height: 10),
-            
             PdfHelpers.buildParagrafoComRecuo(PdfConstants.encerramentoPadrao),
             pw.SizedBox(height: 15),
-
             PdfHelpers.buildSectionTitle("10. RESPOSTA AOS QUESITOS"),
             _buildDadosQuesitosOficial(caso),
             pw.SizedBox(height: 40),
-
-            pw.Align(alignment: pw.Alignment.center, child: _buildEncerramento(perito)),
+            pw.Align(alignment: pw.Alignment.center, child: _buildEncerramento(caso, perito)),
           ];
         },
       ),
@@ -124,7 +111,9 @@ class PdfService {
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         PdfHelpers.buildLinhaDetalhe("Laudo Pericial Cadavérico nº CD", caso.numeroLaudoExterno ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Requisição: BO nº", cab['requisicao'] ?? 'XXX'), 
+        PdfHelpers.buildLinhaDetalhe("Requisição:", cab['requisicao'] ?? 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Boletim de Ocorrência (B.O.):", cab['bo'] ?? 'XXX'), 
+        PdfHelpers.buildLinhaDetalhe("PIC:", cab['pic'] ?? 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", cab['requisitante'] ?? 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Destino:", cab['destino'] ?? 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Nome da vítima:", cab['vitima'] ?? 'XXX', bold: true),
@@ -232,6 +221,7 @@ class PdfService {
       children: [
         PdfHelpers.buildItemComLabel("Anátomo-Patológico: ", (ex['anatomo']?.toString().isNotEmpty == true) ? ex['anatomo'] : 'XXX'), 
         PdfHelpers.buildItemComLabel("Toxicológico: ", (ex['toxicologico']?.toString().isNotEmpty == true) ? ex['toxicologico'] : 'XXX'), 
+        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), // CAMPO ADICIONADO
         PdfHelpers.buildItemComLabel("Outros: ", (ex['outros']?.toString().isNotEmpty == true) ? ex['outros'] : 'XXX')
       ]
     );

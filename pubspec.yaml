@@ -90,6 +90,7 @@ flutter:
     - assets/images/croqui-rosto-frente.svg
     - assets/images/croqui-rosto-frente-mask.png
     - assets/images/logo/logo-policia-se.jpeg
+    - assets/images/logo/logo-croqui.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -16,9 +16,7 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
-import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
-import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
-import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/auth_wrapper.dart';  // Novo import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -85,25 +83,16 @@ class CroquiApp extends StatefulWidget {
 }
 
 class _CroquiAppState extends State<CroquiApp> {
-  bool _isInitializing = true; 
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<AuthProvider>().checkLoginStatus();
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-        });
-      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-
     return MaterialApp(
       title: 'Croqui Forense',
       debugShowCheckedModeBanner: false,
@@ -121,34 +110,7 @@ class _CroquiAppState extends State<CroquiApp> {
           foregroundColor: Colors.white,
         ),
       ),
-      home: _isInitializing 
-          ? const _SplashScreen() 
-          : _decideHome(authProvider),
-    );
-  }
-
-  Widget _decideHome(AuthProvider auth) {
-    if (!auth.isLogged) {
-      return const LoginPage();
-    }
-    if (auth.usuario?.deveAlterarPin == true) {
-      return const ForceChangePinPage();
-    }
-    
-    return const HomePage();
-  }
-}
-
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF317FF5),
-      body: Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      ),
+      home: const AuthWrapper(),
     );
   }
 }
