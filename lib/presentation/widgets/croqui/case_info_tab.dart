@@ -134,7 +134,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'requisitante': _reqOrigemCtrl.text,
       'destino': _reqDestinoCtrl.text,
       'vitima': _nomeVitimaCtrl.text,
-      'requisicao': _numeroLaudoCtrl.text, // Mapeado para o laudo para manter compatibilidade
+      'requisicao': _numeroLaudoCtrl.text,
       'bo': _boCtrl.text, 
       'pic': _picCtrl.text, 
     };
@@ -199,7 +199,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
             const SizedBox(height: 16),
             
-            // CAMPO ÚNICO: NÚMERO DO LAUDO
             _buildTextField("Número do Laudo / Requisição", _numeroLaudoCtrl, readOnly: true, isBold: true),
 
             Row(

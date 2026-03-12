@@ -47,8 +47,11 @@ CREATE TABLE usuarios (
     matricula_funcional TEXT NOT NULL UNIQUE,
     papel_id TEXT NOT NULL,
     nome_completo TEXT NOT NULL,
+<<<<<<< HEAD
     crm TEXT,
     classe TEXT,
+=======
+>>>>>>> origin
     ativo INTEGER DEFAULT 1,
     hash_pin_offline TEXT,
     deve_alterar_pin INTEGER DEFAULT 1,
@@ -135,7 +138,10 @@ CREATE TABLE achados (
     numero_sequencial INTEGER,
     pos_x REAL,
     pos_y REAL,
+<<<<<<< HEAD
     is_interno INTEGER DEFAULT 0,
+=======
+>>>>>>> origin
     esta_pendente INTEGER DEFAULT 1,
     dados_preenchidos_json TEXT,
     observacoes_texto TEXT,
