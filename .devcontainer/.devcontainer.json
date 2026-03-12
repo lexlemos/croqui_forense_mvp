@@ -22,5 +22,5 @@
     }
   },
   "postCreateCommand": "flutter pub get",
-  "remoteUser": "root"
+  "remoteUser": "vscode"
 }
