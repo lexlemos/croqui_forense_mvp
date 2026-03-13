@@ -247,67 +247,103 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildEncerramento(Caso caso, Usuario perito) {
-    final data = DateTime.now();
-    const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
-    final mesStr = meses[data.month - 1];
+ pw.Widget _buildEncerramento(Caso caso, Usuario perito) {
+  final dataAtual = DateTime.now();
+  const meses = [
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho", 
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+  ];
+  final mesStr = meses[dataAtual.month - 1];
 
-    final auditoria = caso.dadosLaudo['auditoria'];
-    final nomeAuditoria = auditoria?['perito_responsavel'] ?? perito.nomeCompleto;
+  final auditoria = caso.dadosLaudo['auditoria'] as Map<String, dynamic>? ?? {};
+  final nomeResponsavel = auditoria['perito_responsavel']?.toString() ?? perito.nomeCompleto;
 
-    String dataFinalizacao = "Não registrada";
-    if (auditoria?['data_finalizacao'] != null) {
-      final dt = DateTime.parse(auditoria!['data_finalizacao']).toLocal();
-      dataFinalizacao = DateFormat('dd/MM/yyyy às HH:mm').format(dt);
+  String dataFinalizacaoStr;
+    final rawDate = auditoria['data_finalizacao'];
+    if (rawDate != null) {
+      try {
+        final dt = DateTime.parse(rawDate.toString()).toLocal();
+        dataFinalizacaoStr = DateFormat('dd/MM/yyyy às HH:mm').format(dt);
+      } catch (e) {
+        dataFinalizacaoStr = "Confirmado (Data Indisponível)";
+      }
+    } else {
+      dataFinalizacaoStr = "Confirmado no Sistema";
     }
 
-    final dataExportacao = DateFormat('dd/MM/yyyy às HH:mm:ss').format(data);
 
-    return pw.Wrap(
+  final dataExportacao = DateFormat('dd/MM/yyyy ÀS HH:mm:ss').format(dataAtual);
+
+  return pw.Container(
+    padding: const pw.EdgeInsets.only(top: 20),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
       children: [
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Text(
-              "Nossa Senhora do Socorro, ${data.day.toString().padLeft(2, '0')} de $mesStr de ${data.year}",
-              style: const pw.TextStyle(fontSize: 10),
-              textAlign: pw.TextAlign.center,
-            ),
-            pw.SizedBox(height: 50),
-            pw.Container(width: 250, child: pw.Divider(color: PdfColors.black, thickness: 1)),
-            pw.SizedBox(height: 8),
-            pw.Text(nomeAuditoria.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-            pw.Text("Perito Médico Legal", style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-            pw.SizedBox(height: 30),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                color: PdfColors.grey100,
-                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+        pw.Text(
+          "Nossa Senhora do Socorro/SE, ${dataAtual.day.toString().padLeft(2, '0')} de $mesStr de ${dataAtual.year}.",
+          style: const pw.TextStyle(fontSize: 10),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 50),
+        
+        pw.Container(
+          width: 280,
+          child: pw.Divider(color: PdfColors.black, thickness: 0.8),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          nomeResponsavel.toUpperCase(),
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+        ),
+        pw.Text(
+          "Perito Médico Legal",
+          style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+        ),
+        
+        pw.SizedBox(height: 40),
+
+        pw.Container(
+          padding: const pw.EdgeInsets.all(8),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey50,
+            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
                 children: [
-                  pw.Text("REGISTRO DE AUDITORIA DO SISTEMA", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
-                  pw.SizedBox(height: 4),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text("Laudo finalizado no sistema em: $dataFinalizacao", style: const pw.TextStyle(fontSize: 8)),
-                      pw.Text("Documento exportado em: $dataExportacao", style: const pw.TextStyle(fontSize: 8)),
-                    ],
-                  ),
-                  pw.SizedBox(height: 2),
-                  pw.Text("Autenticidade vinculada ao usuário logado no momento da finalização do caso.", style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+                  pw.Text("CERTIFICAÇÃO DE INTEGRIDADE DIGITAL", 
+                    style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo900)),
+                  pw.Spacer(),
+                  if (caso.hashIntegridade != null)
+                    pw.Text("HASH: ${caso.hashIntegridade?.substring(0, 12)}...", 
+                      style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
                 ],
               ),
-            ),
-          ],
+              pw.Divider(color: PdfColors.grey300, thickness: 0.5),
+              pw.SizedBox(height: 4),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("Finalizado em: $dataFinalizacaoStr", style: const pw.TextStyle(fontSize: 7.5)),
+                  pw.Text("Exportado em: $dataExportacao", style: const pw.TextStyle(fontSize: 7.5)),
+                ],
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                "Este documento foi gerado pelo sistema Croqui Forense Digital e assinado eletronicamente por $nomeResponsavel. "
+                "A conferência de autenticidade deve ser feita via base de dados oficial da Coordenadoria Geral de Perícias.",
+                style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700, fontStyle: pw.FontStyle.italic),
+              ),
+            ],
+          ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
   
   List<Map<String, dynamic>> _prepararFotos(Caso caso, List<Achado> achados) {
     List<Map<String, dynamic>> anexos = [];

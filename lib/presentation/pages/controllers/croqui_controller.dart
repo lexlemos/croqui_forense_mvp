@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
-import 'package:croqui_forense_mvp/data/models/injury_marker_model.dart';
+import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
@@ -46,22 +46,8 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-  List<InjuryMarker> getMarkersForView(String view) {
-    return achados
-        .where((a) => (a.dadosPreenchidos['view'] ?? '') == view)
-        .map((a) {
-          return InjuryMarker(
-            id: a.uuid,
-            caseId: a.diagramaCasoUuid,
-            croquiType: view,
-            bodyPartId: a.dadosPreenchidos['local_anatomico_id'] ?? 'desconhecido',
-            xPercent: a.posX,
-            yPercent: a.posY,
-            isInterno: a.dadosPreenchidos['isInterno'] ?? false,
-            type: a.dadosPreenchidos['type_label'] ?? '',
-            photoPath: a.dadosPreenchidos['photo_path'],
-          );
-        }).toList();
+  List<Achado> getMarkersForView(String view) {
+  return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
   }
 
   Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
@@ -136,27 +122,12 @@ class CroquiController extends ChangeNotifier {
     final String localNome = dados['local_anatomico_nome'] ?? 
                              _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
 
-    final markerAdapter = InjuryMarker(
-      id: achado.uuid,
-      caseId: achado.diagramaCasoUuid,
-      croquiType: dados['view'] ?? 'frente',
-      bodyPartId: dados['local_anatomico_id'] ?? 'desconhecido',
-      xPercent: achado.posX,
-      yPercent: achado.posY,
-      isInterno: achado.isInterno,
-      type: dados['type_label'] ?? '',
-      size: dados['size'] ?? '',
-      depth: dados['depth'] ?? '',
-      photoPath: dados['photo_path'],
-      description: achado.observacoesTexto,
-    );
-
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       builder: (context) => InjuryFormModal(
         bodyPartName: localNome,
-        markerToEdit: markerAdapter,
+        achadoToEdit: achado, 
       ),
     );
 
@@ -189,7 +160,7 @@ class CroquiController extends ChangeNotifier {
       posX: achado.posX,
       posY: achado.posY,
       isInterno: result['isInterno'] ?? achado.isInterno,
-      estaPendente: true,
+      estaPendente: false,
       dadosPreenchidos: novosDados,
       observacoesTexto: result['description'] ?? '',
       removido: false,
@@ -275,51 +246,52 @@ class CroquiController extends ChangeNotifier {
     } catch (e) {
       if (context.mounted) _snack(context, "Erro ao reabrir", color: Colors.red);
     }
-  }Future<void> exportarCaso(BuildContext context) async {
-  if (context.mounted) _snack(context, "Gerando laudo PDF oficial...");
 
-  try {
-    if (!isReadOnly) {
-      await _caseService.salvarRascunho(casoAtual);
-    }
-
-    if (!context.mounted) return;
-
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     
+  }
+  Future<void> exportarCaso(BuildContext context) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     final usuarioLogado = auth.usuario;
 
     if (usuarioLogado == null) {
-      throw Exception("Usuário não autenticado. Não é possível assinar o laudo.");
+      _snack(context, "Usuário não autenticado.", color: Colors.red);
+      return;
     }
 
-    final pdfBytes = await _pdfService.gerarLaudoPdf(
-      caso: casoAtual,
-      achados: achados,
-      perito: usuarioLogado, 
-    );
+    if (context.mounted) _snack(context, "Gerando laudo PDF oficial...");
 
-    final tempDir = await getTemporaryDirectory();
-    final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
-    final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
-    
-    await pdfFile.writeAsBytes(pdfBytes, flush: true);
+    try {
+      if (!isReadOnly) {
+        await _caseService.salvarRascunho(casoAtual);
+      }
 
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final pdfBytes = await PdfService().gerarLaudoPdf(
+        caso: casoAtual,
+        achados: achados,
+        perito: usuarioLogado,
+      );
 
-    await Share.shareXFiles(
-      [XFile(pdfFile.path)],
-      subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
-    );
+      final tempDir = await getTemporaryDirectory();
+      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
+      final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
+      
+      await pdfFile.writeAsBytes(pdfBytes, flush: true);
 
-  } catch (e) {
-    debugPrint("Erro na exportação do PDF: $e");
-    if (context.mounted) {
-      _snack(context, "Erro ao gerar PDF: ${e.toString()}", color: Colors.red);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await Share.shareXFiles(
+        [XFile(pdfFile.path)],
+        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
+      );
+
+    } catch (e) {
+      debugPrint("Erro na exportação do PDF: $e");
+      if (context.mounted) {
+        _snack(context, "Erro ao gerar PDF: ${e.toString()}", color: Colors.red);
+      }
     }
   }
-}
   Future<void> _reloadCaso() async {
     final casos = await _caseService.listarCasos();
     casoAtual = casos.firstWhere((c) => c.uuid == casoAtual.uuid);
@@ -334,10 +306,13 @@ class CroquiController extends ChangeNotifier {
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 
+
   void _snack(BuildContext context, String msg, {Color? color}) {
     if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 2))
     );
   }
 }
+

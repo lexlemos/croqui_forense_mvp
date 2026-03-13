@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image/image.dart' as img;
-import '../../data/models/injury_marker_model.dart';
+import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 
 typedef OnBodyPartSelected = void Function(
@@ -18,7 +18,7 @@ class CroquiViewer extends StatefulWidget {
   final String maskPath;
   final Map<int, String> colorToIdMap;     
   final Map<String, BodyPartDefinition> idToDefMap;   
-  final List<InjuryMarker> markers;        
+  final List<Achado> markers;     
   final OnBodyPartSelected onPartTap;      
 
   const CroquiViewer({
@@ -80,22 +80,18 @@ class _CroquiViewerState extends State<CroquiViewer> {
   void _handleTap(TapUpDetails details) {
     if (_maskImage == null) return;
 
-    // 1. Busca o tamanho EXATO que a imagem está ocupando na tela agora
     final RenderBox? box = _imageKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final Size widgetSize = box.size;
     final Offset localPos = box.globalToLocal(details.globalPosition);
 
-    // 2. Cálculo da porcentagem (0.0 a 1.0)
     double xPercent = localPos.dx / widgetSize.width;
     double yPercent = localPos.dy / widgetSize.height;
 
-    // 3. Mapeia para o pixel da imagem original (Máscara PNG)
     final int imgX = (xPercent * _maskImage!.width).floor();
     final int imgY = (yPercent * _maskImage!.height).floor();
 
-    // Proteção de limites
     if (imgX < 0 || imgX >= _maskImage!.width || imgY < 0 || imgY >= _maskImage!.height) return;
 
     final pixel = _maskImage!.getPixel(imgX, imgY);
@@ -121,24 +117,20 @@ class _CroquiViewerState extends State<CroquiViewer> {
         maxScale: 5.0,
         boundaryMargin: const EdgeInsets.all(double.infinity),
         child: Center(
-          // FittedBox garante que não há espaço extra invisível
           child: FittedBox(
             fit: BoxFit.contain,
             child: SizedBox(
               width: _maskImage!.width.toDouble(),
               height: _maskImage!.height.toDouble(),
               child: Stack(
-                key: _imageKey, // A chave mágica para o cálculo de posição
+                key: _imageKey, 
                 children: [
-                  // CAMADA 1: O SVG (Agora sem borda vermelha)
                   Positioned.fill(
                     child: SvgPicture.asset(
                       widget.svgPath,
                       fit: BoxFit.fill, 
                     ),
                   ),
-
-                  // CAMADA 2: O Detector de Toque
                   Positioned.fill(
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
@@ -146,20 +138,18 @@ class _CroquiViewerState extends State<CroquiViewer> {
                     ),
                   ),
 
-                  // CAMADA 3: Os Marcadores
                   ...widget.markers.map((marker) {
                     
-                    double left = marker.xPercent * _maskImage!.width;
-                    double top = marker.yPercent * _maskImage!.height;
-                    const double iconSize = 40.0; // Tamanho do ícone
+                    double left = marker.posX * _maskImage!.width;
+                    double top = marker.posY * _maskImage!.height;
+                    const double iconSize = 40.0; 
 
                     return Positioned(
-                      left: left - (iconSize / 2), // Centraliza X
-                      top: top - iconSize,         // Ponta no Y
+                      left: left - (iconSize / 2), 
+                      top: top - iconSize,        
                       
                       child: const Icon(
                         Icons.location_on, 
-                        // Se quiser mudar a cor do PINO, altere aqui:
                         color: Colors.red, 
                         size: iconSize,
                         shadows: [

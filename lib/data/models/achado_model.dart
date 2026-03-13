@@ -120,4 +120,16 @@ class Achado {
       'proveniencia': proveniencia,
     };
   }
+
+  String get type {
+    return dadosPreenchidos['type_label']?.toString() ?? 'Não definido';
+  }
+
+  String? get photoPath {
+    return dadosPreenchidos['photo_path']?.toString();
+  }
+
+  String get description {
+    return observacoesTexto ?? '';
+  }
 }

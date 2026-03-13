@@ -3,18 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:croqui_forense_mvp/data/models/injury_marker_model.dart';
+import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
-  final InjuryMarker? markerToEdit;
+  final Achado? achadoToEdit;
 
   const InjuryFormModal({
     super.key,
     required this.bodyPartName,
-    this.markerToEdit,
+    this.achadoToEdit,
   });
 
   @override
@@ -40,10 +40,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   @override
   void initState() {
     super.initState();
-    final m = widget.markerToEdit;
-
-    _sizeController = TextEditingController(text: m?.size ?? '');
-    _depthController = TextEditingController(text: m?.depth ?? '');
+    final m = widget.achadoToEdit;
+    
+    _sizeController = TextEditingController(text: m?.tamanho ?? '');
+    _depthController = TextEditingController(text: m?.profundidade ?? '');
     _obsController = TextEditingController(text: m?.description ?? '');
     _currentPhotoPath = m?.photoPath;
     _isInterno = m?.isInterno ?? false;
@@ -100,7 +100,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isEditing = widget.markerToEdit != null;
+    final bool isEditing = widget.achadoToEdit != null;
 
     return Padding(
       padding: EdgeInsets.only(
