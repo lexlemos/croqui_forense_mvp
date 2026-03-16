@@ -41,7 +41,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   void initState() {
     super.initState();
     final m = widget.achadoToEdit;
-    
+
     _sizeController = TextEditingController(text: m?.tamanho ?? '');
     _depthController = TextEditingController(text: m?.profundidade ?? '');
     _obsController = TextEditingController(text: m?.description ?? '');
@@ -72,6 +72,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         }
       });
     } catch(e) {
+      debugPrint("Erro ao carregar tipos de lesão: $e");
       if (mounted) setState(() => _isLoadingTypes = false);
     }
   }
@@ -315,6 +316,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       setState(() => _currentPhotoPath = localPath);
     } catch (e) {
       debugPrint("Erro câmera: $e");
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erro ao acessar câmera. Tente novamente."), backgroundColor: Colors.red)
+        );
+      }
     }
   }
 }

@@ -111,7 +111,6 @@ class PdfService {
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         PdfHelpers.buildLinhaDetalhe("Laudo Pericial Cadavérico nº CD", caso.numeroLaudoExterno ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Requisição:", cab['requisicao'] ?? 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Boletim de Ocorrência (B.O.):", cab['bo'] ?? 'XXX'), 
         PdfHelpers.buildLinhaDetalhe("PIC:", cab['pic'] ?? 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", cab['requisitante'] ?? 'XXX'),
@@ -192,7 +191,6 @@ class PdfService {
         for (var a in achadosGrupo) {
           final foto = anexos.cast<Map<String, dynamic>?>().firstWhere((f) => f != null && f['uuid'] == a.uuid, orElse: () => null);
           final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
-          final descTamanho = (a.tamanho != '-' && a.tamanho.isNotEmpty) ? " medindo ${a.tamanho}cm" : "";
           
           items.add(pw.Padding(padding: const pw.EdgeInsets.only(left: 30), child: pw.Bullet(text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto", style: const pw.TextStyle(fontSize: 10))));
         }
