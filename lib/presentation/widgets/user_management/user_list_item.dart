@@ -27,7 +27,7 @@ class UserListItem extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: isCurrentUser ? AppColors.primary : color.withValues(alpha: 0.1),
+          backgroundColor: isCurrentUser ? AppColors.primary : color.withOpacity(0.1),
           child: Text(
             usuario.nomeCompleto.isNotEmpty ? usuario.nomeCompleto[0].toUpperCase() : '?',
             style: TextStyle(

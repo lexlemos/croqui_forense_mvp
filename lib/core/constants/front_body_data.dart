@@ -78,7 +78,7 @@ const List<BodyPartDefinition> kFrontBodyPartsList = [
 
 
 final Map<int, String> kColorToIdFrontMap = {
-  for (var part in kFrontBodyPartsList) part.color.toARGB32(): part.id,
+  for (var part in kFrontBodyPartsList) part.color.value: part.id,
 };
 
 final Map<String, BodyPartDefinition> kIdToDefinitionFrontMap = {

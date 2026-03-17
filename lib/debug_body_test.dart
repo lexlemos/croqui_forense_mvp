@@ -155,12 +155,12 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
 
   void _zoomIn() {
     final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scaleByDouble(1.5, 1.5, 1.5, 1.0);
+    matrix.scale(1.5);
     _transformationController.value = matrix;
   }
   void _zoomOut() {
     final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scaleByDouble(1 / 1.5, 1 / 1.5, 1 / 1.5, 1.0);
+    matrix.scale(1 / 1.5);
     _transformationController.value = matrix;
   }
   void _resetZoom() {

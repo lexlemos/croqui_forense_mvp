@@ -75,6 +75,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     } catch(e) {
       debugPrint("Erro ao carregar tipos de lesão: $e");
       if (mounted) setState(() => _isLoadingTypes = false);
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Falha ao carregar tipos de lesão: $e"), backgroundColor: Colors.red));
     }
   }
 

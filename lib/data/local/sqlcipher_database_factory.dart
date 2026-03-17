@@ -1,5 +1,5 @@
 
-import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart' as sqlcipher;
 import 'package:croqui_forense_mvp/data/local/database_factory_interface.dart';
 
 class SqlCipherDatabaseFactory implements IDatabaseFactory {
@@ -13,7 +13,7 @@ class SqlCipherDatabaseFactory implements IDatabaseFactory {
     String? password,
   }) {
 
-    return openDatabase(
+    return sqlcipher.openDatabase(
       path,
       version: version,
       onConfigure: onConfigure,
@@ -24,5 +24,5 @@ class SqlCipherDatabaseFactory implements IDatabaseFactory {
   }
 
   @override
-  Future<String> getDatabasesPath() => getDatabasesPath();
+  Future<String> getDatabasesPath() => sqlcipher.getDatabasesPath();
 }
