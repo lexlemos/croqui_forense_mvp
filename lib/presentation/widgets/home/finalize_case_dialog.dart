@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 enum QuestionType { text, boolean }
 
@@ -80,7 +81,7 @@ class _FinalizeCaseDialogState extends State<FinalizeCaseDialog> {
       }
 
       if (!isValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        globalMessengerKey.currentState?.showSnackBar(
           SnackBar(
             content: Text('O campo "${q.label}" é obrigatório.'),
             backgroundColor: Colors.red,

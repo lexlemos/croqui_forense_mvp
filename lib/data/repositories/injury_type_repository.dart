@@ -1,4 +1,3 @@
-import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 

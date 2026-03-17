@@ -45,7 +45,7 @@ class Caso {
   Caso.novo({
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
-    String? deviceId,
+    this.deviceId,
     String? proveniencia,
     this.dadosLaudo = const {},
   }) : uuid = const Uuid().v4(), 
@@ -56,36 +56,35 @@ class Caso {
        criadoEmDispositivo = DateTime.now(),
        criadoEmRedeConfiavel = null,
        atualizadoEm = null,
-       deviceId = deviceId,
        proveniencia = proveniencia ?? 'APP_TABLET';
 
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
-      uuid: map['uuid'] as String,
-      idUsuarioCriador: map['id_usuario_criador'] as String,
-      numeroLaudoExterno: map['numero_laudo_externo'] as String?,
+      uuid: map['uuid']?.toString() ?? '',
+      idUsuarioCriador: map['id_usuario_criador']?.toString() ?? '',
+      numeroLaudoExterno: map['numero_laudo_externo']?.toString(),
       status: StatusCaso.values.firstWhere(
-        (e) => e.name.toUpperCase() == (map['status'] as String).toUpperCase(),
+        (e) => e.name.toUpperCase() == (map['status']?.toString() ?? '').toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
       dadosLaudo: map['dados_laudo_json'] != null 
-          ? jsonDecode(map['dados_laudo_json']) as Map<String, dynamic> 
-          : {},
+          ? Map<String, dynamic>.from(jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {}) 
+          : const {},
       
-      hashIntegridade: map['hash_integridade'] as String?,
-      removido: (map['removido'] as int) == 1,
-      versao: map['versao'] as int,
+      hashIntegridade: map['hash_integridade']?.toString(),
+      removido: (map['removido'] as int? ?? 0) == 1,
+      versao: map['versao'] as int? ?? 1,
 
-      criadoEmDispositivo: DateTime.parse(map['criado_em_dispositivo'] as String),
+      criadoEmDispositivo: DateTime.tryParse(map['criado_em_dispositivo']?.toString() ?? '') ?? DateTime.now(),
       criadoEmRedeConfiavel: map['criado_em_rede_confiavel'] != null 
-          ? DateTime.parse(map['criado_em_rede_confiavel'] as String) 
+          ? DateTime.tryParse(map['criado_em_rede_confiavel'].toString()) 
           : null,
       atualizadoEm: map['atualizado_em'] != null 
-          ? DateTime.parse(map['atualizado_em'] as String) 
+          ? DateTime.tryParse(map['atualizado_em'].toString()) 
           : null,
       
-      deviceId: map['device_id'] as String?,
-      proveniencia: map['proveniencia'] as String?,
+      deviceId: map['device_id']?.toString(),
+      proveniencia: map['proveniencia']?.toString(),
     );
   }
 

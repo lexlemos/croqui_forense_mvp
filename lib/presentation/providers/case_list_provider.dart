@@ -32,6 +32,7 @@ class CaseListProvider extends ChangeNotifier {
   }
 
   Future<void> carregarCasos() async {
+    if (_isLoading) return;
     _isLoading = true;
     _erro = null;
     notifyListeners();
@@ -42,8 +43,10 @@ class CaseListProvider extends ChangeNotifier {
     } catch (e) {
       _erro = e.toString();
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

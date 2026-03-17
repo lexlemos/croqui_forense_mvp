@@ -16,11 +16,11 @@ class Papel {
 
   factory Papel.fromMap(Map<String, dynamic> map) {
     return Papel(
-      id: map['id'] as String,
-      nome: map['nome'] as String,
-      descricao: map.containsKey('descricao') ? map['descricao'] as String : null,
-      ePadrao: (map['e_padrao'] as int) == 1,
-      criadoEm: DateTime.parse(map['criado_em'] as String),
+      id: map['id']?.toString() ?? '',
+      nome: map['nome']?.toString() ?? '',
+      descricao: map['descricao']?.toString(),
+      ePadrao: (map['e_padrao'] as int? ?? 0) == 1,
+      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 

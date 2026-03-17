@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -126,7 +125,7 @@ class _CroquiView extends StatelessWidget {
                     _buildCroquiTab(context, controller, 'lateral_esq', 'assets/images/croqui-rosto-frente.svg',
                         'assets/images/croqui-rosto-frente-mask.png', kColorToIdLateralLeftMap, kIdToDefinitionLateralLeftMap),
                     
-                    CaseInfoTab(),
+                    const CaseInfoTab(),
                   ],
                 ),
               ),

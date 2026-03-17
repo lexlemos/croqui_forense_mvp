@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class ForceChangePinController {
   final pinController = TextEditingController();
@@ -30,24 +31,20 @@ class ForceChangePinController {
     try {
       await authProvider.atualizarPinPrimeiroAcesso(pinController.text);
       
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Senha atualizada com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      globalMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('Senha atualizada com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar: $e'), 
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('Erro ao atualizar: $e'), 
+          backgroundColor: Colors.red[700],
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 }

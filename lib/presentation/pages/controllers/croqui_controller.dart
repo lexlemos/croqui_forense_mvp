@@ -7,12 +7,12 @@ import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
-import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
@@ -23,7 +23,6 @@ import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart';
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
-  final PdfService _pdfService = PdfService();
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -36,6 +35,7 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> _loadAchados() async {
+    if (isLoading) return;
     isLoading = true;
     notifyListeners();
     try {
@@ -52,11 +52,21 @@ class CroquiController extends ChangeNotifier {
 
   Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
     if (isReadOnly) {
-      if (context.mounted) _snack(context, "Caso finalizado. Edição bloqueada.");
+      _snack("Caso finalizado. Edição bloqueada.");
+      return;
+    }
+
+    try {
+      await _caseService.salvarRascunho(casoAtual);
+    } catch (e) {
+      debugPrint("Erro ao garantir salvamento do caso: $e");
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
       return;
     }
 
     final String realPartName = _resolveBodyPartName(viewType, partId);
+
+    if (!context.mounted) return;
 
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -71,8 +81,6 @@ class CroquiController extends ChangeNotifier {
       final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
       finalPhotoPath = compressedFile.path;
     }
-
-    if (!context.mounted) return;
 
     final String tipoLesaoId = result['typeId'] ?? 'outro';
     final String tipoLesaoNome = result['type'];
@@ -91,7 +99,7 @@ class CroquiController extends ChangeNotifier {
 
     final achadoFinal = Achado(
       uuid: const Uuid().v4(),
-      diagramaCasoUuid: casoAtual.uuid,
+      diagramaCasoUuid: casoAtual.uuid, 
       tipoAchadoId: tipoLesaoId,
       numeroSequencial: achados.length + 1,
       posX: x,
@@ -109,9 +117,14 @@ class CroquiController extends ChangeNotifier {
     try {
       await _achadoService.salvarAchado(achadoFinal);
       await _loadAchados();
-      if (context.mounted) _snack(context, "Achado adicionado!");
+      
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
+      
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao salvar: $e", color: Colors.red);
+      debugPrint("Erro real ao salvar achado: $e");
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
     }
   }
 
@@ -173,9 +186,9 @@ class CroquiController extends ChangeNotifier {
     try {
       await _achadoService.atualizarAchado(achadoAtualizado);
       await _loadAchados();
-      if (context.mounted) _snack(context, "Achado atualizado!");
+      _snack("Achado atualizado!");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao atualizar: $e", color: Colors.red);
+      _snack("Erro ao atualizar: $e", color: Colors.red);
     }
   }
 
@@ -184,9 +197,9 @@ class CroquiController extends ChangeNotifier {
     try {
       await _achadoService.removerAchado(uuid);
       await _loadAchados();
-      if (context.mounted) _snack(context, "Achado removido.");
+      _snack("Achado removido.");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao deletar", color: Colors.red);
+      _snack("Erro ao deletar", color: Colors.red);
     }
   }
 
@@ -232,9 +245,10 @@ class CroquiController extends ChangeNotifier {
     try {
       await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
       await _reloadCaso();
-      if (context.mounted) _snack(context, "Caso finalizado!", color: Colors.green);
+      _snack("Caso finalizado!", color: Colors.green);
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao finalizar: $e", color: Colors.red);
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao finalizar: $e"), backgroundColor: Colors.red));
     }
   }
 
@@ -242,23 +256,22 @@ class CroquiController extends ChangeNotifier {
     try {
       await _caseService.reabrirCaso(casoAtual.uuid);
       await _reloadCaso();
-      if (context.mounted) _snack(context, "Edição habilitada.");
+      _snack("Edição habilitada.");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao reabrir", color: Colors.red);
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao reabrir"), backgroundColor: Colors.red));
     }
-
-    
   }
   Future<void> exportarCaso(BuildContext context) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final usuarioLogado = auth.usuario;
 
     if (usuarioLogado == null) {
-      _snack(context, "Usuário não autenticado.", color: Colors.red);
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
       return;
     }
 
-    if (context.mounted) _snack(context, "Gerando laudo PDF oficial...");
+    _snack("Gerando laudo PDF oficial...");
 
     try {
       if (!isReadOnly) {
@@ -278,18 +291,19 @@ class CroquiController extends ChangeNotifier {
       await pdfFile.writeAsBytes(pdfBytes, flush: true);
 
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
 
-      await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(pdfFile.path)],
+          subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
+        )
       );
 
     } catch (e) {
       debugPrint("Erro na exportação do PDF: $e");
-      if (context.mounted) {
-        _snack(context, "Erro ao gerar PDF: ${e.toString()}", color: Colors.red);
-      }
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
     }
   }
   Future<void> _reloadCaso() async {
@@ -307,10 +321,11 @@ class CroquiController extends ChangeNotifier {
   }
 
 
-  void _snack(BuildContext context, String msg, {Color? color}) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+  void _snack(String msg, {Color? color}) {
+    final messenger = globalMessengerKey.currentState;
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 2))
     );
   }

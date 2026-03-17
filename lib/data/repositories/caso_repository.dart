@@ -14,22 +14,29 @@ class CasoRepository {
 
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
-    
-    await db.insert(
-      tableCasos,
-      novoCaso.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace, 
-    );
+    try {
+      await db.insert(
+        tableCasos,
+        novoCaso.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace, 
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao inserir caso: $e');
+    }
   }
 
   Future<void> updateCase(Caso caso) async {
     final db = await database;
-    await db.update(
-      tableCasos,
-      caso.toMap(),
-      where: 'uuid = ?',
-      whereArgs: [caso.uuid],
-    );
+    try {
+      await db.update(
+        tableCasos,
+        caso.toMap(),
+        where: 'uuid = ?',
+        whereArgs: [caso.uuid],
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao atualizar caso: $e');
+    }
   }
 
   Future<List<Achado>> getAchadosPorCaso(String casoUuid) async {

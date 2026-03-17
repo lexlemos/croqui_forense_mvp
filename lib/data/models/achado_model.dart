@@ -74,26 +74,28 @@ class Achado {
 
   factory Achado.fromMap(Map<String, dynamic> map) {
     return Achado(
-      uuid: map['uuid'] as String,
-      diagramaCasoUuid: map['diagrama_caso_uuid'] as String,
-      tipoAchadoId: map['tipo_achado_id'] as String,
-      numeroSequencial: map['numero_sequencial'] as int,
-      posX: map['pos_x'] as double,
-      posY: map['pos_y'] as double,
+      uuid: map['uuid']?.toString() ?? '',
+      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? '',
+      tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
+      numeroSequencial: map['numero_sequencial'] as int? ?? 0,
+      posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
+      posY: (map['pos_y'] as num?)?.toDouble() ?? 0.0,
       
-      estaPendente: (map['esta_pendente'] as int) == 1,
+      estaPendente: (map['esta_pendente'] as int? ?? 0) == 1,
       
-      isInterno: (map['is_interno'] as int) == 1,
+      isInterno: (map['is_interno'] as int? ?? 0) == 1,
     
-      dadosPreenchidos: map['dados_preenchidos_json'] != null ? jsonDecode(map['dados_preenchidos_json'] as String) : const {},
-      observacoesTexto: map['observacoes_texto'] as String?,
+      dadosPreenchidos: map['dados_preenchidos_json'] != null 
+          ? Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {}) 
+          : const {},
+      observacoesTexto: map['observacoes_texto']?.toString(),
       
-      removido: (map['removido'] as int) == 1,
-      versao: map['versao'] as int,
-      criadoEm: DateTime.parse(map['criado_em'] as String),
-      atualizadoEm: map['atualizado_em'] != null ? DateTime.parse(map['atualizado_em'] as String) : null,
-      deviceId: map['device_id'] as String?,
-      proveniencia: map['proveniencia'] as String?,
+      removido: (map['removido'] as int? ?? 0) == 1,
+      versao: map['versao'] as int? ?? 1,
+      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,
+      deviceId: map['device_id']?.toString(),
+      proveniencia: map['proveniencia']?.toString(),
     );
   }
 

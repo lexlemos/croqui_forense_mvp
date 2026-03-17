@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class UserListItem extends StatelessWidget {
   final Usuario usuario;
@@ -26,7 +27,7 @@ class UserListItem extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: isCurrentUser ? const Color(0xFF317FF5) : color.withOpacity(0.1),
+          backgroundColor: isCurrentUser ? AppColors.primary : color.withValues(alpha: 0.1),
           child: Text(
             usuario.nomeCompleto.isNotEmpty ? usuario.nomeCompleto[0].toUpperCase() : '?',
             style: TextStyle(
@@ -70,7 +71,7 @@ class UserListItem extends StatelessWidget {
               )
             : Switch(
                 value: usuario.ativo,
-                activeColor: Colors.green,
+                activeThumbColor: Colors.green,
                 onChanged: (novoValor) => _confirmarAlteracao(context, novoValor),
               ),
       ),

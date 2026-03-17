@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -144,7 +145,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
               TextFormField(
                 controller: _obsController,
-                maxLines: 3,
+                maxLines: null,
+                minLines: 3,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   hintText: "Descreva detalhes específicos da lesão...",
                   border: OutlineInputBorder(),
@@ -219,6 +223,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   Widget _buildToggleItem(String label, bool isSelected, VoidCallback onTap) => Expanded(
     child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4), 
@@ -245,7 +250,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   Widget _buildTypeDropdown() => _isLoadingTypes 
     ? const LinearProgressIndicator()
     : DropdownButtonFormField<InjuryType>(
-        value: _selectedType,
+        initialValue: _selectedType,
         decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
         items: _availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
         onChanged: (v) => setState(() => _selectedType = v),
@@ -254,7 +259,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, bool isNumeric) => TextFormField(
     controller: ctrl,
-    keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+    keyboardType: isNumeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
     decoration: InputDecoration(
       prefixIcon: Icon(icon, size: 20),
       labelText: label,
@@ -263,6 +268,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   );
 
   Widget _buildPhotoPicker() => GestureDetector(
+    behavior: HitTestBehavior.opaque,
     onTap: _currentPhotoPath == null ? _takePhoto : () => _showPhotoOptions(),
     child: Container(
       height: 120,
@@ -283,7 +289,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           : Stack(
               fit: StackFit.expand,
               children: [
-                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover)),
+                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300)),
                 Container(color: Colors.black26),
                 const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
               ],
@@ -317,7 +323,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     } catch (e) {
       debugPrint("Erro câmera: $e");
       if(mounted){
-        ScaffoldMessenger.of(context).showSnackBar(
+        globalMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text("Erro ao acessar câmera. Tente novamente."), backgroundColor: Colors.red)
         );
       }

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
-import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/empty_state.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/home_action_bar.dart';
@@ -13,6 +12,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.
 import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
 
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -96,9 +96,8 @@ class _HomePageState extends State<HomePage> {
                                     builder: (context) => CroquiPage(caso: casoExistente),
                                   ),
                                 );
-                                if (context.mounted) {
-                                  context.read<CaseListProvider>().carregarCasos();
-                                }
+                                if (!context.mounted) return;
+                                context.read<CaseListProvider>().carregarCasos();
                               },
                             );
                           },
@@ -157,26 +156,22 @@ class _HomePageState extends State<HomePage> {
         dadosIniciais: dadosLaudo, 
       );
       
-      if (context.mounted) {
-        context.read<CaseListProvider>().carregarCasos(); 
-        
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CroquiPage(caso: novoCaso),
-          ),
-        );
+      if (!context.mounted) return;
+      context.read<CaseListProvider>().carregarCasos(); 
+      
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CroquiPage(caso: novoCaso),
+        ),
+      );
 
-        if (context.mounted) {
-          context.read<CaseListProvider>().carregarCasos();
-        }
-      }
+      if (!context.mounted) return;
+      context.read<CaseListProvider>().carregarCasos();
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
-        );
-      }
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 }

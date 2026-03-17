@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class CaseInfoTab extends StatefulWidget {
   const CaseInfoTab({super.key});
@@ -47,6 +48,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   late final TextEditingController _quesito4Ctrl;
 
   List<String> _fotosIdentificacao = [];
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -222,13 +224,13 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 32),
             const _SectionHeader(title: "1. Histórico", icon: Icons.history),
             const SizedBox(height: 16),
-            _buildTextField("Histórico do Caso", _historicoCtrl, readOnly: readOnly, maxLines: 3),
+            _buildTextField("Histórico do Caso", _historicoCtrl, readOnly: readOnly, maxLines: null),
 
             const SizedBox(height: 32),
             const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
             const SizedBox(height: 16),
-            _buildTextField("Vestes", _vestesCtrl, readOnly: readOnly, maxLines: 2),
-            _buildTextField("Características de Identificação", _caracteristicasCtrl, readOnly: readOnly, maxLines: 2),
+            _buildTextField("Vestes", _vestesCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Características de Identificação", _caracteristicasCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 16),
             Container(
@@ -244,9 +246,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   const SizedBox(height: 4),
                   const Text("A morte está evidenciada pela presença dos seguintes sinais:", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
                   const SizedBox(height: 12),
-                  _buildTextField("A) Imediatos", _tanatoImediatoCtrl, readOnly: readOnly, maxLines: 3),
-                  _buildTextField("B) Consecutivos", _tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: 3),
-                  _buildTextField("C) Comentários Adicionais", _tanatoObservacaoCtrl, readOnly: readOnly, maxLines: 3),
+                  _buildTextField("A) Imediatos", _tanatoImediatoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("B) Consecutivos", _tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("C) Comentários Adicionais", _tanatoObservacaoCtrl, readOnly: readOnly, maxLines: null),
                 ],
               ),
             ),
@@ -278,12 +280,16 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                             width: 100,
                             height: 100,
                             fit: BoxFit.cover,
+                            cacheWidth: 200,
+                            cacheHeight: 200,
                           ),
                         ),
                         if (!readOnly)
                           Positioned(
-                            right: 0,
+                            right: -6, top: -6,
                             child: IconButton(
+                              padding: const EdgeInsets.all(12),
+                              constraints: const BoxConstraints(),
                               icon: const Icon(Icons.remove_circle, color: Colors.red),
                               onPressed: () {
                                 setState(() => _fotosIdentificacao.removeAt(index));
@@ -309,12 +315,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 32),
             const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
-            _buildTextField("Comentário Médico Forense", _discussaoCtrl, readOnly: readOnly, maxLines: 5),
+            _buildTextField("Comentário Médico Forense", _discussaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 24),
             const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
-            _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: 3),
+            _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 32),
             Container(
@@ -354,21 +360,27 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 height: 56,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.check_circle_outline),
-                  label: const Text(
-                    "SALVAR DADOS E FINALIZAR CASO",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  label: _isSaving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text(
+                          "SALVAR DADOS E FINALIZAR CASO",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[700],
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () async {
+                  onPressed: _isSaving ? null : () async {
                     _salvarDadosNoController();
                     if (_formKey.currentState!.validate()) {
+                      setState(() => _isSaving = true);
                       await controller.finalizarCasoDireto(context);
+                      if (mounted) {
+                        setState(() => _isSaving = false);
+                      }
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      globalMessengerKey.currentState?.showSnackBar(
                         const SnackBar(
                           content: Text("Por favor, responda todos os quesitos obrigatórios."),
                           backgroundColor: Colors.orange,
@@ -438,7 +450,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
   Widget _buildTextField(String label, TextEditingController ctrl, {
     bool readOnly = false,
-    int maxLines = 1,
+    int? maxLines = 1,
     String? hint,
     bool required = false,
     bool isBold = false,
@@ -468,13 +480,16 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       child: TextFormField(
         controller: ctrl,
         maxLines: maxLines,
+        minLines: maxLines == null ? 3 : null,
+        keyboardType: maxLines == null ? TextInputType.multiline : TextInputType.text,
+        textCapitalization: TextCapitalization.sentences,
         onChanged: (_) => _salvarDadosNoController(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          alignLabelWithHint: maxLines > 1,
+          alignLabelWithHint: maxLines == null || maxLines > 1,
           filled: true,
           fillColor: Colors.white,
           border: const OutlineInputBorder(),

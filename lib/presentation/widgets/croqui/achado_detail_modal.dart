@@ -106,7 +106,7 @@ class AchadoDetailModal extends StatelessWidget {
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.file(File(path), fit: BoxFit.cover, width: double.infinity),
+              child: Image.file(File(path), fit: BoxFit.cover, width: double.infinity, cacheWidth: 800),
             ),
           ],
         ),

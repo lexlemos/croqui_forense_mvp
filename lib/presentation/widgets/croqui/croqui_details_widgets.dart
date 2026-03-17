@@ -39,8 +39,21 @@ class AchadosSidebar extends StatelessWidget {
       );
 
   Widget _buildEmptyState() => Center(
-        child: Text(isReadOnly ? "Nenhum registro." : "Toque no corpo para adicionar",
-            style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_search, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                isReadOnly ? "Nenhum achado registrado neste croqui." : "Toque no modelo para adicionar um achado.",
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       );
 
   Widget _buildList() => ListView.builder(

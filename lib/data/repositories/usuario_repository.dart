@@ -87,26 +87,34 @@ class UsuarioRepository {
   }
   Future<void> updatePin(String id, String novoHash, String novoSalt) async {
     final db = await database;
-    await db.update(
-      'usuarios',
-      {
-        'hash_pin_offline': novoHash,
-        'salt': novoSalt,
-        'deve_alterar_pin': 0, 
-        'atualizado_em': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    try {
+      await db.update(
+        'usuarios',
+        {
+          'hash_pin_offline': novoHash,
+          'salt': novoSalt,
+          'deve_alterar_pin': 0, 
+          'atualizado_em': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao atualizar PIN: $e');
+    }
   }
 
   Future<void> updateStatusUsuario(String id, bool ativo) async {
     final db = await database;
-    await db.update(
-      'usuarios',
-      {'ativo': ativo ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    try {
+      await db.update(
+        'usuarios',
+        {'ativo': ativo ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao atualizar status do usuário: $e');
+    }
   }
 }

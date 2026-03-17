@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 import 'package:croqui_forense_mvp/data/local/database_factory_impl.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart'; 
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -16,7 +17,8 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
-import 'package:croqui_forense_mvp/presentation/widgets/common/auth_wrapper.dart';  // Novo import
+import 'package:croqui_forense_mvp/presentation/widgets/common/auth_wrapper.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,9 +97,10 @@ class _CroquiAppState extends State<CroquiApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Croqui Forense',
+      scaffoldMessengerKey: globalMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF317FF5)),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
         fontFamily: 'Roboto',
@@ -106,7 +109,7 @@ class _CroquiAppState extends State<CroquiApp> {
           filled: true,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF317FF5),
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
         ),
       ),

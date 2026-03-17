@@ -59,18 +59,18 @@ class Usuario {
 
   factory Usuario.fromMap(Map<String, dynamic> map) {
     return Usuario(
-      id: map['id'] as String,
-      matriculaFuncional: map['matricula_funcional'] as String,
-      nomeCompleto: map['nome_completo'] as String,
-      crm: map['crm'] as String? ?? '',
-      classe: map['classe'] as String? ?? '',
-      papelId: map['papel_id'] as String,
-      hashPinOffline: map['hash_pin_offline'] as String?,
-      salt: map['salt'] as String?,
-      ativo: (map['ativo'] as int) == 1,
-      deveAlterarPin: (map['deve_alterar_pin'] ?? 0) == 1,
-      criadoEm: DateTime.parse(map['criado_em'] as String),
-      deviceId: map.containsKey('device_id') ? map['device_id'] as String? : null,
+      id: map['id']?.toString() ?? '',
+      matriculaFuncional: map['matricula_funcional']?.toString() ?? '',
+      nomeCompleto: map['nome_completo']?.toString() ?? '',
+      crm: map['crm']?.toString() ?? '',
+      classe: map['classe']?.toString() ?? '',
+      papelId: map['papel_id']?.toString() ?? '',
+      hashPinOffline: map['hash_pin_offline']?.toString(),
+      salt: map['salt']?.toString(),
+      ativo: (map['ativo'] as int? ?? 0) == 1,
+      deveAlterarPin: (map['deve_alterar_pin'] as int? ?? 0) == 1,
+      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      deviceId: map['device_id']?.toString(),
     );
   }
 

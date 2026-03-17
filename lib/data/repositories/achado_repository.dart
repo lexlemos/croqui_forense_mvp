@@ -1,5 +1,4 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import 'package:uuid/uuid.dart';
 import '../local/database_helper.dart';
 import '../models/achado_model.dart';
 
@@ -8,28 +7,38 @@ class AchadoRepository {
 
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
-    
-
-    await db.insert(
-      'achados',
-      achado.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    try {
+      await db.insert(
+        'achados',
+        achado.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao inserir achado: $e');
+    }
   }
 
   Future<void> updateAchado(Achado achado) async {
     final db = await _db;
-    await db.update(
-      'achados',
-      achado.toMap(),
-      where: 'uuid = ?',
-      whereArgs: [achado.uuid],
-    );
+    try {
+      await db.update(
+        'achados',
+        achado.toMap(),
+        where: 'uuid = ?',
+        whereArgs: [achado.uuid],
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao atualizar achado: $e');
+    }
   }
 
   Future<void> deleteAchado(String uuid) async {
     final db = await _db;
-    await db.rawUpdate('UPDATE achados SET removido = 1 WHERE uuid = ?', [uuid]);
+    try {
+      await db.rawUpdate('UPDATE achados SET removido = 1 WHERE uuid = ?', [uuid]);
+    } catch (e) {
+      throw Exception('Erro de persistência ao remover achado: $e');
+    }
   }
 
   Future<List<Achado>> getAchadosPorCaso(String casoUuid) async {

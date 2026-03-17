@@ -60,7 +60,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedPapelId,
+                        initialValue: _selectedPapelId,
                         decoration: const InputDecoration(
                           labelText: 'Cargo / Função',
                           border: OutlineInputBorder(),

@@ -102,17 +102,17 @@ class _LoginPageState extends State<LoginPage> {
                         builder: (context, isLoading, child) {
                           return SizedBox(
                             height: 50,
-                            child: isLoading
-                                ? const Center(child: CircularProgressIndicator())
-                                : FilledButton(
-                                    onPressed: () => _controller.submitLogin(context),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1A237E),
-                                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    child: const Text('ENTRAR'),
-                                  ),
+                            child: FilledButton(
+                              onPressed: isLoading ? null : () => _controller.submitLogin(context),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF1A237E),
+                                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: isLoading
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text('ENTRAR'),
+                            ),
                           );
                         },
                       ),

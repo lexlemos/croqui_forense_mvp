@@ -4,6 +4,7 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -14,7 +15,7 @@ class AuthWrapper extends StatelessWidget {
 
     if (authProvider.isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF317FF5),
+        backgroundColor: AppColors.primary,
         body: Center(
           child: CircularProgressIndicator(color: Colors.white),
         ),

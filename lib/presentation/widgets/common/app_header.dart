@@ -5,6 +5,7 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/user_management_page.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class AppHeader extends StatelessWidget {
   final Usuario? usuario;
@@ -59,7 +60,7 @@ class AppHeader extends StatelessWidget {
                   border: Border.all(color: const Color(0xFFE1E1E1)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -144,7 +145,7 @@ class AppHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO"}',
+                  usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO",
                   style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 14,
@@ -200,14 +201,14 @@ class AppHeader extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: isActive ? const Color(0xFF317FF5) : Colors.black54,
+            color: isActive ? AppColors.primary : Colors.black54,
             size: 20,
           ),
           const SizedBox(width: 12),
           Text(
             text,
             style: TextStyle(
-              color: isActive ? const Color(0xFF317FF5) : Colors.black87,
+              color: isActive ? AppColors.primary : Colors.black87,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               fontSize: 14,
             ),

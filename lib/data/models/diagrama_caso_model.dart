@@ -34,16 +34,16 @@ class DiagramaCaso {
 
   factory DiagramaCaso.fromMap(Map<String, dynamic> map) {
     return DiagramaCaso(
-      uuid: map['uuid'] as String,
-      casoUuid: map['caso_uuid'] as String,
-      templateId: map['template_id'] as String,
+      uuid: map['uuid']?.toString() ?? '',
+      casoUuid: map['caso_uuid']?.toString() ?? '',
+      templateId: map['template_id']?.toString() ?? '',
       
-      removido: (map['removido'] as int) == 1,
-      versao: map['versao'] as int,
+      removido: (map['removido'] as int? ?? 0) == 1,
+      versao: map['versao'] as int? ?? 1,
       
-      criadoEm: DateTime.parse(map['criado_em'] as String),
-      atualizadoEm: map['atualizado_em'] != null ? DateTime.parse(map['atualizado_em'] as String) : null,
-      deviceId: map['device_id'] as String?,
+      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,
+      deviceId: map['device_id']?.toString(),
     );
   }
 

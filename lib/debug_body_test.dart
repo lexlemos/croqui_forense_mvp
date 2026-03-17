@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -156,12 +155,12 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
 
   void _zoomIn() {
     final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scale(1.5);
+    matrix.scaleByDouble(1.5, 1.5, 1.5, 1.0);
     _transformationController.value = matrix;
   }
   void _zoomOut() {
     final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scale(1 / 1.5);
+    matrix.scaleByDouble(1 / 1.5, 1 / 1.5, 1 / 1.5, 1.0);
     _transformationController.value = matrix;
   }
   void _resetZoom() {
@@ -188,7 +187,7 @@ class _DebugBodyTestState extends State<DebugBodyTest> {
           ),
           Switch(
             value: _showMaskOverlay, 
-            activeColor: Colors.white,
+            activeThumbColor: Colors.white,
             activeTrackColor: Colors.indigoAccent,
             onChanged: (v) => setState(() => _showMaskOverlay = v)
           ),

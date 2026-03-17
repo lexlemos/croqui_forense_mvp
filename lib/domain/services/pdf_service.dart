@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
@@ -31,7 +31,7 @@ class PdfService {
       final ByteData data = await rootBundle.load('assets/images/logo/logo-policia-se.jpeg');
       logoPolicia = pw.MemoryImage(data.buffer.asUint8List());
     } catch (e) {
-      print("Erro ao carregar logo: $e");
+      debugPrint("Erro ao carregar logo: $e");
     }
 
     final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
@@ -64,7 +64,7 @@ class PdfService {
             PdfHelpers.buildSectionTitle("2. IDENTIFICAÇÃO"),
             _buildIdentificacaoOficial(caso),
             pw.SizedBox(height: 15),
-            PdfHelpers.buildSectionTitle("3. EXAME EXTERNO (Visum et Repertum)"),
+            PdfHelpers.buildSectionTitle("3. EXAME EXTERNO"),
             ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("4. EXAME INTERNO (Cavidades)"),
@@ -261,7 +261,7 @@ class PdfService {
     if (rawDate != null) {
       try {
         final dt = DateTime.parse(rawDate.toString()).toLocal();
-        dataFinalizacaoStr = DateFormat('dd/MM/yyyy às HH:mm').format(dt);
+        dataFinalizacaoStr = DateFormat("dd/MM/yyyy 'às' HH:mm").format(dt);
       } catch (e) {
         dataFinalizacaoStr = "Confirmado (Data Indisponível)";
       }
@@ -270,7 +270,7 @@ class PdfService {
     }
 
 
-  final dataExportacao = DateFormat('dd/MM/yyyy ÀS HH:mm:ss').format(dataAtual);
+  final dataExportacao = DateFormat("dd/MM/yyyy 'às' HH:mm:ss").format(dataAtual);
 
   return pw.Container(
     padding: const pw.EdgeInsets.only(top: 20),
@@ -396,7 +396,7 @@ class PdfService {
               double left = (a.posX.isNaN ? 0.5 : a.posX) * 318.0;
               double top = (a.posY.isNaN ? 0.5 : a.posY) * 450.0;
               return pw.Positioned(left: left - 7, top: top - 7, child: pw.Container(width: 14, height: 14, alignment: pw.Alignment.center, decoration: const pw.BoxDecoration(color: PdfColors.red, shape: pw.BoxShape.circle), child: pw.Text(a.numeroSequencial.toString(), style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold))));
-            }).toList(),
+            }),
           ])),
         ]))
       ]));

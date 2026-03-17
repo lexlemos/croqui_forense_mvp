@@ -46,18 +46,18 @@ class InjuryMarker {
 
   factory InjuryMarker.fromMap(Map<String, dynamic> map) {
     return InjuryMarker(
-      id: map['id'],
-      caseId: map['case_id'],
-      croquiType: map['croqui_type'],
-      bodyPartId: map['body_part_id'],
-      xPercent: map['x_percent'],
-      yPercent: map['y_percent'],
-      isInterno: map['is_interno'] ?? false,
-      description: map['description'],
-      photoPath: map['photo_path'],
-      type: map['type'] ?? 'Não definido',
-      size: map['size'] ?? '',
-      depth: map['depth'] ?? '',
+      id: map['id']?.toString() ?? '',
+      caseId: map['case_id']?.toString() ?? '',
+      croquiType: map['croqui_type']?.toString() ?? '',
+      bodyPartId: map['body_part_id']?.toString() ?? '',
+      xPercent: (map['x_percent'] as num?)?.toDouble() ?? 0.0,
+      yPercent: (map['y_percent'] as num?)?.toDouble() ?? 0.0,
+      isInterno: map['is_interno'] == true || map['is_interno'] == 1,
+      description: map['description']?.toString(),
+      photoPath: map['photo_path']?.toString(),
+      type: map['type']?.toString() ?? 'Não definido',
+      size: map['size']?.toString() ?? '',
+      depth: map['depth']?.toString() ?? '',
     );
   }
 }
