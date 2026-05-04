@@ -13,7 +13,9 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
+import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
@@ -23,6 +25,7 @@ import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart';
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
+  final InjuryTypeRepository _injuryTypeRepository;
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -30,7 +33,7 @@ class CroquiController extends ChangeNotifier {
 
   bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
 
-  CroquiController(this.casoAtual, this._achadoService, this._caseService) {
+  CroquiController(this.casoAtual, this._achadoService, this._caseService, this._injuryTypeRepository) {
     _loadAchados();
   }
 
@@ -71,7 +74,10 @@ class CroquiController extends ChangeNotifier {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => InjuryFormModal(bodyPartName: realPartName),
+      builder: (context) => InjuryFormModal(
+        bodyPartName: realPartName,
+        injuryTypeRepository: _injuryTypeRepository,
+      ),
     );
 
     if (result == null) return;
@@ -99,7 +105,8 @@ class CroquiController extends ChangeNotifier {
 
     final achadoFinal = Achado(
       uuid: const Uuid().v4(),
-      diagramaCasoUuid: casoAtual.uuid, 
+      casoUuid: casoAtual.uuid,
+      templateDiagramaId: DiagramTemplates.templateIdParaView(viewType),
       tipoAchadoId: tipoLesaoId,
       numeroSequencial: achados.length + 1,
       posX: x,
@@ -140,7 +147,8 @@ class CroquiController extends ChangeNotifier {
       isScrollControlled: true,
       builder: (context) => InjuryFormModal(
         bodyPartName: localNome,
-        achadoToEdit: achado, 
+        injuryTypeRepository: _injuryTypeRepository,
+        achadoToEdit: achado,
       ),
     );
 
@@ -165,22 +173,14 @@ class CroquiController extends ChangeNotifier {
     novosDados['depth'] = result['depth'];
     novosDados['photo_path'] = finalPhotoPath; 
 
-    final achadoAtualizado = Achado(
-      uuid: achado.uuid,
-      diagramaCasoUuid: achado.diagramaCasoUuid,
+    final achadoAtualizado = achado.copyWith(
       tipoAchadoId: tipoLesaoId,
-      numeroSequencial: achado.numeroSequencial,
-      posX: achado.posX,
-      posY: achado.posY,
       isInterno: result['isInterno'] ?? achado.isInterno,
       estaPendente: false,
       dadosPreenchidos: novosDados,
       observacoesTexto: result['description'] ?? '',
-      removido: false,
       versao: achado.versao + 1,
-      criadoEm: achado.criadoEm,
       atualizadoEm: DateTime.now(),
-      proveniencia: achado.proveniencia,
     );
 
     try {
@@ -205,20 +205,9 @@ class CroquiController extends ChangeNotifier {
 
 
   void atualizarDadosLaudoMemoria(Map<String, dynamic> novosDados) {
-    casoAtual = Caso(
-      uuid: casoAtual.uuid,
-      idUsuarioCriador: casoAtual.idUsuarioCriador,
-      numeroLaudoExterno: casoAtual.numeroLaudoExterno,
-      status: casoAtual.status,
-      hashIntegridade: casoAtual.hashIntegridade,
-      removido: casoAtual.removido,
-      versao: casoAtual.versao,
-      criadoEmDispositivo: casoAtual.criadoEmDispositivo,
-      criadoEmRedeConfiavel: casoAtual.criadoEmRedeConfiavel,
-      atualizadoEm: DateTime.now(),
-      deviceId: casoAtual.deviceId,
+    casoAtual = casoAtual.copyWith(
       dadosLaudo: novosDados,
-      proveniencia: casoAtual.proveniencia,
+      atualizadoEm: DateTime.now(),
     );
     notifyListeners();
   }
@@ -307,9 +296,9 @@ class CroquiController extends ChangeNotifier {
     }
   }
   Future<void> _reloadCaso() async {
-    final casos = await _caseService.listarCasos();
-    casoAtual = casos.firstWhere((c) => c.uuid == casoAtual.uuid);
-    notifyListeners(); 
+    final caso = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
+    if (caso != null) casoAtual = caso;
+    notifyListeners();
   }
 
   String _resolveBodyPartName(String view, String partId) {

@@ -47,18 +47,22 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   late final TextEditingController _quesito3Ctrl;
   late final TextEditingController _quesito4Ctrl;
 
+  late final CroquiController _croquiController;
+  late final AuthProvider _authProvider;
+
   List<String> _fotosIdentificacao = [];
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    final controller = context.read<CroquiController>();
-    final dados = controller.casoAtual.dadosLaudo;
+    _croquiController = context.read<CroquiController>();
+    _authProvider = context.read<AuthProvider>();
+    final dados = _croquiController.casoAtual.dadosLaudo;
 
     _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
     
-    _numeroLaudoCtrl = TextEditingController(text: controller.casoAtual.numeroLaudoExterno ?? '');
+    _numeroLaudoCtrl = TextEditingController(text: _croquiController.casoAtual.numeroLaudoExterno ?? '');
     _boCtrl = TextEditingController(text: dados['cabecalho']?['bo'] ?? ''); 
     _picCtrl = TextEditingController(text: dados['cabecalho']?['pic'] ?? '');
     
@@ -121,15 +125,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   }
 
   void _salvarDadosNoController() {
-    if (!mounted) return;
+    if (_croquiController.isReadOnly) return;
 
-    final controller = context.read<CroquiController>();
-    if (controller.isReadOnly) return;
+    final nomePerito = _authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
 
-    final authProvider = context.read<AuthProvider>();
-    final nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
-
-    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(controller.casoAtual.dadosLaudo);
+    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(_croquiController.casoAtual.dadosLaudo);
 
     novosDados['cabecalho'] = {
       ...(novosDados['cabecalho'] as Map<String, dynamic>? ?? {}),
@@ -175,7 +175,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       'data_finalizacao': DateTime.now().toIso8601String(),
     };
 
-    controller.atualizarDadosLaudoMemoria(novosDados);
+    _croquiController.atualizarDadosLaudoMemoria(novosDados);
   }
 
   Future<void> _tirarFoto() async {

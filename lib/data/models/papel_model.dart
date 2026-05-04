@@ -33,6 +33,6 @@ class Papel {
       'criado_em': criadoEm.toIso8601String(),
     };
   }
-  bool get isAdmin => id == 'role_admin';
+  bool get isAdmin => nome == 'ADMIN';
 }
 

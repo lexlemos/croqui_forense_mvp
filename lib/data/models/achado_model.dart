@@ -3,18 +3,19 @@ import 'package:uuid/uuid.dart';
 
 class Achado {
   final String uuid;
-  final String diagramaCasoUuid; 
-  final String tipoAchadoId; 
-  
+  final String casoUuid;
+  final String templateDiagramaId;
+  final String tipoAchadoId;
+
   final int numeroSequencial;
-  final double posX; 
+  final double posX;
   final double posY;
   final bool estaPendente;
-  
+
   final bool isInterno;
 
   final Map<String, dynamic> dadosPreenchidos;
-  final String? observacoesTexto; 
+  final String? observacoesTexto;
 
   final bool removido;
   final int versao;
@@ -25,7 +26,8 @@ class Achado {
 
   Achado({
     required this.uuid,
-    required this.diagramaCasoUuid,
+    required this.casoUuid,
+    required this.templateDiagramaId,
     required this.tipoAchadoId,
     required this.numeroSequencial,
     required this.posX,
@@ -54,7 +56,8 @@ class Achado {
   }
 
   Achado.novo({
-    required this.diagramaCasoUuid,
+    required this.casoUuid,
+    required this.templateDiagramaId,
     required this.tipoAchadoId,
     required this.numeroSequencial,
     required this.posX,
@@ -75,7 +78,8 @@ class Achado {
   factory Achado.fromMap(Map<String, dynamic> map) {
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
-      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? '',
+      casoUuid: map['caso_uuid']?.toString() ?? '',
+      templateDiagramaId: map['template_diagrama_id']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
       numeroSequencial: map['numero_sequencial'] as int? ?? 0,
       posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
@@ -99,10 +103,51 @@ class Achado {
     );
   }
 
+  Achado copyWith({
+    String? uuid,
+    String? casoUuid,
+    String? templateDiagramaId,
+    String? tipoAchadoId,
+    int? numeroSequencial,
+    double? posX,
+    double? posY,
+    bool? isInterno,
+    bool? estaPendente,
+    Map<String, dynamic>? dadosPreenchidos,
+    String? observacoesTexto,
+    bool? removido,
+    int? versao,
+    DateTime? criadoEm,
+    DateTime? atualizadoEm,
+    String? deviceId,
+    String? proveniencia,
+  }) {
+    return Achado(
+      uuid: uuid ?? this.uuid,
+      casoUuid: casoUuid ?? this.casoUuid,
+      templateDiagramaId: templateDiagramaId ?? this.templateDiagramaId,
+      tipoAchadoId: tipoAchadoId ?? this.tipoAchadoId,
+      numeroSequencial: numeroSequencial ?? this.numeroSequencial,
+      posX: posX ?? this.posX,
+      posY: posY ?? this.posY,
+      isInterno: isInterno ?? this.isInterno,
+      estaPendente: estaPendente ?? this.estaPendente,
+      dadosPreenchidos: dadosPreenchidos ?? this.dadosPreenchidos,
+      observacoesTexto: observacoesTexto ?? this.observacoesTexto,
+      removido: removido ?? this.removido,
+      versao: versao ?? this.versao,
+      criadoEm: criadoEm ?? this.criadoEm,
+      atualizadoEm: atualizadoEm ?? this.atualizadoEm,
+      deviceId: deviceId ?? this.deviceId,
+      proveniencia: proveniencia ?? this.proveniencia,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,
-      'diagrama_caso_uuid': diagramaCasoUuid,
+      'caso_uuid': casoUuid,
+      'template_diagrama_id': templateDiagramaId,
       'tipo_achado_id': tipoAchadoId,
       'numero_sequencial': numeroSequencial,
       'pos_x': posX,

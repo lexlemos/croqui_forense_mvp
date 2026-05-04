@@ -41,11 +41,12 @@ class HomeActionBar extends StatelessWidget {
           
           const SizedBox(width: 8),
           
-          IconButton.filled(
+          Tooltip(
+            message: "Botão Novo Caso",
+            child: IconButton.filled(
             onPressed: onNovoCaso,
-            icon: const Icon(Icons.add),
-            tooltip: 'Novo Caso',
-          ),
+            icon: const Icon(Icons.add)
+          ),)
         ],
       ),
     );

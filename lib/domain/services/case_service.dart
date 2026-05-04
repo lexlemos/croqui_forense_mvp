@@ -53,72 +53,39 @@ class CaseService {
 
   Future<List<Caso>> listarCasos() async => await _repository.getAllCases();
 
+  Future<Caso?> buscarCasoPorUuid(String uuid) async => _repository.getCaseByUuid(uuid);
+
   Future<void> finalizarCaso(String casoUuid, Map<String, dynamic> dadosConclusao) async {
-    final casos = await _repository.getAllCases();
-    final casoAtual = casos.firstWhere((c) => c.uuid == casoUuid);
-    
+    final casoAtual = await _repository.getCaseByUuid(casoUuid);
+    if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
+
     final Map<String, dynamic> dadosAtualizados = Map<String, dynamic>.from(casoAtual.dadosLaudo);
     dadosAtualizados.addAll(dadosConclusao);
 
-    final casoFinalizado = Caso(
-      uuid: casoAtual.uuid,
-      idUsuarioCriador: casoAtual.idUsuarioCriador,
-      numeroLaudoExterno: casoAtual.numeroLaudoExterno,
+    final casoFinalizado = casoAtual.copyWith(
       status: StatusCaso.finalizado,
-      hashIntegridade: casoAtual.hashIntegridade,
-      removido: casoAtual.removido,
-      versao: casoAtual.versao + 1,
-      criadoEmDispositivo: casoAtual.criadoEmDispositivo,
-      criadoEmRedeConfiavel: casoAtual.criadoEmRedeConfiavel,
-      atualizadoEm: DateTime.now(),
-      deviceId: casoAtual.deviceId,
       dadosLaudo: dadosAtualizados,
-      proveniencia: casoAtual.proveniencia,
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now(),
     );
     await _repository.updateCase(casoFinalizado);
   }
 
   Future<void> reabrirCaso(String casoUuid) async {
-    final casos = await _repository.getAllCases();
-    final casoAtual = casos.firstWhere((c) => c.uuid == casoUuid);
-    final casoReaberto = Caso(
-      uuid: casoAtual.uuid,
-      idUsuarioCriador: casoAtual.idUsuarioCriador,
-      numeroLaudoExterno: casoAtual.numeroLaudoExterno,
+    final casoAtual = await _repository.getCaseByUuid(casoUuid);
+    if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
+
+    final casoReaberto = casoAtual.copyWith(
       status: StatusCaso.rascunho,
       hashIntegridade: null,
-      removido: casoAtual.removido,
       versao: casoAtual.versao + 1,
-      criadoEmDispositivo: casoAtual.criadoEmDispositivo,
-      criadoEmRedeConfiavel: casoAtual.criadoEmRedeConfiavel,
       atualizadoEm: DateTime.now(),
-      deviceId: casoAtual.deviceId,
-      dadosLaudo: casoAtual.dadosLaudo,
-      proveniencia: casoAtual.proveniencia,
     );
     await _repository.updateCase(casoReaberto);
   }
-  
-  Future<Map<String, dynamic>> gerarJsonExportacao(String casoUuid, String nomeCriador, String nomeExportador) async {
-    return {}; 
-  }
 
   Future<void> salvarRascunho(Caso caso) async {
-    final casoAtualizado = Caso(
-      uuid: caso.uuid,
-      idUsuarioCriador: caso.idUsuarioCriador,
-      numeroLaudoExterno: caso.numeroLaudoExterno,
-      status: caso.status,
-      hashIntegridade: caso.hashIntegridade,
-      removido: caso.removido,
-      versao: caso.versao,
-      criadoEmDispositivo: caso.criadoEmDispositivo,
-      criadoEmRedeConfiavel: caso.criadoEmRedeConfiavel,
-      atualizadoEm: DateTime.now(),
-      deviceId: caso.deviceId,
-      dadosLaudo: caso.dadosLaudo,
-      proveniencia: caso.proveniencia,
-    );
+    final casoAtualizado = caso.copyWith(atualizadoEm: DateTime.now());
     await _repository.updateCase(casoAtualizado);
   }
 
@@ -127,8 +94,8 @@ class CaseService {
     required String nomeExportador,
     required String diretorioTemp,
   }) async {
-    final casos = await _repository.getAllCases();
-    final caso = casos.firstWhere((c) => c.uuid == casoUuid);
+    final caso = await _repository.getCaseByUuid(casoUuid);
+    if (caso == null) throw Exception('Caso não encontrado: $casoUuid');
     final achados = await _repository.getAchadosPorCaso(casoUuid);
 
     final usuarioCriador = await _usuarioRepository.getUsuarioById(caso.idUsuarioCriador);

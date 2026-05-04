@@ -1,8 +1,8 @@
 class InjuryType {
-  final String id; 
+  final String id;
   final String label;
-  final int order; 
-  final bool isActive; 
+  final int order;
+  final bool isActive;
 
   InjuryType({
     required this.id,
@@ -13,17 +13,17 @@ class InjuryType {
 
   factory InjuryType.fromMap(Map<String, dynamic> map) {
     return InjuryType(
-      id: map['id'],
-      label: map['label'],
-      order: map['ordem'] ?? 0,
-      isActive: (map['ativo'] ?? 1) == 1,
+      id: map['id']?.toString() ?? '',
+      label: map['nome']?.toString() ?? '',
+      order: map['ordem'] as int? ?? 0,
+      isActive: (map['ativo'] as int? ?? 1) == 1,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'label': label,
+      'nome': label,
       'ordem': order,
       'ativo': isActive ? 1 : 0,
     };

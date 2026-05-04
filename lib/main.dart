@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 import 'package:croqui_forense_mvp/data/local/database_factory_impl.dart';
-import 'package:croqui_forense_mvp/data/local/database_helper.dart'; 
+import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/diagrama_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
+import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/widgets/common/auth_wrapper.dart';
@@ -42,20 +49,46 @@ class AppRoot extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<UsuarioRepository>(
-          create: (_) => UsuarioRepository(dbHelper), 
+          create: (_) => UsuarioRepository(dbHelper),
         ),
         Provider<CasoRepository>(
-          create: (_) => CasoRepository(dbHelper), 
+          create: (_) => CasoRepository(dbHelper),
+        ),
+        Provider<AchadoRepository>(
+          create: (_) => AchadoRepository(dbHelper),
+        ),
+        Provider<DiagramaRepository>(
+          create: (_) => DiagramaRepository(dbHelper),
+        ),
+        Provider<InjuryTypeRepository>(
+          create: (_) => InjuryTypeRepository(dbHelper),
         ),
 
+        // --- Camada de Rede ---
+        Provider<ApiClient>(
+          create: (_) => ApiClient(),
+        ),
+
+        // --- Camada de Domínio ---
         ProxyProvider<UsuarioRepository, AuthService>(
           update: (_, repo, __) => AuthService(repo, keyStorage),
         ),
         ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
-          update: (context, casoRepo, usuarioRepo, previousService) => CaseService(casoRepo, usuarioRepo),
+          update: (_, casoRepo, usuarioRepo, __) => CaseService(casoRepo, usuarioRepo),
         ),
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),
+        ),
+        ProxyProvider<AchadoRepository, AchadoService>(
+          update: (_, achadoRepo, __) => AchadoService(achadoRepo),
+        ),
+
+        // --- Camada de Sincronização ---
+        ProxyProvider2<ApiClient, CasoRepository, SyncService>(
+          update: (_, apiClient, casoRepo, __) => SyncService(
+            apiClient: apiClient,
+            repository: casoRepo,
+          ),
         ),
         ChangeNotifierProxyProvider<AuthService, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
@@ -66,10 +99,15 @@ class AppRoot extends StatelessWidget {
           create: (ctx) => CaseListProvider(ctx.read<CaseService>()),
           update: (_, caseService, previous) => previous!..updateService(caseService),
         ),
-        
+
         ChangeNotifierProxyProvider<UserService, UserManagementProvider>(
           create: (ctx) => UserManagementProvider(ctx.read<UserService>()),
           update: (_, userService, previous) => previous!..updateService(userService),
+        ),
+
+        ChangeNotifierProxyProvider<SyncService, SyncProvider>(
+          create: (ctx) => SyncProvider(ctx.read<SyncService>()),
+          update: (_, syncService, previous) => previous!..updateService(syncService),
         ),
       ],
       child: const CroquiApp(),

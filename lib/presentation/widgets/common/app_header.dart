@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/user_management_page.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class AppHeader extends StatelessWidget {
   final Usuario? usuario;
@@ -27,7 +29,7 @@ class AppHeader extends StatelessWidget {
     }
     return partes.first.substring(0, 2).toUpperCase();
   }
-  bool get _isAdmin => usuario?.papelId == 'role_admin';
+  bool get _isAdmin => usuario?.papelId == DatabaseSeeder.roleAdminId;
 
   @override
   Widget build(BuildContext context) {
@@ -182,6 +184,9 @@ class AppHeader extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 12),
+            // Botão de sincronização — visível apenas na home para o perito enviar laudos.
+            if (isHome) const SyncButtonWidget(),
           ],
         ],
       ),

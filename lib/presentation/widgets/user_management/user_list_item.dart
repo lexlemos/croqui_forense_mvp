@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class UserListItem extends StatelessWidget {
   final Usuario usuario;
@@ -18,7 +19,7 @@ class UserListItem extends StatelessWidget {
   Widget build(BuildContext context) {
 
     final color = usuario.ativo ? Colors.green : Colors.grey;
-    final papelNome = usuario.papelId == 'role_admin' ? 'Administrador' : 'Perito / Legista';
+    final papelNome = usuario.papelId == DatabaseSeeder.roleAdminId ? 'Administrador' : 'Perito / Legista';
 
     return Card(
       elevation: 2,

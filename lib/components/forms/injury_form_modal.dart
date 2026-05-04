@@ -10,11 +10,13 @@ import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
+  final InjuryTypeRepository injuryTypeRepository;
   final Achado? achadoToEdit;
 
   const InjuryFormModal({
     super.key,
     required this.bodyPartName,
+    required this.injuryTypeRepository,
     this.achadoToEdit,
   });
 
@@ -35,7 +37,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   bool _isInterno = false;
   
   final ImagePicker _picker = ImagePicker();
-  final InjuryTypeRepository _repository = InjuryTypeRepository();
   List<InjuryType> _availableTypes = [];
 
   @override
@@ -54,7 +55,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   Future<void> _loadTypes({String? initialTypeLabel}) async {
     try {
-      final types = await _repository.getAllTypes();
+      final types = await widget.injuryTypeRepository.getAllTypes();
       if (!mounted) return;
 
       setState(() {

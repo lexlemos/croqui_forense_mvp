@@ -1,5 +1,5 @@
 class Permissao {
-  final int id;
+  final String id;
   final String codigo;
   final String? descricao;
 
@@ -11,9 +11,9 @@ class Permissao {
 
   factory Permissao.fromMap(Map<String, dynamic> map) {
     return Permissao(
-      id: map['id'] as int,
-      codigo: map['codigo'] as String,
-      descricao: map.containsKey('descricao') ? map['descricao'] as String : null,
+      id: map['id']?.toString() ?? '',
+      codigo: map['codigo']?.toString() ?? '',
+      descricao: map['descricao']?.toString(),
     );
   }
 

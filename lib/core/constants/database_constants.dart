@@ -8,21 +8,9 @@ const String tablePapelPermissoes = 'papel_permissoes';
 const String tableTiposAchados = 'tipos_achados';
 const String tableTemplatesDiagrama = 'templates_diagrama';
 const String tableCasos = 'casos';
-const String tableDiagramasDoCaso = 'diagramas_do_caso';
 const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
-const String tableInjuryTypes = 'injury_types';
-
-const String _kCreateInjuryTypes = '''
-  CREATE TABLE $tableInjuryTypes (
-    id TEXT PRIMARY KEY,
-    label TEXT NOT NULL,
-    ordem INTEGER DEFAULT 0,
-    ativo INTEGER DEFAULT 1
-  )
-''';
-
 const String _kCreatePapeis = '''
 CREATE TABLE papeis (
     id TEXT PRIMARY KEY,
@@ -77,6 +65,8 @@ CREATE TABLE tipos_achados (
     nome TEXT NOT NULL,
     caminho_icone TEXT,
     schema_formulario_json TEXT,
+    ordem INTEGER DEFAULT 0,
+    ativo INTEGER DEFAULT 1,
     versao INTEGER DEFAULT 1,
     criado_em TEXT,
     atualizado_em TEXT
@@ -112,25 +102,11 @@ CREATE TABLE casos (
 );
 ''';
 
-const String _kCreateDiagramas = '''
-CREATE TABLE diagramas_do_caso (
-    uuid TEXT PRIMARY KEY,
-    caso_uuid TEXT NOT NULL,
-    template_id TEXT NOT NULL,
-    removido INTEGER DEFAULT 0,
-    versao INTEGER DEFAULT 1,
-    criado_em TEXT,
-    atualizado_em TEXT,
-    device_id TEXT,
-    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
-    FOREIGN KEY (template_id) REFERENCES templates_diagrama(id) ON DELETE RESTRICT
-);
-''';
-
 const String _kCreateAchados = '''
 CREATE TABLE achados (
     uuid TEXT PRIMARY KEY,
-    diagrama_caso_uuid TEXT NOT NULL,
+    caso_uuid TEXT NOT NULL,
+    template_diagrama_id TEXT NOT NULL,
     tipo_achado_id TEXT NOT NULL,
     numero_sequencial INTEGER,
     pos_x REAL,
@@ -145,7 +121,8 @@ CREATE TABLE achados (
     atualizado_em TEXT,
     device_id TEXT,
     proveniencia TEXT,
-    FOREIGN KEY (diagrama_caso_uuid) REFERENCES diagramas_do_caso(uuid) ON DELETE CASCADE,
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
+    FOREIGN KEY (template_diagrama_id) REFERENCES templates_diagrama(id) ON DELETE RESTRICT,
     FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT
 );
 ''';
@@ -162,6 +139,7 @@ CREATE TABLE evidencias_multimidia (
     salt_base64 TEXT,
     chave_cifrada_base64 TEXT,
     hash_exif TEXT,
+    foto_sincronizada INTEGER NOT NULL DEFAULT 0,
     removido INTEGER DEFAULT 0,
     versao INTEGER DEFAULT 1,
     criado_em TEXT,
@@ -191,9 +169,8 @@ CREATE TABLE log_auditoria (
 const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);',
   'CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);',
-  'CREATE INDEX idx_diagramas_caso ON diagramas_do_caso (caso_uuid);',
-  'CREATE INDEX idx_diagramas_template ON diagramas_do_caso (template_id);',
-  'CREATE INDEX idx_achados_diagrama ON achados (diagrama_caso_uuid);',
+  'CREATE INDEX idx_achados_caso ON achados (caso_uuid);',
+  'CREATE INDEX idx_achados_template ON achados (template_diagrama_id);',
   'CREATE INDEX idx_achados_tipo ON achados (tipo_achado_id);',
   'CREATE INDEX idx_evidencias_achado ON evidencias_multimidia (achado_uuid);',
   'CREATE INDEX idx_evidencias_substituta ON evidencias_multimidia (substituida_por);',
@@ -211,11 +188,9 @@ const Map<String, String> kTableScripts = {
   tableTiposAchados: _kCreateTiposAchados,
   tableTemplatesDiagrama: _kCreateTemplates,
   tableCasos: _kCreateCasos,
-  tableDiagramasDoCaso: _kCreateDiagramas,
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,
   tableLogAuditoria: _kCreateLogAuditoria,
-  tableInjuryTypes: _kCreateInjuryTypes,
 };
 
 final List<String> kFullDatabaseCreationScripts = [

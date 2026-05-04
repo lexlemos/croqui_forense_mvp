@@ -1,9 +1,13 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import '../local/database_helper.dart';
-import '../models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/local/database_helper.dart';
+import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 
 class AchadoRepository {
-  Future<Database> get _db async => await DatabaseHelper.instance.database;
+  final DatabaseHelper _dbHelper;
+
+  AchadoRepository(this._dbHelper);
+
+  Future<Database> get _db async => _dbHelper.database;
 
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
@@ -45,7 +49,7 @@ class AchadoRepository {
     final db = await _db;
     final result = await db.query(
       'achados',
-      where: 'diagrama_caso_uuid = ? AND removido = 0',
+      where: 'caso_uuid = ? AND removido = 0',
       whereArgs: [casoUuid],
       orderBy: 'criado_em DESC',
     );

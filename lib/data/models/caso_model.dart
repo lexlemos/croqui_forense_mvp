@@ -88,6 +88,38 @@ class Caso {
     );
   }
 
+  Caso copyWith({
+    String? uuid,
+    String? idUsuarioCriador,
+    String? numeroLaudoExterno,
+    StatusCaso? status,
+    Map<String, dynamic>? dadosLaudo,
+    String? hashIntegridade,
+    bool? removido,
+    int? versao,
+    String? deviceId,
+    String? proveniencia,
+    DateTime? criadoEmDispositivo,
+    DateTime? criadoEmRedeConfiavel,
+    DateTime? atualizadoEm,
+  }) {
+    return Caso(
+      uuid: uuid ?? this.uuid,
+      idUsuarioCriador: idUsuarioCriador ?? this.idUsuarioCriador,
+      numeroLaudoExterno: numeroLaudoExterno ?? this.numeroLaudoExterno,
+      status: status ?? this.status,
+      dadosLaudo: dadosLaudo ?? this.dadosLaudo,
+      hashIntegridade: hashIntegridade ?? this.hashIntegridade,
+      removido: removido ?? this.removido,
+      versao: versao ?? this.versao,
+      deviceId: deviceId ?? this.deviceId,
+      proveniencia: proveniencia ?? this.proveniencia,
+      criadoEmDispositivo: criadoEmDispositivo ?? this.criadoEmDispositivo,
+      criadoEmRedeConfiavel: criadoEmRedeConfiavel ?? this.criadoEmRedeConfiavel,
+      atualizadoEm: atualizadoEm ?? this.atualizadoEm,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,

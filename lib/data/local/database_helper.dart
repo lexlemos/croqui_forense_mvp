@@ -6,9 +6,11 @@ import 'package:croqui_forense_mvp/data/local/database_factory_interface.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
+// IMPORTANTE: Ao alterar o DatabaseSeeder, desinstale o app ou limpe os dados
+// do dispositivo para que o onCreate rode novamente com os novos seeds.
 class DatabaseHelper {
-  static const String _kDbName = 'croqui_forense_mvp.db';
-  static const int _kVersion = 4;
+  static const String _kDbName = kDatabaseName; 
+  static const int _kVersion = kDatabaseVersion; 
 
   static const String _kEncKey = 'db_encryption_key';
 
@@ -48,6 +50,7 @@ class DatabaseHelper {
       key = const Uuid().v4() + const Uuid().v4();
       await _keyStorage.save(key: _kEncKey, value: key);
     }
+
     final db = await _dbFactory.openDatabase(
       path,
       version: _kVersion,
@@ -60,179 +63,14 @@ class DatabaseHelper {
           for (var sql in kFullDatabaseCreationScripts) {
             await txn.execute(sql);
           }
+          
           final seeder = DatabaseSeeder(txn);
           await seeder.seedAll();
-          await _createAndSeedInjuryTypes(txn);
         });
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        for (int i = oldVersion + 1; i <= newVersion; i++) {
-          switch (i) {
-            case 2: await _migrateV1toV2(db); break;
-            case 3: await _migrateV2toV3(db); break;
-            case 4: await _migrateV3toV4(db); break;
-          }
-        }
       },
     );
 
-    await _criarIndices(db);
-
     return db;
-  }
-
-  Future<void> _createAndSeedInjuryTypes(Transaction txn) async {
-    await txn.execute('''
-      CREATE TABLE IF NOT EXISTS injury_types (
-        id TEXT PRIMARY KEY,
-        label TEXT NOT NULL,
-        ordem INTEGER DEFAULT 0,
-        ativo INTEGER DEFAULT 1
-      )
-    ''');
-
-    final seeder = DatabaseSeeder(txn);
-    await seeder.seedInjuryTypes();
-  }
-
-
-  Future<void> _migrateV3toV4(Database db) async {
-    await db.transaction((txn) async {
-      await _createAndSeedInjuryTypes(txn);
-    });
-  }
-
-  Future<void> _migrateV2toV3(Database db) async {
-    await db.transaction((txn) async {
-      final List<Map<String, dynamic>> columns =
-          await txn.rawQuery("PRAGMA table_info(achados)");
-
-      final bool columnExists =
-          columns.any((col) => col['name'] == 'profundidade');
-
-      if (!columnExists) {
-        await txn.execute('ALTER TABLE achados ADD COLUMN profundidade TEXT');
-      }
-    });
-  }
-
-  Future<void> _migrateV1toV2(Database db) async {
-    await db.transaction((txn) async {
-      await txn.execute('PRAGMA foreign_keys = OFF');
-      await _performTableMigration(
-        txn,
-        tableName: tablePapeis,
-        createScript: _getScriptFor(tablePapeis),
-        copyScript:
-            'INSERT INTO papeis (id, nome, descricao, e_padrao) SELECT CAST(id AS TEXT), nome, descricao, e_padrao FROM papeis_old',
-      );
-      
-      await _performTableMigration(
-        txn,
-        tableName: tablePermissoes,
-        createScript: _getScriptFor(tablePermissoes),
-        copyScript:
-            'INSERT INTO permissoes (id, codigo, descricao) SELECT CAST(id AS TEXT), codigo, descricao FROM permissoes_old',
-      );
-
-      await _performTableMigration(
-        txn,
-        tableName: tableUsuarios,
-        createScript: _getScriptFor(tableUsuarios),
-        copyScript: '''
-          INSERT INTO usuarios (
-            id, matricula_funcional, papel_id, nome_completo, ativo, hash_pin_offline, 
-            deve_alterar_pin, criado_em, atualizado_em, versao, device_id, salt
-          ) 
-          SELECT 
-            CAST(id AS TEXT), matricula_funcional, CAST(papel_id AS TEXT), nome_completo, ativo, hash_pin_offline, 
-            1, criado_em, atualizado_em, versao, device_id, NULL 
-          FROM usuarios_old
-        ''',
-      );
-
-      await _performTableMigration(
-        txn,
-        tableName: tablePapelPermissoes,
-        createScript: _getScriptFor(tablePapelPermissoes),
-        copyScript: '''
-          INSERT INTO papel_permissoes (papel_id, permissao_id) 
-          SELECT CAST(papel_id AS TEXT), CAST(permissao_id AS TEXT) 
-          FROM papel_permissoes_old
-        ''',
-      );
-      
-      await _performTableMigration(
-        txn,
-        tableName: tableCasos,
-        createScript: _getScriptFor(tableCasos),
-        copyScript: '''
-          INSERT INTO casos (uuid, id_usuario_criador, numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia)
-          SELECT uuid, CAST(id_usuario_criador AS TEXT), numero_laudo_externo, status, hash_integridade, removido, dados_laudo_json, versao, criado_em_dispositivo, criado_em_rede_confiavel, atualizado_em, device_id, proveniencia
-          FROM casos_old
-        ''',
-      );
-
-      await _performTableMigration(
-        txn,
-        tableName: tableLogAuditoria,
-        createScript: _getScriptFor(tableLogAuditoria),
-        copyScript: '''
-          INSERT INTO log_auditoria (id, caso_uuid, id_usuario, codigo_acao, transacao_uuid, detalhes_json, timestamp, device_id, proveniencia)
-          SELECT CAST(id AS TEXT), caso_uuid, CAST(id_usuario AS TEXT), codigo_acao, transacao_uuid, detalhes_json, timestamp, device_id, proveniencia
-          FROM log_auditoria_old
-        ''',
-      );
-
-      await txn.execute('PRAGMA foreign_keys = ON');
-    });
-  }
-
-
-  Future<void> _criarIndices(Database db) async {
-    final batch = db.batch();
-
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_usuarios_papel ON usuarios (papel_id);');
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_casos_criador ON casos (id_usuario_criador);');
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_diagramas_caso ON diagramas_do_caso (caso_uuid);');
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_achados_diagrama ON achados (diagrama_caso_uuid);');
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_casos_status ON casos (status);');
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_achados_pendente ON achados (esta_pendente);');
-    batch.execute(
-        'CREATE INDEX IF NOT EXISTS idx_casos_data ON casos (criado_em_dispositivo);');
-
-    await batch.commit(noResult: true);
-  }
-
-  Future<void> _performTableMigration(
-    Transaction txn, {
-    required String tableName,
-    required String createScript,
-    required String copyScript,
-  }) async {
-    final check = await txn.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
-    if (check.isEmpty) return;
-
-    await txn.execute('ALTER TABLE $tableName RENAME TO ${tableName}_old');
-    await txn.execute(createScript);
-    await txn.execute(copyScript);
-    await txn.execute('DROP TABLE ${tableName}_old');
-  }
-
-  String _getScriptFor(String tableName) {
-    final script = kTableScripts[tableName];
-    if (script == null) {
-      throw Exception(
-          "Script de criação para tabela '$tableName' não encontrado em kTableScripts.");
-    }
-    return script;
   }
 
   Future<void> close() async {

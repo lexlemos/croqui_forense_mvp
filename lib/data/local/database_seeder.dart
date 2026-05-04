@@ -1,18 +1,18 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
+import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
 class DatabaseSeeder {
   final DatabaseExecutor db;
 
   DatabaseSeeder(this.db);
 
-  static const String roleAdminId = 'role_admin';
-  static const String roleLegistaId = 'role_legista';
-  
-  static const String permCriarId = 'perm_criar_caso';
-  static const String permExportarId = 'perm_exportar_caso';
-  static const String permGestaoId = 'perm_gestao_users';
+  static const String roleAdminId = 'a1b2c3d4-0001-4000-8000-000000000001';
+  static const String roleLegistaId = 'a1b2c3d4-0002-4000-8000-000000000002';
+
+  static const String permCriarId = 'b1c2d3e4-0001-4000-8000-000000000001';
+  static const String permExportarId = 'b1c2d3e4-0002-4000-8000-000000000002';
+  static const String permGestaoId = 'b1c2d3e4-0003-4000-8000-000000000003';
 
   static const String fixedDate = '2024-01-01T12:00:00.000';
 
@@ -23,35 +23,6 @@ class DatabaseSeeder {
     await _seedDefaultUser();
     await _seedCatalogData(); 
   }
-  Future<void> seedInjuryTypes() async {
-    
-    List<Map<String, dynamic>> padroes = [
-      {'id': 'equimose', 'label': 'Equimose', 'ordem': 1},
-      {'id': 'escoriacao', 'label': 'Escoriação', 'ordem': 2},
-      {'id': 'ferida_contusa', 'label': 'Ferida Contusa', 'ordem': 3},
-      {'id': 'ferida_cortante', 'label': 'Ferida Cortante', 'ordem': 4},
-      {'id': 'perfuracao', 'label': 'Perfuração', 'ordem': 5},
-      {'id': 'hematoma', 'label': 'Hematoma', 'ordem': 6},
-      {'id': 'edema', 'label': 'Edema', 'ordem': 7},
-      {'id': 'fratura', 'label': 'Fratura', 'ordem': 8},
-      {'id': 'queimadura', 'label': 'Queimadura', 'ordem': 9},
-      {'id': 'tiro', 'label': 'Tiro / PAF', 'ordem': 10},
-      {'id': 'outro', 'label': 'Outro', 'ordem': 99},
-    ];
-
-    for (var item in padroes) {
-      final List<Map<String, dynamic>> exists = await db.query(
-        'injury_types',
-        where: 'id = ?',
-        whereArgs: [item['id']],
-      );
-      
-      if (exists.isEmpty) {
-        await db.insert('injury_types', item);
-      }
-    }
-  }
-
   Future<void> _seedRoles() async {
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papeis'));
     if (count != null && count > 0) return;
@@ -91,12 +62,12 @@ class DatabaseSeeder {
     const String defaultPin = '1234';
     final String salt = SecurityHelper.generateSalt();
     final String hashedPin = SecurityHelper.hashPin(defaultPin, salt);
-    final String adminUserId = const Uuid().v4(); 
+    const String adminUserId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
 
     await db.insert('usuarios', {
       'id': adminUserId, 
-      'matricula_funcional': 'ADMIN001',
-      'nome_completo': 'Administrador Padrao MVP',
+      'matricula_funcional': 'ADMIN002',
+      'nome_completo': 'Administrador Padrao',
       'crm': '12347/SE',
       'classe': '1',
       'papel_id': roleAdminId,
@@ -109,24 +80,34 @@ class DatabaseSeeder {
   }
 
   Future<void> _seedCatalogData() async {
-    await db.insert('templates_diagrama', {
-      'id': 'corpo_humano_padrao',
-      'nome': 'Corpo Humano Completo',
-      'caminho_svg': 'assets/images/croqui-frente.svg', 
-      'criado_em': fixedDate,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    final templates = [
+      {'id': DiagramTemplates.frente, 'nome': 'Corpo Frente', 'caminho_svg': 'assets/images/croqui-frente.svg'},
+      {'id': DiagramTemplates.costas, 'nome': 'Corpo Costas', 'caminho_svg': 'assets/images/croqui-costas.svg'},
+      {'id': DiagramTemplates.lateralDireito, 'nome': 'Corpo Lateral Direito', 'caminho_svg': 'assets/images/croqui-rosto-direito.svg'},
+      {'id': DiagramTemplates.lateralEsquerdo, 'nome': 'Corpo Lateral Esquerdo', 'caminho_svg': 'assets/images/croqui-rosto-frente.svg'},
+    ];
+
+    for (var tpl in templates) {
+      await db.insert('templates_diagrama', {
+        'id': tpl['id'],
+        'nome': tpl['nome'],
+        'caminho_svg': tpl['caminho_svg'],
+        'criado_em': fixedDate,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
 
     final types = [
-      {'id': 'equimose', 'nome': 'Equimose'},
-      {'id': 'escoriacao', 'nome': 'Escoriação'},
-      {'id': 'ferida_contusa', 'nome': 'Ferida Contusa'},
-      {'id': 'ferida_cortante', 'nome': 'Ferida Cortante'},
-      {'id': 'perfuracao', 'nome': 'Perfuração'},
-      {'id': 'hematoma', 'nome': 'Hematoma'},
-      {'id': 'edema', 'nome': 'Edema'},
-      {'id': 'fratura', 'nome': 'Fratura'},
-      {'id': 'queimadura', 'nome': 'Queimadura'},
-      {'id': 'outro', 'nome': 'Outro'},
+      {'id': 'equimose', 'nome': 'Equimose', 'ordem': 1},
+      {'id': 'escoriacao', 'nome': 'Escoriação', 'ordem': 2},
+      {'id': 'ferida_contusa', 'nome': 'Ferida Contusa', 'ordem': 3},
+      {'id': 'ferida_cortante', 'nome': 'Ferida Cortante', 'ordem': 4},
+      {'id': 'perfuracao', 'nome': 'Perfuração', 'ordem': 5},
+      {'id': 'hematoma', 'nome': 'Hematoma', 'ordem': 6},
+      {'id': 'edema', 'nome': 'Edema', 'ordem': 7},
+      {'id': 'fratura', 'nome': 'Fratura', 'ordem': 8},
+      {'id': 'queimadura', 'nome': 'Queimadura', 'ordem': 9},
+      {'id': 'tiro', 'nome': 'Tiro / PAF', 'ordem': 10},
+      {'id': 'outro', 'nome': 'Outro', 'ordem': 99},
     ];
 
     const String defaultSchema = '{"fields": [{"name": "obs", "label": "Observações", "type": "text"}]}';
@@ -137,6 +118,8 @@ class DatabaseSeeder {
         'nome': t['nome'],
         'caminho_icone': null,
         'schema_formulario_json': defaultSchema,
+        'ordem': t['ordem'],
+        'ativo': 1,
         'versao': 1,
         'criado_em': fixedDate,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
