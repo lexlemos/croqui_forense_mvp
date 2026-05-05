@@ -45,14 +45,14 @@ class Achado {
   });
 
   String get tamanho {
-    return dadosPreenchidos['size']?.toString() ?? 
-           dadosPreenchidos['tamanho']?.toString() ?? 
-           dadosPreenchidos['altura']?.toString() ?? '-';
+    return dadosPreenchidos['size']?.toString() ??
+           dadosPreenchidos['tamanho']?.toString() ??
+           dadosPreenchidos['altura']?.toString() ?? '';
   }
 
   String get profundidade {
-    return dadosPreenchidos['depth']?.toString() ?? 
-           dadosPreenchidos['profundidade']?.toString() ?? '-';
+    return dadosPreenchidos['depth']?.toString() ??
+           dadosPreenchidos['profundidade']?.toString() ?? '';
   }
 
   Achado.novo({

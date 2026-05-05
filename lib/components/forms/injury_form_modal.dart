@@ -291,7 +291,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           : Stack(
               fit: StackFit.expand,
               children: [
-                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300)),
+                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300, cacheHeight: 300)),
                 Container(color: Colors.black26),
                 const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
               ],

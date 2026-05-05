@@ -11,11 +11,7 @@ class AchadoService {
   }
 
   Future<void> atualizarAchado(Achado achado) async {
-    final achadoAtualizado = achado.copyWith(
-      versao: achado.versao + 1,
-      atualizadoEm: DateTime.now(),
-    );
-    await _repository.updateAchado(achadoAtualizado);
+    await _repository.updateAchado(achado);
   }
 
   Future<List<Achado>> listarAchados(String casoUuid) async {

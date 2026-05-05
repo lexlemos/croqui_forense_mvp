@@ -109,7 +109,7 @@ class _AchadoCard extends StatelessWidget {
           Container(
             width: 50, height: 50,
             decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
-            child: path != null ? ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.file(File(path), fit: BoxFit.cover, cacheWidth: 100,)) : const Icon(Icons.camera_alt, color: Colors.grey),
+            child: path != null ? ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.file(File(path), fit: BoxFit.cover, cacheWidth: 100, cacheHeight: 100)) : const Icon(Icons.camera_alt, color: Colors.grey),
           ),
           Positioned(top: -5, left: -5, child: CircleAvatar(radius: 9, backgroundColor: Colors.red, child: Text(achado.numeroSequencial.toString(), style: const TextStyle(color: Colors.white, fontSize: 9)))),
         ],
@@ -141,7 +141,7 @@ class _AchadoCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis, 
               maxLines: 1),
           const SizedBox(height: 4),
-          Text("Tam: ${achado.tamanho}cm | Prof: ${achado.profundidade}",
+          Text("Tam: ${achado.tamanho.isEmpty ? '-' : achado.tamanho}cm | Prof: ${achado.profundidade.isEmpty ? '-' : achado.profundidade}",
               style: const TextStyle(fontSize: 10, color: Colors.black54)),
           if (achado.observacoesTexto?.isNotEmpty == true)
             Text(

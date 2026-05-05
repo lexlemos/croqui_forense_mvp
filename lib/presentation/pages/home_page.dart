@@ -44,16 +44,16 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final caseList = context.watch<CaseListProvider>(); 
-    
+    final usuario = context.select((AuthProvider p) => p.usuario);
+    final caseList = context.watch<CaseListProvider>();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
             AppHeader(
-              usuario: authProvider.usuario,
+              usuario: usuario,
               title: 'Biblioteca de Casos',
               isHome: true,
             ),

@@ -32,7 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
+    final usuario = context.select((AuthProvider p) => p.usuario);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -40,7 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           children: [
             AppHeader(
-              usuario: authProvider.usuario,
+              usuario: usuario,
               title: 'Configurações',
               isHome: false,
             ),

@@ -11,9 +11,15 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
+    final (:isLoading, :isLogged, :deveAlterarPin) = context.select(
+      (AuthProvider p) => (
+        isLoading: p.isLoading,
+        isLogged: p.isLogged,
+        deveAlterarPin: p.usuario?.deveAlterarPin ?? false,
+      ),
+    );
 
-    if (authProvider.isLoading) {
+    if (isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.primary,
         body: Center(
@@ -21,11 +27,11 @@ class AuthWrapper extends StatelessWidget {
         ),
       );
     }
-    
-    if (!authProvider.isLogged) {
+
+    if (!isLogged) {
       return const LoginPage();
     }
-    if (authProvider.usuario?.deveAlterarPin == true) {
+    if (deveAlterarPin) {
       return const ForceChangePinPage();
     }
     return const HomePage();

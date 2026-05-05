@@ -59,6 +59,25 @@ class CasoRepository implements ISyncRepository {
     return result.map((map) => Achado.fromMap(map)).toList();
   }
 
+  @override
+  Future<Map<String, List<Achado>>> getAchadosEmLote(List<String> casoUuids) async {
+    if (casoUuids.isEmpty) return {};
+    final db = await database;
+    final placeholders = List.filled(casoUuids.length, '?').join(',');
+    final result = await db.query(
+      tableAchados,
+      where: 'caso_uuid IN ($placeholders) AND removido = 0',
+      whereArgs: casoUuids,
+      orderBy: 'criado_em DESC',
+    );
+    final Map<String, List<Achado>> grouped = {};
+    for (final map in result) {
+      final achado = Achado.fromMap(map);
+      (grouped[achado.casoUuid] ??= []).add(achado);
+    }
+    return grouped;
+  }
+
   Future<List<Caso>> getAllCases() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -160,6 +179,45 @@ class CasoRepository implements ISyncRepository {
       debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentes: $e');
       rethrow;
     }
+  }
+
+  @override
+  Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids) async {
+    if (casoUuids.isEmpty) return {};
+    final db = await database;
+    final placeholders = List.filled(casoUuids.length, '?').join(',');
+    final sql = '''
+      SELECT
+        a.*,
+        e.caminho_arquivo_encriptado  AS _photo_path_override,
+        e.uuid                        AS _evidencia_uuid
+      FROM $tableAchados a
+      INNER JOIN $tableEvidenciasMultimidia e
+             ON  e.achado_uuid                = a.uuid
+             AND e.removido                   = 0
+             AND e.caminho_arquivo_encriptado IS NOT NULL
+             AND e.caminho_arquivo_encriptado != ''
+             AND e.foto_sincronizada           = 0
+      WHERE a.caso_uuid IN ($placeholders)
+        AND a.removido  = 0
+      ORDER BY a.criado_em ASC
+    ''';
+    final rows = await db.rawQuery(sql, casoUuids);
+
+    final Map<String, List<Achado>> grouped = {};
+    for (final row in rows) {
+      final mutableRow = Map<String, dynamic>.from(row);
+      final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
+      final dados = _decodeJson(dadosJson);
+      dados['photo_path'] = row['_photo_path_override'] as String?;
+      dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
+      mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
+      mutableRow.remove('_photo_path_override');
+      mutableRow.remove('_evidencia_uuid');
+      final achado = Achado.fromMap(mutableRow);
+      (grouped[achado.casoUuid] ??= []).add(achado);
+    }
+    return grouped;
   }
 
   /// Atualiza somente `status` e `atualizado_em` do [caso] para 'SINCRONIZADO'.

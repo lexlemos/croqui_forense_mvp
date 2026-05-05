@@ -9,6 +9,7 @@
   import 'package:croqui_forense_mvp/core/security/crypto_helper.dart';
   import 'package:croqui_forense_mvp/data/models/caso_model.dart';
   import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+  import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 
   // ===========================================================================
   // CONTRATO (INTERFACE) DO REPOSITÓRIO — Dependency Inversion Principle
@@ -35,6 +36,8 @@
 
     Future<List<Achado>> getAchadosPorCaso(String casoUuid);
 
+    Future<Map<String, List<Achado>>> getAchadosEmLote(List<String> casoUuids);
+
     /// Retorna todos os [Achado]s de um [caso] que possuem fotos pendentes de upload.
     ///
     /// Um achado possui foto pendente quando `dadosPreenchidos['photo_path']`
@@ -43,6 +46,8 @@
     /// TODO: [REPO] Use o método `getAchadosPorCaso(casoUuid)` já existente no
     /// `CasoRepository` e filtre os achados com `photoPath != null` em memória.
     Future<List<Achado>> getAchadosComFotosPendentes(String casoUuid);
+
+    Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids);
 
     /// Atualiza o [StatusCaso] do caso para [StatusCaso.sincronizado] no SQLite.
     ///
@@ -189,8 +194,12 @@
       // =========================================================================
       // PASSO 3 + 4 — PUSH EVIDÊNCIAS + CONFIRMAÇÃO: por caso
       // =========================================================================
+      final fotosPendentesPorCaso = await _repository.getAchadosComFotosPendentesEmLote(
+        casosPendentes.map((c) => c.uuid).toList(),
+      );
+
       for (final caso in casosPendentes) {
-        await _processarCaso(caso);
+        await _processarCaso(caso, fotosPendentesPorCaso[caso.uuid] ?? []);
       }
 
       debugPrint('[SyncService] 🏁 Ciclo de sincronização concluído.');
@@ -208,17 +217,19 @@
         '[SyncService] 📤 Passo 2: enviando ${casos.length} caso(s) para $_routeSyncPush...',
       );
 
-      // Monta o payload: {"casos": [ {caso + achados}, ... ]}
-      // TODO: [REPO] Inclua os achados de cada caso no payload se o backend
-      // exigir um payload único de casos + achados juntos. Ajuste _casoParaJson().
+      final achadosPorCaso = await _repository.getAchadosEmLote(
+        casos.map((c) => c.uuid).toList(),
+      );
+
       final List<Map<String, dynamic>> casosJson = [];
       for (final caso in casos) {
-        final achados = await _repository.getAchadosPorCaso(caso.uuid);
+        final achados = achadosPorCaso[caso.uuid] ?? [];
         casosJson.add(_casoParaJson(caso, achados));
       }
 
+      final deviceId = await DeviceInfoService.getDeviceId();
       final payload = {
-        'device_id': 'tablet-teste-mvp-01',
+        'device_id': deviceId,
         'timestamp_sincronizacao': DateTime.now().toUtc().toIso8601String(),
         'casos': casosJson,
       };
@@ -253,13 +264,10 @@
     /// Processa um único [caso]: faz upload das fotos e confirma sincronização.
     ///
     /// Falhas individuais de upload são logadas mas não interrompem os demais.
-    Future<void> _processarCaso(Caso caso) async {
+    Future<void> _processarCaso(Caso caso, List<Achado> achadosComFotos) async {
       debugPrint(
         '[SyncService] 📂 Processando evidências do caso ${caso.uuid}...',
       );
-
-      final List<Achado> achadosComFotos =
-          await _repository.getAchadosComFotosPendentes(caso.uuid);
 
       if (achadosComFotos.isEmpty) {
         debugPrint(
