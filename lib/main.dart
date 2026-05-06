@@ -70,8 +70,8 @@ class AppRoot extends StatelessWidget {
         ),
 
         // --- Camada de Domínio ---
-        ProxyProvider<UsuarioRepository, AuthService>(
-          update: (_, repo, __) => AuthService(repo, keyStorage),
+        ProxyProvider2<UsuarioRepository, ApiClient, AuthService>(
+          update: (_, repo, apiClient, __) => AuthService(repo, keyStorage, apiClient),
         ),
         ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
           update: (_, casoRepo, usuarioRepo, __) => CaseService(casoRepo, usuarioRepo),
