@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -25,12 +26,16 @@ class AchadoRepository {
   Future<void> updateAchado(Achado achado) async {
     final db = await _db;
     try {
-      await db.update(
+      final rowsAffected = await db.update(
         'achados',
         achado.toMap(),
         where: 'uuid = ?',
         whereArgs: [achado.uuid],
       );
+      debugPrint('[AchadoRepository] updateAchado ${achado.uuid}: $rowsAffected row(s) affected');
+      if (rowsAffected == 0) {
+        throw Exception('Achado ${achado.uuid} não encontrado no banco.');
+      }
     } catch (e) {
       throw Exception('Erro de persistência ao atualizar achado: $e');
     }

@@ -162,16 +162,17 @@ class _CroquiView extends StatelessWidget {
   }
 
 void _showEditOrDetail(BuildContext context, CroquiController controller, Achado achado) {
+    final parentContext = context;
 
     showDialog(
       context: context,
-      builder: (context) => AchadoDetailModal(
+      builder: (dialogContext) => AchadoDetailModal(
         achado: achado,
-        onEdit: controller.isReadOnly 
-          ? null 
+        onEdit: controller.isReadOnly
+          ? null
           : () {
-              Navigator.pop(context); 
-              controller.editAchado(context, achado); 
+              Navigator.pop(dialogContext);
+              controller.editAchado(parentContext, achado);
             },
       ),
     );

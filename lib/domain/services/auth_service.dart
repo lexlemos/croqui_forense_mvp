@@ -75,6 +75,8 @@ class AuthService {
       );
     } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
           e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.unknown) {
         throw AuthException(

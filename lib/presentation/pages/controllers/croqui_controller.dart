@@ -82,25 +82,28 @@ class CroquiController extends ChangeNotifier {
 
     if (result == null) return;
 
+    final String size = result['size']?.toString() ?? '';
+    final String depth = result['depth']?.toString() ?? '';
+    final String description = result['description']?.toString() ?? '';
+    final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
+    final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
+    final bool isInterno = result['isInterno'] ?? false;
+
     String? finalPhotoPath = result['photoPath'];
     if (finalPhotoPath != null) {
       final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
       finalPhotoPath = compressedFile.path;
     }
 
-    final String tipoLesaoId = result['typeId'] ?? 'outro';
-    final String tipoLesaoNome = result['type'];
-    final bool isInterno = result['isInterno'] ?? false;
-
     final Map<String, dynamic> dadosExtras = {
       'view': viewType,
       'local_anatomico_id': partId,
       'local_anatomico_nome': realPartName,
       'type_label': tipoLesaoNome,
-      'size': result['size'],
-      'depth': result['depth'],
-      'photo_path': finalPhotoPath, 
-      'is_interno': isInterno
+      'size': size,
+      'depth': depth,
+      'photo_path': finalPhotoPath,
+      'is_interno': isInterno,
     };
 
     final achadoFinal = Achado(
@@ -114,7 +117,7 @@ class CroquiController extends ChangeNotifier {
       isInterno: isInterno,
       estaPendente: true,
       dadosPreenchidos: dadosExtras,
-      observacoesTexto: result['description'] ?? '',
+      observacoesTexto: description,
       removido: false,
       versao: 1,
       criadoEm: DateTime.now(),
@@ -154,6 +157,13 @@ class CroquiController extends ChangeNotifier {
 
     if (result == null) return;
 
+    final String size = result['size']?.toString() ?? '';
+    final String depth = result['depth']?.toString() ?? '';
+    final String description = result['description']?.toString() ?? '';
+    final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
+    final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
+    final bool isInterno = result['isInterno'] ?? achado.isInterno;
+
     String? finalPhotoPath = result['photoPath'];
     String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
 
@@ -164,21 +174,19 @@ class CroquiController extends ChangeNotifier {
 
     if (!context.mounted) return;
 
-    final String tipoLesaoId = result['typeId'] ?? achado.tipoAchadoId;
-    final String tipoLesaoNome = result['type'];
-
-    final Map<String, dynamic> novosDados = Map.from(achado.dadosPreenchidos);
+    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
     novosDados['type_label'] = tipoLesaoNome;
-    novosDados['size'] = result['size'];
-    novosDados['depth'] = result['depth'];
-    novosDados['photo_path'] = finalPhotoPath; 
+    novosDados['size'] = size;
+    novosDados['depth'] = depth;
+    novosDados['photo_path'] = finalPhotoPath;
+    novosDados['is_interno'] = isInterno;
 
     final achadoAtualizado = achado.copyWith(
       tipoAchadoId: tipoLesaoId,
-      isInterno: result['isInterno'] ?? achado.isInterno,
+      isInterno: isInterno,
       estaPendente: false,
       dadosPreenchidos: novosDados,
-      observacoesTexto: result['description'] ?? '',
+      observacoesTexto: description,
       versao: achado.versao + 1,
       atualizadoEm: DateTime.now(),
     );

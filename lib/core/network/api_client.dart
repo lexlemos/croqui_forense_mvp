@@ -12,12 +12,13 @@ import 'package:dio/dio.dart';
 /// Substitua pelo endereço real do servidor antes de qualquer deploy.
 const String _kBaseUrl = 'http://192.168.15.88:8000/api/v1';
 
-/// Timeout extremo de 60 segundos para todas as operações de rede.
-///
-/// Justificativa: o app realiza uploads de arquivos binários pesados
-/// (fotos criptografadas) via redes 3G/4G instáveis em rodovias.
-/// Um timeout conservador evita falhas prematuras durante transferências longas.
-const Duration _kNetworkTimeout = Duration(seconds: 60);
+/// Timeout para estabelecer conexão TCP com o servidor.
+/// Valor agressivo para falhar rápido quando o backend está indisponível.
+const Duration _kConnectTimeout = Duration(seconds: 5);
+
+/// Timeout para envio e recebimento de dados em requisições padrão.
+/// O SyncService pode sobrescrever via Options para uploads pesados.
+const Duration _kDataTimeout = Duration(seconds: 8);
 
 // ===========================================================================
 // MOCK AUTH INTERCEPTOR
@@ -137,23 +138,9 @@ class ApiClient {
   ApiClient({String baseUrl = _kBaseUrl}) {
     final baseOptions = BaseOptions(
       baseUrl: baseUrl,
-      // ------------------------------------------------------------------
-      // TIMEOUTS EXTREMOS — Cenário Hostil de Campo
-      // ------------------------------------------------------------------
-      // Redes 3G/4G instáveis em rodovias exigem tolerância elevada.
-      // Uploads de fotos criptografadas podem ser lentos e intermitentes.
-      // ------------------------------------------------------------------
-
-      /// Tempo máximo para estabelecer a conexão TCP com o servidor.
-      connectTimeout: _kNetworkTimeout,
-
-      /// Tempo máximo para receber dados após a conexão ser estabelecida.
-      /// Crítico para downloads de responses grandes.
-      receiveTimeout: _kNetworkTimeout,
-
-      /// Tempo máximo para enviar dados ao servidor.
-      /// Crítico para uploads de arquivos binários pesados (fotos criptografadas).
-      sendTimeout: _kNetworkTimeout,
+      connectTimeout: _kConnectTimeout,
+      receiveTimeout: _kDataTimeout,
+      sendTimeout: _kDataTimeout,
 
       // Cabeçalhos padrão para todas as requisições.
       headers: {

@@ -88,17 +88,22 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     super.dispose();
   }
 
-  void _saveForm() {
+  Future<void> _saveForm() async {
+    FocusScope.of(context).unfocus();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    if (!mounted) return;
     if (_formKey.currentState!.validate()) {
-      Navigator.pop(context, {
+      final data = {
         'type': _selectedType?.label ?? 'Não especificado',
-        'typeId': _selectedType?.id, 
-        'size': _sizeController.text,
-        'depth': _depthController.text,
-        'description': _obsController.text,
+        'typeId': _selectedType?.id,
+        'size': _sizeController.text.trim(),
+        'depth': _depthController.text.trim(),
+        'description': _obsController.text.trim(),
         'photoPath': _currentPhotoPath,
-        'isInterno': _isInterno, 
-      });
+        'isInterno': _isInterno,
+      };
+      Navigator.pop(context, data);
     }
   }
 
