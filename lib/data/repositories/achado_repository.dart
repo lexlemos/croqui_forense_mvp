@@ -60,4 +60,15 @@ class AchadoRepository {
     );
     return result.map((m) => Achado.fromMap(m)).toList();
   }
+
+  Future<List<Achado>> getAchadosDeEntradaPorCaso(String casoUuid) async {
+    final db = await _db;
+    final result = await db.query(
+      'achados',
+      where: "caso_uuid = ? AND removido = 0 AND dados_preenchidos_json LIKE '%\"tipo_orificio\":%Entrada%'",
+      whereArgs: [casoUuid],
+      orderBy: 'numero_sequencial ASC',
+    );
+    return result.map((m) => Achado.fromMap(m)).toList();
+  }
 }

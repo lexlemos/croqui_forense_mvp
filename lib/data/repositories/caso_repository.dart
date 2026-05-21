@@ -16,10 +16,6 @@ class CasoRepository implements ISyncRepository {
 
   Future<Database> get database async => _dbHelper.database;
 
-  // ---------------------------------------------------------------------------
-  // CRUD Básico
-  // ---------------------------------------------------------------------------
-
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
     try {
@@ -100,207 +96,149 @@ class CasoRepository implements ISyncRepository {
     return Caso.fromMap(maps.first);
   }
 
-  // ---------------------------------------------------------------------------
-  // ISyncRepository — Os 4 Métodos de Sincronização
-  // ---------------------------------------------------------------------------
-
-  /// Retorna todos os [Caso]s com `status = 'FINALIZADO'` prontos para sync.
-  ///
-  /// Rascunhos são ignorados. O índice `idx_casos_status` garante performance.
   @override
   Future<List<Caso>> getCasosNaoSincronizados() async {
     final db = await database;
-    try {
-      final maps = await db.query(
-        tableCasos,
-        where: "status = 'FINALIZADO' AND removido = 0",
-        orderBy: 'criado_em_dispositivo ASC',
-      );
-      debugPrint(
-        '[CasoRepository] getCasosNaoSincronizados: '
-        '${maps.length} caso(s) encontrado(s).',
-      );
-      return maps.map(Caso.fromMap).toList();
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ getCasosNaoSincronizados: $e');
-      rethrow;
-    }
-  }
-
-  /// Retorna os [Achado]s do [casoUuid] que possuem evidências fotográficas
-  /// ainda não enviadas ao servidor (`foto_sincronizada = 0`).
-  ///
-  /// Cada [Achado] retornado terá dois campos extras em `dadosPreenchidos`:
-  /// - `photo_path`       → caminho do arquivo cifrado no disco.
-  /// - `_evidencia_uuid`  → uuid da linha em `evidencias_multimidia`, usado
-  ///                        por [marcarFotoComoSincronizada] para o UPDATE.
-  @override
-  Future<List<Achado>> getAchadosComFotosPendentes(String casoUuid) async {
-    final db = await database;
-    try {
-      const sql = '''
-        SELECT
-          a.*,
-          e.caminho_arquivo_encriptado  AS _photo_path_override,
-          e.uuid                        AS _evidencia_uuid
-        FROM $tableAchados a
-        INNER JOIN $tableEvidenciasMultimidia e
-               ON  e.achado_uuid                = a.uuid
-               AND e.removido                   = 0
-               AND e.caminho_arquivo_encriptado IS NOT NULL
-               AND e.caminho_arquivo_encriptado != ''
-               AND e.foto_sincronizada           = 0
-        WHERE a.caso_uuid = ?
-          AND a.removido  = 0
-        ORDER BY a.criado_em ASC
-      ''';
-
-      final rows = await db.rawQuery(sql, [casoUuid]);
-      debugPrint(
-        '[CasoRepository] getAchadosComFotosPendentes: '
-        '${rows.length} foto(s) pendente(s) para caso $casoUuid.',
-      );
-
-      return rows.map((row) {
-        final mutableRow = Map<String, dynamic>.from(row);
-
-        final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
-        final dados = _decodeJson(dadosJson);
-        dados['photo_path']      = row['_photo_path_override'] as String?;
-        dados['_evidencia_uuid'] = row['_evidencia_uuid']      as String?;
-        mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
-
-        mutableRow.remove('_photo_path_override');
-        mutableRow.remove('_evidencia_uuid');
-
-        return Achado.fromMap(mutableRow);
-      }).toList();
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentes: $e');
-      rethrow;
-    }
+    final maps = await db.query(
+      tableCasos,
+      where: "status = 'FINALIZADO' AND removido = 0",
+      orderBy: 'criado_em_dispositivo ASC',
+    );
+    return maps.map(Caso.fromMap).toList();
   }
 
   @override
   Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids) async {
     if (casoUuids.isEmpty) return {};
-    final db = await database;
-    final placeholders = List.filled(casoUuids.length, '?').join(',');
-    final sql = '''
-      SELECT
-        a.*,
-        e.caminho_arquivo_encriptado  AS _photo_path_override,
-        e.uuid                        AS _evidencia_uuid
-      FROM $tableAchados a
-      INNER JOIN $tableEvidenciasMultimidia e
-             ON  e.achado_uuid                = a.uuid
-             AND e.removido                   = 0
-             AND e.caminho_arquivo_encriptado IS NOT NULL
-             AND e.caminho_arquivo_encriptado != ''
-             AND e.foto_sincronizada           = 0
-      WHERE a.caso_uuid IN ($placeholders)
-        AND a.removido  = 0
-      ORDER BY a.criado_em ASC
-    ''';
-    final rows = await db.rawQuery(sql, casoUuids);
 
     final Map<String, List<Achado>> grouped = {};
-    for (final row in rows) {
-      final mutableRow = Map<String, dynamic>.from(row);
-      final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
-      final dados = _decodeJson(dadosJson);
-      dados['photo_path'] = row['_photo_path_override'] as String?;
-      dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
-      mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
-      mutableRow.remove('_photo_path_override');
-      mutableRow.remove('_evidencia_uuid');
-      final achado = Achado.fromMap(mutableRow);
-      (grouped[achado.casoUuid] ??= []).add(achado);
+    final db = await database;
+
+    for (final uuid in casoUuids) {
+      grouped[uuid] = [];
+
+      // 1. Fotos gerais extraídas do JSON do caso
+      try {
+        final List<Map<String, dynamic>> casoRows = await db.query(
+          tableCasos,
+          where: 'uuid = ? AND removido = 0',
+          whereArgs: [uuid],
+        );
+
+        if (casoRows.isNotEmpty) {
+          final casoMap = casoRows.first;
+          final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
+          final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
+          final identificacao = dadosLaudo['identificacao'] as Map?;
+          final fotosGerais = identificacao?['fotos_gerais'] as List?;
+
+          if (fotosGerais != null && fotosGerais.isNotEmpty) {
+            for (var i = 0; i < fotosGerais.length; i++) {
+              final String pathString = fotosGerais[i].toString();
+              if (pathString.isEmpty || pathString == 'null') continue;
+
+              final achadoVirtual = Achado(
+                uuid: uuid,
+                casoUuid: uuid,
+                templateDiagramaId: 'GERAL',
+                tipoAchadoId: 'FOTO_GERAL',
+                numeroSequencial: i,
+                posX: 0.0,
+                posY: 0.0,
+                isInterno: false,
+                estaPendente: true,
+                versao: 1,
+                removido: false,
+                criadoEm: DateTime.now(),
+                dadosPreenchidos: {
+                  'photo_path': pathString,
+                  '_evidencia_uuid': 'GERAL_${uuid}_$i',
+                },
+              );
+              grouped[uuid]!.add(achadoVirtual);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (JSON): $e');
+      }
+
+      // 2. Fotos de achados (lesões) na tabela evidencias_multimidia
+      try {
+        const sqlAchados = '''
+          SELECT
+            a.*,
+            e.caminho_arquivo_encriptado AS _photo_path_override,
+            e.uuid                        AS _evidencia_uuid
+          FROM $tableAchados a
+          INNER JOIN $tableEvidenciasMultimidia e
+                 ON  e.achado_uuid                = a.uuid
+                 AND e.removido                   = 0
+                 AND e.caminho_arquivo_encriptado IS NOT NULL
+                 AND e.caminho_arquivo_encriptado != ''
+                 AND e.foto_sincronizada           = 0
+          WHERE a.caso_uuid = ?
+            AND a.removido  = 0
+          ORDER BY a.criado_em ASC
+        ''';
+
+        final rowsAchados = await db.rawQuery(sqlAchados, [uuid]);
+
+        for (final row in rowsAchados) {
+          final mutableRow = Map<String, dynamic>.from(row);
+          final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
+          final dados = _decodeJson(dadosJson);
+
+          dados['photo_path'] = row['_photo_path_override'] as String?;
+          dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
+
+          mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
+          mutableRow.remove('_photo_path_override');
+          mutableRow.remove('_evidencia_uuid');
+
+          grouped[uuid]!.add(Achado.fromMap(mutableRow));
+        }
+      } catch (e) {
+        debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (SQL): $e');
+      }
     }
+
     return grouped;
   }
-
-  /// Atualiza somente `status` e `atualizado_em` do [caso] para 'SINCRONIZADO'.
-  ///
-  /// UPDATE cirúrgico — não reescreve o laudo inteiro, evitando race conditions.
   @override
   Future<void> marcarCasoComoSincronizado(Caso caso) async {
     final db = await database;
-    try {
-      final rowsAffected = await db.rawUpdate(
-        '''
-        UPDATE $tableCasos
-           SET status        = 'SINCRONIZADO',
-               atualizado_em = ?
-         WHERE uuid     = ?
-           AND removido = 0
-        ''',
-        [DateTime.now().toIso8601String(), caso.uuid],
-      );
-      if (rowsAffected == 0) {
-        debugPrint(
-          '[CasoRepository] ⚠️ marcarCasoComoSincronizado: caso ${caso.uuid} '
-          'não encontrado ou já removido.',
-        );
-      } else {
-        debugPrint('[CasoRepository] ✅ Caso ${caso.uuid} → SINCRONIZADO.');
-      }
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ marcarCasoComoSincronizado: $e');
-      rethrow;
-    }
+    await db.rawUpdate(
+      '''
+      UPDATE $tableCasos
+         SET status        = 'SINCRONIZADO',
+             atualizado_em = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [DateTime.now().toIso8601String(), caso.uuid],
+    );
   }
 
-  /// Seta `foto_sincronizada = 1` na linha de `evidencias_multimidia`
-  /// correspondente ao [achado].
-  ///
-  /// O UUID da evidência é lido de `achado.dadosPreenchidos['_evidencia_uuid']`,
-  /// campo injetado pelo [getAchadosComFotosPendentes].
   @override
   Future<void> marcarFotoComoSincronizada(Achado achado) async {
-    final db = await database;
-
     final String? evidenciaUuid =
         achado.dadosPreenchidos['_evidencia_uuid'] as String?;
 
-    if (evidenciaUuid == null || evidenciaUuid.isEmpty) {
-      debugPrint(
-        '[CasoRepository] ⚠️ marcarFotoComoSincronizada: achado ${achado.uuid} '
-        'sem _evidencia_uuid — foto não marcada.',
-      );
-      return;
-    }
+    if (evidenciaUuid == null || evidenciaUuid.isEmpty) return;
 
-    try {
-      final rowsAffected = await db.rawUpdate(
-        '''
-        UPDATE $tableEvidenciasMultimidia
-           SET foto_sincronizada = 1,
-               atualizado_em     = ?
-         WHERE uuid     = ?
-           AND removido = 0
-        ''',
-        [DateTime.now().toIso8601String(), evidenciaUuid],
-      );
-      if (rowsAffected == 0) {
-        debugPrint(
-          '[CasoRepository] ⚠️ marcarFotoComoSincronizada: evidência '
-          '$evidenciaUuid não encontrada ou já removida.',
-        );
-      } else {
-        debugPrint(
-          '[CasoRepository] ✅ Evidência $evidenciaUuid → foto_sincronizada = 1.',
-        );
-      }
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ marcarFotoComoSincronizada: $e');
-      rethrow;
-    }
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE $tableEvidenciasMultimidia
+         SET foto_sincronizada = 1,
+             atualizado_em     = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [DateTime.now().toIso8601String(), evidenciaUuid],
+    );
   }
-
-  // ---------------------------------------------------------------------------
-  // Helpers privados
-  // ---------------------------------------------------------------------------
 
   Map<String, dynamic> _decodeJson(String raw) {
     try {

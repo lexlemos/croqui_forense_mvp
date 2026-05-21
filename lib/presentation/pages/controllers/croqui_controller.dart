@@ -15,6 +15,7 @@ import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
+import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
@@ -26,6 +27,7 @@ class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
   final InjuryTypeRepository _injuryTypeRepository;
+  final AchadoRepository _achadoRepository;
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -33,7 +35,7 @@ class CroquiController extends ChangeNotifier {
 
   bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
 
-  CroquiController(this.casoAtual, this._achadoService, this._caseService, this._injuryTypeRepository) {
+  CroquiController(this.casoAtual, this._achadoService, this._caseService, this._injuryTypeRepository, this._achadoRepository) {
     _loadAchados();
   }
 
@@ -77,6 +79,8 @@ class CroquiController extends ChangeNotifier {
       builder: (context) => InjuryFormModal(
         bodyPartName: realPartName,
         injuryTypeRepository: _injuryTypeRepository,
+        achadoRepository: _achadoRepository,
+        casoUuid: casoAtual.uuid,
       ),
     );
 
@@ -88,6 +92,7 @@ class CroquiController extends ChangeNotifier {
     final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
     final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
     final bool isInterno = result['isInterno'] ?? false;
+    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
 
     String? finalPhotoPath = result['photoPath'];
     if (finalPhotoPath != null) {
@@ -104,6 +109,7 @@ class CroquiController extends ChangeNotifier {
       'depth': depth,
       'photo_path': finalPhotoPath,
       'is_interno': isInterno,
+      if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
     };
 
     final achadoFinal = Achado(
@@ -111,6 +117,7 @@ class CroquiController extends ChangeNotifier {
       casoUuid: casoAtual.uuid,
       templateDiagramaId: DiagramTemplates.templateIdParaView(viewType),
       tipoAchadoId: tipoLesaoId,
+      achadoRelacionadoUuid: achadoRelacionadoUuid,
       numeroSequencial: achados.length + 1,
       posX: x,
       posY: y,
@@ -151,6 +158,8 @@ class CroquiController extends ChangeNotifier {
       builder: (context) => InjuryFormModal(
         bodyPartName: localNome,
         injuryTypeRepository: _injuryTypeRepository,
+        achadoRepository: _achadoRepository,
+        casoUuid: casoAtual.uuid,
         achadoToEdit: achado,
       ),
     );
@@ -163,6 +172,7 @@ class CroquiController extends ChangeNotifier {
     final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
     final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
     final bool isInterno = result['isInterno'] ?? achado.isInterno;
+    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
 
     String? finalPhotoPath = result['photoPath'];
     String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
@@ -180,9 +190,13 @@ class CroquiController extends ChangeNotifier {
     novosDados['depth'] = depth;
     novosDados['photo_path'] = finalPhotoPath;
     novosDados['is_interno'] = isInterno;
+    if (result['dynamicFields'] is Map) {
+      novosDados['dynamicFields'] = result['dynamicFields'];
+    }
 
     final achadoAtualizado = achado.copyWith(
       tipoAchadoId: tipoLesaoId,
+      achadoRelacionadoUuid: achadoRelacionadoUuid,
       isInterno: isInterno,
       estaPendente: false,
       dadosPreenchidos: novosDados,

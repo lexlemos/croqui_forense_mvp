@@ -54,6 +54,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         source: ImageSource.camera,
         imageQuality: 50,
         maxWidth: 800,
+        preferredCameraDevice: CameraDevice.rear,
       );
 
       if (photo == null) return;
@@ -138,16 +139,16 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     label: "Nº Requisição", 
                     icon: Icons.assignment, 
                     required: true,
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.text,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildTextField(
-                    controller: _boController, 
-                    label: "Nº B.O.", 
+                    controller: _boController,
+                    label: "Nº B.O.",
                     icon: Icons.receipt_long,
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.text,
                   ),
                 ),
               ],
@@ -160,7 +161,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     controller: _picController, 
                     label: "Nº PIC", 
                     icon: Icons.gavel,
-                    keyboardType: TextInputType.number,
+                    required: true,
+                    keyboardType: TextInputType.text,
                   ),
                 ),
                 const SizedBox(width: 12),

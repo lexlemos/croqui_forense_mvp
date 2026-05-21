@@ -4,19 +4,25 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
+import 'package:croqui_forense_mvp/components/forms/dynamic_form_widget.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
   final InjuryTypeRepository injuryTypeRepository;
+  final AchadoRepository achadoRepository;
+  final String casoUuid;
   final Achado? achadoToEdit;
 
   const InjuryFormModal({
     super.key,
     required this.bodyPartName,
     required this.injuryTypeRepository,
+    required this.achadoRepository,
+    required this.casoUuid,
     this.achadoToEdit,
   });
 
@@ -26,15 +32,22 @@ class InjuryFormModal extends StatefulWidget {
 
 class _InjuryFormModalState extends State<InjuryFormModal> {
   final _formKey = GlobalKey<FormState>();
-  
-  late final TextEditingController _sizeController;
+  final _dynamicFormKey = GlobalKey<DynamicFormWidgetState>();
+
+  late final TextEditingController _customSizeController;
   late final TextEditingController _depthController;
   late final TextEditingController _obsController;
 
   String? _currentPhotoPath;
-  InjuryType? _selectedType; 
+  InjuryType? _selectedType;
   bool _isLoadingTypes = true;
   bool _isInterno = false;
+  Map<String, dynamic> _dynamicData = {};
+  List<Achado> _entradasDisponiveis = [];
+
+  static const List<String> _sizeOptions = ['0.5', '1.0', '1.5', '2.0', '2.5', 'Outro'];
+  String? _selectedSize;
+  bool _isCustomSize = false;
   
   final ImagePicker _picker = ImagePicker();
   List<InjuryType> _availableTypes = [];
@@ -44,13 +57,47 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     super.initState();
     final m = widget.achadoToEdit;
 
-    _sizeController = TextEditingController(text: m?.tamanho ?? '');
+    final existingSize = m?.tamanho ?? '';
+    if (existingSize.isNotEmpty && _sizeOptions.contains(existingSize)) {
+      _selectedSize = existingSize;
+    } else if (existingSize.isNotEmpty) {
+      _selectedSize = 'Outro';
+      _isCustomSize = true;
+    }
+    _customSizeController = TextEditingController(text: _isCustomSize ? existingSize : '');
     _depthController = TextEditingController(text: m?.profundidade ?? '');
     _obsController = TextEditingController(text: m?.description ?? '');
     _currentPhotoPath = m?.photoPath;
     _isInterno = m?.isInterno ?? false;
-    
+
+    final existingDynamic = m?.dadosPreenchidos['dynamicFields'];
+    if (existingDynamic is Map<String, dynamic>) {
+      _dynamicData = Map<String, dynamic>.from(existingDynamic);
+    }
+
     _loadTypes(initialTypeLabel: m?.type);
+    _loadEntradas();
+  }
+
+  String? _findAutoRelacionamentoKey() {
+    final schema = _selectedType?.schemaFormulario;
+    if (schema == null) return null;
+    final campos = schema['campos'];
+    if (campos is! List) return null;
+    for (final campo in campos) {
+      if (campo is Map<String, dynamic> &&
+          campo['tipo_input'] == 'auto_relacionamento') {
+        return campo['id_campo']?.toString();
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadEntradas() async {
+    try {
+      final entradas = await widget.achadoRepository.getAchadosDeEntradaPorCaso(widget.casoUuid);
+      if (mounted) setState(() => _entradasDisponiveis = entradas);
+    } catch (_) {}
   }
 
   Future<void> _loadTypes({String? initialTypeLabel}) async {
@@ -82,7 +129,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   @override
   void dispose() {
-    _sizeController.dispose();
+    _customSizeController.dispose();
     _depthController.dispose();
     _obsController.dispose();
     super.dispose();
@@ -93,15 +140,31 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     await Future.delayed(const Duration(milliseconds: 50));
 
     if (!mounted) return;
-    if (_formKey.currentState!.validate()) {
+
+    final mainValid = _formKey.currentState!.validate();
+    final dynamicValid = _dynamicFormKey.currentState?.validate() ?? true;
+
+    if (mainValid && dynamicValid) {
+      final dynamicFields = Map<String, dynamic>.from(
+        _dynamicFormKey.currentState?.formData ?? _dynamicData,
+      );
+
+      String? achadoRelacionadoUuid;
+      final autoRelKey = _findAutoRelacionamentoKey();
+      if (autoRelKey != null && dynamicFields.containsKey(autoRelKey)) {
+        achadoRelacionadoUuid = dynamicFields.remove(autoRelKey)?.toString();
+      }
+
       final data = {
         'type': _selectedType?.label ?? 'Não especificado',
         'typeId': _selectedType?.id,
-        'size': _sizeController.text.trim(),
+        'size': _isCustomSize ? _customSizeController.text.trim() : (_selectedSize ?? ''),
         'depth': _depthController.text.trim(),
         'description': _obsController.text.trim(),
         'photoPath': _currentPhotoPath,
         'isInterno': _isInterno,
+        'dynamicFields': dynamicFields,
+        'achadoRelacionadoUuid': achadoRelacionadoUuid,
       };
       Navigator.pop(context, data);
     }
@@ -134,15 +197,39 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
               _buildSectionLabel("NATUREZA DA LESÃO"),
               _buildTypeDropdown(),
+              if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildSectionLabel("DETALHES ESPECÍFICOS"),
+                DynamicFormWidget(
+                  key: _dynamicFormKey,
+                  schema: _selectedType!.schemaFormulario,
+                  initialData: _dynamicData,
+                  entradasDisponiveis: _entradasDisponiveis,
+                  onChanged: (data) => _dynamicData = data,
+                ),
+              ],
               const SizedBox(height: 16),
 
               Row(
                 children: [
-                  Expanded(child: _buildTextField(_sizeController, "Tamanho (cm)", Icons.straighten, true)),
+                  Expanded(child: _buildSizeDropdown()),
                   const SizedBox(width: 12),
                   Expanded(child: _buildTextField(_depthController, "Profundidade", Icons.vertical_align_bottom, false)),
                 ],
               ),
+              if (_isCustomSize) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _customSizeController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.edit, size: 20),
+                    labelText: "Valor personalizado (cm)",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o tamanho' : null,
+                ),
+              ],
               const SizedBox(height: 20),
 
               _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
@@ -264,6 +351,22 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         validator: (v) => v == null ? 'Obrigatório' : null,
       );
 
+  Widget _buildSizeDropdown() => DropdownButtonFormField<String>(
+    initialValue: _selectedSize,
+    decoration: const InputDecoration(
+      prefixIcon: Icon(Icons.straighten, size: 20),
+      labelText: "Tamanho (cm)",
+      border: OutlineInputBorder(),
+    ),
+    items: _sizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+    onChanged: (v) => setState(() {
+      _selectedSize = v;
+      _isCustomSize = v == 'Outro';
+      if (!_isCustomSize) _customSizeController.clear();
+    }),
+    validator: (v) => (v == null || v.isEmpty) ? 'Obrigatório' : null,
+  );
+
   Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, bool isNumeric) => TextFormField(
     controller: ctrl,
     keyboardType: isNumeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
@@ -320,7 +423,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   Future<void> _takePhoto() async {
     try {
-      final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 50);
+      final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 50, preferredCameraDevice: CameraDevice.rear);
       if (photo == null) return;
       final appDir = await getApplicationDocumentsDirectory();
       final localPath = '${appDir.path}/evidencias/${const Uuid().v4()}.jpg';

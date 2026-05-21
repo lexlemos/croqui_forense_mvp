@@ -6,11 +6,11 @@ const String tablePapeis = 'papeis';
 const String tablePermissoes = 'permissoes';
 const String tablePapelPermissoes = 'papel_permissoes';
 const String tableTiposAchados = 'tipos_achados';
-const String tableTemplatesDiagrama = 'templates_diagrama';
 const String tableCasos = 'casos';
 const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
+
 const String _kCreatePapeis = '''
 CREATE TABLE papeis (
     id TEXT PRIMARY KEY,
@@ -63,7 +63,6 @@ const String _kCreateTiposAchados = '''
 CREATE TABLE tipos_achados (
     id TEXT PRIMARY KEY,
     nome TEXT NOT NULL,
-    caminho_icone TEXT,
     schema_formulario_json TEXT,
     ordem INTEGER DEFAULT 0,
     ativo INTEGER DEFAULT 1,
@@ -73,15 +72,6 @@ CREATE TABLE tipos_achados (
 );
 ''';
 
-const String _kCreateTemplates = '''
-CREATE TABLE templates_diagrama (
-    id TEXT PRIMARY KEY,
-    nome TEXT NOT NULL,
-    caminho_svg TEXT,
-    criado_em TEXT,
-    atualizado_em TEXT
-);
-''';
 
 const String _kCreateCasos = '''
 CREATE TABLE casos (
@@ -94,7 +84,7 @@ CREATE TABLE casos (
     dados_laudo_json TEXT,
     versao INTEGER DEFAULT 1,
     criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-    criado_em_rede_confiavel TEXT,
+    -- criado_em_rede_confiavel FOI EXCLUÍDA
     atualizado_em TEXT,
     device_id TEXT,
     proveniencia TEXT,
@@ -106,13 +96,14 @@ const String _kCreateAchados = '''
 CREATE TABLE achados (
     uuid TEXT PRIMARY KEY,
     caso_uuid TEXT NOT NULL,
-    template_diagrama_id TEXT NOT NULL,
     tipo_achado_id TEXT NOT NULL,
+    achado_relacionado_uuid TEXT, -- NOVA COLUNA: Auto-relacionamento (Ex: Tiro Entrada/Saída)
+    diagrama_nome TEXT,           -- NOVA COLUNA: Texto simples (ex: 'frente', 'costas')
     numero_sequencial INTEGER,
     pos_x REAL,
     pos_y REAL,
     is_interno INTEGER DEFAULT 0,
-    esta_pendente INTEGER DEFAULT 1,
+    -- esta_pendente FOI EXCLUÍDA
     dados_preenchidos_json TEXT,
     observacoes_texto TEXT,
     removido INTEGER DEFAULT 0,
@@ -122,7 +113,7 @@ CREATE TABLE achados (
     device_id TEXT,
     proveniencia TEXT,
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
-    FOREIGN KEY (template_diagrama_id) REFERENCES templates_diagrama(id) ON DELETE RESTRICT,
+    FOREIGN KEY (achado_relacionado_uuid) REFERENCES achados(uuid) ON DELETE SET NULL,
     FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT
 );
 ''';
@@ -170,14 +161,13 @@ const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);',
   'CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);',
   'CREATE INDEX idx_achados_caso ON achados (caso_uuid);',
-  'CREATE INDEX idx_achados_template ON achados (template_diagrama_id);',
   'CREATE INDEX idx_achados_tipo ON achados (tipo_achado_id);',
+  'CREATE INDEX idx_achados_relacionado ON achados (achado_relacionado_uuid);',
   'CREATE INDEX idx_evidencias_achado ON evidencias_multimidia (achado_uuid);',
   'CREATE INDEX idx_evidencias_substituta ON evidencias_multimidia (substituida_por);',
   'CREATE INDEX idx_log_caso ON log_auditoria (caso_uuid);',
   'CREATE INDEX idx_log_usuario ON log_auditoria (id_usuario);',
   'CREATE INDEX idx_casos_status ON casos (status);',
-  'CREATE INDEX idx_achados_pendente ON achados (esta_pendente);',
 ];
 
 const Map<String, String> kTableScripts = {
@@ -186,7 +176,6 @@ const Map<String, String> kTableScripts = {
   tableUsuarios: _kCreateUsuarios,
   tablePapelPermissoes: _kCreatePapelPermissoes,
   tableTiposAchados: _kCreateTiposAchados,
-  tableTemplatesDiagrama: _kCreateTemplates,
   tableCasos: _kCreateCasos,
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,

@@ -5,6 +5,7 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
+import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
 
@@ -30,6 +31,7 @@ class CroquiPage extends StatelessWidget {
         ctx.read<AchadoService>(),
         ctx.read<CaseService>(),
         ctx.read<InjuryTypeRepository>(),
+        ctx.read<AchadoRepository>(),
       ),
       child: const _CroquiView(),
     );

@@ -7,8 +7,8 @@ class DatabaseSeeder {
 
   DatabaseSeeder(this.db);
 
-  static const String roleAdminId = 'a1b2c3d4-0001-4000-8000-000000000001';
-  static const String roleLegistaId = 'a1b2c3d4-0002-4000-8000-000000000002';
+  static const String roleAdminId = '11111111-2222-3333-4444-555555555555';
+  static const String roleLegistaId = '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
 
   static const String permCriarId = 'b1c2d3e4-0001-4000-8000-000000000001';
   static const String permExportarId = 'b1c2d3e4-0002-4000-8000-000000000002';
@@ -31,7 +31,7 @@ class DatabaseSeeder {
       'id': roleAdminId, 'nome': 'ADMIN', 'descricao': 'Administrador do Sistema', 'e_padrao': 0
     });
     await db.insert('papeis', {
-      'id': roleLegistaId, 'nome': 'LEGISTA', 'descricao': 'Médico Perito', 'e_padrao': 1
+      'id': roleLegistaId, 'nome': 'PERITO', 'descricao': 'Médico Perito', 'e_padrao': 1
     });
   }
 

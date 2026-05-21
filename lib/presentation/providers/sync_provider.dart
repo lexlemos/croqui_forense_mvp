@@ -1,48 +1,16 @@
-
-
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
-// =============================================================================
-// ESTADO
-// =============================================================================
-
-/// Representa os estados possíveis do ciclo de sincronização.
 enum SyncState {
-  /// Parado — aguardando o perito iniciar a sincronização.
   idle,
-
-  /// Sincronizando — requisição em andamento; UI deve bloquear interação.
   loading,
-
-  /// Concluído com êxito — todos os laudos foram enviados ao servidor.
   success,
-
-  /// Falha — a sincronização foi interrompida por erro de rede ou servidor.
   error,
 }
 
-// =============================================================================
-// PROVIDER
-// =============================================================================
-
-/// Gerencia o estado do processo de sincronização offline → backend.
-///
-/// Recebe o [SyncService] via construtor (Dependency Injection) e expõe:
-/// - [state]: o [SyncState] atual para a UI reagir.
-/// - [errorMessage]: a mensagem de erro quando [state] é [SyncState.error].
-/// - [startSync]: dispara o ciclo de sincronização de forma assíncrona.
-///
-/// ### Ciclo de vida do estado
-/// ```
-/// idle → loading → success → idle  (caminho feliz)
-/// idle → loading → error   → idle  (caminho de falha)
-/// ```
-/// O retorno ao `idle` ocorre automaticamente após [_kFeedbackDuration],
-/// permitindo que a UI exiba a mensagem de resultado antes de resetar.
 class SyncProvider extends ChangeNotifier {
   SyncService _syncService;
 
@@ -58,33 +26,13 @@ class SyncProvider extends ChangeNotifier {
     _syncService = newService;
   }
 
-  // ---------------------------------------------------------------------------
-  // Getters públicos
-  // ---------------------------------------------------------------------------
-
-  /// Estado atual do ciclo de sincronização.
   SyncState get state => _state;
 
-  /// Mensagem de erro preenchida quando [state] == [SyncState.error].
-  /// É `null` nos demais estados.
   String? get errorMessage => _errorMessage;
 
-  /// Atalho: `true` enquanto a sincronização está em andamento.
   bool get isLoading => _state == SyncState.loading;
 
-  // ---------------------------------------------------------------------------
-  // Ações
-  // ---------------------------------------------------------------------------
 
-  /// Inicia o ciclo completo de sincronização.
-  ///
-  /// - Muda o estado para [SyncState.loading] e notifica a UI.
-  /// - Aguarda [SyncService.execute] concluir.
-  /// - Em caso de sucesso → [SyncState.success].
-  /// - Em caso de falha   → [SyncState.error] com [errorMessage] preenchido.
-  /// - Após [_kFeedbackDuration] → reseta para [SyncState.idle].
-  ///
-  /// Chamadas enquanto [isLoading] for `true` são ignoradas (guard clause).
   Future<void> startSync() async {
     if (isLoading) return;
 
@@ -105,9 +53,6 @@ class SyncProvider extends ChangeNotifier {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Helper interno
-  // ---------------------------------------------------------------------------
 
   void _setState(SyncState newState, {String? error}) {
     _state = newState;
@@ -116,32 +61,6 @@ class SyncProvider extends ChangeNotifier {
   }
 }
 
-// =============================================================================
-// WIDGET — SyncButtonWidget
-// =============================================================================
-
-/// Botão reativo que dispara e acompanha o ciclo de sincronização.
-///
-/// Deve ser inserido abaixo de um [ChangeNotifierProvider]<[SyncProvider]>
-/// na árvore de widgets. Exemplo mínimo:
-///
-/// ```dart
-/// ChangeNotifierProvider(
-///   create: (_) => SyncProvider(syncService),
-///   child: Scaffold(
-///     appBar: AppBar(actions: [SyncButtonWidget()]),
-///   ),
-/// )
-/// ```
-///
-/// ### Comportamento
-/// | Estado          | Ícone                       | Botão     |
-/// |---|---|---|
-/// | `idle`          | `Icons.sync`                | habilitado|
-/// | `loading`       | `CircularProgressIndicator` | desabilitado|
-/// | `success`/`error` | `Icons.sync`              | desabilitado|
-///
-/// Snackbars são exibidos automaticamente ao atingir `success` ou `error`.
 class SyncButtonWidget extends StatefulWidget {
   const SyncButtonWidget({super.key});
 
@@ -150,14 +69,12 @@ class SyncButtonWidget extends StatefulWidget {
 }
 
 class _SyncButtonWidgetState extends State<SyncButtonWidget> {
-  /// Referência ao [SyncProvider] usada para cancelar a escuta no dispose.
   SyncProvider? _provider;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Cancela a escuta anterior (se houver) antes de reatribuir.
     _provider?.removeListener(_onStateChanged);
 
     _provider = context.read<SyncProvider>();
@@ -170,8 +87,6 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
     super.dispose();
   }
 
-  /// Chamado sempre que o [SyncProvider] notifica mudança de estado.
-  /// Exibe o Snackbar adequado ao atingir `success` ou `error`.
   void _onStateChanged() {
     if (!mounted) return;
 
@@ -197,7 +112,6 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
     required Color backgroundColor,
     required IconData icon,
   }) {
-    // Remove qualquer Snackbar anterior antes de exibir o novo.
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -226,8 +140,6 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Usa Selector para reconstruir apenas quando state ou isLoading mudam,
-    // evitando rebuilds desnecessários causados por outras propriedades.
     return Selector<SyncProvider, (SyncState, bool)>(
       selector: (_, p) => (p.state, p.isLoading),
       builder: (context, data, _) {

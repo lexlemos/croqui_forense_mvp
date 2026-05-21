@@ -16,6 +16,7 @@ import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
+import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 
@@ -66,12 +67,13 @@ class AppRoot extends StatelessWidget {
 
         // --- Camada de Rede ---
         Provider<ApiClient>(
-          create: (_) => ApiClient(),
+          create: (_) => ApiClient(keyStorage),
         ),
 
         // --- Camada de Domínio ---
         ProxyProvider2<UsuarioRepository, ApiClient, AuthService>(
-          update: (_, repo, apiClient, __) => AuthService(repo, keyStorage, apiClient),
+          update: (_, repo, apiClient, prev) =>
+              prev ?? AuthService(repo, keyStorage, apiClient),
         ),
         ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
           update: (_, casoRepo, usuarioRepo, __) => CaseService(casoRepo, usuarioRepo),
@@ -84,15 +86,27 @@ class AppRoot extends StatelessWidget {
         ),
 
         // --- Camada de Sincronização ---
+        ProxyProvider2<ApiClient, InjuryTypeRepository, DomainSyncService>(
+          update: (_, apiClient, injuryTypeRepo, prev) =>
+              prev ?? DomainSyncService(
+                apiClient: apiClient,
+                injuryTypeRepository: injuryTypeRepo,
+              ),
+        ),
         ProxyProvider2<ApiClient, CasoRepository, SyncService>(
           update: (_, apiClient, casoRepo, __) => SyncService(
             apiClient: apiClient,
             repository: casoRepo,
           ),
         ),
-        ChangeNotifierProxyProvider<AuthService, AuthProvider>(
+        ChangeNotifierProxyProvider3<AuthService, ApiClient, DomainSyncService, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
-          update: (_, authService, previous) => previous!..updateService(authService),
+          update: (_, authService, apiClient, domainSync, previous) {
+            previous!.updateService(authService);
+            previous.updateDomainSyncService(domainSync);
+            apiClient.onSessionExpired = () => previous.onSessionExpired();
+            return previous;
+          },
         ),
 
         ChangeNotifierProxyProvider<CaseService, CaseListProvider>(

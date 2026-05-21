@@ -12,6 +12,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.
 import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
 
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
+import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class HomePage extends StatefulWidget {
@@ -111,6 +112,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _iniciarNovoCaso(BuildContext context) async {
+    context.read<DomainSyncService>().syncTiposAchados();
+
     final dadosRetornados = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => const NewCaseDialog(),

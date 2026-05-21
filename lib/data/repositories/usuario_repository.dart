@@ -75,15 +75,11 @@ class UsuarioRepository {
 
   Future<void> createUsuario(Usuario usuario) async {
     final db = await database;
-    try {
-     
-      await db.insert('usuarios', usuario.toMap());
-    } catch (e) {
-      if (e is DatabaseException && e.isUniqueConstraintError()) {
-        throw Exception('Matrícula já existente.');
-      }
-      rethrow;
-    }
+    await db.insert(
+      'usuarios',
+      usuario.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
   Future<void> updatePin(String id, String novoHash, String novoSalt) async {
     final db = await database;

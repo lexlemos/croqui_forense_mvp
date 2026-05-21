@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
+import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthService _authService;
+  DomainSyncService? _domainSyncService;
   Usuario? _usuario;
-  bool _isLoading = false; 
+  bool _isLoading = false;
 
   AuthProvider(this._authService);
 
   void updateService(AuthService newService) {
     _authService = newService;
+  }
+
+  void updateDomainSyncService(DomainSyncService service) {
+    _domainSyncService = service;
+  }
+
+  /// Chamado pelo interceptor HTTP quando a sessão expira irrecuperavelmente.
+  void onSessionExpired() {
+    _authService.forceExpireSession();
+    _usuario = null;
+    notifyListeners();
   }
 
   Usuario? get usuario => _usuario;
@@ -33,16 +46,15 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> login(String matricula, String pin) async {
     _isLoading = true;
-    notifyListeners(); 
+    notifyListeners();
 
     try {
       await _authService.login(matricula, pin);
-      _usuario = _authService.usuario; 
-    } catch (e) {
-      rethrow;
+      _usuario = _authService.usuario;
+      _domainSyncService?.syncTiposAchados();
     } finally {
       _isLoading = false;
-      notifyListeners(); 
+      notifyListeners();
     }
   }
 
@@ -52,19 +64,17 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
+  Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
     if (_usuario == null) throw AuthException("Nenhum usuário logado");
 
     _isLoading = true;
     notifyListeners();
     try {
       await _authService.trocarPinObrigatorio(_usuario!, novoPin);
-      _usuario = _authService.usuario; 
-    } catch (e) {
-      rethrow;
+      _usuario = _authService.usuario;
     } finally {
       _isLoading = false;
-      notifyListeners(); 
+      notifyListeners();
     }
   }
 }

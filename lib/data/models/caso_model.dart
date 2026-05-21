@@ -55,7 +55,7 @@ class Caso {
        versao = 1,
        criadoEmDispositivo = DateTime.now(),
        criadoEmRedeConfiavel = null,
-       atualizadoEm = null,
+       atualizadoEm = DateTime.now(),
        proveniencia = proveniencia ?? 'APP_TABLET';
 
   factory Caso.fromMap(Map<String, dynamic> map) {
@@ -67,12 +67,18 @@ class Caso {
         (e) => e.name.toUpperCase() == (map['status']?.toString() ?? '').toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
+      // CORREÇÃO PREVENTIVA: Garante o parsing seguro caso o JSON venha direto como Map ou String codificada
       dadosLaudo: map['dados_laudo_json'] != null 
-          ? Map<String, dynamic>.from(jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {}) 
+          ? (map['dados_laudo_json'] is Map
+              ? Map<String, dynamic>.from(map['dados_laudo_json'] as Map)
+              : Map<String, dynamic>.from(jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {}))
           : const {},
       
       hashIntegridade: map['hash_integridade']?.toString(),
-      removido: (map['removido'] as int? ?? 0) == 1,
+      // Mapeamento correto vindo do SQLite (0 ou 1) ou fallback caso venha da API como bool direto
+      removido: map['removido'] is bool 
+          ? map['removido'] as bool 
+          : (map['removido'] as int? ?? 0) == 1,
       versao: map['versao'] as int? ?? 1,
 
       criadoEmDispositivo: DateTime.tryParse(map['criado_em_dispositivo']?.toString() ?? '') ?? DateTime.now(),
@@ -120,6 +126,7 @@ class Caso {
     );
   }
 
+  /// Método utilitário usado exclusivamente pelo repositório SQLite local
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,
@@ -127,14 +134,31 @@ class Caso {
       'numero_laudo_externo': numeroLaudoExterno,
       'status': status.name.toUpperCase(),
       'dados_laudo_json': jsonEncode(dadosLaudo),
-      
       'hash_integridade': hashIntegridade,
-      'removido': removido ? 1 : 0,
+      'removido': removido ? 1 : 0, // SQLite armazena booleanos como inteiros
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
       'criado_em_rede_confiavel': criadoEmRedeConfiavel?.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
-      
+      'device_id': deviceId,
+      'proveniencia': proveniencia,
+    };
+  }
+
+  /// NOVO MÉTODO: Mapeamento customizado para o payload do FastAPI
+  Map<String, dynamic> toSyncMap() {
+    return {
+      'uuid': uuid,
+      'id_usuario_criador': idUsuarioCriador,
+      'numero_laudo_externo': numeroLaudoExterno,
+      'status': status.name.toUpperCase(),
+      'dados_laudo_json': dadosLaudo, // Passa o mapa estruturado, o Dio cuida do JSON do root
+      'hash_integridade': hashIntegridade,
+      'removido': removido, // CORREÇÃO: Enviando tipo bool puro exigido pelo Pydantic
+      'versao': versao,
+      'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
+      'criado_em_rede_confiavel': criadoEmRedeConfiavel?.toIso8601String(),
+      'atualizado_em': atualizadoEm?.toIso8601String(),
       'device_id': deviceId,
       'proveniencia': proveniencia,
     };

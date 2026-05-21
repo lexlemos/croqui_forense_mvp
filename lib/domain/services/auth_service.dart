@@ -60,6 +60,42 @@ class AuthService {
     if (!isPinValido) throw AuthException('PIN incorreto');
 
     _usuarioLogado = usuario;
+
+    // Tenta renovar tokens silenciosamente se não houver access_token válido.
+    // Falha silenciosa: se offline, o app funciona normalmente — a sync
+    // reportará o erro de autenticação quando tentar rodar.
+    await _tentarRenovarTokens(usuario.matriculaFuncional, pin);
+  }
+
+  Future<void> _tentarRenovarTokens(String matricula, String pin) async {
+    final existingToken = await _keyStorage.read(key: 'access_token');
+    if (existingToken != null) return;
+
+    try {
+      final response = await _apiClient.dio.post(
+        _routeLogin,
+        data: {'matricula': matricula, 'senha': pin},
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final token = data['token']?.toString();
+        final refreshToken = data['refresh_token']?.toString();
+
+        if (token != null) {
+          await _keyStorage.save(key: 'access_token', value: token);
+        }
+        if (refreshToken != null) {
+          await _keyStorage.save(key: 'refresh_token', value: refreshToken);
+        }
+        await _keyStorage.save(
+          key: 'user_id',
+          value: _usuarioLogado?.id ?? '',
+        );
+      }
+    } catch (_) {
+      // Silencia erros de rede — app offline-first continua funcional
+    }
   }
 
   Future<void> _loginOnlineFallback(String matricula, String pin) async {
@@ -68,10 +104,7 @@ class AuthService {
     try {
       response = await _apiClient.dio.post(
         _routeLogin,
-        data: {
-          'matricula': matricula,
-          'senha': pin,
-        },
+        data: {'matricula': matricula, 'senha': pin},
       );
     } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionTimeout ||
@@ -79,13 +112,9 @@ class AuthService {
           e.type == DioExceptionType.sendTimeout ||
           e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.unknown) {
-        throw AuthException(
-          'Dispositivo offline e usuário não cadastrado localmente. '
-          'Conecte-se para o primeiro acesso.',
-        );
+        throw AuthException('Dispositivo offline. Conecte-se para o primeiro acesso.');
       }
-      final statusCode = e.response?.statusCode;
-      if (statusCode == 401 || statusCode == 403) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         throw AuthException('Credenciais inválidas.');
       }
       throw AuthException('Falha na comunicação com o servidor.');
@@ -95,34 +124,57 @@ class AuthService {
       throw AuthException('Resposta inesperada do servidor.');
     }
 
-    final Map<String, dynamic> perfil = response.data is Map<String, dynamic>
-        ? response.data as Map<String, dynamic>
-        : throw AuthException('Formato de resposta inválido.');
+    try {
+      // 1. Parsing Direto (O Dio já devolve um Map)
+      final responseData = response.data as Map<String, dynamic>;
+      final perfil = responseData['usuario'] as Map<String, dynamic>;
+      final token = responseData['token']?.toString();
+      final refreshToken = responseData['refresh_token']?.toString();
 
-    final credenciais = await compute(_gerarCredenciaisEmBackground, pin);
+      if (token == null) throw AuthException('Token ausente na resposta.');
 
-    final novoUsuario = Usuario(
-      id: perfil['id']?.toString() ?? '',
-      matriculaFuncional: matricula,
-      nomeCompleto: perfil['nome_completo']?.toString() ?? '',
-      crm: perfil['crm']?.toString() ?? '',
-      classe: perfil['classe']?.toString() ?? '',
-      papelId: perfil['papel_id']?.toString() ?? 'perito',
-      ativo: true,
-      hashPinOffline: credenciais['hash']!,
-      salt: credenciais['salt']!,
-      deveAlterarPin: false,
-      criadoEm: DateTime.now(),
-      deviceId: perfil['device_id']?.toString(),
-    );
+      await _keyStorage.save(key: 'access_token', value: token);
+      if (refreshToken != null) {
+        await _keyStorage.save(key: 'refresh_token', value: refreshToken);
+      }
+      await _keyStorage.save(key: 'user_id', value: perfil['id']?.toString() ?? '');
 
-    await _usuarioRepository.createUsuario(novoUsuario);
-    _usuarioLogado = novoUsuario;
+      final credenciais = _gerarCredenciaisEmBackground(pin);
+
+      final novoUsuario = Usuario(
+        id: perfil['id']?.toString() ?? '',
+        matriculaFuncional: matricula,
+        nomeCompleto: perfil['nome_completo']?.toString() ?? '',
+        crm: perfil['crm']?.toString() ?? '',
+        classe: perfil['classe']?.toString() ?? '',
+        papelId: perfil['papel_id']?.toString() ?? 'perito',
+        ativo: true,
+        hashPinOffline: credenciais['hash']!,
+        salt: credenciais['salt']!,
+        deveAlterarPin: perfil['deve_alterar_pin'] ?? false,
+        criadoEm: DateTime.now(),
+        deviceId: perfil['device_id']?.toString(),
+      );
+
+      await _usuarioRepository.createUsuario(novoUsuario);
+      _usuarioLogado = novoUsuario;
+
+    } catch (e) {
+      throw AuthException('Erro interno ao processar login: $e');
+    }
   }
 
   Future<void> logout() async {
     _usuarioLogado = null;
+    await _keyStorage.delete(key: 'access_token');
+    await _keyStorage.delete(key: 'refresh_token');
     await _keyStorage.delete(key: 'user_id');
+  }
+
+  /// Chamado pelo interceptor HTTP quando o refresh token falha.
+  /// Limpa a sessão em memória para que o AuthProvider reflita o estado.
+  void forceExpireSession() {
+    _usuarioLogado = null;
   }
 
   Future<Usuario?> checkSession() async {
@@ -148,6 +200,18 @@ class AuthService {
   }
 
   Future<void> trocarPinObrigatorio(Usuario usuario, String novoPin) async {
+    try {
+      await _apiClient.dio.put(
+        '/croqui/auth/${usuario.id}/senha',
+        data: {'nova_senha': novoPin},
+      );
+    } on DioException catch (e) {
+      throw AuthException(
+        'Não foi possível alterar a senha no servidor. '
+        'Verifique sua conexão e tente novamente. (${e.type.name})',
+      );
+    }
+
     final resultado = await compute(_gerarCredenciaisEmBackground, novoPin);
 
     await _usuarioRepository.updatePin(

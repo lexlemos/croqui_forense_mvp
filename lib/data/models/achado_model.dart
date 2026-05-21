@@ -14,6 +14,7 @@ class Achado {
 
   final bool isInterno;
 
+  final String? achadoRelacionadoUuid;
   final Map<String, dynamic> dadosPreenchidos;
   final String? observacoesTexto;
 
@@ -34,6 +35,7 @@ class Achado {
     required this.posY,
     required this.isInterno,
     required this.estaPendente,
+    this.achadoRelacionadoUuid,
     required this.dadosPreenchidos,
     this.observacoesTexto,
     required this.removido,
@@ -63,8 +65,9 @@ class Achado {
     required this.posX,
     required this.posY,
     required this.isInterno,
+    this.achadoRelacionadoUuid,
   }) : uuid = const Uuid().v4(),
-       estaPendente = true, 
+       estaPendente = true,
        dadosPreenchidos = const {},
        observacoesTexto = null,
        removido = false,
@@ -81,19 +84,16 @@ class Achado {
       casoUuid: map['caso_uuid']?.toString() ?? '',
       templateDiagramaId: map['template_diagrama_id']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
+      achadoRelacionadoUuid: map['achado_relacionado_uuid']?.toString(),
       numeroSequencial: map['numero_sequencial'] as int? ?? 0,
       posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
       posY: (map['pos_y'] as num?)?.toDouble() ?? 0.0,
-      
       estaPendente: (map['esta_pendente'] as int? ?? 0) == 1,
-      
       isInterno: (map['is_interno'] as int? ?? 0) == 1,
-    
-      dadosPreenchidos: map['dados_preenchidos_json'] != null 
-          ? Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {}) 
+      dadosPreenchidos: map['dados_preenchidos_json'] != null
+          ? Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {})
           : const {},
       observacoesTexto: map['observacoes_texto']?.toString(),
-      
       removido: (map['removido'] as int? ?? 0) == 1,
       versao: map['versao'] as int? ?? 1,
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
@@ -108,6 +108,7 @@ class Achado {
     String? casoUuid,
     String? templateDiagramaId,
     String? tipoAchadoId,
+    String? achadoRelacionadoUuid,
     int? numeroSequencial,
     double? posX,
     double? posY,
@@ -127,6 +128,7 @@ class Achado {
       casoUuid: casoUuid ?? this.casoUuid,
       templateDiagramaId: templateDiagramaId ?? this.templateDiagramaId,
       tipoAchadoId: tipoAchadoId ?? this.tipoAchadoId,
+      achadoRelacionadoUuid: achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
       numeroSequencial: numeroSequencial ?? this.numeroSequencial,
       posX: posX ?? this.posX,
       posY: posY ?? this.posY,
@@ -149,16 +151,14 @@ class Achado {
       'caso_uuid': casoUuid,
       'template_diagrama_id': templateDiagramaId,
       'tipo_achado_id': tipoAchadoId,
+      'achado_relacionado_uuid': achadoRelacionadoUuid,
       'numero_sequencial': numeroSequencial,
       'pos_x': posX,
       'pos_y': posY,
-      
       'esta_pendente': estaPendente ? 1 : 0,
       'is_interno': isInterno ? 1 : 0,
-      
       'dados_preenchidos_json': jsonEncode(dadosPreenchidos),
       'observacoes_texto': observacoesTexto,
-      
       'removido': removido ? 1 : 0,
       'versao': versao,
       'criado_em': criadoEm.toIso8601String(),
