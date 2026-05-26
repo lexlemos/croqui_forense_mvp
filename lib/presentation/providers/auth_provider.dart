@@ -9,6 +9,7 @@ class AuthProvider extends ChangeNotifier {
   DomainSyncService? _domainSyncService;
   Usuario? _usuario;
   bool _isLoading = false;
+  bool _isLogged = false;
 
   AuthProvider(this._authService);
 
@@ -20,19 +21,20 @@ class AuthProvider extends ChangeNotifier {
     _domainSyncService = service;
   }
 
-  /// Chamado pelo interceptor HTTP quando a sessão expira irrecuperavelmente.
   void onSessionExpired() {
     _authService.forceExpireSession();
     _usuario = null;
+    _isLogged = false;
     notifyListeners();
   }
 
   Usuario? get usuario => _usuario;
-  bool get isLogged => _usuario != null; 
+  bool get isLogged => _isLogged; 
   bool get isLoading => _isLoading;
 
   Future<void> checkLoginStatus() async {
     _isLoading = true;
+    notifyListeners();
     
     try {
       _usuario = await _authService.checkSession();
@@ -40,6 +42,7 @@ class AuthProvider extends ChangeNotifier {
       _usuario = null;
     } finally {
       _isLoading = false;
+      _isLogged = false;
       notifyListeners();
     }
   }
@@ -51,6 +54,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.login(matricula, pin);
       _usuario = _authService.usuario;
+      _isLogged = true;
       _domainSyncService?.syncTiposAchados();
     } finally {
       _isLoading = false;
@@ -61,6 +65,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await _authService.logout();
     _usuario = null;
+    _isLogged = false;
     notifyListeners();
   }
 
