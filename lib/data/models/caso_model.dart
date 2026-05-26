@@ -82,9 +82,6 @@ class Caso {
       versao: map['versao'] as int? ?? 1,
 
       criadoEmDispositivo: DateTime.tryParse(map['criado_em_dispositivo']?.toString() ?? '') ?? DateTime.now(),
-      criadoEmRedeConfiavel: map['criado_em_rede_confiavel'] != null 
-          ? DateTime.tryParse(map['criado_em_rede_confiavel'].toString()) 
-          : null,
       atualizadoEm: map['atualizado_em'] != null 
           ? DateTime.tryParse(map['atualizado_em'].toString()) 
           : null,
@@ -138,7 +135,6 @@ class Caso {
       'removido': removido ? 1 : 0, // SQLite armazena booleanos como inteiros
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
-      'criado_em_rede_confiavel': criadoEmRedeConfiavel?.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
       'device_id': deviceId,
       'proveniencia': proveniencia,
@@ -157,7 +153,6 @@ class Caso {
       'removido': removido, // CORREÇÃO: Enviando tipo bool puro exigido pelo Pydantic
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
-      'criado_em_rede_confiavel': criadoEmRedeConfiavel?.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
       'device_id': deviceId,
       'proveniencia': proveniencia,

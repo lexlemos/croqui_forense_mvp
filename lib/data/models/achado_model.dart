@@ -4,13 +4,12 @@ import 'package:uuid/uuid.dart';
 class Achado {
   final String uuid;
   final String casoUuid;
-  final String templateDiagramaId;
+  final String diagramaNome; // Substituiu o templateDiagramaId
   final String tipoAchadoId;
 
   final int numeroSequencial;
   final double posX;
   final double posY;
-  final bool estaPendente;
 
   final bool isInterno;
 
@@ -28,13 +27,12 @@ class Achado {
   Achado({
     required this.uuid,
     required this.casoUuid,
-    required this.templateDiagramaId,
+    required this.diagramaNome,
     required this.tipoAchadoId,
     required this.numeroSequencial,
     required this.posX,
     required this.posY,
     required this.isInterno,
-    required this.estaPendente,
     this.achadoRelacionadoUuid,
     required this.dadosPreenchidos,
     this.observacoesTexto,
@@ -59,7 +57,7 @@ class Achado {
 
   Achado.novo({
     required this.casoUuid,
-    required this.templateDiagramaId,
+    required this.diagramaNome,
     required this.tipoAchadoId,
     required this.numeroSequencial,
     required this.posX,
@@ -67,7 +65,6 @@ class Achado {
     required this.isInterno,
     this.achadoRelacionadoUuid,
   }) : uuid = const Uuid().v4(),
-       estaPendente = true,
        dadosPreenchidos = const {},
        observacoesTexto = null,
        removido = false,
@@ -82,13 +79,12 @@ class Achado {
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
       casoUuid: map['caso_uuid']?.toString() ?? '',
-      templateDiagramaId: map['template_diagrama_id']?.toString() ?? '',
+      diagramaNome: map['diagrama_nome']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
       achadoRelacionadoUuid: map['achado_relacionado_uuid']?.toString(),
       numeroSequencial: map['numero_sequencial'] as int? ?? 0,
       posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
       posY: (map['pos_y'] as num?)?.toDouble() ?? 0.0,
-      estaPendente: (map['esta_pendente'] as int? ?? 0) == 1,
       isInterno: (map['is_interno'] as int? ?? 0) == 1,
       dadosPreenchidos: map['dados_preenchidos_json'] != null
           ? Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {})
@@ -106,14 +102,13 @@ class Achado {
   Achado copyWith({
     String? uuid,
     String? casoUuid,
-    String? templateDiagramaId,
+    String? diagramaNome,
     String? tipoAchadoId,
     String? achadoRelacionadoUuid,
     int? numeroSequencial,
     double? posX,
     double? posY,
     bool? isInterno,
-    bool? estaPendente,
     Map<String, dynamic>? dadosPreenchidos,
     String? observacoesTexto,
     bool? removido,
@@ -126,14 +121,13 @@ class Achado {
     return Achado(
       uuid: uuid ?? this.uuid,
       casoUuid: casoUuid ?? this.casoUuid,
-      templateDiagramaId: templateDiagramaId ?? this.templateDiagramaId,
+      diagramaNome: diagramaNome ?? this.diagramaNome,
       tipoAchadoId: tipoAchadoId ?? this.tipoAchadoId,
       achadoRelacionadoUuid: achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
       numeroSequencial: numeroSequencial ?? this.numeroSequencial,
       posX: posX ?? this.posX,
       posY: posY ?? this.posY,
       isInterno: isInterno ?? this.isInterno,
-      estaPendente: estaPendente ?? this.estaPendente,
       dadosPreenchidos: dadosPreenchidos ?? this.dadosPreenchidos,
       observacoesTexto: observacoesTexto ?? this.observacoesTexto,
       removido: removido ?? this.removido,
@@ -149,13 +143,12 @@ class Achado {
     return {
       'uuid': uuid,
       'caso_uuid': casoUuid,
-      'template_diagrama_id': templateDiagramaId,
+      'diagrama_nome': diagramaNome,
       'tipo_achado_id': tipoAchadoId,
       'achado_relacionado_uuid': achadoRelacionadoUuid,
       'numero_sequencial': numeroSequencial,
       'pos_x': posX,
       'pos_y': posY,
-      'esta_pendente': estaPendente ? 1 : 0,
       'is_interno': isInterno ? 1 : 0,
       'dados_preenchidos_json': jsonEncode(dadosPreenchidos),
       'observacoes_texto': observacoesTexto,

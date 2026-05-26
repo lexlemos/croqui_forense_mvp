@@ -1,6 +1,5 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
-import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
 class DatabaseSeeder {
   final DatabaseExecutor db;
@@ -21,8 +20,8 @@ class DatabaseSeeder {
     await _seedPermissions();
     await _seedRolePermissions(); 
     await _seedDefaultUser();
-    await _seedCatalogData(); 
   }
+  
   Future<void> _seedRoles() async {
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papeis'));
     if (count != null && count > 0) return;
@@ -79,50 +78,4 @@ class DatabaseSeeder {
     });
   }
 
-  Future<void> _seedCatalogData() async {
-    final templates = [
-      {'id': DiagramTemplates.frente, 'nome': 'Corpo Frente', 'caminho_svg': 'assets/images/croqui-frente.svg'},
-      {'id': DiagramTemplates.costas, 'nome': 'Corpo Costas', 'caminho_svg': 'assets/images/croqui-costas.svg'},
-      {'id': DiagramTemplates.lateralDireito, 'nome': 'Corpo Lateral Direito', 'caminho_svg': 'assets/images/croqui-rosto-direito.svg'},
-      {'id': DiagramTemplates.lateralEsquerdo, 'nome': 'Corpo Lateral Esquerdo', 'caminho_svg': 'assets/images/croqui-rosto-frente.svg'},
-    ];
-
-    for (var tpl in templates) {
-      await db.insert('templates_diagrama', {
-        'id': tpl['id'],
-        'nome': tpl['nome'],
-        'caminho_svg': tpl['caminho_svg'],
-        'criado_em': fixedDate,
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
-    }
-
-    final types = [
-      {'id': 'equimose', 'nome': 'Equimose', 'ordem': 1},
-      {'id': 'escoriacao', 'nome': 'Escoriação', 'ordem': 2},
-      {'id': 'ferida_contusa', 'nome': 'Ferida Contusa', 'ordem': 3},
-      {'id': 'ferida_cortante', 'nome': 'Ferida Cortante', 'ordem': 4},
-      {'id': 'perfuracao', 'nome': 'Perfuração', 'ordem': 5},
-      {'id': 'hematoma', 'nome': 'Hematoma', 'ordem': 6},
-      {'id': 'edema', 'nome': 'Edema', 'ordem': 7},
-      {'id': 'fratura', 'nome': 'Fratura', 'ordem': 8},
-      {'id': 'queimadura', 'nome': 'Queimadura', 'ordem': 9},
-      {'id': 'tiro', 'nome': 'Tiro / PAF', 'ordem': 10},
-      {'id': 'outro', 'nome': 'Outro', 'ordem': 99},
-    ];
-
-    const String defaultSchema = '{"fields": [{"name": "obs", "label": "Observações", "type": "text"}]}';
-
-    for (var t in types) {
-      await db.insert('tipos_achados', {
-        'id': t['id'],
-        'nome': t['nome'],
-        'caminho_icone': null,
-        'schema_formulario_json': defaultSchema,
-        'ordem': t['ordem'],
-        'ativo': 1,
-        'versao': 1,
-        'criado_em': fixedDate,
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
-    }
-  }
 }
