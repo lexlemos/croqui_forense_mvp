@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 class Achado {
   final String uuid;
   final String casoUuid;
-  final String diagramaNome; // Substituiu o templateDiagramaId
+  final String diagramaNome;
   final String tipoAchadoId;
 
   final int numeroSequencial;

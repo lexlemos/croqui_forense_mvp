@@ -138,7 +138,7 @@ class CasoRepository implements ISyncRepository {
               if (pathString.isEmpty || pathString == 'null') continue;
 
               final achadoVirtual = Achado(
-                uuid: uuid,
+                uuid: 'GERAL_${uuid}_$i',
                 casoUuid: uuid,
                 diagramaNome: 'GERAL',
                 tipoAchadoId: 'FOTO_GERAL',

@@ -1,4 +1,3 @@
-  // lib/domain/services/sync_service.dart
 
   import 'dart:io';
 
@@ -206,6 +205,8 @@
           achadoUuid: achado.uuid,
           statusCode: e.response?.statusCode,
         );
+      }catch (e, stackTrace) {
+        debugPrint('Erro inesperado ao enviar foto: $e');
       }
     }
 

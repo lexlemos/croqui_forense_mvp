@@ -75,10 +75,11 @@ class AuthInterceptor extends QueuedInterceptor {
 
     // Tenta refresh silencioso
     try {
-      final response = await _dio.post(
-        '/croqui/auth/refresh',
-        data: {'refresh_token': refreshToken},
-      );
+     final refreshDio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
+     final response = await refreshDio.post(
+      '/croqui/auth/refresh',
+      data: {'refresh_token': refreshToken},
+    );
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
@@ -103,7 +104,6 @@ class AuthInterceptor extends QueuedInterceptor {
 
         debugPrint('[AuthInterceptor] Token renovado com sucesso.');
 
-        // Retransmite a requisição original com o novo token
         final opts = err.requestOptions;
         opts.headers['Authorization'] = 'Bearer $newAccessToken';
 
@@ -111,7 +111,15 @@ class AuthInterceptor extends QueuedInterceptor {
         return handler.resolve(retryResponse);
       }
     } on DioException {
-      // Refresh falhou (ex: refresh token expirado)
+      // Falha no refresh, força logout
+      await _forceLogout();
+      return handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          error: SessionExpiredException(),
+          type: DioExceptionType.unknown,
+        ),
+      );
     }
 
     await _forceLogout();

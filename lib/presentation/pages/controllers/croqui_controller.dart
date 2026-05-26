@@ -302,11 +302,9 @@ class CroquiController extends ChangeNotifier {
       if (!context.mounted) return;
       globalMessengerKey.currentState?.hideCurrentSnackBar();
 
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(pdfFile.path)],
-          subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
-        )
+      await Share.shareXFiles(
+        [XFile(pdfFile.path)],
+        subject: 'Laudo Pericial PDF - ' + casoAtual.numeroLaudoExterno.toString(),
       );
 
     } catch (e) {

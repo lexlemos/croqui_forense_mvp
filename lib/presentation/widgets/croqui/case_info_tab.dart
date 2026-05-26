@@ -98,7 +98,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
   @override
   void dispose() {
-    _salvarDadosNoController();
     _numeroLaudoCtrl.dispose();
     _boCtrl.dispose();
     _picCtrl.dispose(); 

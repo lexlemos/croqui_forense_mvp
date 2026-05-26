@@ -65,7 +65,7 @@ class AchadoRepository {
     final db = await _db;
     final result = await db.query(
       'achados',
-      where: "caso_uuid = ? AND removido = 0 AND dados_preenchidos_json LIKE '%\"tipo_orificio\":%Entrada%'",
+      where: r"caso_uuid = ? AND removido = 0 AND json_extract(dados_preenchidos_json, '$.tipo_orificio') = 'Entrada'",
       whereArgs: [casoUuid],
       orderBy: 'numero_sequencial ASC',
     );

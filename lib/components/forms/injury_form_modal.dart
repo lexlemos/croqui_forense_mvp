@@ -141,7 +141,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
     if (!mounted) return;
 
-    final mainValid = _formKey.currentState!.validate();
+    final mainValid = _formKey.currentState?.validate() ?? false;
     final dynamicValid = _dynamicFormKey.currentState?.validate() ?? true;
 
     if (mainValid && dynamicValid) {
