@@ -106,104 +106,110 @@ class CasoRepository implements ISyncRepository {
     );
     return maps.map(Caso.fromMap).toList();
   }
-
-  @override
+@override
   Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids) async {
     if (casoUuids.isEmpty) return {};
 
     final Map<String, List<Achado>> grouped = {};
-    final db = await database;
-
+    
     for (final uuid in casoUuids) {
       grouped[uuid] = [];
+    }
 
-      // 1. Fotos gerais extraídas do JSON do caso
-      try {
-        final List<Map<String, dynamic>> casoRows = await db.query(
-          tableCasos,
-          where: 'uuid = ? AND removido = 0',
-          whereArgs: [uuid],
-        );
+    final db = await database;
+    
+    final placeholders = List.filled(casoUuids.length, '?').join(',');
 
-        if (casoRows.isNotEmpty) {
-          final casoMap = casoRows.first;
-          final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
-          final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
-          final identificacao = dadosLaudo['identificacao'] as Map?;
-          final fotosGerais = identificacao?['fotos_gerais'] as List?;
+    try {
+      final List<Map<String, dynamic>> casoRows = await db.query(
+        tableCasos,
+        where: 'uuid IN ($placeholders) AND removido = 0',
+        whereArgs: casoUuids,
+      );
 
-          if (fotosGerais != null && fotosGerais.isNotEmpty) {
-            for (var i = 0; i < fotosGerais.length; i++) {
-              final String pathString = fotosGerais[i].toString();
-              if (pathString.isEmpty || pathString == 'null') continue;
+      for (final casoMap in casoRows) {
+        final uuid = casoMap['uuid'].toString();
+        final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
+        final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
+        final identificacao = dadosLaudo['identificacao'] as Map?;
+        final fotosGerais = identificacao?['fotos_gerais'] as List?;
 
-              final achadoVirtual = Achado(
-                uuid: 'GERAL_${uuid}_$i',
-                casoUuid: uuid,
-                diagramaNome: 'GERAL',
-                tipoAchadoId: 'FOTO_GERAL',
-                numeroSequencial: i,
-                posX: 0.0,
-                posY: 0.0,
-                isInterno: false,
-                versao: 1,
-                removido: false,
-                criadoEm: DateTime.now(),
-                dadosPreenchidos: {
-                  'photo_path': pathString,
-                  '_evidencia_uuid': 'GERAL_${uuid}_$i',
-                },
-              );
-              grouped[uuid]!.add(achadoVirtual);
-            }
+        if (fotosGerais != null && fotosGerais.isNotEmpty) {
+          for (var i = 0; i < fotosGerais.length; i++) {
+            final String pathString = fotosGerais[i].toString();
+            if (pathString.isEmpty || pathString == 'null') continue;
+
+            final achadoVirtual = Achado(
+              uuid: 'GERAL_${uuid}_$i',
+              casoUuid: uuid,
+              diagramaNome: 'GERAL',
+              tipoAchadoId: 'FOTO_GERAL',
+              numeroSequencial: i,
+              posX: 0.0,
+              posY: 0.0,
+              isInterno: false,
+              versao: 1,
+              removido: false,
+              criadoEm: DateTime.now(),
+              dadosPreenchidos: {
+                'photo_path': pathString,
+                '_evidencia_uuid': 'GERAL_${uuid}_$i',
+              },
+            );
+            grouped[uuid]!.add(achadoVirtual);
           }
         }
-      } catch (e) {
-        debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (JSON): $e');
       }
+    } catch (e) {
+      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (JSON): $e');
+    }
 
-      // 2. Fotos de achados (lesões) na tabela evidencias_multimidia
-      try {
-        const sqlAchados = '''
-          SELECT
-            a.*,
-            e.caminho_arquivo_encriptado AS _photo_path_override,
-            e.uuid                        AS _evidencia_uuid
-          FROM $tableAchados a
-          INNER JOIN $tableEvidenciasMultimidia e
-                 ON  e.achado_uuid                = a.uuid
-                 AND e.removido                   = 0
-                 AND e.caminho_arquivo_encriptado IS NOT NULL
-                 AND e.caminho_arquivo_encriptado != ''
-                 AND e.foto_sincronizada           = 0
-          WHERE a.caso_uuid = ?
-            AND a.removido  = 0
-          ORDER BY a.criado_em ASC
-        ''';
+    try {
+      final sqlAchados = '''
+        SELECT
+          a.*,
+          e.caminho_arquivo_encriptado AS _photo_path_override,
+          e.uuid                        AS _evidencia_uuid
+        FROM $tableAchados a
+        INNER JOIN $tableEvidenciasMultimidia e
+               ON  e.achado_uuid                = a.uuid
+               AND e.removido                   = 0
+               AND e.caminho_arquivo_encriptado IS NOT NULL
+               AND e.caminho_arquivo_encriptado != ''
+               AND e.foto_sincronizada          = 0
+        WHERE a.caso_uuid IN ($placeholders)
+          AND a.removido  = 0
+        ORDER BY a.criado_em ASC
+      ''';
 
-        final rowsAchados = await db.rawQuery(sqlAchados, [uuid]);
+      final rowsAchados = await db.rawQuery(sqlAchados, casoUuids);
 
-        for (final row in rowsAchados) {
-          final mutableRow = Map<String, dynamic>.from(row);
-          final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
-          final dados = _decodeJson(dadosJson);
+      for (final row in rowsAchados) {
+        final casoUuid = row['caso_uuid'].toString();
+        final mutableRow = Map<String, dynamic>.from(row);
+        final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
+        final dados = _decodeJson(dadosJson);
 
-          dados['photo_path'] = row['_photo_path_override'] as String?;
-          dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
+        dados['photo_path'] = row['_photo_path_override'] as String?;
+        dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
 
-          mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
-          mutableRow.remove('_photo_path_override');
-          mutableRow.remove('_evidencia_uuid');
+        mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
+        mutableRow.remove('_photo_path_override');
+        mutableRow.remove('_evidencia_uuid');
 
-          grouped[uuid]!.add(Achado.fromMap(mutableRow));
+        if (!grouped.containsKey(casoUuid)) {
+          grouped[casoUuid] = [];
         }
-      } catch (e) {
-        debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (SQL): $e');
+
+        grouped[casoUuid]!.add(Achado.fromMap(mutableRow));
       }
+    } catch (e) {
+      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (SQL): $e');
     }
 
     return grouped;
   }
+
   @override
   Future<void> marcarCasoComoSincronizado(Caso caso) async {
     final db = await database;

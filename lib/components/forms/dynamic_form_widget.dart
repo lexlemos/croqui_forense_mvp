@@ -141,7 +141,7 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
         (currentValue != null && opcoes.contains(currentValue)) ? currentValue : null;
 
     return DropdownButtonFormField<String>(
-      initialValue: validValue,
+      value: validValue,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -169,7 +169,7 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
             : null;
 
     return DropdownButtonFormField<String>(
-      initialValue: validValue,
+      value: validValue,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint ?? 'Selecione o achado de entrada',

@@ -205,9 +205,14 @@
           achadoUuid: achado.uuid,
           statusCode: e.response?.statusCode,
         );
-      }catch (e, stackTrace) {
+      } catch (e, stackTrace) {
         debugPrint('Erro inesperado ao enviar foto: $e');
-      }
+        throw SyncUploadEvidenciaException(
+          'Erro inesperado: $e',
+          casoUuid: caso.uuid,
+          achadoUuid: achado.uuid,
+  );
+}
     }
 
     Future<void> _confirmarCaso(Caso caso) async {

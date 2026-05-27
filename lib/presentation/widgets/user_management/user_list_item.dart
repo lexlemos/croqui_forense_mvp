@@ -72,7 +72,7 @@ class UserListItem extends StatelessWidget {
               )
             : Switch(
                 value: usuario.ativo,
-                activeThumbColor: Colors.green,
+                activeColor: Colors.green,
                 onChanged: (novoValor) => _confirmarAlteracao(context, novoValor),
               ),
       ),

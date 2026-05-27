@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
@@ -179,8 +180,17 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
   Future<void> _tirarFoto() async {
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    
     if (photo != null) {
-      setState(() => _fotosIdentificacao.add(photo.path));
+      final appDir = await getApplicationDocumentsDirectory();
+      final evidenciasDir = Directory('${appDir.path}/evidencias');
+
+      await evidenciasDir.create(recursive: true);
+
+      final localPath = '${evidenciasDir.path}/${const Uuid().v4()}.jpg';
+
+      await File(photo.path).copy(localPath);
+      setState(() => _fotosIdentificacao.add(localPath));
       _salvarDadosNoController();
     }
   }
