@@ -180,22 +180,29 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   }
 
   Future<void> _tirarFoto() async {
-    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-    
-    if (photo != null) {
-      final appDir = await getApplicationDocumentsDirectory();
-      final evidenciasDir = Directory('${appDir.path}/evidencias');
+    try {
+        final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+      
+      if (photo != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final evidenciasDir = Directory('${appDir.path}/evidencias');
 
-      await evidenciasDir.create(recursive: true);
+        await evidenciasDir.create(recursive: true);
 
-      final localPath = '${evidenciasDir.path}/${const Uuid().v4()}.jpg';
+        final localPath = '${evidenciasDir.path}/${const Uuid().v4()}.jpg';
 
-      await File(photo.path).copy(localPath);
-      setState(() => _fotosIdentificacao.add(localPath));
-      _salvarDadosNoController();
+        await File(photo.path).copy(localPath);
+        setState(() => _fotosIdentificacao.add(localPath));
+        _salvarDadosNoController();
+      }
+    } catch(e){
+
+      debugPrint("Erro ao tirar foto: $e");
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text("Erro ao acessar a câmera ou salvar a foto."), backgroundColor: Colors.red),
+        );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();

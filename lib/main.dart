@@ -36,12 +36,7 @@ void main() async {
   
   DatabaseHelper.init(dbFactory, keyStorage);
 
-  try {
-    await keyStorage.delete(key: 'access_token');
-  } catch (e, stackTrace) {
-    debugPrint('[Cold Start] Aviso: Falha ao limpar access_token preventivamente: $e');
-  }
-
+ 
   runApp(const AppRoot());
 }
 

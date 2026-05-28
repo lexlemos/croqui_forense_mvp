@@ -4,27 +4,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 
-// ===========================================================================
-// CONSTANTES DE CONFIGURAÇÃO
-// ===========================================================================
 
-const String _kBaseUrl = 'http://192.168.15.88:8000/api/v1';
+const String _kBaseUrl = 'http://192.168.15.88:8000/api/v1/';
 const Duration _kConnectTimeout = Duration(seconds: 5);
 const Duration _kDataTimeout = Duration(seconds: 8);
-
-// ===========================================================================
-// EXCEÇÃO DE SESSÃO EXPIRADA
-// ===========================================================================
 
 /// Lançada quando o refresh token falha e o usuário deve re-autenticar.
 class SessionExpiredException implements Exception {
   @override
   String toString() => 'Sessão expirada. Faça login novamente.';
 }
-
-// ===========================================================================
-// AUTH INTERCEPTOR COM REFRESH AUTOMÁTICO
-// ===========================================================================
 
 class AuthInterceptor extends QueuedInterceptor {
   final KeyStorageInterface _keyStorage;
@@ -87,7 +76,7 @@ class AuthInterceptor extends QueuedInterceptor {
     try {
      final refreshDio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
      final response = await refreshDio.post(
-      '/croqui/auth/refresh',
+      'croqui/auth/refresh',
       data: {'refresh_token': refreshToken},
     );
 

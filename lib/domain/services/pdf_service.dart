@@ -37,7 +37,7 @@ class PdfService {
     final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
     final List<Achado> achadosInternos = achados.where((a) => a.isInterno).toList();
 
-    List<Map<String, dynamic>> anexosFotos = _prepararFotos(caso, achados);
+    List<Map<String, dynamic>> anexosFotos = await _prepararFotos(caso, achados);
     final croquisWidgets = await _gerarMapasSVG(achados);
 
     final pageTheme = pw.PageTheme(
@@ -343,7 +343,7 @@ class PdfService {
   );
 }
   
-  List<Map<String, dynamic>> _prepararFotos(Caso caso, List<Achado> achados) {
+  Future<List<Map<String, dynamic>>> _prepararFotos(Caso caso, List<Achado> achados) async {
     List<Map<String, dynamic>> anexos = [];
     int contador = 1;
     final fotosGerais = caso.dadosLaudo['identificacao']?['fotos_gerais'] ?? [];
@@ -351,16 +351,30 @@ class PdfService {
     for (var fotoPath in fotosGerais) {
       final file = File(fotoPath.toString());
       if (file.existsSync()) {
-        anexos.add({'numero': contador, 'file': file, 'label': 'Fotografia $contador - Identificação Geral'});
+        // 👇 Carrega os bytes sem travar a tela
+        final bytes = await file.readAsBytes();
+        anexos.add({
+          'numero': contador, 
+          'bytes': bytes, // Guarda os bytes prontos
+          'label': 'Fotografia $contador - Identificação Geral'
+        });
         contador++;
       }
     }
+    
     for (var a in achados) {
       final path = a.dadosPreenchidos['photo_path'];
       if (path != null && path.toString().isNotEmpty) {
         final file = File(path);
         if (file.existsSync()) {
-          anexos.add({'numero': contador, 'uuid': a.uuid, 'file': file, 'label': 'Fotografia $contador - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'});
+          // 👇 Carrega os bytes da lesão sem travar a tela
+          final bytes = await file.readAsBytes();
+          anexos.add({
+            'numero': contador, 
+            'uuid': a.uuid, 
+            'bytes': bytes, // Guarda os bytes prontos
+            'label': 'Fotografia $contador - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
+          });
           contador++;
         }
       }
@@ -406,11 +420,22 @@ class PdfService {
 
   List<pw.Widget> _buildSecaoFotos(List<Map<String, dynamic>> lista) {
     return lista.map((foto) => pw.Wrap(children: [
-      pw.Container(margin: const pw.EdgeInsets.only(bottom: 20, left: 15), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-        pw.Text(foto['label'], style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-        pw.SizedBox(height: 5),
-        pw.Container(height: 400, width: 350, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey)), child: pw.Image(pw.MemoryImage(foto['file'].readAsBytesSync()), fit: pw.BoxFit.contain)),
-      ]))
+      pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 20, left: 15), 
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center, 
+          children: [
+            pw.Text(foto['label'], style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+            pw.SizedBox(height: 5),
+            pw.Container(
+              height: 400, 
+              width: 350, 
+              decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey)), 
+              // 👇 Modificado aqui: Usa foto['bytes'] ao invés de ler o arquivo
+              child: pw.Image(pw.MemoryImage(foto['bytes']), fit: pw.BoxFit.contain),
+            ),
+        ])
+      )
     ])).toList();
   }
 }
