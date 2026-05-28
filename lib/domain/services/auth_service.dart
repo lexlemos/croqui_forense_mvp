@@ -151,7 +151,7 @@ class AuthService {
         ativo: true,
         hashPinOffline: credenciais['hash']!,
         salt: credenciais['salt']!,
-        deveAlterarPin: perfil['deve_alterar_pin'] ?? false,
+        deveAlterarPin: perfil['deve_alterar_pin'] == true || perfil['deve_alterar_pin'] == 1,
         criadoEm: DateTime.now(),
         deviceId: perfil['device_id']?.toString(),
       );

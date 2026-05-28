@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
@@ -6,8 +7,6 @@ import 'package:croqui_forense_mvp/data/local/database_factory_interface.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
-// IMPORTANTE: Ao alterar o DatabaseSeeder, desinstale o app ou limpe os dados
-// do dispositivo para que o onCreate rode novamente com os novos seeds.
 class DatabaseHelper {
   static const String _kDbName = kDatabaseName; 
   static const int _kVersion = kDatabaseVersion; 
@@ -68,6 +67,7 @@ class DatabaseHelper {
           await seeder.seedAll();
         });
       },
+      onUpgrade: _onUpgrade, 
     );
 
     return db;
@@ -76,5 +76,33 @@ class DatabaseHelper {
   Future<void> close() async {
     await _db?.close();
     _db = null;
+  }
+  
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint('[DatabaseHelper] 🔄 Iniciando migração do banco (v$oldVersion para v$newVersion)...');
+
+    await db.transaction((txn) async {
+      for (int i = oldVersion + 1; i <= newVersion; i++) {
+        await _executeMigration(txn, i);
+      }
+    });
+    
+    debugPrint('[DatabaseHelper] ✅ Migração concluída com sucesso!');
+  }
+
+  /// Executa o SQL específico de cada versão
+  Future<void> _executeMigration(Transaction txn, int version) async {
+    switch (version) {
+      case 2:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 2...');
+        break;
+        
+      case 3:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 3...');
+        break;
+        
+      default:
+        debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');
+    }
   }
 }

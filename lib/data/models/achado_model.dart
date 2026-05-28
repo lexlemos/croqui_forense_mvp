@@ -85,12 +85,16 @@ class Achado {
       numeroSequencial: map['numero_sequencial'] as int? ?? 0,
       posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
       posY: (map['pos_y'] as num?)?.toDouble() ?? 0.0,
-      isInterno: (map['is_interno'] as int? ?? 0) == 1,
+      isInterno: map['is_interno'] is bool 
+          ? map['is_interno'] as bool 
+          : (map['is_interno'] as int? ?? 0) == 1,
       dadosPreenchidos: map['dados_preenchidos_json'] != null
           ? Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {})
           : const {},
       observacoesTexto: map['observacoes_texto']?.toString(),
-      removido: (map['removido'] as int? ?? 0) == 1,
+      removido: map['removido'] is bool 
+          ? map['removido'] as bool 
+          : (map['removido'] as int? ?? 0) == 1,
       versao: map['versao'] as int? ?? 1,
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
       atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,

@@ -55,7 +55,17 @@ class AuthInterceptor extends QueuedInterceptor {
       return handler.next(err);
     }
 
-    // Não tenta refresh na própria rota de login ou refresh
+    if (err.requestOptions.extra['isRetry'] == true) {
+      await _forceLogout();
+      return handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          error: SessionExpiredException(),
+          type: DioExceptionType.unknown,
+        ),
+      );
+    }
+
     final path = err.requestOptions.path;
     if (path.contains('/auth/login') || path.contains('/auth/refresh')) {
       return handler.next(err);
@@ -106,12 +116,23 @@ class AuthInterceptor extends QueuedInterceptor {
 
         final opts = err.requestOptions;
         opts.headers['Authorization'] = 'Bearer $newAccessToken';
+        
+        opts.extra['isRetry'] = true;
 
         final retryResponse = await _dio.fetch(opts);
         return handler.resolve(retryResponse);
       }
     } on DioException {
-      // Falha no refresh, força logout
+      await _forceLogout();
+      return handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          error: SessionExpiredException(),
+          type: DioExceptionType.unknown,
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[AuthInterceptor] ❌ Erro inesperado durante o refresh: $e\n$stackTrace');
       await _forceLogout();
       return handler.reject(
         DioException(

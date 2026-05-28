@@ -77,6 +77,7 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
         children: campos
             .where(_isVisible)
             .map((campo) => Padding(
+                  key: ValueKey(campo['id_campo']),
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _buildField(campo),
                 ))

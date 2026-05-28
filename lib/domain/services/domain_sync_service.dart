@@ -23,6 +23,11 @@ class DomainSyncService {
 
       if (response.statusCode != 200 || response.data == null) return;
 
+      if (response.data is! List) {
+        debugPrint('[DomainSync] ❌ Resposta inválida do servidor (esperava List, recebeu ${response.data.runtimeType}).');
+        return;
+      }
+
       final List<dynamic> jsonList = response.data as List<dynamic>;
       final types = jsonList
           .map((e) => InjuryType.fromJson(e as Map<String, dynamic>))
