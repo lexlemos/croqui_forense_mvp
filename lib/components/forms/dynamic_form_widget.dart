@@ -42,10 +42,11 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
   Map<String, dynamic> get formData => Map<String, dynamic>.from(_formData);
 
   List<Map<String, dynamic>> get _campos {
-    final raw = widget.schema['campos'];
+     final raw = widget.schema['campos'];
     if (raw is! List) return [];
     return raw
-        .whereType<Map<String, dynamic>>()
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
         .toList();
   }
 

@@ -197,7 +197,6 @@
           );
         }
 
-        await _repository.marcarFotoComoSincronizada(achado);
       } on DioException catch (e) {
         throw SyncUploadEvidenciaException(
           'Falha de rede: ${e.message}',

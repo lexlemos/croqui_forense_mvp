@@ -132,8 +132,8 @@ class CasoRepository implements ISyncRepository {
         final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
         final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
         final identificacao = dadosLaudo['identificacao'] as Map?;
-        final fotosGerais = identificacao?['fotos_gerais'] as List?;
-
+        final rawFotosGerais = identificacao?['fotos_gerais'];
+        final fotosGerais = rawFotosGerais is List ? rawFotosGerais : null;
         if (fotosGerais != null && fotosGerais.isNotEmpty) {
           for (var i = 0; i < fotosGerais.length; i++) {
             final String pathString = fotosGerais[i].toString();

@@ -85,7 +85,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     final campos = schema['campos'];
     if (campos is! List) return null;
     for (final campo in campos) {
-      if (campo is Map<String, dynamic> &&
+      if (campo is Map &&
           campo['tipo_input'] == 'auto_relacionamento') {
         return campo['id_campo']?.toString();
       }

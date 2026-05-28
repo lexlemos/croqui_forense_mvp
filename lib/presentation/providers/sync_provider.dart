@@ -17,10 +17,17 @@ class SyncProvider extends ChangeNotifier {
   SyncState _state = SyncState.idle;
   String? _errorMessage;
 
-  /// Duração em que o estado `success` ou `error` fica visível antes do reset.
+  bool _disposed = false;
+
   static const Duration _kFeedbackDuration = Duration(seconds: 2);
 
   SyncProvider(this._syncService);
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   void updateService(SyncService newService) {
     _syncService = newService;
@@ -31,7 +38,6 @@ class SyncProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   bool get isLoading => _state == SyncState.loading;
-
 
   Future<void> startSync() async {
     if (isLoading) return;
@@ -53,8 +59,10 @@ class SyncProvider extends ChangeNotifier {
     }
   }
 
-
+  // 👇 3. Trava de segurança no _setState
   void _setState(SyncState newState, {String? error}) {
+    if (_disposed) return; // Aborta se a tela já foi fechada
+    
     _state = newState;
     _errorMessage = error;
     notifyListeners();

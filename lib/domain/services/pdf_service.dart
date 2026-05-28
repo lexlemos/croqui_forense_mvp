@@ -346,7 +346,9 @@ class PdfService {
   Future<List<Map<String, dynamic>>> _prepararFotos(Caso caso, List<Achado> achados) async {
     List<Map<String, dynamic>> anexos = [];
     int contador = 1;
-    final fotosGerais = caso.dadosLaudo['identificacao']?['fotos_gerais'] ?? [];
+
+    final rawFotosGerais = caso.dadosLaudo['identificacao']?['fotos_gerais'];
+    final List<dynamic> fotosGerais = rawFotosGerais is List ? rawFotosGerais : const [];
     
     for (var fotoPath in fotosGerais) {
       final file = File(fotoPath.toString());
