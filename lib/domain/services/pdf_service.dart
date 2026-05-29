@@ -18,6 +18,7 @@ class PdfService {
     required Caso caso,
     required List<Achado> achados,
     required Usuario perito,
+    Map<String, dynamic>? schemas,
   }) async {
     await initializeDateFormatting('pt_BR', null);
     final pdf = pw.Document();
@@ -65,10 +66,10 @@ class PdfService {
             _buildIdentificacaoOficial(caso),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("3. EXAME EXTERNO"),
-            ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false),
+            ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false, schemas: schemas, todosAchados: achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("4. EXAME INTERNO (Cavidades)"),
-            ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true),
+            ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true, schemas: schemas, todosAchados: achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("5. EXAMES COMPLEMENTARES"),
             _buildDadosComplementares(caso),
@@ -165,7 +166,13 @@ class PdfService {
     );
   }
 
- List<pw.Widget> _buildExameAgrupado(List<Achado> achados, List<Map<String, dynamic>> anexos, {required bool isInterno}) {
+  List<pw.Widget> _buildExameAgrupado(
+    List<Achado> achados,
+    List<Map<String, dynamic>> anexos, {
+    required bool isInterno,
+    Map<String, dynamic>? schemas,
+    List<Achado>? todosAchados,
+  }) {
     List<pw.Widget> items = [];
     List<Achado> achadosPendentes = List.from(achados);
     
@@ -192,7 +199,42 @@ class PdfService {
           final foto = anexos.cast<Map<String, dynamic>?>().firstWhere((f) => f != null && f['uuid'] == a.uuid, orElse: () => null);
           final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
           
-          items.add(pw.Padding(padding: const pw.EdgeInsets.only(left: 30), child: pw.Bullet(text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto", style: const pw.TextStyle(fontSize: 10))));
+          final List<pw.Widget> columnChildren = [
+            pw.Bullet(
+              text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ];
+
+          final campos = a.obterCamposFormatados(schemas?[a.tipoAchadoId], todosAchados: todosAchados);
+          if (campos.isNotEmpty) {
+            columnChildren.add(
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(left: 15, top: 2),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: campos.map((c) => pw.Text(
+                    "- ${c['label']}: ${c['valor']}",
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontStyle: pw.FontStyle.italic,
+                      color: PdfColors.grey700,
+                    ),
+                  )).toList(),
+                ),
+              ),
+            );
+          }
+
+          items.add(
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(left: 30, top: 2),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: columnChildren,
+              ),
+            ),
+          );
         }
       }
     });
@@ -205,7 +247,42 @@ class PdfService {
         final foto = anexos.cast<Map<String, dynamic>?>().firstWhere((f) => f != null && f['uuid'] == a.uuid, orElse: () => null);
         final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
         
-        items.add(pw.Padding(padding: const pw.EdgeInsets.only(left: 30), child: pw.Bullet(text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto", style: const pw.TextStyle(fontSize: 10))));
+        final List<pw.Widget> columnChildren = [
+          pw.Bullet(
+            text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
+            style: const pw.TextStyle(fontSize: 10),
+          ),
+        ];
+
+        final campos = a.obterCamposFormatados(schemas?[a.tipoAchadoId], todosAchados: todosAchados);
+        if (campos.isNotEmpty) {
+          columnChildren.add(
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(left: 15, top: 2),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: campos.map((c) => pw.Text(
+                  "- ${c['label']}: ${c['valor']}",
+                  style: pw.TextStyle(
+                    fontSize: 8.5,
+                    fontStyle: pw.FontStyle.italic,
+                    color: PdfColors.grey700,
+                  ),
+                )).toList(),
+              ),
+            ),
+          );
+        }
+
+        items.add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(left: 30, top: 2),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: columnChildren,
+            ),
+          ),
+        );
       }
     }
 

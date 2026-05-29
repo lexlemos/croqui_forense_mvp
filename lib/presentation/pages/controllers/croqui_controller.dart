@@ -32,6 +32,8 @@ class CroquiController extends ChangeNotifier {
   Caso casoAtual;
   List<Achado> achados = [];
   bool isLoading = false;
+  bool _isExporting = false;
+  bool get isExporting => _isExporting;
 
   bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
 
@@ -272,11 +274,17 @@ class CroquiController extends ChangeNotifier {
     }
   }
   Future<void> exportarCaso(BuildContext context) async {
+    if (_isExporting) return;
+    _isExporting = true;
+    notifyListeners();
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final usuarioLogado = auth.usuario;
 
     if (usuarioLogado == null) {
       globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
+      _isExporting = false;
+      notifyListeners();
       return;
     }
 
@@ -287,10 +295,16 @@ class CroquiController extends ChangeNotifier {
         await _caseService.salvarRascunho(casoAtual);
       }
 
+      final injuryTypes = await _injuryTypeRepository.getAllTypes();
+      final Map<String, dynamic> schemas = {
+        for (var t in injuryTypes) t.id: t.schemaFormulario
+      };
+
       final pdfBytes = await PdfService().gerarLaudoPdf(
         caso: casoAtual,
         achados: achados,
         perito: usuarioLogado,
+        schemas: schemas,
       );
 
       final tempDir = await getTemporaryDirectory();
@@ -311,6 +325,9 @@ class CroquiController extends ChangeNotifier {
       debugPrint("Erro na exportação do PDF: $e");
       globalMessengerKey.currentState?.hideCurrentSnackBar();
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
+    } finally {
+      _isExporting = false;
+      notifyListeners();
     }
   }
   Future<void> _reloadCaso() async {

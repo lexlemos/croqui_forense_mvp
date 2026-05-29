@@ -193,7 +193,14 @@ class ApiClient {
           responseBody: true,
           requestHeader: true,
           responseHeader: false,
-          logPrint: (object) => debugPrint('[Dio] $object'),
+          logPrint: (object) {
+            final logStr = object.toString();
+            if (logStr.contains('senha') || logStr.contains('nova_senha') || logStr.contains('hash_pin_offline')) {
+              debugPrint('[Dio] Payload contendo dados sensíveis ocultado.');
+            } else {
+              debugPrint('[Dio] $logStr');
+            }
+          },
         ),
     ]);
   }

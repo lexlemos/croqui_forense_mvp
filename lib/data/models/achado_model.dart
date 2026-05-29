@@ -178,4 +178,115 @@ class Achado {
   String get description {
     return observacoesTexto ?? '';
   }
+
+  List<Map<String, String>> obterCamposFormatados(
+    Map<String, dynamic>? schemaBase, {
+    List<Achado>? todosAchados,
+  }) {
+    final List<Map<String, String>> campos = [];
+    final Map<String, Achado>? achadosMap = todosAchados != null
+        ? {for (var a in todosAchados) a.uuid: a}
+        : null;
+
+    // 1. Campos Padrão (Tamanho e Profundidade)
+    final tam = tamanho;
+    if (tam.isNotEmpty) {
+      campos.add({'label': 'Tamanho', 'valor': '$tam cm'});
+    }
+
+    final prof = profundidade;
+    if (prof.isNotEmpty) {
+      campos.add({'label': 'Profundidade', 'valor': prof});
+    }
+
+    // 2. Vínculo de Auto-relacionamento (Orifício de Entrada)
+    if (achadoRelacionadoUuid != null && achadoRelacionadoUuid!.isNotEmpty) {
+      String valorVinculo = 'Vinculado (ID: ${achadoRelacionadoUuid!.substring(0, 8)})';
+      if (achadosMap != null && achadosMap.containsKey(achadoRelacionadoUuid)) {
+        final achadoEncontrado = achadosMap[achadoRelacionadoUuid]!;
+        valorVinculo = 'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
+      }
+      campos.add({
+        'label': 'Orifício de Entrada Vinculado',
+        'valor': valorVinculo,
+      });
+    }
+
+    // 3. Campos Dinâmicos
+    final dynamicFields = dadosPreenchidos['dynamicFields'];
+    if (dynamicFields is Map) {
+      final List<Map<String, dynamic>> schemaCampos = [];
+      if (schemaBase != null) {
+        final schemaCamposRaw = schemaBase['campos'];
+        if (schemaCamposRaw is List) {
+          for (var c in schemaCamposRaw) {
+            if (c is Map) {
+              schemaCampos.add(Map<String, dynamic>.from(c));
+            }
+          }
+        }
+      }
+
+      dynamicFields.forEach((key, val) {
+        // Ignorar chaves internas ou nulas
+        final keyStr = key.toString();
+        if (keyStr.startsWith('_') || val == null) {
+          return;
+        }
+        if (keyStr == 'photo_path' ||
+            keyStr == 'photoPath' ||
+            keyStr == 'view' ||
+            keyStr == 'local_anatomico_id' ||
+            keyStr == 'local_anatomico_nome' ||
+            keyStr == 'type_label' ||
+            keyStr == 'typeId' ||
+            keyStr == 'is_interno' ||
+            keyStr == 'isInterno' ||
+            keyStr == 'achadoRelacionadoUuid') {
+          return;
+        }
+
+        // Tentar encontrar o label correspondente no schema
+        String label = '';
+        if (schemaCampos.isNotEmpty) {
+          final campoSchema = schemaCampos.firstWhere(
+            (c) => c['id_campo']?.toString() == keyStr,
+            orElse: () => const {},
+          );
+          if (campoSchema.isNotEmpty) {
+            label = campoSchema['label']?.toString() ?? '';
+          }
+        }
+
+        if (label.isEmpty) {
+          // Fallback para formatar a chave de forma legível
+          final words = keyStr.split('_');
+          label = words.map((w) {
+            if (w.isEmpty) return '';
+            return w[0].toUpperCase() + w.substring(1);
+          }).join(' ');
+        }
+
+        String valorStr = '';
+        if (val is bool) {
+          valorStr = val ? 'Sim' : 'Não';
+        } else {
+          final valStr = val.toString();
+          bool traduzido = false;
+          if (achadosMap != null && achadosMap.containsKey(valStr)) {
+            final achadoEncontrado = achadosMap[valStr]!;
+            valorStr = 'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
+            traduzido = true;
+          }
+          if (!traduzido) {
+            valorStr = valStr;
+          }
+        }
+
+        campos.add({'label': label, 'valor': valorStr});
+      });
+    }
+
+    return campos;
+  }
 }
