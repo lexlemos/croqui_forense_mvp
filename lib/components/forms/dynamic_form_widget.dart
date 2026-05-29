@@ -189,7 +189,7 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
   }
 
   List<String> _parseOpcoes(dynamic raw) {
-    if (raw is List) return raw.map((e) => e.toString()).toList();
+    if (raw is List) return raw.map((e) => e.toString()).toSet().toList();
     return [];
   }
 }
