@@ -125,7 +125,6 @@ class AuthService {
     }
 
     try {
-      // 1. Parsing Direto (O Dio já devolve um Map)
       final responseData = response.data as Map<String, dynamic>;
       final perfil = responseData['usuario'] as Map<String, dynamic>;
       final token = responseData['token']?.toString();

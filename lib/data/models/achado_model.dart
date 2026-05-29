@@ -89,7 +89,9 @@ class Achado {
           ? map['is_interno'] as bool 
           : (map['is_interno'] as int? ?? 0) == 1,
       dadosPreenchidos: map['dados_preenchidos_json'] != null
-          ? Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {})
+          ? (map['dados_preenchidos_json'] is Map
+              ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
+              : Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {}))
           : const {},
       observacoesTexto: map['observacoes_texto']?.toString(),
       removido: map['removido'] is bool 

@@ -190,7 +190,7 @@
 
         if (response.statusCode != 200 && response.statusCode != 201) {
           throw SyncUploadEvidenciaException(
-            'Backend retornou status inesperado: ${response.statusCode}',
+          'Backend retornou status inesperado: ${response.statusCode}',
             casoUuid: caso.uuid,
             achadoUuid: achado.uuid,
             statusCode: response.statusCode,
@@ -204,7 +204,7 @@
           achadoUuid: achado.uuid,
           statusCode: e.response?.statusCode,
         );
-      } catch (e, stackTrace) {
+      } catch (e) {
         debugPrint('Erro inesperado ao enviar foto: $e');
         throw SyncUploadEvidenciaException(
           'Erro inesperado: $e',

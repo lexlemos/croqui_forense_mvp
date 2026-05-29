@@ -32,7 +32,7 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
   @override
   void didUpdateWidget(covariant DynamicFormWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.schema != widget.schema) {
+    if (oldWidget.schema != widget.schema || oldWidget.initialData != widget.initialData) {
       _formData = Map<String, dynamic>.from(widget.initialData);
     }
   }

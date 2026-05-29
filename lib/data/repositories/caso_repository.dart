@@ -134,10 +134,16 @@ class CasoRepository implements ISyncRepository {
         final identificacao = dadosLaudo['identificacao'] as Map?;
         final rawFotosGerais = identificacao?['fotos_gerais'];
         final fotosGerais = rawFotosGerais is List ? rawFotosGerais : null;
+
+        final rawSincronizadas = identificacao?['fotos_gerais_sincronizadas'];
+        final fotosSincronizadas = rawSincronizadas is List ? rawSincronizadas : [];
+
         if (fotosGerais != null && fotosGerais.isNotEmpty) {
           for (var i = 0; i < fotosGerais.length; i++) {
             final String pathString = fotosGerais[i].toString();
             if (pathString.isEmpty || pathString == 'null') continue;
+
+            if (fotosSincronizadas.contains(pathString)) continue;
 
             final achadoVirtual = Achado(
               uuid: 'GERAL_${uuid}_$i',
@@ -227,22 +233,45 @@ class CasoRepository implements ISyncRepository {
 
   @override
   Future<void> marcarFotoComoSincronizada(Achado achado) async {
-    final String? evidenciaUuid =
-        achado.dadosPreenchidos['_evidencia_uuid'] as String?;
-
-    if (evidenciaUuid == null || evidenciaUuid.isEmpty) return;
-
     final db = await database;
-    await db.rawUpdate(
-      '''
-      UPDATE $tableEvidenciasMultimidia
-         SET foto_sincronizada = 1,
-             atualizado_em     = ?
-       WHERE uuid     = ?
-         AND removido = 0
-      ''',
-      [DateTime.now().toIso8601String(), evidenciaUuid],
-    );
+    if (achado.uuid.startsWith('GERAL_')) {
+      final casoRows = await db.query(tableCasos, where: 'uuid = ?', whereArgs: [achado.casoUuid]);
+      if (casoRows.isEmpty) return;
+
+      final casoMap = Map<String, dynamic>.from(casoRows.first);
+      final dadosLaudo = _decodeJson(casoMap['dados_laudo_json'] as String? ?? '{}');
+
+      if (dadosLaudo['identificacao'] == null) {
+        dadosLaudo['identificacao'] = {};
+      }
+
+      final identificacao = dadosLaudo['identificacao'] as Map;
+      final List<dynamic> sincronizadas = List<dynamic>.from(identificacao['fotos_gerais_sincronizadas'] ?? []);
+      final String pathDaFoto = achado.dadosPreenchidos['photo_path'];
+
+      if (!sincronizadas.contains(pathDaFoto)) {
+        sincronizadas.add(pathDaFoto);
+        identificacao['fotos_gerais_sincronizadas'] = sincronizadas;
+
+        await db.update(
+          tableCasos,
+          {'dados_laudo_json': _encodeJson(dadosLaudo)},
+          where: 'uuid = ?',
+          whereArgs: [achado.casoUuid],
+        );
+      }
+      return;
+    }
+
+    final evidenciaUuid = achado.dadosPreenchidos['_evidencia_uuid'];
+    if (evidenciaUuid != null) {
+      await db.update(
+        tableEvidenciasMultimidia,
+        {'foto_sincronizada': 1},
+        where: 'uuid = ?',
+        whereArgs: [evidenciaUuid],
+      );
+    }
   }
 
   Map<String, dynamic> _decodeJson(String raw) {
