@@ -1,44 +1,73 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import 'package:uuid/uuid.dart';
-import '../local/database_helper.dart';
-import '../models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/local/database_helper.dart';
+import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 
 class AchadoRepository {
-  Future<Database> get _db async => await DatabaseHelper.instance.database;
+  final DatabaseHelper _dbHelper;
+
+  AchadoRepository(this._dbHelper);
+
+  Future<Database> get _db async => _dbHelper.database;
 
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
-    
-
-    await db.insert(
-      'achados',
-      achado.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    try {
+      await db.insert(
+        'achados',
+        achado.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao inserir achado: $e');
+    }
   }
 
   Future<void> updateAchado(Achado achado) async {
     final db = await _db;
-    await db.update(
-      'achados',
-      achado.toMap(),
-      where: 'uuid = ?',
-      whereArgs: [achado.uuid],
-    );
+    try {
+      final rowsAffected = await db.update(
+        'achados',
+        achado.toMap(),
+        where: 'uuid = ?',
+        whereArgs: [achado.uuid],
+      );
+      debugPrint('[AchadoRepository] updateAchado ${achado.uuid}: $rowsAffected row(s) affected');
+      if (rowsAffected == 0) {
+        throw Exception('Achado ${achado.uuid} não encontrado no banco.');
+      }
+    } catch (e) {
+      throw Exception('Erro de persistência ao atualizar achado: $e');
+    }
   }
 
   Future<void> deleteAchado(String uuid) async {
     final db = await _db;
-    await db.rawUpdate('UPDATE achados SET removido = 1 WHERE uuid = ?', [uuid]);
+    try {
+      await db.rawUpdate('UPDATE achados SET removido = 1 WHERE uuid = ?', [uuid]);
+    } catch (e) {
+      throw Exception('Erro de persistência ao remover achado: $e');
+    }
   }
 
   Future<List<Achado>> getAchadosPorCaso(String casoUuid) async {
     final db = await _db;
     final result = await db.query(
       'achados',
-      where: 'diagrama_caso_uuid = ? AND removido = 0',
+      where: 'caso_uuid = ? AND removido = 0',
       whereArgs: [casoUuid],
       orderBy: 'criado_em DESC',
+    );
+    return result.map((m) => Achado.fromMap(m)).toList();
+  }
+
+  Future<List<Achado>> getAchadosDeEntradaPorCaso(String casoUuid) async {
+    final db = await _db;
+    final result = await db.query(
+      'achados',
+      where: r"caso_uuid = ? AND removido = 0 AND json_extract(dados_preenchidos_json, '$.tipo_orificio') = 'Entrada'",
+      whereArgs: [casoUuid],
+      orderBy: 'numero_sequencial ASC',
     );
     return result.map((m) => Achado.fromMap(m)).toList();
   }

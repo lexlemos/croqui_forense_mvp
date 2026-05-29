@@ -7,12 +7,16 @@ import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
-import 'package:croqui_forense_mvp/data/models/injury_marker_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
+import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
@@ -22,6 +26,8 @@ import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart';
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
+  final InjuryTypeRepository _injuryTypeRepository;
+  final AchadoRepository _achadoRepository;
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -29,11 +35,12 @@ class CroquiController extends ChangeNotifier {
 
   bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
 
-  CroquiController(this.casoAtual, this._achadoService, this._caseService) {
+  CroquiController(this.casoAtual, this._achadoService, this._caseService, this._injuryTypeRepository, this._achadoRepository) {
     _loadAchados();
   }
 
   Future<void> _loadAchados() async {
+    if (isLoading) return;
     isLoading = true;
     notifyListeners();
     try {
@@ -44,40 +51,48 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-  // --- MÉTODOS PARA O CROQUI ---
-
-  List<InjuryMarker> getMarkersForView(String view) {
-    return achados
-        .where((a) => (a.dadosPreenchidos['view'] ?? '') == view)
-        .map((a) {
-          return InjuryMarker(
-            id: a.uuid,
-            caseId: a.diagramaCasoUuid,
-            croquiType: view,
-            bodyPartId: a.dadosPreenchidos['local_anatomico_id'] ?? 'desconhecido',
-            xPercent: a.posX,
-            yPercent: a.posY,
-            type: a.dadosPreenchidos['type_label'] ?? '',
-            photoPath: a.dadosPreenchidos['photo_path'],
-          );
-        }).toList();
+  List<Achado> getMarkersForView(String view) {
+  return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
   }
 
   Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
     if (isReadOnly) {
-      if (context.mounted) _snack(context, "Caso finalizado. Edição bloqueada.");
+      _snack("Caso finalizado. Edição bloqueada.");
+      return;
+    }
+
+    try {
+      await _caseService.salvarRascunho(casoAtual);
+    } catch (e) {
+      debugPrint("Erro ao garantir salvamento do caso: $e");
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
       return;
     }
 
     final String realPartName = _resolveBodyPartName(viewType, partId);
 
+    if (!context.mounted) return;
+
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => InjuryFormModal(bodyPartName: realPartName),
+      builder: (context) => InjuryFormModal(
+        bodyPartName: realPartName,
+        injuryTypeRepository: _injuryTypeRepository,
+        achadoRepository: _achadoRepository,
+        casoUuid: casoAtual.uuid,
+      ),
     );
 
     if (result == null) return;
+
+    final String size = result['size']?.toString() ?? '';
+    final String depth = result['depth']?.toString() ?? '';
+    final String description = result['description']?.toString() ?? '';
+    final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
+    final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
+    final bool isInterno = result['isInterno'] ?? false;
+    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
 
     String? finalPhotoPath = result['photoPath'];
     if (finalPhotoPath != null) {
@@ -85,31 +100,30 @@ class CroquiController extends ChangeNotifier {
       finalPhotoPath = compressedFile.path;
     }
 
-    if (!context.mounted) return;
-
-    final String tipoLesaoId = result['typeId'] ?? 'outro';
-    final String tipoLesaoNome = result['type'];
-
     final Map<String, dynamic> dadosExtras = {
       'view': viewType,
       'local_anatomico_id': partId,
       'local_anatomico_nome': realPartName,
       'type_label': tipoLesaoNome,
-      'size': result['size'],
-      'depth': result['depth'],
-      'photo_path': finalPhotoPath, 
+      'size': size,
+      'depth': depth,
+      'photo_path': finalPhotoPath,
+      'is_interno': isInterno,
+      if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
     };
 
     final achadoFinal = Achado(
       uuid: const Uuid().v4(),
-      diagramaCasoUuid: casoAtual.uuid,
+      casoUuid: casoAtual.uuid,
+      diagramaNome: DiagramTemplates.templateIdParaView(viewType),
       tipoAchadoId: tipoLesaoId,
+      achadoRelacionadoUuid: achadoRelacionadoUuid,
       numeroSequencial: achados.length + 1,
       posX: x,
       posY: y,
-      estaPendente: true,
+      isInterno: isInterno,
       dadosPreenchidos: dadosExtras,
-      observacoesTexto: result['description'] ?? '',
+      observacoesTexto: description,
       removido: false,
       versao: 1,
       criadoEm: DateTime.now(),
@@ -119,9 +133,14 @@ class CroquiController extends ChangeNotifier {
     try {
       await _achadoService.salvarAchado(achadoFinal);
       await _loadAchados();
-      if (context.mounted) _snack(context, "Achado adicionado!");
+      
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
+      
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao salvar: $e", color: Colors.red);
+      debugPrint("Erro real ao salvar achado: $e");
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
     }
   }
 
@@ -132,30 +151,27 @@ class CroquiController extends ChangeNotifier {
     final String localNome = dados['local_anatomico_nome'] ?? 
                              _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
 
-    final markerAdapter = InjuryMarker(
-      id: achado.uuid,
-      caseId: achado.diagramaCasoUuid,
-      croquiType: dados['view'] ?? 'frente',
-      bodyPartId: dados['local_anatomico_id'] ?? 'desconhecido',
-      xPercent: achado.posX,
-      yPercent: achado.posY,
-      type: dados['type_label'] ?? '',
-      size: dados['size'] ?? '',
-      depth: dados['depth'] ?? '',
-      photoPath: dados['photo_path'],
-      description: achado.observacoesTexto,
-    );
-
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       builder: (context) => InjuryFormModal(
         bodyPartName: localNome,
-        markerToEdit: markerAdapter,
+        injuryTypeRepository: _injuryTypeRepository,
+        achadoRepository: _achadoRepository,
+        casoUuid: casoAtual.uuid,
+        achadoToEdit: achado,
       ),
     );
 
     if (result == null) return;
+
+    final String size = result['size']?.toString() ?? '';
+    final String depth = result['depth']?.toString() ?? '';
+    final String description = result['description']?.toString() ?? '';
+    final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
+    final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
+    final bool isInterno = result['isInterno'] ?? achado.isInterno;
+    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
 
     String? finalPhotoPath = result['photoPath'];
     String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
@@ -167,38 +183,32 @@ class CroquiController extends ChangeNotifier {
 
     if (!context.mounted) return;
 
-    final String tipoLesaoId = result['typeId'] ?? achado.tipoAchadoId;
-    final String tipoLesaoNome = result['type'];
-
-    final Map<String, dynamic> novosDados = Map.from(achado.dadosPreenchidos);
+    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
     novosDados['type_label'] = tipoLesaoNome;
-    novosDados['size'] = result['size'];
-    novosDados['depth'] = result['depth'];
-    novosDados['photo_path'] = finalPhotoPath; 
+    novosDados['size'] = size;
+    novosDados['depth'] = depth;
+    novosDados['photo_path'] = finalPhotoPath;
+    novosDados['is_interno'] = isInterno;
+    if (result['dynamicFields'] is Map) {
+      novosDados['dynamicFields'] = result['dynamicFields'];
+    }
 
-    final achadoAtualizado = Achado(
-      uuid: achado.uuid,
-      diagramaCasoUuid: achado.diagramaCasoUuid,
+    final achadoAtualizado = achado.copyWith(
       tipoAchadoId: tipoLesaoId,
-      numeroSequencial: achado.numeroSequencial,
-      posX: achado.posX,
-      posY: achado.posY,
-      estaPendente: true,
+      achadoRelacionadoUuid: achadoRelacionadoUuid,
+      isInterno: isInterno,
       dadosPreenchidos: novosDados,
-      observacoesTexto: result['description'] ?? '',
-      removido: false,
+      observacoesTexto: description,
       versao: achado.versao + 1,
-      criadoEm: achado.criadoEm,
       atualizadoEm: DateTime.now(),
-      proveniencia: achado.proveniencia,
     );
 
     try {
       await _achadoService.atualizarAchado(achadoAtualizado);
       await _loadAchados();
-      if (context.mounted) _snack(context, "Achado atualizado!");
+      _snack("Achado atualizado!");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao atualizar: $e", color: Colors.red);
+      _snack("Erro ao atualizar: $e", color: Colors.red);
     }
   }
 
@@ -207,29 +217,17 @@ class CroquiController extends ChangeNotifier {
     try {
       await _achadoService.removerAchado(uuid);
       await _loadAchados();
-      if (context.mounted) _snack(context, "Achado removido.");
+      _snack("Achado removido.");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao deletar", color: Colors.red);
+      _snack("Erro ao deletar", color: Colors.red);
     }
   }
 
-  // --- MÉTODOS PARA GERENCIAMENTO DO CASO (CaseInfoTab) ---
 
   void atualizarDadosLaudoMemoria(Map<String, dynamic> novosDados) {
-    casoAtual = Caso(
-      uuid: casoAtual.uuid,
-      idUsuarioCriador: casoAtual.idUsuarioCriador,
-      numeroLaudoExterno: casoAtual.numeroLaudoExterno,
-      status: casoAtual.status,
-      hashIntegridade: casoAtual.hashIntegridade,
-      removido: casoAtual.removido,
-      versao: casoAtual.versao,
-      criadoEmDispositivo: casoAtual.criadoEmDispositivo,
-      criadoEmRedeConfiavel: casoAtual.criadoEmRedeConfiavel,
-      atualizadoEm: DateTime.now(),
-      deviceId: casoAtual.deviceId,
+    casoAtual = casoAtual.copyWith(
       dadosLaudo: novosDados,
-      proveniencia: casoAtual.proveniencia,
+      atualizadoEm: DateTime.now(),
     );
     notifyListeners();
   }
@@ -256,9 +254,10 @@ class CroquiController extends ChangeNotifier {
     try {
       await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
       await _reloadCaso();
-      if (context.mounted) _snack(context, "Caso finalizado!", color: Colors.green);
+      _snack("Caso finalizado!", color: Colors.green);
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao finalizar: $e", color: Colors.red);
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao finalizar: $e"), backgroundColor: Colors.red));
     }
   }
 
@@ -266,53 +265,58 @@ class CroquiController extends ChangeNotifier {
     try {
       await _caseService.reabrirCaso(casoAtual.uuid);
       await _reloadCaso();
-      if (context.mounted) _snack(context, "Edição habilitada.");
+      _snack("Edição habilitada.");
     } catch (e) {
-      if (context.mounted) _snack(context, "Erro ao reabrir", color: Colors.red);
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao reabrir"), backgroundColor: Colors.red));
     }
   }
+  Future<void> exportarCaso(BuildContext context) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final usuarioLogado = auth.usuario;
 
- Future<void> exportarCaso(BuildContext context) async {
-    if (context.mounted) _snack(context, "Preparando arquivo para exportação...");
+    if (usuarioLogado == null) {
+      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
+      return;
+    }
+
+    _snack("Gerando laudo PDF oficial...");
 
     try {
       if (!isReadOnly) {
         await _caseService.salvarRascunho(casoAtual);
       }
 
-      if (!context.mounted) return;
+      final pdfBytes = await PdfService().gerarLaudoPdf(
+        caso: casoAtual,
+        achados: achados,
+        perito: usuarioLogado,
+      );
 
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final String nomeExportador = auth.usuario?.nomeCompleto ?? 'Usuário Desconhecido';
+      final tempDir = await getTemporaryDirectory();
+      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
+      final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
       
-      final directory = await getApplicationDocumentsDirectory(); 
-
-      final File arquivoGerado = await _caseService.exportarJsonUnicoComBase64(
-        casoUuid: casoAtual.uuid,
-        nomeExportador: nomeExportador,
-        diretorioTemp: directory.path,
-      );
+      await pdfFile.writeAsBytes(pdfBytes, flush: true);
 
       if (!context.mounted) return;
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
 
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  
       await Share.shareXFiles(
-        [XFile(arquivoGerado.path)],
-        text: 'Laudo Forense exportado.',
-        subject: 'Laudo ${casoAtual.numeroLaudoExterno}',
+        [XFile(pdfFile.path)],
+        subject: 'Laudo Pericial PDF - ' + casoAtual.numeroLaudoExterno.toString(),
       );
+
     } catch (e) {
-      debugPrint("Erro ao exportar: $e");
-      if (context.mounted) _snack(context, "Erro ao exportar", color: Colors.red);
+      debugPrint("Erro na exportação do PDF: $e");
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
     }
   }
-
-
   Future<void> _reloadCaso() async {
-    final casos = await _caseService.listarCasos();
-    casoAtual = casos.firstWhere((c) => c.uuid == casoAtual.uuid);
-    notifyListeners(); 
+    final caso = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
+    if (caso != null) casoAtual = caso;
+    notifyListeners();
   }
 
   String _resolveBodyPartName(String view, String partId) {
@@ -323,10 +327,14 @@ class CroquiController extends ChangeNotifier {
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 
-  void _snack(BuildContext context, String msg, {Color? color}) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+
+  void _snack(String msg, {Color? color}) {
+    final messenger = globalMessengerKey.currentState;
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 2))
     );
   }
 }
+

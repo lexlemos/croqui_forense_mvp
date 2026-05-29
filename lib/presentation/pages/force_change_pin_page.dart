@@ -52,7 +52,7 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
+                      color: Colors.orange.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.lock_reset, size: 64, color: Colors.orange),

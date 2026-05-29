@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +5,9 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
+import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
 
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -26,8 +28,10 @@ class CroquiPage extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (ctx) => CroquiController(
         caso,
-        AchadoService.instance,
+        ctx.read<AchadoService>(),
         ctx.read<CaseService>(),
+        ctx.read<InjuryTypeRepository>(),
+        ctx.read<AchadoRepository>(),
       ),
       child: const _CroquiView(),
     );
@@ -125,7 +129,7 @@ class _CroquiView extends StatelessWidget {
                     _buildCroquiTab(context, controller, 'lateral_esq', 'assets/images/croqui-rosto-frente.svg',
                         'assets/images/croqui-rosto-frente-mask.png', kColorToIdLateralLeftMap, kIdToDefinitionLateralLeftMap),
                     
-                    CaseInfoTab(),
+                    const CaseInfoTab(),
                   ],
                 ),
               ),
@@ -159,40 +163,19 @@ class _CroquiView extends StatelessWidget {
     );
   }
 
-  void _showEditOrDetail(BuildContext context, CroquiController controller, Achado achado) {
-    if (controller.isReadOnly) {
-      _showReadOnlyDetails(context, achado);
-    } else {
-      controller.editAchado(context, achado);
-    }
-  }
-
-  void _showReadOnlyDetails(BuildContext context, Achado achado) {
-    final dados = achado.dadosPreenchidos;
-    final String tipo = dados['type_label'] ?? '-';
-    final String local = dados['local_anatomico_nome'] ?? '-';
-    final String obs = achado.observacoesTexto ?? '';
-    final String? photoPath = dados['photo_path'];
+void _showEditOrDetail(BuildContext context, CroquiController controller, Achado achado) {
+    final parentContext = context;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tipo),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(local, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const Divider(),
-            Text(obs),
-            if (photoPath != null && File(photoPath).existsSync())
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Image.file(File(photoPath), height: 200),
-              )
-          ],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("FECHAR"))],
+      builder: (dialogContext) => AchadoDetailModal(
+        achado: achado,
+        onEdit: controller.isReadOnly
+          ? null
+          : () {
+              Navigator.pop(dialogContext);
+              controller.editAchado(parentContext, achado);
+            },
       ),
     );
   }

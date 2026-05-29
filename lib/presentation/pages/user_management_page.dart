@@ -6,6 +6,8 @@ import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/user_management/user_list_item.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/user_management/user_form_dialog.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class UserManagementPage extends StatelessWidget {
   const UserManagementPage({super.key});
@@ -94,7 +96,7 @@ class _UserManagementViewState extends State<_UserManagementView> {
                   const SizedBox(width: 16),
                   FloatingActionButton.extended(
                     onPressed: () => _abrirCriacaoUsuario(context),
-                    backgroundColor: const Color(0xFF317FF5),
+                    backgroundColor: AppColors.primary,
                     icon: const Icon(Icons.add, color: Colors.white),
                     label: const Text('Novo Usuário', style: TextStyle(color: Colors.white)),
                   ),
@@ -128,14 +130,14 @@ class _UserManagementViewState extends State<_UserManagementView> {
                                 onStatusChanged: (novoStatus) async {
                                   try {
                                     await userProvider.toggleStatusUsuario(usuario, currentUser!.id);
-                                    if(mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                    if(context.mounted) {
+                                        globalMessengerKey.currentState?.showSnackBar(
                                           SnackBar(content: Text('Status de ${usuario.nomeCompleto} atualizado!')),
                                         );
                                     }
                                   } catch (e) {
-                                    if(mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                    if(context.mounted) {
+                                        globalMessengerKey.currentState?.showSnackBar(
                                           SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
                                         );
                                     }
@@ -169,24 +171,22 @@ class _UserManagementViewState extends State<_UserManagementView> {
         await context.read<UserManagementProvider>().criarUsuario(
           nome: result['nome'],
           matricula: result['matricula'],
+          crm: result['crm'],
+          classe: result['classe'],
           papelId: result['papelId'],
           pinInicial: result['pin'],
         );
 
-        if(context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Usuário criado com sucesso!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-        }
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Usuário criado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       } catch (e) {
-        if(context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erro ao criar: $e'), backgroundColor: Colors.red),
-            );
-        }
+        globalMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text('Erro ao criar: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart'; 
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart'; 
 class FilterResult {
   final SortCriteria sortCriteria;
   final SortOrder sortOrder;
@@ -140,7 +141,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                 const SizedBox(width: 8),
                 FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF317FF5),
+                    backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
                   onPressed: () {
@@ -172,10 +173,10 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF317FF5).withOpacity(0.1) : Colors.grey[100],
+            color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? const Color(0xFF317FF5) : Colors.transparent,
+              color: isSelected ? AppColors.primary : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -185,7 +186,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF317FF5) : Colors.black87,
+                  color: isSelected ? AppColors.primary : Colors.black87,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 13,
                 ),
@@ -195,7 +196,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                 Icon(
                   _order == SortOrder.asc ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 16,
-                  color: const Color(0xFF317FF5),
+                  color: AppColors.primary,
                 ),
               ]
             ],

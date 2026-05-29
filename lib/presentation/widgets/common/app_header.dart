@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/user_management_page.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class AppHeader extends StatelessWidget {
   final Usuario? usuario;
@@ -26,7 +29,8 @@ class AppHeader extends StatelessWidget {
     }
     return partes.first.substring(0, 2).toUpperCase();
   }
-  bool get _isAdmin => usuario?.papelId == 'role_admin';
+
+  bool get _isAdmin => usuario?.papelId == DatabaseSeeder.roleAdminId;
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +38,11 @@ class AppHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
       child: Row(
         children: [
-
           Theme(
             data: Theme.of(context).copyWith(
               popupMenuTheme: PopupMenuThemeData(
                 color: Colors.white,
-                surfaceTintColor: Colors.transparent, 
+                surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: const BorderSide(color: Color(0xFFF0F0F0)),
@@ -48,13 +51,12 @@ class AppHeader extends StatelessWidget {
               ),
             ),
             child: PopupMenuButton<String>(
-              offset: const Offset(0, 50), 
+              offset: const Offset(0, 50),
               tooltip: 'Menu',
-
               icon: Container(
-                padding: const EdgeInsets.all(10), 
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white, 
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFE1E1E1)),
                   boxShadow: [
@@ -70,7 +72,7 @@ class AppHeader extends StatelessWidget {
               onSelected: (value) => _handleMenuSelection(context, value),
               itemBuilder: (BuildContext context) {
                 final List<PopupMenuEntry<String>> menuItems = [
-                   _buildMenuItem(
+                  _buildMenuItem(
                     value: 'home',
                     icon: Icons.dashboard_outlined,
                     text: 'Início',
@@ -82,7 +84,7 @@ class AppHeader extends StatelessWidget {
                   menuItems.add(
                     _buildMenuItem(
                       value: 'users',
-                      icon: Icons.manage_accounts_outlined, 
+                      icon: Icons.manage_accounts_outlined,
                       text: 'Gestão de Usuários',
                       isActive: title == 'Gestão de Usuários',
                     ),
@@ -121,9 +123,7 @@ class AppHeader extends StatelessWidget {
               },
             ),
           ),
-          
           const SizedBox(width: 20),
-
           Expanded(
             child: Text(
               title,
@@ -138,13 +138,19 @@ class AppHeader extends StatelessWidget {
             ),
           ),
           
+          // --- ALTERAÇÃO AQUI: Botão Sync movido para antes das informações do usuário ---
+          if (isHome) ...[
+            const SyncButtonWidget(),
+            const SizedBox(width: 24), // Espaçamento para afastar o botão do nome do perito
+          ],
+
+          // --- Bloco de Informações do Usuário ancorado no lado direito ---
           if (usuario != null) ...[
-             const SizedBox(width: 12),
-             Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'DR. ${usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO"}',
+                  usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO",
                   style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 14,
@@ -200,14 +206,14 @@ class AppHeader extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: isActive ? const Color(0xFF317FF5) : Colors.black54,
+            color: isActive ? AppColors.primary : Colors.black54,
             size: 20,
           ),
           const SizedBox(width: 12),
           Text(
             text,
             style: TextStyle(
-              color: isActive ? const Color(0xFF317FF5) : Colors.black87,
+              color: isActive ? AppColors.primary : Colors.black87,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               fontSize: 14,
             ),
@@ -236,17 +242,16 @@ class AppHeader extends StatelessWidget {
         break;
       case 'settings':
         if (title != 'Configurações') {
-           Navigator.push(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const SettingsPage()),
           );
         }
         break;
-        case 'logout':
+      case 'logout':
         final authProvider = context.read<AuthProvider>();
-        Navigator.of(context).popUntil((route) => route.isFirst);
         await authProvider.logout();
         break;
-}
+    }
   }
 }

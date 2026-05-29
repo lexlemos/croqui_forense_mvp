@@ -1,0 +1,26 @@
+{
+  "name": "Croqui Forense Dev Environment",
+  "image": "ghcr.io/cirruslabs/flutter:stable",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "dart.sdkPath": "/usr/bin/cache/dart-sdk",
+        "flutter.sdkPath": "/usr/bin/flutter",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.lint": "explicit"
+        }
+      },
+      "extensions": [
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter",
+        "usernamehw.errorlens",
+        "steoates.autoimport",
+        "alexisbeuve.flutter-snippets",
+        "tomoki1207.pdf"
+      ]
+    }
+  },
+  "postCreateCommand": "flutter pub get",
+  "remoteUser": "vscode"
+}

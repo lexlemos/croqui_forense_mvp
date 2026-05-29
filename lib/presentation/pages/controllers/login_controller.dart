@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class LoginController {
   final matriculaController = TextEditingController();
@@ -25,18 +26,16 @@ class LoginController {
       );
 
     } on AuthException catch (e) {
-      if (context.mounted) {
-        _showSnack(context, e.message, isError: true);
-      }
+      _showSnack(e.message, isError: true);
     } catch (e) {
-      if (context.mounted) {
-        _showSnack(context, 'Erro inesperado. Tente novamente.', isError: true);
-      }
+      _showSnack('Erro inesperado. Tente novamente.', isError: true);
     }
   }
 
-  void _showSnack(BuildContext context, String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
+  void _showSnack(String msg, {bool isError = false}) {
+    final messenger = globalMessengerKey.currentState;
+    if (messenger == null) return;
+    messenger.showSnackBar(
       SnackBar(
         content: Text(msg),
         backgroundColor: isError ? Colors.red[700] : Colors.green,

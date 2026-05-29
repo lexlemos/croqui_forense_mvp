@@ -1,4 +1,4 @@
-import 'package:sqflite_common/sqlite_api.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 
 abstract class IDatabaseFactory {
   Future<Database> openDatabase(

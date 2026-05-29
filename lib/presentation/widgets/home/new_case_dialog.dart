@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class NewCaseDialog extends StatefulWidget {
   const NewCaseDialog({super.key});
@@ -16,13 +17,17 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final _formKey = GlobalKey<FormState>();
 
   final _reqController = TextEditingController();
+  final _boController = TextEditingController();
+  final _picController = TextEditingController(); 
   final _requisitanteController = TextEditingController();
   final _destinoController = TextEditingController();
   final _vitimaController = TextEditingController();
 
   final _vestesController = TextEditingController();
   final _caracteristicasController = TextEditingController();
-  final _tanatologiaController = TextEditingController();
+  final _tanatoImediatoController = TextEditingController();
+  final _tanatoConsecutivoController = TextEditingController();
+  final _tanatoObservacaoController = TextEditingController();
 
   final List<String> _fotosIdentificacao = [];
   final ImagePicker _picker = ImagePicker();
@@ -30,12 +35,16 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   @override
   void dispose() {
     _reqController.dispose();
+    _boController.dispose(); 
+    _picController.dispose(); 
     _requisitanteController.dispose();
     _destinoController.dispose();
     _vitimaController.dispose();
     _vestesController.dispose();
     _caracteristicasController.dispose();
-    _tanatologiaController.dispose();
+    _tanatoImediatoController.dispose();
+    _tanatoConsecutivoController.dispose();
+    _tanatoObservacaoController.dispose();
     super.dispose();
   }
 
@@ -45,6 +54,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         source: ImageSource.camera,
         imageQuality: 50,
         maxWidth: 800,
+        preferredCameraDevice: CameraDevice.rear,
       );
 
       if (photo == null) return;
@@ -55,12 +65,10 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
       await File(photo.path).copy(localPath);
 
-      setState(() {
-        _fotosIdentificacao.add(localPath);
-      });
+      setState(() => _fotosIdentificacao.add(localPath));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        globalMessengerKey.currentState?.showSnackBar(
           SnackBar(content: Text('Erro ao capturar foto: $e')),
         );
       }
@@ -68,20 +76,14 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   }
 
   void _removerFoto(int index) {
-    setState(() {
-      _fotosIdentificacao.removeAt(index);
-    });
+    setState(() => _fotosIdentificacao.removeAt(index));
   }
 
   bool _validarPassoAtual() {
     if (_currentStep == 0) {
-      bool isValid = true;
-      
-      if (_reqController.text.trim().isEmpty) isValid = false;
-
-      if (!isValid) {
+      if (_reqController.text.trim().isEmpty) {
         _formKey.currentState!.validate();
-        ScaffoldMessenger.of(context).showSnackBar(
+        globalMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text("O número da requisição é obrigatório.")),
         );
         return false;
@@ -95,6 +97,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
       final dadosLaudo = {
         'cabecalho': {
           'requisicao': _reqController.text.trim(),
+          'bo': _boController.text.trim(), 
+          'pic': _picController.text.trim(),
           'requisitante': _requisitanteController.text.trim(),
           'destino': _destinoController.text.trim(),
           'vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
@@ -102,20 +106,19 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'identificacao': {
           'vestes': _vestesController.text.trim(),
           'caracteristicas': _caracteristicasController.text.trim(),
-          'dados_tanatologicos': _tanatologiaController.text.trim(),
-          'fotos': _fotosIdentificacao, 
+          'tanato_imediato': _tanatoImediatoController.text.trim(),
+          'tanato_consecutivo': _tanatoConsecutivoController.text.trim(),
+          'tanato_observacao': _tanatoObservacaoController.text.trim(),
+          'fotos_gerais': _fotosIdentificacao, 
         },
-        'conclusao': null 
+        'conclusao': null,
+        'auditoria': null,
       };
 
       Navigator.pop(context, {
         'numero_laudo': _reqController.text.trim(),
         'dados_laudo': dadosLaudo,
       });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(content: Text("Verifique os erros no formulário.")),
-      );
     }
   }
 
@@ -129,20 +132,41 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         content: Column(
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  flex: 2,
                   child: _buildTextField(
                     controller: _reqController, 
                     label: "Nº Requisição", 
-                    icon: Icons.numbers, 
-                    required: true
+                    icon: Icons.assignment, 
+                    required: true,
+                    keyboardType: TextInputType.text,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  flex: 3,
+                  child: _buildTextField(
+                    controller: _boController,
+                    label: "Nº B.O.",
+                    icon: Icons.receipt_long,
+                    keyboardType: TextInputType.text,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _picController, 
+                    label: "Nº PIC", 
+                    icon: Icons.gavel,
+                    required: true,
+                    keyboardType: TextInputType.text,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: _buildTextField(
                     controller: _requisitanteController, 
                     label: "Autoridade Requisitante", 
@@ -154,17 +178,17 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
             const SizedBox(height: 12),
             
             _buildTextField(
-              controller: _destinoController, 
-              label: "Destino do Laudo", 
-              icon: Icons.place
+              controller: _vitimaController, 
+              label: "Nome da Vítima", 
+              icon: Icons.person,
+              textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 12),
 
             _buildTextField(
-              controller: _vitimaController, 
-              label: "Nome da Vítima", 
-              icon: Icons.person, 
-              required: false 
+              controller: _destinoController, 
+              label: "Destino do Laudo", 
+              icon: Icons.place
             ),
           ],
         ),
@@ -175,11 +199,21 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTextField(controller: _vestesController, label: "Vestes / Objetos", icon: Icons.checkroom, maxLines: 2),
+            _buildTextField(controller: _vestesController, label: "Vestes / Objetos", icon: Icons.checkroom, maxLines: null),
             const SizedBox(height: 12),
-            _buildTextField(controller: _caracteristicasController, label: "Características Físicas", icon: Icons.accessibility, maxLines: 2),
+            _buildTextField(controller: _caracteristicasController, label: "Características Físicas", icon: Icons.accessibility, maxLines: null),
+            
+            const SizedBox(height: 20),
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text("Sinais Tanatológicos", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+            ),
+            _buildTextField(controller: _tanatoImediatoController, label: "Sinais Imediatos", icon: Icons.timer_outlined, maxLines: null),
             const SizedBox(height: 12),
-            _buildTextField(controller: _tanatologiaController, label: "Dados Tanatológicos", icon: Icons.hourglass_bottom, maxLines: 2),
+            _buildTextField(controller: _tanatoConsecutivoController, label: "Sinais Consecutivos", icon: Icons.update, maxLines: null),
+            const SizedBox(height: 12),
+            _buildTextField(controller: _tanatoObservacaoController, label: "Comentários Tanatológicos", icon: Icons.comment_outlined, maxLines: null),
             
             const SizedBox(height: 20),
             const Divider(),
@@ -219,32 +253,28 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                       children: [
                         Container(
                           margin: const EdgeInsets.only(right: 8, top: 8),
-                          width: 100,
-                          height: 100,
+                          width: 100, height: 100,
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey[300]!),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(_fotosIdentificacao[index]),
-                              fit: BoxFit.cover,
-                            ),
+                            child: Image.file(File(_fotosIdentificacao[index]), fit: BoxFit.cover, cacheWidth: 200, cacheHeight: 200),
                           ),
                         ),
                         Positioned(
-                          top: 0,
-                          right: 0,
+                          top: -6, right: -6,
                           child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () => _removerFoto(index),
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                child: const Icon(Icons.close, color: Colors.white, size: 16),
                               ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 16),
                             ),
                           ),
                         )
@@ -270,9 +300,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
             currentStep: _currentStep,
             onStepContinue: () {
               if (_currentStep < steps.length - 1) {
-                if (_validarPassoAtual()) {
-                   setState(() => _currentStep += 1);
-                }
+                if (_validarPassoAtual()) setState(() => _currentStep += 1);
               } else {
                 _submit();
               }
@@ -314,11 +342,15 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     required String label,
     required IconData icon,
     bool required = false,
-    int maxLines = 1,
+    int? maxLines = 1,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.sentences,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      keyboardType: keyboardType ?? (maxLines == null ? TextInputType.multiline : TextInputType.text),
+      textCapitalization: textCapitalization,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
@@ -327,7 +359,6 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         suffixIcon: required 
           ? const Icon(Icons.star, size: 8, color: Colors.red) 
           : null,
-        suffixIconConstraints: const BoxConstraints(minWidth: 16, minHeight: 0),
       ),
       validator: required 
         ? (val) => (val == null || val.trim().isEmpty) ? 'Obrigatório' : null 
