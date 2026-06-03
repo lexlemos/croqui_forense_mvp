@@ -462,9 +462,11 @@ class PdfService {
   }
 
   Future<List<pw.Widget>> _gerarMapasSVG(List<Achado> achados) async {
-    if (achados.isEmpty) return [];
+    final activeAchados = achados.where((a) => !a.removido).toList();
+    if (activeAchados.isEmpty) return [];
+
     Map<String, List<Achado>> porFolha = {};
-    for (var a in achados) {
+    for (var a in activeAchados) {
       String view = a.dadosPreenchidos['view'] ?? 'frente';
       porFolha.putIfAbsent(view, () => []).add(a);
     }
@@ -472,9 +474,14 @@ class PdfService {
 
     for (var view in porFolha.keys) {
       String assetPath = 'assets/images/croqui-frente.svg';
-      if(view == 'costas') assetPath = 'assets/images/croqui-costas.svg';
-      if(view == 'lateral_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
-      if(view == 'lateral_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
+      if (view == 'costas' || view == 'back') assetPath = 'assets/images/croqui-costas.svg';
+      if (view == 'lateral_dir') assetPath = 'assets/images/face-lateral-direita.svg';
+      if (view == 'lateral_esq') assetPath = 'assets/images/face-lateral-esquerda.svg';
+      if (view == 'trunk_dir') assetPath = 'assets/images/tronco-direito-contorno.svg';
+      if (view == 'trunk_esq') assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
+      if (view == 'perineal') assetPath = 'assets/images/perineo.svg';
+      if (view == 'face_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
+      if (view == 'face_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
 
       String svgRaw = await rootBundle.loadString(assetPath);
       svgRaw = svgRaw.replaceAll(RegExp(r'xmlns:inkscape=".*?"'), '').replaceAll(RegExp(r'xmlns:sodipodi=".*?"'), '');
