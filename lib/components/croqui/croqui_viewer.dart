@@ -74,13 +74,21 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
   Future<void> _loadMask() async {
     if (!mounted) return;
+    
+    final String currentLoadPath = widget.maskPath;
+
     setState(() {
       _isLoadingMask = true;
       _errorMessage = null;
+      _uiMaskImage?.dispose();
+      _uiMaskImage = null;
+      _rawMaskBytes = null;
+      _maskWidth = 0;
+      _maskHeight = 0;
     });
 
     try {
-      final ByteData data = await rootBundle.load(widget.maskPath);
+      final ByteData data = await rootBundle.load(currentLoadPath);
       final Uint8List bytes = data.buffer.asUint8List();
 
       // Decode using native C++ engine codec off the main thread
@@ -92,6 +100,11 @@ class _CroquiViewerState extends State<CroquiViewer> {
       final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
 
       if (!mounted) {
+        uiImage.dispose();
+        return;
+      }
+
+      if (widget.maskPath != currentLoadPath) {
         uiImage.dispose();
         return;
       }
@@ -108,7 +121,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
     } catch (e) {
       debugPrint("Erro ao carregar máscara: $e");
-      if (mounted) {
+      if (mounted && widget.maskPath == currentLoadPath) {
         setState(() {
           _errorMessage = e.toString();
           _isLoadingMask = false;
@@ -189,56 +202,63 @@ class _CroquiViewerState extends State<CroquiViewer> {
         maxScale: 5.0,
         boundaryMargin: const EdgeInsets.all(double.infinity),
         child: Center(
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: _maskWidth.toDouble(),
-              height: _maskHeight.toDouble(),
-              child: Stack(
-                key: _imageKey,
-                children: [
-                  Positioned.fill(
-                    child: _getSvgBackground(),
-                  ),
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTapUp: _handleTap,
-                    ),
-                  ),
+          child: AspectRatio(
+            aspectRatio: _maskWidth / _maskHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double containerWidth = constraints.maxWidth;
+                final double containerHeight = constraints.maxHeight;
 
-                  ...widget.markers.map((marker) {
-                    double left = marker.posX * _maskWidth;
-                    double top = marker.posY * _maskHeight;
-                    const double iconSize = 40.0;
-
-                    return Positioned(
-                      left: left - (iconSize / 2),
-                      top: top - iconSize,
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: iconSize,
-                        shadows: [
-                          Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(2, 2))
-                        ],
-                      ),
-                    );
-                  }),
-
-                  if (_isLoadingMask)
+                return Stack(
+                  key: _imageKey,
+                  children: [
                     Positioned.fill(
-                      child: Container(
-                        color: Colors.black12,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.indigo,
+                      child: _getSvgBackground(),
+                    ),
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTapUp: _handleTap,
+                      ),
+                    ),
+
+                    ...widget.markers.where((marker) {
+                      final String? bodyPartId = marker.dadosPreenchidos['local_anatomico_id']?.toString();
+                      if (bodyPartId == null) return false;
+                      return widget.idToDefMap.containsKey(bodyPartId);
+                    }).map((marker) {
+                      double left = marker.posX * containerWidth;
+                      double top = marker.posY * containerHeight;
+                      const double iconSize = 24.0;
+
+                      return Positioned(
+                        left: left - (iconSize / 2),
+                        top: top - iconSize,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: iconSize,
+                          shadows: [
+                            Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(2, 2))
+                          ],
+                        ),
+                      );
+                    }),
+
+                    if (_isLoadingMask)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black12,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.indigo,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
+                  ],
+                );
+              },
             ),
           ),
         ),

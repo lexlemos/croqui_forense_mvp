@@ -4,7 +4,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -14,32 +13,40 @@ import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
 class PdfService {
+  // Cache estático para assets pesados (evita I/O redundante entre chamadas)
+  static pw.Font? _cachedFontRegular;
+  static pw.Font? _cachedFontBold;
+  static pw.MemoryImage? _cachedLogoPolicia;
+
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
     required Usuario perito,
     Map<String, dynamic>? schemas,
   }) async {
-    await initializeDateFormatting('pt_BR', null);
     final pdf = pw.Document();
 
-    final fontRegular = pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Regular.ttf"));
-    final fontBold = pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Bold.ttf"));
-    final theme = pw.ThemeData.withFont(base: fontRegular, bold: fontBold);
+    // Carrega fontes do cache ou do bundle (apenas na primeira vez)
+    _cachedFontRegular ??= pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Regular.ttf"));
+    _cachedFontBold ??= pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Bold.ttf"));
+    final theme = pw.ThemeData.withFont(base: _cachedFontRegular!, bold: _cachedFontBold!);
 
-    pw.MemoryImage? logoPolicia;
-    try {
-      final ByteData data = await rootBundle.load('assets/images/logo/logo-policia-se.jpeg');
-      logoPolicia = pw.MemoryImage(data.buffer.asUint8List());
-    } catch (e) {
-      debugPrint("Erro ao carregar logo: $e");
+    // Carrega logo do cache ou do bundle (apenas na primeira vez)
+    if (_cachedLogoPolicia == null) {
+      try {
+        final ByteData data = await rootBundle.load('assets/images/logo/logo-policia-se.jpeg');
+        _cachedLogoPolicia = pw.MemoryImage(data.buffer.asUint8List());
+      } catch (e) {
+        debugPrint("Erro ao carregar logo: $e");
+      }
     }
+    final pw.MemoryImage? logoPolicia = _cachedLogoPolicia;
 
     final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
     final List<Achado> achadosInternos = achados.where((a) => a.isInterno).toList();
 
     List<Map<String, dynamic>> anexosFotos = await _prepararFotos(caso, achados);
-    final croquisWidgets = await _gerarMapasSVG(achados);
+    final croquisWidgets = await _gerarMapasSVG(achados, caso);
 
     final pageTheme = pw.PageTheme(
       pageFormat: PdfPageFormat.a4,
@@ -201,7 +208,7 @@ class PdfService {
           
           final List<pw.Widget> columnChildren = [
             pw.Bullet(
-              text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
+              text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
               style: const pw.TextStyle(fontSize: 10),
             ),
           ];
@@ -249,7 +256,7 @@ class PdfService {
         
         final List<pw.Widget> columnChildren = [
           pw.Bullet(
-            text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
+            text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
             style: const pw.TextStyle(fontSize: 10),
           ),
         ];
@@ -461,7 +468,7 @@ class PdfService {
     return anexos;
   }
 
-  Future<List<pw.Widget>> _gerarMapasSVG(List<Achado> achados) async {
+  Future<List<pw.Widget>> _gerarMapasSVG(List<Achado> achados, Caso caso) async {
     final activeAchados = achados.where((a) => !a.removido).toList();
     if (activeAchados.isEmpty) return [];
 
@@ -479,20 +486,75 @@ class PdfService {
       if (view == 'lateral_esq') assetPath = 'assets/images/face-lateral-esquerda.svg';
       if (view == 'trunk_dir') assetPath = 'assets/images/tronco-direito-contorno.svg';
       if (view == 'trunk_esq') assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
-      if (view == 'perineal') assetPath = 'assets/images/perineo.svg';
+      if (view == 'perineal') {
+        final dadosId = caso.dadosLaudo['identificacao'];
+        final String sexo = (dadosId != null && dadosId['sexo'] != null)
+            ? dadosId['sexo'].toString()
+            : 'Masculino';
+        assetPath = (sexo == 'Feminino')
+            ? 'assets/images/perineo_feminino.svg'
+            : 'assets/images/perineo_masculino.svg';
+      }
       if (view == 'face_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
       if (view == 'face_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
 
       String svgRaw = await rootBundle.loadString(assetPath);
-      svgRaw = svgRaw.replaceAll(RegExp(r'xmlns:inkscape=".*?"'), '').replaceAll(RegExp(r'xmlns:sodipodi=".*?"'), '');
+      // Remove namespaces desnecessários do Inkscape
+      svgRaw = svgRaw
+          .replaceAll(RegExp(r'xmlns:inkscape="[^"]*"'), '')
+          .replaceAll(RegExp(r'xmlns:sodipodi="[^"]*"'), '');
+
+      // --- INÍCIO DA LIMPEZA DE CORES (WHITELIST) ---
+      // Estratégia: qualquer fill que NÃO seja preto, branco ou none é removido.
+
+      // 1. Atributos diretos: fill="blue", fill="#404000", fill='rgba(...)'
+      svgRaw = svgRaw.replaceAllMapped(
+        RegExp(r'fill\s*=\s*["\x27]([^"\x27]+)["\x27]', caseSensitive: false),
+        (match) {
+          final color = match.group(1)!.toLowerCase().trim().replaceAll(' ', '');
+          if (color == '#000000' || color == '#000' || color == 'black' ||
+              color == '#ffffff' || color == '#fff' || color == 'white' ||
+              color == 'none') {
+            return match.group(0)!;
+          }
+          return 'fill="none"';
+        },
+      );
+
+      // 2. Propriedades CSS (inline ou em bloco <style>): fill: yellow; fill: rgba(...)
+      svgRaw = svgRaw.replaceAllMapped(
+        RegExp(r'fill\s*:\s*([^;\s"\x27{}]+)', caseSensitive: false),
+        (match) {
+          final color = match.group(1)!.toLowerCase().trim().replaceAll(' ', '');
+          if (color == '#000000' || color == '#000' || color == 'black' ||
+              color == '#ffffff' || color == '#fff' || color == 'white' ||
+              color == 'none') {
+            return match.group(0)!;
+          }
+          return 'fill:none';
+        },
+      );
+      // --- FIM DA LIMPEZA DE CORES ---
 
       widgets.add(pw.Wrap(children: [
         pw.Container(margin: const pw.EdgeInsets.only(bottom: 20, left: 15), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
           pw.Text("VISTA: ${view.toUpperCase()}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
           pw.SizedBox(height: 5),
           pw.Container(width: 318.0, height: 450.0, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)), child: pw.Stack(children: [
-            pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.fill)),
-            ...porFolha[view]!.map((a) {
+            pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.contain)),
+            ...porFolha[view]!.where((a) {
+              if (view == 'perineal') {
+                final String? bodyPartId = a.dadosPreenchidos['local_anatomico_id']?.toString();
+                if (bodyPartId == null) return false;
+                final dadosId = caso.dadosLaudo['identificacao'];
+                final String sexo = (dadosId != null && dadosId['sexo'] != null)
+                    ? dadosId['sexo'].toString()
+                    : 'Masculino';
+                final bool isMale = (sexo == 'Masculino');
+                return bodyPartId.startsWith(isMale ? 'male_' : 'female_');
+              }
+              return true;
+            }).map((a) {
               double left = (a.posX.isNaN ? 0.5 : a.posX) * 318.0;
               double top = (a.posY.isNaN ? 0.5 : a.posY) * 450.0;
               return pw.Positioned(left: left - 7, top: top - 7, child: pw.Container(width: 14, height: 14, alignment: pw.Alignment.center, decoration: const pw.BoxDecoration(color: PdfColors.red, shape: pw.BoxShape.circle), child: pw.Text(a.numeroSequencial.toString(), style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold))));
