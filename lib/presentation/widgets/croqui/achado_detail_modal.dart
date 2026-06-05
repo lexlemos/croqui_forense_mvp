@@ -34,6 +34,7 @@ class AchadoDetailModal extends StatelessWidget {
             children: [
               _buildHeader(tipo, local, tagColor),
               _buildTechnicalInfo(d),
+              _buildDynamicFields(d['dynamicFields'] is Map ? Map<String, dynamic>.from(d['dynamicFields']) : null),
               if (achado.observacoesTexto?.isNotEmpty == true) _buildObservations(achado.observacoesTexto!),
               if (photoPath != null && File(photoPath).existsSync()) _buildPhoto(photoPath),
               _buildFooter(context),
@@ -164,4 +165,104 @@ class AchadoDetailModal extends StatelessWidget {
           Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
         ],
       );
+
+  Widget _buildDynamicFields(Map<String, dynamic>? dynamicFields) {
+    final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(dynamicFields ?? {});
+
+    mapToShow.removeWhere((key, value) =>
+      key.startsWith('_') ||
+      value == null ||
+      (value is String && value.trim().isEmpty) ||
+      key == 'photo_path' ||
+      key == 'photoPath' ||
+      key == 'view' ||
+      key == 'local_anatomico_id' ||
+      key == 'local_anatomico_nome' ||
+      key == 'type_label' ||
+      key == 'typeId' ||
+      key == 'is_interno' ||
+      key == 'isInterno' ||
+      key == 'achadoRelacionadoUuid'
+    );
+
+    if (achado.achadoRelacionadoUuid != null && achado.achadoRelacionadoUuid!.isNotEmpty) {
+      final uuid = achado.achadoRelacionadoUuid!;
+      mapToShow['orificio_entrada_vinculo'] = 'Vinculado (ID: ${uuid.length >= 8 ? uuid.substring(0, 8) : uuid})';
+    }
+
+    if (mapToShow.isEmpty) return const SizedBox.shrink();
+
+    final Map<String, String> keyLabels = {
+      'tipo_orificio': 'Tipo de Orifício',
+      'orificio_entrada_vinculo': 'Orifício de Entrada Vinculado',
+      'numero_orificios': 'Quantidade de Orifícios',
+      'quantidade': 'Quantidade',
+      'numero_lesoes': 'Quantidade de Lesões',
+      'trajeto': 'Trajeto da Lesão',
+      'zona_tatuagem': 'Zona de Tatuagem',
+      'zona_esfumacamento': 'Zona de Esfumaçamento',
+      'efeitos_secundarios': 'Efeitos Secundários',
+      'vestigios': 'Vestígios de Pólvora/Chumbo',
+    };
+
+    String formatKey(String key) {
+      if (keyLabels.containsKey(key)) return keyLabels[key]!;
+      final words = key.split('_');
+      return words.map((w) {
+        if (w.isEmpty) return '';
+        return w[0].toUpperCase() + w.substring(1);
+      }).join(' ');
+    }
+
+    String formatValue(dynamic val) {
+      if (val is bool) {
+        return val ? 'Sim' : 'Não';
+      }
+      return val?.toString() ?? '-';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "CARACTERÍSTICAS DA LESÃO:",
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            ...mapToShow.entries.map((entry) {
+              final label = formatKey(entry.key);
+              final val = formatValue(entry.value);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "$label: ",
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                    Expanded(
+                      child: Text(
+                        val,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 }

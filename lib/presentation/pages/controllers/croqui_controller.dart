@@ -20,8 +20,13 @@ import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart
 import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
-import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart';
-import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart';
+import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;
+import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart' as face_left;
+import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart' as lat_right;
+import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart' as lat_left;
+import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart' as trunk_right;
+import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart' as trunk_left;
+import 'package:croqui_forense_mvp/core/constants/perineal_data.dart' as perineal;
 
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
@@ -32,6 +37,8 @@ class CroquiController extends ChangeNotifier {
   Caso casoAtual;
   List<Achado> achados = [];
   bool isLoading = false;
+  bool _isExporting = false;
+  bool get isExporting => _isExporting;
 
   bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
 
@@ -272,11 +279,17 @@ class CroquiController extends ChangeNotifier {
     }
   }
   Future<void> exportarCaso(BuildContext context) async {
+    if (_isExporting) return;
+    _isExporting = true;
+    notifyListeners();
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final usuarioLogado = auth.usuario;
 
     if (usuarioLogado == null) {
       globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
+      _isExporting = false;
+      notifyListeners();
       return;
     }
 
@@ -287,10 +300,16 @@ class CroquiController extends ChangeNotifier {
         await _caseService.salvarRascunho(casoAtual);
       }
 
+      final injuryTypes = await _injuryTypeRepository.getAllTypes();
+      final Map<String, dynamic> schemas = {
+        for (var t in injuryTypes) t.id: t.schemaFormulario
+      };
+
       final pdfBytes = await PdfService().gerarLaudoPdf(
         caso: casoAtual,
         achados: achados,
         perito: usuarioLogado,
+        schemas: schemas,
       );
 
       final tempDir = await getTemporaryDirectory();
@@ -311,6 +330,9 @@ class CroquiController extends ChangeNotifier {
       debugPrint("Erro na exportação do PDF: $e");
       globalMessengerKey.currentState?.hideCurrentSnackBar();
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
+    } finally {
+      _isExporting = false;
+      notifyListeners();
     }
   }
   Future<void> _reloadCaso() async {
@@ -319,11 +341,63 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String get sexoDoExaminado {
+    final dadosId = casoAtual.dadosLaudo['identificacao'];
+    if (dadosId != null && dadosId['sexo'] != null) {
+      final s = dadosId['sexo'].toString().trim().toLowerCase();
+      return s.startsWith('f') ? 'Feminino' : 'Masculino';
+    }
+    final caracteristicas = dadosId?['caracteristicas']?.toString().toLowerCase() ?? '';
+    if (caracteristicas.contains('feminino') || caracteristicas.contains('mulher')) {
+      return 'Feminino';
+    }
+    if (caracteristicas.contains('masculino') || caracteristicas.contains('homem')) {
+      return 'Masculino';
+    }
+    return 'Indeterminado'; 
+  }
+
+  Future<void> alterarSexoExaminado(BuildContext context, String novoSexo) async {
+    final novosDados = Map<String, dynamic>.from(casoAtual.dadosLaudo);
+    final Map<String, dynamic> ident = novosDados['identificacao'] != null
+        ? Map<String, dynamic>.from(novosDados['identificacao'] as Map)
+        : {};
+    novosDados['identificacao'] = {
+      ...ident,
+      'sexo': novoSexo,
+    };
+    
+     final caracteristicas = novosDados['identificacao']['caracteristicas']?.toString() ?? '';
+    if (caracteristicas.isEmpty || caracteristicas.toLowerCase().contains('sexo xxx')) {
+      novosDados['identificacao']['caracteristicas'] = 
+        'Cadáver do sexo ${novoSexo.toLowerCase()}, raça XXX, estado nutricional XXX, e idade aparente de XX anos.';
+    } else if (novoSexo == 'Feminino') {
+      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll(RegExp(r'sexo masculino', caseSensitive: false), 'sexo feminino');
+    } else if (novoSexo == 'Masculino') {
+      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll(RegExp(r'sexo feminino', caseSensitive: false), 'sexo masculino');
+    }
+
+    atualizarDadosLaudoMemoria(novosDados);
+    
+    if (!isReadOnly) {
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+      } catch (e) {
+        debugPrint("Erro ao salvar rascunho após alterar sexo: $e");
+      }
+    }
+  }
+
   String _resolveBodyPartName(String view, String partId) {
-    if (view == 'frente' && kIdToDefinitionFrontMap.containsKey(partId)) return kIdToDefinitionFrontMap[partId]!.name;
-    if (view == 'costas' && kIdToDefinitionBackMap.containsKey(partId)) return kIdToDefinitionBackMap[partId]!.name;
-    if (view == 'lateral_dir' && kIdToDefinitionLateralRightMap.containsKey(partId)) return kIdToDefinitionLateralRightMap[partId]!.name;
-    if (view == 'lateral_esq' && kIdToDefinitionLateralLeftMap.containsKey(partId)) return kIdToDefinitionLateralLeftMap[partId]!.name;
+    if ((view == 'frente' || view == 'front') && kIdToDefinitionFrontMap.containsKey(partId)) return kIdToDefinitionFrontMap[partId]!.name;
+    if ((view == 'costas' || view == 'back') && kIdToDefinitionBackMap.containsKey(partId)) return kIdToDefinitionBackMap[partId]!.name;
+    if (view == 'lateral_dir' && lat_right.kIdToDefinitionLateralRightMap.containsKey(partId)) return lat_right.kIdToDefinitionLateralRightMap[partId]!.name;
+    if (view == 'lateral_esq' && lat_left.kIdToDefinitionLateralLeftMap.containsKey(partId)) return lat_left.kIdToDefinitionLateralLeftMap[partId]!.name;
+    if (view == 'trunk_dir' && trunk_right.kIdToDefinitionTrunkRightMap.containsKey(partId)) return trunk_right.kIdToDefinitionTrunkRightMap[partId]!.name;
+    if (view == 'trunk_esq' && trunk_left.kIdToDefinitionTrunkLeftMap.containsKey(partId)) return trunk_left.kIdToDefinitionTrunkLeftMap[partId]!.name;
+    if (view == 'perineal' && perineal.kIdToDefinitionPerinealMap.containsKey(partId)) return perineal.kIdToDefinitionPerinealMap[partId]!.name;
+    if (view == 'face_dir' && face_right.kIdToDefinitionLateralRightMap.containsKey(partId)) return face_right.kIdToDefinitionLateralRightMap[partId]!.name;
+    if (view == 'face_esq' && face_left.kIdToDefinitionLateralLeftMap.containsKey(partId)) return face_left.kIdToDefinitionLateralLeftMap[partId]!.name;
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 

@@ -1,7 +1,7 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:image/image.dart' as img;
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 
@@ -35,11 +35,15 @@ class CroquiViewer extends StatefulWidget {
 }
 
 class _CroquiViewerState extends State<CroquiViewer> {
-  img.Image? _maskImage;
-  bool _isLoading = true;
+  ByteData? _rawMaskBytes;
+  bool _isLoadingMask = true;
   String? _errorMessage;
-  
   final GlobalKey _imageKey = GlobalKey();
+
+  int _maskWidth = 0;
+  int _maskHeight = 0;
+
+  Widget? _cachedSvg;
 
   @override
   void initState() {
@@ -53,31 +57,71 @@ class _CroquiViewerState extends State<CroquiViewer> {
     if (oldWidget.maskPath != widget.maskPath) {
       _loadMask();
     }
+    if (oldWidget.svgPath != widget.svgPath) {
+      _cachedSvg = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _rawMaskBytes = null;
+    _cachedSvg = null;
+    super.dispose();
   }
 
   Future<void> _loadMask() async {
+    if (!mounted) return;
+    
+    final String currentLoadPath = widget.maskPath;
+
     setState(() {
-      _isLoading = true;
+      _isLoadingMask = true;
       _errorMessage = null;
+      _rawMaskBytes = null;
     });
 
+    ui.Image? uiImage;
     try {
-      final ByteData data = await rootBundle.load(widget.maskPath);
+      final ByteData data = await rootBundle.load(currentLoadPath);
       final Uint8List bytes = data.buffer.asUint8List();
-      _maskImage = img.decodeImage(bytes);
-      
-      if (_maskImage == null) throw Exception("Falha ao decodificar imagem");
 
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      uiImage = frameInfo.image;
+
+      final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+
+      if (!mounted || widget.maskPath != currentLoadPath) return;
+
+      if (rawBytes == null) {
+        throw Exception("Falha ao obter bytes da máscara"); 
+      }
+
+      final int width = uiImage.width;
+      final int height = uiImage.height;
+
+      setState(() {
+        _rawMaskBytes = rawBytes;
+        _maskWidth = width;
+        _maskHeight = height;
+        _isLoadingMask = false;
+      });
     } catch (e) {
       debugPrint("Erro ao carregar máscara: $e");
-      setState(() => _errorMessage = e.toString());
+      if (mounted && widget.maskPath == currentLoadPath) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoadingMask = false;
+        });
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      // Garantia absoluta de liberação do recurso nativo C++
+      uiImage?.dispose();
     }
   }
 
   void _handleTap(TapUpDetails details) {
-    if (_maskImage == null) return;
+    if (_rawMaskBytes == null || _maskWidth <= 0 || _maskHeight <= 0) return;
 
     final RenderBox? box = _imageKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
@@ -88,27 +132,60 @@ class _CroquiViewerState extends State<CroquiViewer> {
     double xPercent = localPos.dx / widgetSize.width;
     double yPercent = localPos.dy / widgetSize.height;
 
-    final int imgX = (xPercent * _maskImage!.width).floor();
-    final int imgY = (yPercent * _maskImage!.height).floor();
+    final int imgX = (xPercent * _maskWidth).floor();
+    final int imgY = (yPercent * _maskHeight).floor();
 
-    if (imgX < 0 || imgX >= _maskImage!.width || imgY < 0 || imgY >= _maskImage!.height) return;
+    if (imgX < 0 || imgX >= _maskWidth || imgY < 0 || imgY >= _maskHeight) return;
 
-    final pixel = _maskImage!.getPixel(imgX, imgY);
-    int colorInt = (0xFF << 24) | (pixel.r.toInt() << 16) | (pixel.g.toInt() << 8) | pixel.b.toInt();
+    final int pixelOffset = (imgY * _maskWidth + imgX) * 4;
+    final ByteData rawBytes = _rawMaskBytes!;
+    if (pixelOffset < 0 || pixelOffset + 4 > rawBytes.lengthInBytes) return;
+
+    final int r = rawBytes.getUint8(pixelOffset);
+    final int g = rawBytes.getUint8(pixelOffset + 1);
+    final int b = rawBytes.getUint8(pixelOffset + 2);
+    final int a = rawBytes.getUint8(pixelOffset + 3);
+
+    int colorInt = (a << 24) | (r << 16) | (g << 8) | b;
 
     final String? foundId = widget.colorToIdMap[colorInt];
+    if (foundId == null) return; // early return for unmapped color
 
-    if (foundId != null) {
-      final def = widget.idToDefMap[foundId];
-      widget.onPartTap(foundId, def?.name ?? "Desconhecido", xPercent, yPercent);
-    }
+    final def = widget.idToDefMap[foundId];
+    if (def == null) return; // early return if definition is not in currently active dictionary (e.g. wrong sex)
+
+    widget.onPartTap(foundId, def.name, xPercent, yPercent);
   }
 
-@override
+  Widget _getSvgBackground() {
+    _cachedSvg ??= RepaintBoundary(
+      child: SvgPicture.asset(
+        widget.svgPath,
+        fit: BoxFit.fill,
+      ),
+    );
+    return _cachedSvg!;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_errorMessage != null) return Center(child: Text("Erro: $_errorMessage", style: const TextStyle(color: Colors.red)));
-    if (_maskImage == null) return const SizedBox();
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            "Erro ao carregar diagrama: $_errorMessage",
+            style: const TextStyle(color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final bool showCanvas = _maskWidth > 0 && _maskHeight > 0;
+    if (!showCanvas) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Center(
       child: InteractiveViewer(
@@ -116,49 +193,63 @@ class _CroquiViewerState extends State<CroquiViewer> {
         maxScale: 5.0,
         boundaryMargin: const EdgeInsets.all(double.infinity),
         child: Center(
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: _maskImage!.width.toDouble(),
-              height: _maskImage!.height.toDouble(),
-              child: Stack(
-                key: _imageKey, 
-                children: [
-                  Positioned.fill(
-                    child: SvgPicture.asset(
-                      widget.svgPath,
-                      fit: BoxFit.fill, 
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTapUp: _handleTap,
-                    ),
-                  ),
+          child: AspectRatio(
+            aspectRatio: _maskWidth / _maskHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double containerWidth = constraints.maxWidth;
+                final double containerHeight = constraints.maxHeight;
 
-                  ...widget.markers.map((marker) {
-                    
-                    double left = marker.posX * _maskImage!.width;
-                    double top = marker.posY * _maskImage!.height;
-                    const double iconSize = 40.0; 
-
-                    return Positioned(
-                      left: left - (iconSize / 2), 
-                      top: top - iconSize,        
-                      
-                      child: const Icon(
-                        Icons.location_on, 
-                        color: Colors.red, 
-                        size: iconSize,
-                        shadows: [
-                          Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(2, 2))
-                        ],
+                return Stack(
+                  key: _imageKey,
+                  children: [
+                    Positioned.fill(
+                      child: _getSvgBackground(),
+                    ),
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTapUp: _handleTap,
                       ),
-                    );
-                  }),
-                ],
-              ),
+                    ),
+
+                    ...widget.markers.where((marker) {
+                      final String? bodyPartId = marker.dadosPreenchidos['local_anatomico_id']?.toString();
+                      if (bodyPartId == null) return false;
+                      return widget.idToDefMap.containsKey(bodyPartId);
+                    }).map((marker) {
+                      double left = (marker.posX.isNaN ? 0.5 : marker.posX) * containerWidth;
+                      double top = (marker.posY.isNaN ? 0.5 : marker.posY) * containerHeight;
+                      const double iconSize = 24.0;
+
+                      return Positioned(
+                        left: left - (iconSize / 2),
+                        top: top - iconSize,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: iconSize,
+                          shadows: [
+                            Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(2, 2))
+                          ],
+                        ),
+                      );
+                    }),
+
+                    if (_isLoadingMask)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black12,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.indigo,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ),

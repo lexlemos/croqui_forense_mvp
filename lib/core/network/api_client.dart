@@ -1,4 +1,3 @@
-// lib/core/network/api_client.dart
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -9,7 +8,6 @@ const String _kBaseUrl = 'http://192.168.15.88:8000/api/v1/';
 const Duration _kConnectTimeout = Duration(seconds: 5);
 const Duration _kDataTimeout = Duration(seconds: 8);
 
-/// Lançada quando o refresh token falha e o usuário deve re-autenticar.
 class SessionExpiredException implements Exception {
   @override
   String toString() => 'Sessão expirada. Faça login novamente.';
@@ -72,7 +70,6 @@ class AuthInterceptor extends QueuedInterceptor {
       );
     }
 
-    // Tenta refresh silencioso
     try {
      final refreshDio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
      final response = await refreshDio.post(
@@ -151,17 +148,10 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 }
 
-// ===========================================================================
-// API CLIENT
-// ===========================================================================
-
-/// Cliente HTTP centralizado da aplicação "Croqui Forense".
 class ApiClient {
   late final Dio dio;
   final KeyStorageInterface _keyStorage;
 
-  /// Callback invocado quando a sessão expira irrecuperavelmente.
-  /// A UI deve observar e redirecionar para o login.
   VoidCallback? onSessionExpired;
 
   ApiClient(this._keyStorage, {String baseUrl = _kBaseUrl}) {
@@ -193,7 +183,28 @@ class ApiClient {
           responseBody: true,
           requestHeader: true,
           responseHeader: false,
-          logPrint: (object) => debugPrint('[Dio] $object'),
+          logPrint: (object) {
+            if (!kDebugMode) return;
+            final logStr = object.toString();
+
+            if (logStr.length > 5000) {
+              debugPrint('[Dio] ⚠️ Payload gigante detectado (${logStr.length} chars). Omitido para evitar lag na UI.');
+              debugPrint('[Dio] Preview: ${logStr.substring(0, 250)}...');
+              return;
+            }
+
+            final logStrLower = logStr.toLowerCase();
+            if (logStrLower.contains('senha') ||
+                logStrLower.contains('password') ||
+                logStrLower.contains('authorization') ||
+                logStrLower.contains('access_token') ||
+                logStrLower.contains('refresh_token') ||
+                logStrLower.contains('hash_pin_offline')) {
+              debugPrint('[Dio] 🔒 Payload contendo dados sensíveis ocultado.');
+            } else {
+              debugPrint('[Dio] $logStr');
+            }
+          },
         ),
     ]);
   }

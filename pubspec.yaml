@@ -96,6 +96,18 @@ flutter:
     - assets/images/croqui-rosto-direito-mask.png
     - assets/images/croqui-rosto-frente.svg
     - assets/images/croqui-rosto-frente-mask.png
+    - assets/images/face-lateral-direita.svg
+    - assets/images/face-lateral-direita.png
+    - assets/images/face-lateral-esquerda.svg
+    - assets/images/face-lateral-esquerda.png
+    - assets/images/tronco-direito-contorno.svg
+    - assets/images/tronco-direito-mask.png
+    - assets/images/tronco-esquerdo-contorno.svg
+    - assets/images/tronco-esquerdo-mask.png
+    - assets/images/perineo_masculino.svg
+    - assets/images/perineo_masculino.png
+    - assets/images/perineo_feminino.svg
+    - assets/images/perineo_feminino.png
     - assets/images/logo/logo-policia-se.jpeg
     - assets/images/logo/logo-croqui.png
     - assets/images/logo/icon-croqui.png

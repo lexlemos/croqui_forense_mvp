@@ -118,6 +118,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               return legacy;
             },
           );
+
+          final autoRelKey = _findAutoRelacionamentoKey();
+          if (autoRelKey != null && widget.achadoToEdit?.achadoRelacionadoUuid != null) {
+            _dynamicData[autoRelKey] = widget.achadoToEdit!.achadoRelacionadoUuid;
+          }
         }
       });
     } catch(e) {
@@ -227,13 +232,16 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                     labelText: "Valor personalizado (cm)",
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o tamanho' : null,
+                  validator: null,
                 ),
               ],
               const SizedBox(height: 20),
 
               _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
-              _buildPhotoPicker(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 60), // Aumente este valor para diminuir a foto
+                child: _buildPhotoPicker(),
+              ),
               const SizedBox(height: 20),
 
               _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
@@ -364,7 +372,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       _isCustomSize = v == 'Outro';
       if (!_isCustomSize) _customSizeController.clear();
     }),
-    validator: (v) => (v == null || v.isEmpty) ? 'Obrigatório' : null,
+    validator: null,
   );
 
   Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, bool isNumeric) => TextFormField(
@@ -377,33 +385,35 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     ),
   );
 
-  Widget _buildPhotoPicker() => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTap: _currentPhotoPath == null ? _takePhoto : () => _showPhotoOptions(),
-    child: Container(
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
+  Widget _buildPhotoPicker() => AspectRatio(
+    aspectRatio: 1,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _currentPhotoPath == null ? _takePhoto : () => _showPhotoOptions(),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
+        ),
+        child: _currentPhotoPath == null
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_a_photo, size: 32, color: Colors.indigo),
+                  SizedBox(height: 8),
+                  Text("Capturar Imagem", style: TextStyle(color: Colors.indigo, fontSize: 12, fontWeight: FontWeight.bold)),
+                ],
+              )
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300, cacheHeight: 300)),
+                  Container(color: Colors.black26),
+                  const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
+                ],
+              ),
       ),
-      child: _currentPhotoPath == null
-          ? const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_a_photo, size: 32, color: Colors.indigo),
-                SizedBox(height: 8),
-                Text("Capturar Imagem", style: TextStyle(color: Colors.indigo, fontSize: 12, fontWeight: FontWeight.bold)),
-              ],
-            )
-          : Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300, cacheHeight: 300)),
-                Container(color: Colors.black26),
-                const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
-              ],
-            ),
     ),
   );
 
@@ -429,6 +439,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final localPath = '${appDir.path}/evidencias/${const Uuid().v4()}.jpg';
       await Directory('${appDir.path}/evidencias').create(recursive: true);
       await File(photo.path).copy(localPath);
+      if (!mounted) return;
       setState(() => _currentPhotoPath = localPath);
     } catch (e) {
       debugPrint("Erro câmera: $e");

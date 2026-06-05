@@ -4,7 +4,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -14,31 +13,36 @@ import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
 class PdfService {
+  static Future<pw.Font>? _cachedFontRegularFuture;
+  static Future<pw.Font>? _cachedFontBoldFuture;
+  static Future<pw.MemoryImage?>? _cachedLogoPoliciaFuture;
+
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
     required Usuario perito,
+    Map<String, dynamic>? schemas,
   }) async {
-    await initializeDateFormatting('pt_BR', null);
     final pdf = pw.Document();
 
-    final fontRegular = pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Regular.ttf"));
-    final fontBold = pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Bold.ttf"));
-    final theme = pw.ThemeData.withFont(base: fontRegular, bold: fontBold);
-
-    pw.MemoryImage? logoPolicia;
-    try {
-      final ByteData data = await rootBundle.load('assets/images/logo/logo-policia-se.jpeg');
-      logoPolicia = pw.MemoryImage(data.buffer.asUint8List());
-    } catch (e) {
+    _cachedFontRegularFuture ??= rootBundle.load("assets/fonts/Roboto-Regular.ttf").then((data) => pw.Font.ttf(data));
+    _cachedFontBoldFuture ??= rootBundle.load("assets/fonts/Roboto-Bold.ttf").then((data) => pw.Font.ttf(data));
+    _cachedLogoPoliciaFuture ??= rootBundle.load('assets/images/logo/logo-policia-se.jpeg').then<pw.MemoryImage?>((data) => pw.MemoryImage(data.buffer.asUint8List())).catchError((e) {
       debugPrint("Erro ao carregar logo: $e");
-    }
+      return null;
+    });
+
+    final fontRegular = await _cachedFontRegularFuture!;
+    final fontBold = await _cachedFontBoldFuture!;
+    final logoPolicia = await _cachedLogoPoliciaFuture;
+
+    final theme = pw.ThemeData.withFont(base: fontRegular, bold: fontBold);
 
     final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
     final List<Achado> achadosInternos = achados.where((a) => a.isInterno).toList();
 
     List<Map<String, dynamic>> anexosFotos = await _prepararFotos(caso, achados);
-    final croquisWidgets = await _gerarMapasSVG(achados);
+    final croquisWidgets = await _gerarMapasSVG(achados, caso);
 
     final pageTheme = pw.PageTheme(
       pageFormat: PdfPageFormat.a4,
@@ -65,10 +69,10 @@ class PdfService {
             _buildIdentificacaoOficial(caso),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("3. EXAME EXTERNO"),
-            ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false),
+            ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false, schemas: schemas, todosAchados: achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("4. EXAME INTERNO (Cavidades)"),
-            ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true),
+            ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true, schemas: schemas, todosAchados: achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("5. EXAMES COMPLEMENTARES"),
             _buildDadosComplementares(caso),
@@ -165,7 +169,13 @@ class PdfService {
     );
   }
 
- List<pw.Widget> _buildExameAgrupado(List<Achado> achados, List<Map<String, dynamic>> anexos, {required bool isInterno}) {
+  List<pw.Widget> _buildExameAgrupado(
+    List<Achado> achados,
+    List<Map<String, dynamic>> anexos, {
+    required bool isInterno,
+    Map<String, dynamic>? schemas,
+    List<Achado>? todosAchados,
+  }) {
     List<pw.Widget> items = [];
     List<Achado> achadosPendentes = List.from(achados);
     
@@ -192,7 +202,42 @@ class PdfService {
           final foto = anexos.cast<Map<String, dynamic>?>().firstWhere((f) => f != null && f['uuid'] == a.uuid, orElse: () => null);
           final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
           
-          items.add(pw.Padding(padding: const pw.EdgeInsets.only(left: 30), child: pw.Bullet(text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto", style: const pw.TextStyle(fontSize: 10))));
+          final List<pw.Widget> columnChildren = [
+            pw.Bullet(
+              text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ];
+
+          final campos = a.obterCamposFormatados(schemas?[a.tipoAchadoId], todosAchados: todosAchados);
+          if (campos.isNotEmpty) {
+            columnChildren.add(
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(left: 15, top: 2),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: campos.map((c) => pw.Text(
+                    "- ${c['label']}: ${c['valor']}",
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontStyle: pw.FontStyle.italic,
+                      color: PdfColors.grey700,
+                    ),
+                  )).toList(),
+                ),
+              ),
+            );
+          }
+
+          items.add(
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(left: 30, top: 2),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: columnChildren,
+              ),
+            ),
+          );
         }
       }
     });
@@ -205,7 +250,42 @@ class PdfService {
         final foto = anexos.cast<Map<String, dynamic>?>().firstWhere((f) => f != null && f['uuid'] == a.uuid, orElse: () => null);
         final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
         
-        items.add(pw.Padding(padding: const pw.EdgeInsets.only(left: 30), child: pw.Bullet(text: "${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto", style: const pw.TextStyle(fontSize: 10))));
+        final List<pw.Widget> columnChildren = [
+          pw.Bullet(
+            text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
+            style: const pw.TextStyle(fontSize: 10),
+          ),
+        ];
+
+        final campos = a.obterCamposFormatados(schemas?[a.tipoAchadoId], todosAchados: todosAchados);
+        if (campos.isNotEmpty) {
+          columnChildren.add(
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(left: 15, top: 2),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: campos.map((c) => pw.Text(
+                  "- ${c['label']}: ${c['valor']}",
+                  style: pw.TextStyle(
+                    fontSize: 8.5,
+                    fontStyle: pw.FontStyle.italic,
+                    color: PdfColors.grey700,
+                  ),
+                )).toList(),
+              ),
+            ),
+          );
+        }
+
+        items.add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(left: 30, top: 2),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: columnChildren,
+            ),
+          ),
+        );
       }
     }
 
@@ -219,7 +299,7 @@ class PdfService {
       children: [
         PdfHelpers.buildItemComLabel("Anátomo-Patológico: ", (ex['anatomo']?.toString().isNotEmpty == true) ? ex['anatomo'] : 'XXX'), 
         PdfHelpers.buildItemComLabel("Toxicológico: ", (ex['toxicologico']?.toString().isNotEmpty == true) ? ex['toxicologico'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), // CAMPO ADICIONADO
+        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), 
         PdfHelpers.buildItemComLabel("Outros: ", (ex['outros']?.toString().isNotEmpty == true) ? ex['outros'] : 'XXX')
       ]
     );
@@ -353,11 +433,10 @@ class PdfService {
     for (var fotoPath in fotosGerais) {
       final file = File(fotoPath.toString());
       if (file.existsSync()) {
-        // 👇 Carrega os bytes sem travar a tela
         final bytes = await file.readAsBytes();
         anexos.add({
           'numero': contador, 
-          'bytes': bytes, // Guarda os bytes prontos
+          'bytes': bytes, 
           'label': 'Fotografia $contador - Identificação Geral'
         });
         contador++;
@@ -369,12 +448,11 @@ class PdfService {
       if (path != null && path.toString().isNotEmpty) {
         final file = File(path);
         if (file.existsSync()) {
-          // 👇 Carrega os bytes da lesão sem travar a tela
           final bytes = await file.readAsBytes();
           anexos.add({
             'numero': contador, 
             'uuid': a.uuid, 
-            'bytes': bytes, // Guarda os bytes prontos
+            'bytes': bytes, 
             'label': 'Fotografia $contador - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
           });
           contador++;
@@ -384,10 +462,12 @@ class PdfService {
     return anexos;
   }
 
-  Future<List<pw.Widget>> _gerarMapasSVG(List<Achado> achados) async {
-    if (achados.isEmpty) return [];
+  Future<List<pw.Widget>> _gerarMapasSVG(List<Achado> achados, Caso caso) async {
+    final activeAchados = achados.where((a) => !a.removido).toList();
+    if (activeAchados.isEmpty) return [];
+
     Map<String, List<Achado>> porFolha = {};
-    for (var a in achados) {
+    for (var a in activeAchados) {
       String view = a.dadosPreenchidos['view'] ?? 'frente';
       porFolha.putIfAbsent(view, () => []).add(a);
     }
@@ -395,12 +475,27 @@ class PdfService {
 
     for (var view in porFolha.keys) {
       String assetPath = 'assets/images/croqui-frente.svg';
-      if(view == 'costas') assetPath = 'assets/images/croqui-costas.svg';
-      if(view == 'lateral_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
-      if(view == 'lateral_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
+      if (view == 'costas' || view == 'back') assetPath = 'assets/images/croqui-costas.svg';
+      if (view == 'lateral_dir') assetPath = 'assets/images/face-lateral-direita.svg';
+      if (view == 'lateral_esq') assetPath = 'assets/images/face-lateral-esquerda.svg';
+      if (view == 'trunk_dir') assetPath = 'assets/images/tronco-direito-contorno.svg';
+      if (view == 'trunk_esq') assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
+      if (view == 'perineal') {
+        final dadosId = caso.dadosLaudo['identificacao'];
+        final String sexoNorm = (dadosId != null && dadosId['sexo'] != null)
+            ? dadosId['sexo'].toString().trim().toLowerCase()
+            : 'masculino';
+        assetPath = sexoNorm.startsWith('f')
+            ? 'assets/images/perineo_feminino.svg'
+            : 'assets/images/perineo_masculino.svg';
+      }
+      if (view == 'face_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
+      if (view == 'face_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
 
       String svgRaw = await rootBundle.loadString(assetPath);
-      svgRaw = svgRaw.replaceAll(RegExp(r'xmlns:inkscape=".*?"'), '').replaceAll(RegExp(r'xmlns:sodipodi=".*?"'), '');
+      svgRaw = svgRaw
+          .replaceAll(RegExp(r'xmlns:inkscape="[^"]*"'), '')
+          .replaceAll(RegExp(r'xmlns:sodipodi="[^"]*"'), '');
 
       widgets.add(pw.Wrap(children: [
         pw.Container(margin: const pw.EdgeInsets.only(bottom: 20, left: 15), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
@@ -408,7 +503,19 @@ class PdfService {
           pw.SizedBox(height: 5),
           pw.Container(width: 318.0, height: 450.0, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)), child: pw.Stack(children: [
             pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.fill)),
-            ...porFolha[view]!.map((a) {
+            ...porFolha[view]!.where((a) {
+              if (view == 'perineal') {
+                final String? bodyPartId = a.dadosPreenchidos['local_anatomico_id']?.toString();
+                if (bodyPartId == null) return false;
+                final dadosId = caso.dadosLaudo['identificacao'];
+                final String sexoNorm = (dadosId != null && dadosId['sexo'] != null)
+                    ? dadosId['sexo'].toString().trim().toLowerCase()
+                    : 'masculino';
+                final bool isMale = !sexoNorm.startsWith('f');
+                return bodyPartId.startsWith(isMale ? 'male_' : 'female_');
+              }
+              return true;
+            }).map((a) {
               double left = (a.posX.isNaN ? 0.5 : a.posX) * 318.0;
               double top = (a.posY.isNaN ? 0.5 : a.posY) * 450.0;
               return pw.Positioned(left: left - 7, top: top - 7, child: pw.Container(width: 14, height: 14, alignment: pw.Alignment.center, decoration: const pw.BoxDecoration(color: PdfColors.red, shape: pw.BoxShape.circle), child: pw.Text(a.numeroSequencial.toString(), style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold))));
@@ -433,7 +540,6 @@ class PdfService {
               height: 400, 
               width: 350, 
               decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey)), 
-              // 👇 Modificado aqui: Usa foto['bytes'] ao invés de ler o arquivo
               child: pw.Image(pw.MemoryImage(foto['bytes']), fit: pw.BoxFit.contain),
             ),
         ])
