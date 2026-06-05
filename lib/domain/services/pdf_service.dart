@@ -508,10 +508,10 @@ class PdfService {
                 final String? bodyPartId = a.dadosPreenchidos['local_anatomico_id']?.toString();
                 if (bodyPartId == null) return false;
                 final dadosId = caso.dadosLaudo['identificacao'];
-                final String sexo = (dadosId != null && dadosId['sexo'] != null)
-                    ? dadosId['sexo'].toString()
-                    : 'Masculino';
-                final bool isMale = (sexo == 'Masculino');
+                final String sexoNorm = (dadosId != null && dadosId['sexo'] != null)
+                    ? dadosId['sexo'].toString().trim().toLowerCase()
+                    : 'masculino';
+                final bool isMale = !sexoNorm.startsWith('f');
                 return bodyPartId.startsWith(isMale ? 'male_' : 'female_');
               }
               return true;

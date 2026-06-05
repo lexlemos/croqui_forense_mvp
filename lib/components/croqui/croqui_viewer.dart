@@ -35,7 +35,6 @@ class CroquiViewer extends StatefulWidget {
 }
 
 class _CroquiViewerState extends State<CroquiViewer> {
-  ui.Image? _uiMaskImage;
   ByteData? _rawMaskBytes;
   bool _isLoadingMask = true;
   String? _errorMessage;
@@ -65,8 +64,6 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
   @override
   void dispose() {
-    _uiMaskImage?.dispose();
-    _uiMaskImage = null;
     _rawMaskBytes = null;
     _cachedSvg = null;
     super.dispose();
@@ -80,8 +77,6 @@ class _CroquiViewerState extends State<CroquiViewer> {
     setState(() {
       _isLoadingMask = true;
       _errorMessage = null;
-      _uiMaskImage?.dispose();
-      _uiMaskImage = null;
       _rawMaskBytes = null;
       _maskWidth = 0;
       _maskHeight = 0;
@@ -106,15 +101,20 @@ class _CroquiViewerState extends State<CroquiViewer> {
       }
 
       if (rawBytes == null) {
+        uiImage.dispose();
+        uiImage = null;
         throw Exception("Falha ao obter bytes da máscara"); 
       }
 
-      final decodedImage = uiImage;
+      final int width = uiImage.width;
+      final int height = uiImage.height;
+      uiImage.dispose();
+      uiImage = null;
+
       setState(() {
-        _uiMaskImage = decodedImage;
         _rawMaskBytes = rawBytes;
-        _maskWidth = decodedImage.width;
-        _maskHeight = decodedImage.height;
+        _maskWidth = width;
+        _maskHeight = height;
         _isLoadingMask = false;
       });
 
