@@ -188,7 +188,6 @@ class Achado {
         ? {for (var a in todosAchados) a.uuid: a}
         : null;
 
-    // 1. Campos Padrão (Tamanho e Profundidade)
     final tam = tamanho;
     if (tam.isNotEmpty) {
       campos.add({'label': 'Tamanho', 'valor': '$tam cm'});
@@ -199,9 +198,8 @@ class Achado {
       campos.add({'label': 'Profundidade', 'valor': prof});
     }
 
-    // 2. Vínculo de Auto-relacionamento (Orifício de Entrada)
     if (achadoRelacionadoUuid != null && achadoRelacionadoUuid!.isNotEmpty) {
-      String valorVinculo = 'Vinculado (ID: ${achadoRelacionadoUuid!.substring(0, 8)})';
+      String valorVinculo = 'Vinculado (ID: ${achadoRelacionadoUuid!.length >= 8 ? achadoRelacionadoUuid!.substring(0, 8) : achadoRelacionadoUuid})';
       if (achadosMap != null && achadosMap.containsKey(achadoRelacionadoUuid)) {
         final achadoEncontrado = achadosMap[achadoRelacionadoUuid]!;
         valorVinculo = 'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
@@ -212,7 +210,6 @@ class Achado {
       });
     }
 
-    // 3. Campos Dinâmicos
     final dynamicFields = dadosPreenchidos['dynamicFields'];
     if (dynamicFields is Map) {
       final List<Map<String, dynamic>> schemaCampos = [];
@@ -228,7 +225,6 @@ class Achado {
       }
 
       dynamicFields.forEach((key, val) {
-        // Ignorar chaves internas ou nulas
         final keyStr = key.toString();
         if (keyStr.startsWith('_') || val == null) {
           return;
@@ -246,7 +242,6 @@ class Achado {
           return;
         }
 
-        // Tentar encontrar o label correspondente no schema
         String label = '';
         if (schemaCampos.isNotEmpty) {
           final campoSchema = schemaCampos.firstWhere(
@@ -259,7 +254,6 @@ class Achado {
         }
 
         if (label.isEmpty) {
-          // Fallback para formatar a chave de forma legível
           final words = keyStr.split('_');
           label = words.map((w) {
             if (w.isEmpty) return '';

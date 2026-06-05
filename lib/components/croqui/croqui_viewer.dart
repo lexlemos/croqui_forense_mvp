@@ -110,7 +110,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
       }
 
       if (rawBytes == null) {
-        uiImage.dispose()
+        uiImage.dispose();
         throw Exception("Falha ao obter bytes da máscara"); 
       }
 
