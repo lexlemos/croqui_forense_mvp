@@ -169,7 +169,8 @@ class AchadoDetailModal extends StatelessWidget {
   Widget _buildDynamicFields(Map<String, dynamic>? dynamicFields) {
     final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(dynamicFields ?? {});
     if (achado.achadoRelacionadoUuid != null && achado.achadoRelacionadoUuid!.isNotEmpty) {
-      mapToShow['orificio_entrada_vinculo'] = 'Vinculado (ID: ${achado.achadoRelacionadoUuid!.substring(0, 8)})';
+      final uuid = achado.achadoRelacionadoUuid!;
+      mapToShow['orificio_entrada_vinculo'] = 'Vinculado (ID: ${uuid.length >= 8 ? uuid.substring(0, 8) : uuid})';
     }
 
     if (mapToShow.isEmpty) return const SizedBox.shrink();

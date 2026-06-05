@@ -44,7 +44,7 @@ class AchadoRepository {
     }
   }
 
-  Future<void> _garantirEvidencia(Database db, Achado achado) async {
+  Future<void> _garantirEvidencia(DatabaseExecutor db, Achado achado) async {
     final photo = achado.photoPath;
     if (photo == null || photo.isEmpty) {
       await db.update(

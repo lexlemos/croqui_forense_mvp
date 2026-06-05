@@ -359,8 +359,11 @@ class CroquiController extends ChangeNotifier {
 
   Future<void> alterarSexoExaminado(BuildContext context, String novoSexo) async {
     final novosDados = Map<String, dynamic>.from(casoAtual.dadosLaudo);
+    final Map<String, dynamic> ident = novosDados['identificacao'] != null
+        ? Map<String, dynamic>.from(novosDados['identificacao'] as Map)
+        : {};
     novosDados['identificacao'] = {
-      ...(novosDados['identificacao'] as Map<String, dynamic>? ?? {}),
+      ...ident,
       'sexo': novoSexo,
     };
     

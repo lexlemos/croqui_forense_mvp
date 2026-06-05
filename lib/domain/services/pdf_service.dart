@@ -13,7 +13,6 @@ import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
 class PdfService {
-  // Cache estático para assets pesados (evita I/O redundante entre chamadas)
   static pw.Font? _cachedFontRegular;
   static pw.Font? _cachedFontBold;
   static pw.MemoryImage? _cachedLogoPolicia;
@@ -26,12 +25,9 @@ class PdfService {
   }) async {
     final pdf = pw.Document();
 
-    // Carrega fontes do cache ou do bundle (apenas na primeira vez)
     _cachedFontRegular ??= pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Regular.ttf"));
     _cachedFontBold ??= pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Bold.ttf"));
     final theme = pw.ThemeData.withFont(base: _cachedFontRegular!, bold: _cachedFontBold!);
-
-    // Carrega logo do cache ou do bundle (apenas na primeira vez)
     if (_cachedLogoPolicia == null) {
       try {
         final ByteData data = await rootBundle.load('assets/images/logo/logo-policia-se.jpeg');
@@ -303,7 +299,7 @@ class PdfService {
       children: [
         PdfHelpers.buildItemComLabel("Anátomo-Patológico: ", (ex['anatomo']?.toString().isNotEmpty == true) ? ex['anatomo'] : 'XXX'), 
         PdfHelpers.buildItemComLabel("Toxicológico: ", (ex['toxicologico']?.toString().isNotEmpty == true) ? ex['toxicologico'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), // CAMPO ADICIONADO
+        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), 
         PdfHelpers.buildItemComLabel("Outros: ", (ex['outros']?.toString().isNotEmpty == true) ? ex['outros'] : 'XXX')
       ]
     );
@@ -437,11 +433,10 @@ class PdfService {
     for (var fotoPath in fotosGerais) {
       final file = File(fotoPath.toString());
       if (file.existsSync()) {
-        // 👇 Carrega os bytes sem travar a tela
         final bytes = await file.readAsBytes();
         anexos.add({
           'numero': contador, 
-          'bytes': bytes, // Guarda os bytes prontos
+          'bytes': bytes, 
           'label': 'Fotografia $contador - Identificação Geral'
         });
         contador++;
@@ -453,12 +448,11 @@ class PdfService {
       if (path != null && path.toString().isNotEmpty) {
         final file = File(path);
         if (file.existsSync()) {
-          // 👇 Carrega os bytes da lesão sem travar a tela
           final bytes = await file.readAsBytes();
           anexos.add({
             'numero': contador, 
             'uuid': a.uuid, 
-            'bytes': bytes, // Guarda os bytes prontos
+            'bytes': bytes, 
             'label': 'Fotografia $contador - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
           });
           contador++;
@@ -499,17 +493,12 @@ class PdfService {
       if (view == 'face_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
 
       String svgRaw = await rootBundle.loadString(assetPath);
-      // Remove namespaces desnecessários do Inkscape
       svgRaw = svgRaw
           .replaceAll(RegExp(r'xmlns:inkscape="[^"]*"'), '')
           .replaceAll(RegExp(r'xmlns:sodipodi="[^"]*"'), '');
 
-      // --- INÍCIO DA LIMPEZA DE CORES (WHITELIST) ---
-      // Estratégia: qualquer fill que NÃO seja preto, branco ou none é removido.
-
-      // 1. Atributos diretos: fill="blue", fill="#404000", fill='rgba(...)'
       svgRaw = svgRaw.replaceAllMapped(
-        RegExp(r'fill\s*=\s*["\x27]([^"\x27]+)["\x27]', caseSensitive: false),
+        RegExp(r'fill\s*=\s*["\']([^"\']+)["\']', caseSensitive: false),
         (match) {
           final color = match.group(1)!.toLowerCase().trim().replaceAll(' ', '');
           if (color == '#000000' || color == '#000' || color == 'black' ||
@@ -521,7 +510,6 @@ class PdfService {
         },
       );
 
-      // 2. Propriedades CSS (inline ou em bloco <style>): fill: yellow; fill: rgba(...)
       svgRaw = svgRaw.replaceAllMapped(
         RegExp(r'fill\s*:\s*([^;\s"\x27{}]+)', caseSensitive: false),
         (match) {
@@ -534,7 +522,6 @@ class PdfService {
           return 'fill:none';
         },
       );
-      // --- FIM DA LIMPEZA DE CORES ---
 
       widgets.add(pw.Wrap(children: [
         pw.Container(margin: const pw.EdgeInsets.only(bottom: 20, left: 15), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
@@ -579,7 +566,6 @@ class PdfService {
               height: 400, 
               width: 350, 
               decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey)), 
-              // 👇 Modificado aqui: Usa foto['bytes'] ao invés de ler o arquivo
               child: pw.Image(pw.MemoryImage(foto['bytes']), fit: pw.BoxFit.contain),
             ),
         ])

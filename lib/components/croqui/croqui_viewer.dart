@@ -109,7 +109,10 @@ class _CroquiViewerState extends State<CroquiViewer> {
         return;
       }
 
-      if (rawBytes == null) throw Exception("Falha ao obter bytes da máscara");
+      if (rawBytes == null) {
+        uiImage.dispose()
+        throw Exception("Falha ao obter bytes da máscara"); 
+      }
 
       setState(() {
         _uiMaskImage = uiImage;
@@ -148,12 +151,13 @@ class _CroquiViewerState extends State<CroquiViewer> {
     if (imgX < 0 || imgX >= _maskWidth || imgY < 0 || imgY >= _maskHeight) return;
 
     final int pixelOffset = (imgY * _maskWidth + imgX) * 4;
-    if (pixelOffset < 0 || pixelOffset + 4 > _rawMaskBytes!.lengthInBytes) return;
+    final ByteData rawBytes = _rawMaskBytes!;
+    if (pixelOffset < 0 || pixelOffset + 4 > rawBytes.lengthInBytes) return;
 
-    final int r = _rawMaskBytes!.getUint8(pixelOffset);
-    final int g = _rawMaskBytes!.getUint8(pixelOffset + 1);
-    final int b = _rawMaskBytes!.getUint8(pixelOffset + 2);
-    final int a = _rawMaskBytes!.getUint8(pixelOffset + 3);
+    final int r = rawBytes.getUint8(pixelOffset);
+    final int g = rawBytes.getUint8(pixelOffset + 1);
+    final int b = rawBytes.getUint8(pixelOffset + 2);
+    final int a = rawBytes.getUint8(pixelOffset + 3);
 
     int colorInt = (a << 24) | (r << 16) | (g << 8) | b;
 
