@@ -78,8 +78,6 @@ class _CroquiViewerState extends State<CroquiViewer> {
       _isLoadingMask = true;
       _errorMessage = null;
       _rawMaskBytes = null;
-      _maskWidth = 0;
-      _maskHeight = 0;
     });
 
     ui.Image? uiImage;

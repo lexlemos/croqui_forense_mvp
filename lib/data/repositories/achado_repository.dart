@@ -58,7 +58,7 @@ class AchadoRepository {
 
     final List<Map<String, dynamic>> rows = await db.query(
       'evidencias_multimidia',
-      where: 'achado_uuid = ? AND removido = 0',
+      where: 'achado_uuid = ?',
       whereArgs: [achado.uuid],
     );
 
@@ -74,16 +74,20 @@ class AchadoRepository {
         'criado_em': DateTime.now().toUtc().toIso8601String(),
       });
     } else {
-      final existingPath = rows.first['caminho_arquivo_encriptado']?.toString();
-      if (existingPath != photo) {
+      final existing = rows.first;
+      final existingPath = existing['caminho_arquivo_encriptado']?.toString();
+      final wasRemoved = existing['removido'] == 1;
+
+      if (existingPath != photo || wasRemoved) {
         await db.update(
           'evidencias_multimidia',
           {
             'caminho_arquivo_encriptado': photo,
-            'foto_sincronizada': 0,
+            'removido': 0,
+            'foto_sincronizada': existingPath == photo ? existing['foto_sincronizada'] : 0,
             'atualizado_em': DateTime.now().toUtc().toIso8601String(),
           },
-          where: 'achado_uuid = ? AND removido = 0',
+          where: 'achado_uuid = ?',
           whereArgs: [achado.uuid],
         );
       }
