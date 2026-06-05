@@ -232,7 +232,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                     labelText: "Valor personalizado (cm)",
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o tamanho' : null,
+                  validator: null,
                 ),
               ],
               const SizedBox(height: 20),
@@ -372,7 +372,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       _isCustomSize = v == 'Outro';
       if (!_isCustomSize) _customSizeController.clear();
     }),
-    validator: (v) => (v == null || v.isEmpty) ? 'Obrigatório' : null,
+    validator: null,
   );
 
   Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, bool isNumeric) => TextFormField(

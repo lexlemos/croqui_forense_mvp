@@ -71,7 +71,7 @@ class AchadoRepository {
         'foto_sincronizada': 0,
         'removido': 0,
         'versao': 1,
-        'criado_em': DateTime.now().toIso8601String(),
+        'criado_em': DateTime.now().toUtc().toIso8601String(),
       });
     } else {
       final existingPath = rows.first['caminho_arquivo_encriptado']?.toString();
@@ -81,7 +81,7 @@ class AchadoRepository {
           {
             'caminho_arquivo_encriptado': photo,
             'foto_sincronizada': 0,
-            'atualizado_em': DateTime.now().toIso8601String(),
+            'atualizado_em': DateTime.now().toUtc().toIso8601String(),
           },
           where: 'achado_uuid = ? AND removido = 0',
           whereArgs: [achado.uuid],
