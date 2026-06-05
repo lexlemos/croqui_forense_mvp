@@ -344,9 +344,9 @@ class CroquiController extends ChangeNotifier {
   String get sexoDoExaminado {
     final dadosId = casoAtual.dadosLaudo['identificacao'];
     if (dadosId != null && dadosId['sexo'] != null) {
-      return dadosId['sexo'].toString();
+      final s = dadosId['sexo'].toString().trim().toLowerCase();
+      return s.startsWith('f') ? 'Feminino' : 'Masculino';
     }
-    // Fallback: parse from caracteristicas
     final caracteristicas = dadosId?['caracteristicas']?.toString().toLowerCase() ?? '';
     if (caracteristicas.contains('feminino') || caracteristicas.contains('mulher')) {
       return 'Feminino';
@@ -354,7 +354,7 @@ class CroquiController extends ChangeNotifier {
     if (caracteristicas.contains('masculino') || caracteristicas.contains('homem')) {
       return 'Masculino';
     }
-    return 'Masculino'; // Default
+    return 'Indeterminado'; 
   }
 
   Future<void> alterarSexoExaminado(BuildContext context, String novoSexo) async {

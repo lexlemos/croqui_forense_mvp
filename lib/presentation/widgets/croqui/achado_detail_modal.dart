@@ -169,8 +169,10 @@ class AchadoDetailModal extends StatelessWidget {
   Widget _buildDynamicFields(Map<String, dynamic>? dynamicFields) {
     final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(dynamicFields ?? {});
 
-    mapToShow.removeWhere((key, _) =>
+    mapToShow.removeWhere((key, value) =>
       key.startsWith('_') ||
+      value == null ||
+      (value is String && value.trim().isEmpty) ||
       key == 'photo_path' ||
       key == 'photoPath' ||
       key == 'view' ||

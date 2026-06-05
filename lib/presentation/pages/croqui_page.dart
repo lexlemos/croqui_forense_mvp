@@ -176,7 +176,8 @@ class _CroquiView extends StatelessWidget {
 
   Widget _buildPerineoTab(BuildContext context, CroquiController controller) {
     final sexo = controller.sexoDoExaminado;
-    final isMale = (sexo == 'Masculino');
+    final isMale = !sexo.toLowerCase().startsWith('f');
+    final segmentedValue = (sexo == 'Feminino' || sexo == 'Masculino') ? sexo : 'Masculino';
     
     final activeColors = Map<int, String>.fromEntries(
       perineal.kColorToIdPerinealMap.entries.where((e) => e.value.startsWith(isMale ? 'male_' : 'female_'))
@@ -206,7 +207,7 @@ class _CroquiView extends StatelessWidget {
                   ButtonSegment(value: 'Masculino', label: Text('Masculino'), icon: Icon(Icons.male, size: 18)),
                   ButtonSegment(value: 'Feminino', label: Text('Feminino'), icon: Icon(Icons.female, size: 18)),
                 ],
-                selected: {sexo},
+                selected: {segmentedValue},
                 onSelectionChanged: controller.isReadOnly 
                   ? null 
                   : (newSelection) {

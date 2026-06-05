@@ -482,10 +482,10 @@ class PdfService {
       if (view == 'trunk_esq') assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
       if (view == 'perineal') {
         final dadosId = caso.dadosLaudo['identificacao'];
-        final String sexo = (dadosId != null && dadosId['sexo'] != null)
-            ? dadosId['sexo'].toString()
-            : 'Masculino';
-        assetPath = (sexo == 'Feminino')
+        final String sexoNorm = (dadosId != null && dadosId['sexo'] != null)
+            ? dadosId['sexo'].toString().trim().toLowerCase()
+            : 'masculino';
+        assetPath = sexoNorm.startsWith('f')
             ? 'assets/images/perineo_feminino.svg'
             : 'assets/images/perineo_masculino.svg';
       }
@@ -502,7 +502,7 @@ class PdfService {
           pw.Text("VISTA: ${view.toUpperCase()}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
           pw.SizedBox(height: 5),
           pw.Container(width: 318.0, height: 450.0, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)), child: pw.Stack(children: [
-            pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.contain)),
+            pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.fill)),
             ...porFolha[view]!.where((a) {
               if (view == 'perineal') {
                 final String? bodyPartId = a.dadosPreenchidos['local_anatomico_id']?.toString();

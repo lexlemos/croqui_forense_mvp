@@ -226,7 +226,7 @@ class Achado {
 
       dynamicFields.forEach((key, val) {
         final keyStr = key.toString();
-        if (keyStr.startsWith('_') || val == null) {
+        if (keyStr.startsWith('_') || val == null || (val is String && val.trim().isEmpty)) {
           return;
         }
         if (keyStr == 'photo_path' ||
