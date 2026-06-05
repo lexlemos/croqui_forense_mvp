@@ -13,9 +13,9 @@ import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
 class PdfService {
-  static pw.Font? _cachedFontRegular;
-  static pw.Font? _cachedFontBold;
-  static pw.MemoryImage? _cachedLogoPolicia;
+  static Future<pw.Font>? _cachedFontRegularFuture;
+  static Future<pw.Font>? _cachedFontBoldFuture;
+  static Future<pw.MemoryImage?>? _cachedLogoPoliciaFuture;
 
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
@@ -25,18 +25,18 @@ class PdfService {
   }) async {
     final pdf = pw.Document();
 
-    _cachedFontRegular ??= pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Regular.ttf"));
-    _cachedFontBold ??= pw.Font.ttf(await rootBundle.load("assets/fonts/Roboto-Bold.ttf"));
-    final theme = pw.ThemeData.withFont(base: _cachedFontRegular!, bold: _cachedFontBold!);
-    if (_cachedLogoPolicia == null) {
-      try {
-        final ByteData data = await rootBundle.load('assets/images/logo/logo-policia-se.jpeg');
-        _cachedLogoPolicia = pw.MemoryImage(data.buffer.asUint8List());
-      } catch (e) {
-        debugPrint("Erro ao carregar logo: $e");
-      }
-    }
-    final pw.MemoryImage? logoPolicia = _cachedLogoPolicia;
+    _cachedFontRegularFuture ??= rootBundle.load("assets/fonts/Roboto-Regular.ttf").then((data) => pw.Font.ttf(data));
+    _cachedFontBoldFuture ??= rootBundle.load("assets/fonts/Roboto-Bold.ttf").then((data) => pw.Font.ttf(data));
+    _cachedLogoPoliciaFuture ??= rootBundle.load('assets/images/logo/logo-policia-se.jpeg').then<pw.MemoryImage?>((data) => pw.MemoryImage(data.buffer.asUint8List())).catchError((e) {
+      debugPrint("Erro ao carregar logo: $e");
+      return null;
+    });
+
+    final fontRegular = await _cachedFontRegularFuture!;
+    final fontBold = await _cachedFontBoldFuture!;
+    final logoPolicia = await _cachedLogoPoliciaFuture;
+
+    final theme = pw.ThemeData.withFont(base: fontRegular, bold: fontBold);
 
     final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
     final List<Achado> achadosInternos = achados.where((a) => a.isInterno).toList();

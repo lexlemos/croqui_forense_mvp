@@ -184,6 +184,7 @@ class ApiClient {
           requestHeader: true,
           responseHeader: false,
           logPrint: (object) {
+            if (!kDebugMode) return;
             final logStr = object.toString();
 
             if (logStr.length > 5000) {

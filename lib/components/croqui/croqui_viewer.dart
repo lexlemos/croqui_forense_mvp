@@ -85,29 +85,20 @@ class _CroquiViewerState extends State<CroquiViewer> {
       final ByteData data = await rootBundle.load(currentLoadPath);
       final Uint8List bytes = data.buffer.asUint8List();
 
-      // Decode using native C++ engine codec off the main thread
       final ui.Codec codec = await ui.instantiateImageCodec(bytes);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       uiImage = frameInfo.image;
 
-      // Extract raw RGBA bytes asynchronously
       final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
 
-      if (!mounted || widget.maskPath != currentLoadPath) {
-        uiImage.dispose();
-        return;
-      }
+      if (!mounted || widget.maskPath != currentLoadPath) return;
 
       if (rawBytes == null) {
-        uiImage.dispose();
-        uiImage = null;
         throw Exception("Falha ao obter bytes da máscara"); 
       }
 
       final int width = uiImage.width;
       final int height = uiImage.height;
-      uiImage.dispose();
-      uiImage = null;
 
       setState(() {
         _rawMaskBytes = rawBytes;
@@ -115,9 +106,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
         _maskHeight = height;
         _isLoadingMask = false;
       });
-
     } catch (e) {
-      uiImage?.dispose();
       debugPrint("Erro ao carregar máscara: $e");
       if (mounted && widget.maskPath == currentLoadPath) {
         setState(() {
@@ -125,6 +114,9 @@ class _CroquiViewerState extends State<CroquiViewer> {
           _isLoadingMask = false;
         });
       }
+    } finally {
+      // Garantia absoluta de liberação do recurso nativo C++
+      uiImage?.dispose();
     }
   }
 
