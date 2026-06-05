@@ -246,7 +246,7 @@ class Achado {
         if (schemaCampos.isNotEmpty) {
           final campoSchema = schemaCampos.firstWhere(
             (c) => c['id_campo']?.toString() == keyStr,
-            orElse: () => const {},
+            orElse: () => <String, dynamic>{},
           );
           if (campoSchema.isNotEmpty) {
             label = campoSchema['label']?.toString() ?? '';

@@ -168,6 +168,21 @@ class AchadoDetailModal extends StatelessWidget {
 
   Widget _buildDynamicFields(Map<String, dynamic>? dynamicFields) {
     final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(dynamicFields ?? {});
+
+    mapToShow.removeWhere((key, _) =>
+      key.startsWith('_') ||
+      key == 'photo_path' ||
+      key == 'photoPath' ||
+      key == 'view' ||
+      key == 'local_anatomico_id' ||
+      key == 'local_anatomico_nome' ||
+      key == 'type_label' ||
+      key == 'typeId' ||
+      key == 'is_interno' ||
+      key == 'isInterno' ||
+      key == 'achadoRelacionadoUuid'
+    );
+
     if (achado.achadoRelacionadoUuid != null && achado.achadoRelacionadoUuid!.isNotEmpty) {
       final uuid = achado.achadoRelacionadoUuid!;
       mapToShow['orificio_entrada_vinculo'] = 'Vinculado (ID: ${uuid.length >= 8 ? uuid.substring(0, 8) : uuid})';

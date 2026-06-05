@@ -367,15 +367,14 @@ class CroquiController extends ChangeNotifier {
       'sexo': novoSexo,
     };
     
-    // Auto-update the caracteristicas text template if it is default/placeholder or opposite sex
-    final caracteristicas = novosDados['identificacao']['caracteristicas']?.toString() ?? '';
-    if (caracteristicas.isEmpty || caracteristicas.contains('sexo XXX')) {
+     final caracteristicas = novosDados['identificacao']['caracteristicas']?.toString() ?? '';
+    if (caracteristicas.isEmpty || caracteristicas.toLowerCase().contains('sexo xxx')) {
       novosDados['identificacao']['caracteristicas'] = 
         'Cadáver do sexo ${novoSexo.toLowerCase()}, raça XXX, estado nutricional XXX, e idade aparente de XX anos.';
-    } else if (caracteristicas.contains('sexo masculino') && novoSexo == 'Feminino') {
-      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll('sexo masculino', 'sexo feminino');
-    } else if (caracteristicas.contains('sexo feminino') && novoSexo == 'Masculino') {
-      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll('sexo feminino', 'sexo masculino');
+    } else if (novoSexo == 'Feminino') {
+      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll(RegExp(r'sexo masculino', caseSensitive: false), 'sexo feminino');
+    } else if (novoSexo == 'Masculino') {
+      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll(RegExp(r'sexo feminino', caseSensitive: false), 'sexo masculino');
     }
 
     atualizarDadosLaudoMemoria(novosDados);

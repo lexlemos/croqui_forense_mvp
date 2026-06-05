@@ -87,6 +87,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
       _maskHeight = 0;
     });
 
+    ui.Image? uiImage;
     try {
       final ByteData data = await rootBundle.load(currentLoadPath);
       final Uint8List bytes = data.buffer.asUint8List();
@@ -94,35 +95,31 @@ class _CroquiViewerState extends State<CroquiViewer> {
       // Decode using native C++ engine codec off the main thread
       final ui.Codec codec = await ui.instantiateImageCodec(bytes);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
-      final ui.Image uiImage = frameInfo.image;
+      uiImage = frameInfo.image;
 
       // Extract raw RGBA bytes asynchronously
       final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
 
-      if (!mounted) {
-        uiImage.dispose();
-        return;
-      }
-
-      if (widget.maskPath != currentLoadPath) {
+      if (!mounted || widget.maskPath != currentLoadPath) {
         uiImage.dispose();
         return;
       }
 
       if (rawBytes == null) {
-        uiImage.dispose();
         throw Exception("Falha ao obter bytes da máscara"); 
       }
 
+      final decodedImage = uiImage;
       setState(() {
-        _uiMaskImage = uiImage;
+        _uiMaskImage = decodedImage;
         _rawMaskBytes = rawBytes;
-        _maskWidth = uiImage.width;
-        _maskHeight = uiImage.height;
+        _maskWidth = decodedImage.width;
+        _maskHeight = decodedImage.height;
         _isLoadingMask = false;
       });
 
     } catch (e) {
+      uiImage?.dispose();
       debugPrint("Erro ao carregar máscara: $e");
       if (mounted && widget.maskPath == currentLoadPath) {
         setState(() {
@@ -231,8 +228,8 @@ class _CroquiViewerState extends State<CroquiViewer> {
                       if (bodyPartId == null) return false;
                       return widget.idToDefMap.containsKey(bodyPartId);
                     }).map((marker) {
-                      double left = marker.posX * containerWidth;
-                      double top = marker.posY * containerHeight;
+                      double left = (marker.posX.isNaN ? 0.5 : marker.posX) * containerWidth;
+                      double top = (marker.posY.isNaN ? 0.5 : marker.posY) * containerHeight;
                       const double iconSize = 24.0;
 
                       return Positioned(

@@ -497,32 +497,6 @@ class PdfService {
           .replaceAll(RegExp(r'xmlns:inkscape="[^"]*"'), '')
           .replaceAll(RegExp(r'xmlns:sodipodi="[^"]*"'), '');
 
-      svgRaw = svgRaw.replaceAllMapped(
-        RegExp(r'fill\s*=\s*["\']([^"\']+)["\']', caseSensitive: false),
-        (match) {
-          final color = match.group(1)!.toLowerCase().trim().replaceAll(' ', '');
-          if (color == '#000000' || color == '#000' || color == 'black' ||
-              color == '#ffffff' || color == '#fff' || color == 'white' ||
-              color == 'none') {
-            return match.group(0)!;
-          }
-          return 'fill="none"';
-        },
-      );
-
-      svgRaw = svgRaw.replaceAllMapped(
-        RegExp(r'fill\s*:\s*([^;\s"\x27{}]+)', caseSensitive: false),
-        (match) {
-          final color = match.group(1)!.toLowerCase().trim().replaceAll(' ', '');
-          if (color == '#000000' || color == '#000' || color == 'black' ||
-              color == '#ffffff' || color == '#fff' || color == 'white' ||
-              color == 'none') {
-            return match.group(0)!;
-          }
-          return 'fill:none';
-        },
-      );
-
       widgets.add(pw.Wrap(children: [
         pw.Container(margin: const pw.EdgeInsets.only(bottom: 20, left: 15), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
           pw.Text("VISTA: ${view.toUpperCase()}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
