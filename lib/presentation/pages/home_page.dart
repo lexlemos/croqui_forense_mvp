@@ -3,17 +3,12 @@ import 'package:provider/provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
-import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/empty_state.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/home_action_bar.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/case_card.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
-
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
-import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
-import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/home_controller.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,23 +18,21 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final TextEditingController _searchController = TextEditingController();
+  late final HomeController _controller;
 
   @override
   void initState() {
     super.initState();
+    _controller = HomeController();
+    _controller.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CaseListProvider>().carregarCasos();
-    });
-    
-    _searchController.addListener(() {
-      context.read<CaseListProvider>().setSearchQuery(_searchController.text);
     });
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -60,9 +53,9 @@ class _HomePageState extends State<HomePage> {
             ),
 
             HomeActionBar(
-              searchController: _searchController,
-              onNovoCaso: () => _iniciarNovoCaso(context),
-              onFiltrar: () => _abrirFiltro(context, caseList),
+              searchController: _controller.searchController,
+              onNovoCaso: () => _controller.iniciarNovoCaso(context),
+              onFiltrar: () => _controller.abrirFiltro(context),
             ),
 
             const SizedBox(height: 24),
@@ -109,72 +102,4 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }
-
-  Future<void> _iniciarNovoCaso(BuildContext context) async {
-    context.read<DomainSyncService>().syncTiposAchados();
-
-    final dadosRetornados = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (_) => const NewCaseDialog(),
-    );
-
-    if (dadosRetornados != null) {
-      final String numero = dadosRetornados['numero_laudo'];
-      final Map<String, dynamic> conteudoJson = dadosRetornados['dados_laudo'];
-
-      if (context.mounted) {
-        await _criarCaso(context, numero, conteudoJson);
-      }
-    }
-  }
-
-  Future<void> _abrirFiltro(BuildContext context, CaseListProvider provider) async {
-    final result = await showDialog<FilterResult>(
-      context: context,
-      builder: (_) => CaseFilterDialog(
-        currentCriteria: provider.sortCriteria,
-        currentOrder: provider.sortOrder,
-        currentStatuses: provider.statusFilter,
-      ),
-    );
-
-    if (result != null) {
-      provider.aplicarFiltrosAvancados(
-        criterio: result.sortCriteria,
-        ordem: result.sortOrder,
-        status: result.selectedStatuses,
-      );
-    }
-  }
-
-  Future<void> _criarCaso(BuildContext context, String numeroLaudo, Map<String, dynamic> dadosLaudo) async {
-    try {
-      final usuario = context.read<AuthProvider>().usuario;
-      if (usuario == null) return;
-
-      final novoCaso = await context.read<CaseService>().createNewCase(
-        criador: usuario, 
-        numeroLaudo: numeroLaudo,
-        dadosIniciais: dadosLaudo, 
-      );
-      
-      if (!context.mounted) return;
-      context.read<CaseListProvider>().carregarCasos(); 
-      
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CroquiPage(caso: novoCaso),
-        ),
-      );
-
-      if (!context.mounted) return;
-      context.read<CaseListProvider>().carregarCasos();
-    } catch (e) {
-      globalMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-}
+  }}
