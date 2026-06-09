@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 
 import 'pdf_constants.dart';
 import 'pdf_helpers.dart';

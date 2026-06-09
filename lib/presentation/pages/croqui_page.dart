@@ -12,7 +12,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_mod
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_widgets.dart';
-import 'package:croqui_forense_mvp/components/croqui/croqui_viewer.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;

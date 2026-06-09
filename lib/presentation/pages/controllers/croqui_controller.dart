@@ -17,7 +17,7 @@ import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
-import 'package:croqui_forense_mvp/components/forms/injury_form_modal.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;

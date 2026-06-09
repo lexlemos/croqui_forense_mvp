@@ -7,7 +7,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
-import 'package:croqui_forense_mvp/components/forms/dynamic_form_widget.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/forms/dynamic_form_widget.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class InjuryFormModal extends StatefulWidget {
