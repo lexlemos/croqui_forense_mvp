@@ -1,11 +1,27 @@
 import 'package:pdf/widgets.dart' as pw;
 
+/// Definições e constantes para a "Padronização Visual e Tipográfica Oficial do IML".
+///
+/// Este arquivo armazena os parâmetros geométricos, textuais e de mapeamento anatômico
+/// necessários para assegurar que a formatação e diagramação do Laudo Cadavérico / Lesão Corporal Oficial
+/// atenda rigorosamente às exigências legais de apresentação e legibilidade institucional.
 class PdfConstants {
+  /// Margens regulamentares de impressão padrão do documento oficial do IML.
+  ///
+  /// Definido com recuos adequados (em pontos tipográficos) para permitir a encadernação lateral
+  /// sem prejuízo do conteúdo textual.
   static const marginDefault = pw.EdgeInsets.fromLTRB(85.05, 28.35, 56.7, 56.7);
 
+  /// Título padrão para a identificação do tipo de documento pericial necroscópico.
   static const String tituloLaudo = "LAUDO DE EXAME PERICIAL NECROSCÓPICO";
+
+  /// Cláusula textual padronizada de encerramento do laudo, atestando a finalização dos trabalhos periciais.
   static const String encerramentoPadrao = "Nada mais havendo a lavrar, encerra-se o presente Laudo Pericial que segue em formato digital, devidamente assinado, cujas páginas encontram-se numeradas no rodapé deste documento.";
 
+  /// Mapeamento de grupos anatômicos e suas respectivas regiões internas e externas.
+  ///
+  /// Vincula as marcações do croqui digital aos tópicos descritivos formais do exame
+  /// cadavérico para categorização estruturada dos achados no PDF impresso.
   static final Map<String, List<String>> mapeamentoAnatomico = {
     'I) Crânio e Face': [
       'frontal', 'orbitaria', 'nasal', 'malares', 'masseterinas', 'auriculares', 'bucinadoras', 'labial', 'mentoniana',
@@ -49,6 +65,10 @@ class PdfConstants {
     ],
   };
 
+  /// Tradução e mapeamento de seções anatômicas externas para o escopo do exame interno (Cavidades).
+  ///
+  /// Garante que no Laudo Cadavérico Oficial os exames das cavidades corporais internas sejam
+  /// estruturados e agrupados adequadamente conforme a terminologia médica legal regulamentar.
   static final Map<String, String> titulosInternos = {
     'I) Crânio e Face': 'I) Cavidade craniana',
     'II) Pescoço': 'II) Pescoço',

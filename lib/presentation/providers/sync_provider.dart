@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 
 enum SyncState {
   idle,
@@ -106,12 +107,16 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
         backgroundColor: AppColors.success,
         icon: Icons.check_circle_outline,
       );
+      // Recarrega a biblioteca local para refletir casos sincronizados
+      context.read<CaseListProvider>().carregarCasos();
     } else if (provider.state == SyncState.error) {
       _showSnackbar(
         message: provider.errorMessage ?? 'Erro desconhecido na sincronização.',
         backgroundColor: AppColors.error,
         icon: Icons.error_outline,
       );
+      // Recarrega casos sincronizados parcialmente com sucesso
+      context.read<CaseListProvider>().carregarCasos();
     }
   }
 

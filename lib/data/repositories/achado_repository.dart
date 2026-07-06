@@ -14,11 +14,19 @@ class AchadoRepository {
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
     try {
-      await db.insert(
+      final rowsAffected = await db.update(
         'achados',
         achado.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        where: 'uuid = ?',
+        whereArgs: [achado.uuid],
       );
+      if (rowsAffected == 0) {
+        await db.insert(
+          'achados',
+          achado.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
       await _garantirEvidencia(db, achado);
     } catch (e) {
       throw Exception('Erro de persistência ao inserir achado: $e');

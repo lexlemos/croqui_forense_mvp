@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
+import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
+import 'package:croqui_forense_mvp/data/datasources/remote_data_source_impl.dart';
 import 'package:croqui_forense_mvp/data/local/database_factory_impl.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
@@ -66,15 +68,16 @@ class AppRoot extends StatelessWidget {
           create: (_) => InjuryTypeRepository(dbHelper),
         ),
 
-        // --- Camada de Rede ---
         Provider<ApiClient>(
           create: (_) => ApiClient(keyStorage),
         ),
+        Provider<IRemoteDataSource>(
+          create: (ctx) => RemoteDataSourceImpl(ctx.read<ApiClient>()),
+        ),
 
-        // --- Camada de Domínio ---
-        ProxyProvider2<UsuarioRepository, ApiClient, AuthService>(
-          update: (_, repo, apiClient, prev) =>
-              prev ?? AuthService(repo, keyStorage, apiClient),
+        ProxyProvider2<UsuarioRepository, IRemoteDataSource, AuthService>(
+          update: (_, repo, remoteDS, prev) =>
+              prev ?? AuthService(repo, keyStorage, remoteDS),
         ),
         ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
           update: (_, casoRepo, usuarioRepo, __) => CaseService(casoRepo, usuarioRepo),
@@ -86,17 +89,16 @@ class AppRoot extends StatelessWidget {
           update: (_, achadoRepo, __) => AchadoService(achadoRepo),
         ),
 
-        // --- Camada de Sincronização ---
-        ProxyProvider2<ApiClient, InjuryTypeRepository, DomainSyncService>(
-          update: (_, apiClient, injuryTypeRepo, prev) =>
+        ProxyProvider2<IRemoteDataSource, InjuryTypeRepository, DomainSyncService>(
+          update: (_, remoteDS, injuryTypeRepo, prev) =>
               prev ?? DomainSyncService(
-                apiClient: apiClient,
+                remoteDataSource: remoteDS,
                 injuryTypeRepository: injuryTypeRepo,
               ),
         ),
-        ProxyProvider2<ApiClient, CasoRepository, SyncService>(
-          update: (_, apiClient, casoRepo, __) => SyncService(
-            apiClient: apiClient,
+        ProxyProvider2<IRemoteDataSource, CasoRepository, SyncService>(
+          update: (_, remoteDS, casoRepo, __) => SyncService(
+            remoteDataSource: remoteDS,
             repository: casoRepo,
           ),
         ),
@@ -149,7 +151,7 @@ class _CroquiAppState extends State<CroquiApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Croqui Forense',
+      title: 'Necropsia Digital',
       scaffoldMessengerKey: globalMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

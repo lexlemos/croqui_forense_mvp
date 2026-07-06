@@ -109,11 +109,11 @@ class _CroquiView extends StatelessWidget {
             unselectedLabelColor: Colors.white60,
             indicatorColor: Colors.amber,
             tabs: [
-              Tab(text: "Frente / Costas"),
-              Tab(text: "Laterais"),
-              Tab(text: "Tronco"),
+              Tab(text: "Frontal / Dorsal"),
+              Tab(text: "Lateral Dir. / Esq."),
+              Tab(text: "Tronco Dir. / Esq."),
               Tab(text: "Períneo"),
-              Tab(text: "Rostos"),
+              Tab(text: "Face Dir. / Esq."),
               Tab(text: "Dados", icon: Icon(Icons.description, size: 16)),
             ],
           ),
@@ -382,12 +382,12 @@ class _FrenteCostasTabContentState extends State<_FrenteCostasTabContent> {
                 segments: const [
                   ButtonSegment(
                     value: 'frente',
-                    label: Text('Frente'),
+                    label: Text('Frontal'),
                     icon: Icon(Icons.accessibility_new, size: 18),
                   ),
                   ButtonSegment(
                     value: 'costas',
-                    label: Text('Costas'),
+                    label: Text('Dorsal'),
                     icon: Icon(Icons.accessibility, size: 18),
                   ),
                 ],

@@ -28,7 +28,8 @@ class LoginController {
     } on AuthException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {
-      _showSnack('Erro inesperado. Tente novamente.', isError: true);
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      _showSnack(msg.isNotEmpty ? msg : 'Erro inesperado. Tente novamente.', isError: true);
     }
   }
 

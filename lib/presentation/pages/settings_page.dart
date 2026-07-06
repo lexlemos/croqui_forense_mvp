@@ -75,7 +75,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     onTap: () {
                       showAboutDialog(
                         context: context,
-                        applicationName: 'Croqui Forense Digital',
+                        applicationName: 'Necropsia Digital',
                         applicationVersion: '$_appVersion+$_buildNumber',
                         applicationIcon: const FlutterLogo(size: 40), 
                         applicationLegalese: '© 2026 - IML-SE',

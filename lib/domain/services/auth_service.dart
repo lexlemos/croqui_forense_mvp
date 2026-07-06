@@ -1,11 +1,13 @@
+import 'dart:developer' as developer;
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
+import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
 bool _verificarPinEmBackground(Map<String, String> dados) {
   final pin = dados['pin']!;
@@ -20,119 +22,68 @@ Map<String, String> _gerarCredenciaisEmBackground(String pin) {
   return {'hash': hash, 'salt': salt};
 }
 
+/// Serviço de domínio encarregado do controle de autenticação e sessão do [Perito]
+/// no aplicativo de diagramação de lesões (croquis).
+///
+/// Gerencia as credenciais do perito, permitindo o [login] online ou offline, a renovação
+/// automática de tokens de segurança e a atualização obrigatória do PIN de acesso
+/// em conformidade com as políticas do Instituto Médico Legal (IML).
 class AuthService {
   final UsuarioRepository _usuarioRepository;
   final KeyStorageInterface _keyStorage;
-  final ApiClient _apiClient;
-
-  static const String _routeLogin = '/croqui/auth/login';
+  final IRemoteDataSource _remoteDataSource;
 
   Usuario? _usuarioLogado;
 
-  AuthService(this._usuarioRepository, this._keyStorage, this._apiClient);
+  AuthService(this._usuarioRepository, this._keyStorage, this._remoteDataSource);
 
+  /// Retorna os dados do [Perito] atualmente autenticado na sessão do dispositivo,
+  /// ou `null` caso nenhum perito esteja ativo no momento.
   Usuario? get usuario => _usuarioLogado;
+
+  /// Indica se há uma sessão de autenticação ativa para o [Perito] neste dispositivo.
   bool get isLogged => _usuarioLogado != null;
 
-  Future<void> login(String matricula, String pin) async {
-    final usuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
-
-    if (usuario != null) {
-      await _loginOffline(usuario, pin);
-      return;
-    }
-
-    await _loginOnlineFallback(matricula, pin);
-  }
-
-  Future<void> _loginOffline(Usuario usuario, String pin) async {
-    if (usuario.ativo == false) throw AuthException('Usuário desativado.');
-
-    if (usuario.hashPinOffline == null || usuario.salt == null) {
-      throw AuthException('Erro de integridade nas credenciais');
-    }
-
-    final bool isPinValido = await compute(_verificarPinEmBackground, {
-      'pin': pin,
-      'hash': usuario.hashPinOffline!,
-      'salt': usuario.salt!,
-    });
-    if (!isPinValido) throw AuthException('PIN incorreto');
-
-    _usuarioLogado = usuario;
-
-    // Tenta renovar tokens silenciosamente se não houver access_token válido.
-    // Falha silenciosa: se offline, o app funciona normalmente — a sync
-    // reportará o erro de autenticação quando tentar rodar.
-    await _tentarRenovarTokens(usuario.matriculaFuncional, pin);
-  }
-
-  Future<void> _tentarRenovarTokens(String matricula, String pin) async {
-    final existingToken = await _keyStorage.read(key: 'access_token');
-    if (existingToken != null) return;
-
-    try {
-      final response = await _apiClient.dio.post(
-        _routeLogin,
-        data: {'matricula': matricula, 'senha': pin},
-      );
-
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        final token = data['token']?.toString();
-        final refreshToken = data['refresh_token']?.toString();
-
-        if (token != null) {
-          await _keyStorage.save(key: 'access_token', value: token);
-        }
-        if (refreshToken != null) {
-          await _keyStorage.save(key: 'refresh_token', value: refreshToken);
-        }
-        await _keyStorage.save(
-          key: 'user_id',
-          value: _usuarioLogado?.id ?? '',
-        );
-      }
-    } catch (_) {
-      // Silencia erros de rede — app offline-first continua funcional
-    }
-  }
-
-  Future<void> _loginOnlineFallback(String matricula, String pin) async {
-    late final Response response;
-
-    try {
-      response = await _apiClient.dio.post(
-        _routeLogin,
-        data: {'matricula': matricula, 'senha': pin},
-      );
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionTimeout ||
+  bool _isConnectivityError(dynamic e) {
+    if (e is DioException) {
+      return e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.sendTimeout ||
           e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        throw AuthException('Dispositivo offline. Conecte-se para o primeiro acesso.');
-      }
-      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        throw AuthException('Credenciais inválidas.');
-      }
-      throw AuthException('Falha na comunicação com o servidor.');
+          e.error is SocketException;
     }
-
-    if (response.statusCode != 200 || response.data == null) {
-      throw AuthException('Resposta inesperada do servidor.');
+    if (e is AuthException) {
+      final msg = e.message;
+      return msg.contains('Dispositivo offline') || 
+             msg.contains('Falha na comunicação');
     }
+    final errStr = e.toString();
+    return errStr.contains('SocketException') || 
+           errStr.contains('Network') || 
+           errStr.contains('timeout') || 
+           errStr.contains('Failed host lookup');
+  }
 
+  /// Realiza a autenticação do [Perito] utilizando sua matrícula funcional e PIN de acesso.
+  ///
+  /// Padrão "Network First, Local Fallback para Login":
+  /// Tenta inicialmente realizar o login online no servidor central. Se a conexão falhar por motivos
+  /// de conectividade, intercepta o erro e faz a validação offline usando credenciais locais.
+  /// Se as credenciais estiverem incorretas ou inválidas (401/403), rejeita imediatamente.
+  Future<void> login(String matricula, String pin) async {
     try {
-      final responseData = response.data as Map<String, dynamic>;
+      // Passo A: Tentar realizar a requisição de login na API
+      final responseData = await _remoteDataSource.login(matricula, pin);
+
       final perfil = responseData['usuario'] as Map<String, dynamic>;
-      final token = responseData['token']?.toString();
+      final accessToken = responseData['access_token']?.toString();
       final refreshToken = responseData['refresh_token']?.toString();
 
-      if (token == null) throw AuthException('Token ausente na resposta.');
+      if (accessToken == null) {
+        throw const AuthException('Token ausente na resposta.');
+      }
 
-      await _keyStorage.save(key: 'access_token', value: token);
+      await _keyStorage.save(key: 'access_token', value: accessToken);
       if (refreshToken != null) {
         await _keyStorage.save(key: 'refresh_token', value: refreshToken);
       }
@@ -158,11 +109,54 @@ class AuthService {
       await _usuarioRepository.createUsuario(novoUsuario);
       _usuarioLogado = novoUsuario;
 
+      developer.log('[AUTH] Login online realizado com sucesso', name: 'AuthService');
+
     } catch (e) {
-      throw AuthException('Erro interno ao processar login: $e');
+      // Passo B: Se for uma exceção de conectividade, tentar local fallback
+      if (_isConnectivityError(e)) {
+        final localUsuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
+        if (localUsuario == null) {
+          throw const AuthException('Dispositivo offline e sem dados locais armazenados para este usuário.');
+        }
+
+        if (localUsuario.ativo == false) {
+          throw const AuthException('Usuário desativado.');
+        }
+
+        if (localUsuario.hashPinOffline == null || localUsuario.salt == null) {
+          throw const AuthException('Erro de integridade nas credenciais locais.');
+        }
+
+        final bool isPinValido = await compute(_verificarPinEmBackground, {
+          'pin': pin,
+          'hash': localUsuario.hashPinOffline!,
+          'salt': localUsuario.salt!,
+        });
+
+        if (!isPinValido) {
+          throw const AuthException('PIN incorreto');
+        }
+
+        _usuarioLogado = localUsuario;
+        await _keyStorage.save(key: 'user_id', value: localUsuario.id);
+
+        developer.log('[AUTH] Sem internet: Login via cache local autorizado', name: 'AuthService');
+        return;
+      }
+
+      // Passo C: Se for 401/403 ou qualquer outro erro de credenciais inválidas, rejeita imediatamente
+      if (e is AuthException) {
+        rethrow;
+      }
+      throw AuthException('Erro de autenticação: $e');
     }
   }
 
+  /// Encerra a sessão ativa do [Perito] corrente no dispositivo.
+  ///
+  /// Limpa a referência em memória do perito e remove de forma segura as chaves de acesso
+  /// (tokens temporários de API e identificador do usuário) do armazenamento criptografado
+  /// local para prevenir o acesso indevido aos laudos periciais.
   Future<void> logout() async {
     _usuarioLogado = null;
     await _keyStorage.delete(key: 'access_token');
@@ -170,12 +164,19 @@ class AuthService {
     await _keyStorage.delete(key: 'user_id');
   }
 
-  /// Chamado pelo interceptor HTTP quando o refresh token falha.
-  /// Limpa a sessão em memória para que o AuthProvider reflita o estado.
+  /// Expira a sessão em memória do [Perito] ativo no momento de forma silenciosa.
+  ///
+  /// Utilizado internamente pelo interceptor de autenticação de rede para invalidar a sessão
+  /// local quando os tokens de atualização (refresh tokens) falham no servidor central,
+  /// forçando o perito a se reautenticar para a continuidade segura dos trabalhos.
   void forceExpireSession() {
     _usuarioLogado = null;
   }
 
+  /// Verifica e recupera uma sessão pré-existente salva para algum [Perito] neste dispositivo.
+  ///
+  /// Lê o identificador único do perito guardado no chaveiro criptografado e carrega seu respectivo
+  /// perfil do banco de dados local. Retorna o [Usuario] correspondente ativo ou `null`.
   Future<Usuario?> checkSession() async {
     final String? id = await _keyStorage.read(key: 'user_id');
 
@@ -198,18 +199,16 @@ class AuthService {
     }
   }
 
+  /// Efetua a troca obrigatória de PIN (senha offline) do [Perito].
+  ///
+  /// Envia o novo PIN cifrado para atualização no servidor central e, após confirmação remota,
+  /// calcula a derivação da credencial (hash e salt) em segundo plano para persistir a nova chave
+  /// de validação local no banco de dados do dispositivo.
+  ///
+  /// @throws [AuthException] se ocorrer falha de conectividade com a rede ou se a alteração for
+  /// rejeitada pelas políticas de segurança do servidor.
   Future<void> trocarPinObrigatorio(Usuario usuario, String novoPin) async {
-    try {
-      await _apiClient.dio.put(
-        '/croqui/auth/${usuario.id}/senha',
-        data: {'nova_senha': novoPin},
-      );
-    } on DioException catch (e) {
-      throw AuthException(
-        'Não foi possível alterar a senha no servidor. '
-        'Verifique sua conexão e tente novamente. (${e.type.name})',
-      );
-    }
+    await _remoteDataSource.trocarPin(usuario.id, novoPin);
 
     final resultado = await compute(_gerarCredenciaisEmBackground, novoPin);
 

@@ -1,45 +1,62 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
+import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
+/// Serviço de domínio encarregado da sincronização de templates, metadados e tabelas de referência.
+///
+/// Este serviço é responsável pela "Sincronização de Templates Anatômicos" e pelo recebimento dos
+/// "Esquemas de Formulários Dinâmicos", garantindo que o tablet ou dispositivo portátil do Perito
+/// tenha sempre as atualizações mais recentes dos SVGs de contornos anatômicos do corpo humano e
+/// as regras de preenchimento oficiais homologadas pela central pericial.
 class DomainSyncService {
-  final ApiClient _apiClient;
+  final IRemoteDataSource _remoteDataSource;
   final InjuryTypeRepository _injuryTypeRepository;
 
-  static const String _routeTiposAchados = '/croqui/tipos-achados';
-
+  /// Cria uma nova instância de [DomainSyncService].
+  ///
+  /// Requer a interface de dados remota [_remoteDataSource] e o repositório local [_injuryTypeRepository].
   DomainSyncService({
-    required ApiClient apiClient,
+    required IRemoteDataSource remoteDataSource,
     required InjuryTypeRepository injuryTypeRepository,
-  })  : _apiClient = apiClient,
+  })  : _remoteDataSource = remoteDataSource,
         _injuryTypeRepository = injuryTypeRepository;
 
+  /// Sincroniza e atualiza localmente as definições e "Esquemas de Formulários Dinâmicos"
+  /// para o mapeamento e tipificação dos achados periciais.
+  ///
+  /// Solicita à API central a lista atualizada de nomenclaturas e restrições de lesões e,
+  /// caso bem-sucedido, armazena de forma persistente no banco de dados local para uso offline.
+  ///
+  /// @throws Exception Se houver falha de rede na comunicação com a API central ao buscar os templates
+  /// ou caso ocorra um erro de integridade de dados na gravação local no repositório.
   Future<void> syncTiposAchados() async {
+    List<InjuryType> types = [];
+    Object? remoteError;
     try {
-      final response = await _apiClient.dio.get(_routeTiposAchados);
-
-      if (response.statusCode != 200 || response.data == null) return;
-
-      if (response.data is! List) {
-        debugPrint('[DomainSync] ❌ Resposta inválida do servidor (esperava List, recebeu ${response.data.runtimeType}).');
-        return;
-      }
-
-      final List<dynamic> jsonList = response.data as List<dynamic>;
-      final types = jsonList
-          .map((e) => InjuryType.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final jsonList = await _remoteDataSource.getTiposAchados();
+      types = jsonList.map((e) => InjuryType.fromJson(e)).toList();
 
       if (types.isNotEmpty) {
         await _injuryTypeRepository.upsertAll(types);
       }
-
       debugPrint('[DomainSync] tipos_achados sincronizados: ${types.length}');
-    } on DioException catch (e) {
-      debugPrint('[DomainSync] Falha ao sincronizar tipos_achados: ${e.type}');
+    } catch (e) {
+      remoteError = e;
+      debugPrint('[DomainSync] Falha ao sincronizar tipos_achados: $e');
+    }
+
+    if (types.isEmpty || remoteError != null) {
+      final localTypes = await _injuryTypeRepository.getAllTypes();
+      if (localTypes.isEmpty) {
+        if (remoteError != null) {
+          throw Exception('Não foi possível sincronizar os achados com o servidor e a base local está vazia: $remoteError');
+        } else {
+          throw Exception('Nenhum tipo de achado foi retornado pelo servidor e a base local está vazia.');
+        }
+      }
     }
   }
 }
+

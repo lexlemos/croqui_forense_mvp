@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.mvplabs.croquiforense" "\0"
-            VALUE "FileDescription", "croqui_forense_mvp" "\0"
+            VALUE "FileDescription", "Necropsia Digital" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "croqui_forense_mvp" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.mvplabs.croquiforense. All rights reserved." "\0"
             VALUE "OriginalFilename", "croqui_forense_mvp.exe" "\0"
-            VALUE "ProductName", "croqui_forense_mvp" "\0"
+            VALUE "ProductName", "Necropsia Digital" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -19,11 +19,19 @@ class CasoRepository implements ISyncRepository {
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
     try {
-      await db.insert(
+      final rowsAffected = await db.update(
         tableCasos,
         novoCaso.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        where: 'uuid = ?',
+        whereArgs: [novoCaso.uuid],
       );
+      if (rowsAffected == 0) {
+        await db.insert(
+          tableCasos,
+          novoCaso.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
     } catch (e) {
       throw Exception('Erro de persistência ao inserir caso: $e');
     }
@@ -214,6 +222,106 @@ class CasoRepository implements ISyncRepository {
     }
 
     return grouped;
+  }
+
+  @override
+  Future<List<Achado>> getEvidenciasPendentesPorCaso(String casoUuid) async {
+    final List<Achado> pending = [];
+    final db = await database;
+
+    // 1. Fotos gerais do caso (JSON no caso)
+    try {
+      final List<Map<String, dynamic>> casoRows = await db.query(
+        tableCasos,
+        where: 'uuid = ? AND removido = 0',
+        whereArgs: [casoUuid],
+      );
+
+      for (final casoMap in casoRows) {
+        final uuid = casoMap['uuid'].toString();
+        final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
+        final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
+        final identificacao = dadosLaudo['identificacao'] as Map?;
+        final rawFotosGerais = identificacao?['fotos_gerais'];
+        final fotosGerais = rawFotosGerais is List ? rawFotosGerais : null;
+
+        final rawSincronizadas = identificacao?['fotos_gerais_sincronizadas'];
+        final fotosSincronizadas = rawSincronizadas is List ? rawSincronizadas : [];
+
+        if (fotosGerais != null && fotosGerais.isNotEmpty) {
+          for (var i = 0; i < fotosGerais.length; i++) {
+            final String pathString = fotosGerais[i].toString();
+            if (pathString.isEmpty || pathString == 'null') continue;
+
+            if (fotosSincronizadas.contains(pathString)) continue;
+
+            final achadoVirtual = Achado(
+              uuid: 'GERAL_${uuid}_$i',
+              casoUuid: uuid,
+              diagramaNome: 'GERAL',
+              tipoAchadoId: 'FOTO_GERAL',
+              numeroSequencial: i,
+              posX: 0.0,
+              posY: 0.0,
+              isInterno: false,
+              versao: 1,
+              removido: false,
+              criadoEm: DateTime.now(),
+              dadosPreenchidos: {
+                'photo_path': pathString,
+                '_evidencia_uuid': 'GERAL_${uuid}_$i',
+              },
+            );
+            pending.add(achadoVirtual);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (JSON): $e');
+    }
+
+    // 2. Fotos vinculadas a lesões/achados (SQL)
+    try {
+      final sqlAchados = '''
+        SELECT
+          a.*,
+          e.caminho_arquivo_encriptado AS _photo_path_override,
+          e.uuid                        AS _evidencia_uuid
+        FROM $tableAchados a
+        INNER JOIN $tableEvidenciasMultimidia e
+               ON  e.achado_uuid                = a.uuid
+               AND e.removido                   = 0
+               AND e.caminho_arquivo_encriptado IS NOT NULL
+               AND e.caminho_arquivo_encriptado != ''
+               AND e.foto_sincronizada          = 0
+        WHERE a.caso_uuid = ?
+          AND a.removido  = 0
+          AND a.diagrama_nome IS NOT NULL
+          AND a.diagrama_nome != ''
+        ORDER BY a.criado_em ASC
+      ''';
+
+      final rowsAchados = await db.rawQuery(sqlAchados, [casoUuid]);
+
+      for (final row in rowsAchados) {
+        final mutableRow = Map<String, dynamic>.from(row);
+        final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
+        final dados = _decodeJson(dadosJson);
+
+        dados['photo_path'] = row['_photo_path_override'] as String?;
+        dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
+
+        mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
+        mutableRow.remove('_photo_path_override');
+        mutableRow.remove('_evidencia_uuid');
+
+        pending.add(Achado.fromMap(mutableRow));
+      }
+    } catch (e) {
+      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (SQL): $e');
+    }
+
+    return pending;
   }
 
   @override
