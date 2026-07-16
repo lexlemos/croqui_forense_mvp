@@ -186,99 +186,102 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   Widget build(BuildContext context) {
     final bool isEditing = widget.achadoToEdit != null;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom, 
-        left: 16, right: 16, top: 16
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeader(isEditing),
-              const Divider(),
-              const SizedBox(height: 16),
-
-              _buildSectionLabel("CLASSIFICAÇÃO DO EXAME"),
-              _buildClassificationToggle(),
-              const SizedBox(height: 20),
-
-              _buildSectionLabel("NATUREZA DA LESÃO"),
-              _buildTypeDropdown(),
-              if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+    return SafeArea(
+      bottom: true,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom, 
+          left: 16, right: 16, top: 16
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(isEditing),
+                const Divider(),
                 const SizedBox(height: 16),
-                _buildSectionLabel("DETALHES ESPECÍFICOS"),
-                DynamicFormWidget(
-                  key: _dynamicFormKey,
-                  schema: _selectedType!.schemaFormulario,
-                  initialData: _dynamicData,
-                  entradasDisponiveis: _entradasDisponiveis,
-                  onChanged: (data) => _dynamicData = data,
-                ),
-              ],
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(child: _buildSizeDropdown()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildTextField(_depthController, "Profundidade", Icons.vertical_align_bottom, false)),
-                ],
-              ),
-              if (_isCustomSize) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _customSizeController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.edit, size: 20),
-                    labelText: "Valor personalizado (cm)",
-                    border: OutlineInputBorder(),
+  
+                _buildSectionLabel("CLASSIFICAÇÃO DO EXAME"),
+                _buildClassificationToggle(),
+                const SizedBox(height: 20),
+  
+                _buildSectionLabel("NATUREZA DA LESÃO"),
+                _buildTypeDropdown(),
+                if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildSectionLabel("DETALHES ESPECÍFICOS"),
+                  DynamicFormWidget(
+                    key: _dynamicFormKey,
+                    schema: _selectedType!.schemaFormulario,
+                    initialData: _dynamicData,
+                    entradasDisponiveis: _entradasDisponiveis,
+                    onChanged: (data) => _dynamicData = data,
                   ),
-                  validator: null,
+                ],
+                const SizedBox(height: 16),
+  
+                Row(
+                  children: [
+                    Expanded(child: _buildSizeDropdown()),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildTextField(_depthController, "Profundidade", Icons.vertical_align_bottom, false)),
+                  ],
                 ),
+                if (_isCustomSize) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _customSizeController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.edit, size: 20),
+                      labelText: "Valor personalizado (cm)",
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: null,
+                  ),
+                ],
+                const SizedBox(height: 20),
+  
+                _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 60), // Aumente este valor para diminuir a foto
+                  child: _buildPhotoPicker(),
+                ),
+                const SizedBox(height: 20),
+  
+                _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
+                TextFormField(
+                  controller: _obsController,
+                  maxLines: null,
+                  minLines: 3,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: "Descreva detalhes específicos da lesão...",
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                ),
+                const SizedBox(height: 24),
+  
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: _saveForm,
+                  icon: Icon(isEditing ? Icons.save : Icons.add_circle_outline),
+                  label: Text(isEditing ? "ATUALIZAR REGISTRO" : "CONFIRMAR ACHADO"),
+                ),
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 20),
-
-              _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 60), // Aumente este valor para diminuir a foto
-                child: _buildPhotoPicker(),
-              ),
-              const SizedBox(height: 20),
-
-              _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
-              TextFormField(
-                controller: _obsController,
-                maxLines: null,
-                minLines: 3,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: "Descreva detalhes específicos da lesão...",
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.all(12),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: _saveForm,
-                icon: Icon(isEditing ? Icons.save : Icons.add_circle_outline),
-                label: Text(isEditing ? "ATUALIZAR REGISTRO" : "CONFIRMAR ACHADO"),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),

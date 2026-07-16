@@ -125,7 +125,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     super.dispose();
   }
 
-  void _salvarDadosNoController() {
+  void _sincronizarDadosNaMemoria() {
     if (_croquiController.isReadOnly) return;
 
     final nomePerito = _authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
@@ -193,7 +193,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
         await File(photo.path).copy(localPath);
         setState(() => _fotosIdentificacao.add(localPath));
-        _salvarDadosNoController();
+        _sincronizarDadosNaMemoria();
       }
     } catch(e){
 
@@ -310,7 +310,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                               icon: const Icon(Icons.remove_circle, color: Colors.red),
                               onPressed: () {
                                 setState(() => _fotosIdentificacao.removeAt(index));
-                                _salvarDadosNoController();
+                                _sincronizarDadosNaMemoria();
                               },
                             ),
                           ),
@@ -389,7 +389,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: _isSaving ? null : () async {
-                    _salvarDadosNoController();
+                    _sincronizarDadosNaMemoria();
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isSaving = true);
                       await controller.finalizarCasoDireto(context);
@@ -458,7 +458,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 }
               ),
             ],
-            const SizedBox(height: 40),
+            SizedBox(height: 40 + MediaQuery.of(context).viewPadding.bottom),
           ],
         ),
       ),
@@ -500,7 +500,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         minLines: maxLines == null ? 3 : null,
         keyboardType: maxLines == null ? TextInputType.multiline : TextInputType.text,
         textCapitalization: TextCapitalization.sentences,
-        onChanged: (_) => _salvarDadosNoController(),
+        onChanged: (_) => _sincronizarDadosNaMemoria(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(

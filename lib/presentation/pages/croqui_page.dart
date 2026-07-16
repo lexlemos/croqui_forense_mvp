@@ -118,36 +118,39 @@ class _CroquiView extends StatelessWidget {
             ],
           ),
         ),
-        body: Row(
-          children: [
-            Expanded(
-              child: Container(
-                color: Colors.grey[100],
-                child: TabBarView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildFrenteCostasTab(context, controller),
-                    _buildLateraisTab(context, controller),
-                    _buildTroncoTab(context, controller),
-                    _buildPerineoTab(context, controller),
-                    _buildRostosTab(context, controller),
-                    const CaseInfoTab(),
-                  ],
+        body: SafeArea(
+          bottom: true,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  color: Colors.grey[100],
+                  child: TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildFrenteCostasTab(context, controller),
+                      _buildLateraisTab(context, controller),
+                      _buildTroncoTab(context, controller),
+                      _buildPerineoTab(context, controller),
+                      _buildRostosTab(context, controller),
+                      const CaseInfoTab(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const VerticalDivider(width: 1),
-            
-            SizedBox(
-              width: sidebarWidth,
-              child: AchadosSidebar(
-                achados: controller.achados,
-                isReadOnly: controller.isReadOnly,
-                onEdit: (achado) => _showEditOrDetail(context, controller, achado),
-                onDelete: (uuid) => controller.deleteAchado(context, uuid),
-              ),
-            )
-          ],
+              const VerticalDivider(width: 1),
+              
+              SizedBox(
+                width: sidebarWidth,
+                child: AchadosSidebar(
+                  achados: controller.achados,
+                  isReadOnly: controller.isReadOnly,
+                  onEdit: (achado) => _showEditOrDetail(context, controller, achado),
+                  onDelete: (uuid) => controller.deleteAchado(context, uuid),
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );
