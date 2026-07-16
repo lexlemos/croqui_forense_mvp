@@ -40,6 +40,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   String? _currentPhotoPath;
   InjuryType? _selectedType;
+  String? _selectedParteCorpo;
   bool _isLoadingTypes = true;
   bool _isInterno = false;
   Map<String, dynamic> _dynamicData = {};
@@ -105,6 +106,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final types = await widget.injuryTypeRepository.getAllTypes();
       if (!mounted) return;
 
+      debugPrint("Types loaded: ${types.map((t) => '${t.label} (isInterno: ${t.isInterno}, parte: ${t.schemaFormulario['parte_corpo']})').toList()}");
+
       setState(() {
         _availableTypes = types;
         _isLoadingTypes = false;
@@ -118,6 +121,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               return legacy;
             },
           );
+
+          if (_isInterno) {
+            _selectedParteCorpo = _selectedType?.schemaFormulario['parte_corpo']?.toString();
+          }
 
           final autoRelKey = _findAutoRelacionamentoKey();
           if (autoRelKey != null && widget.achadoToEdit?.achadoRelacionadoUuid != null) {
@@ -317,8 +324,16 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     ),
     child: Row(
       children: [
-        _buildToggleItem("EXTERNO", !_isInterno, () => setState(() => _isInterno = false)),
-        _buildToggleItem("INTERNO", _isInterno, () => setState(() => _isInterno = true)),
+        _buildToggleItem("EXTERNO", !_isInterno, () => setState(() {
+          _isInterno = false;
+          _selectedType = null;
+          _selectedParteCorpo = null;
+        })),
+        _buildToggleItem("INTERNO", _isInterno, () => setState(() {
+          _isInterno = true;
+          _selectedType = null;
+          _selectedParteCorpo = null;
+        })),
       ],
     ),
   );
@@ -349,15 +364,72 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     ),
   );
 
-  Widget _buildTypeDropdown() => _isLoadingTypes 
-    ? const LinearProgressIndicator()
-    : DropdownButtonFormField<InjuryType>(
-        initialValue: _selectedType,
-        decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
-        items: _availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+  Widget _buildTypeDropdown() {
+    if (_isLoadingTypes) {
+      return const LinearProgressIndicator();
+    }
+
+    if (_isInterno) {
+      final partesDeCorpo = _availableTypes
+          .where((t) => t.isInterno)
+          .map((t) => t.schemaFormulario['parte_corpo']?.toString())
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      final tiposFiltrados = _availableTypes
+          .where((t) => t.isInterno && t.schemaFormulario['parte_corpo'] == _selectedParteCorpo)
+          .toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<String>(
+            value: _selectedParteCorpo,
+            decoration: const InputDecoration(
+              labelText: "Parte do Corpo",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            items: partesDeCorpo.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+            onChanged: (v) {
+              setState(() {
+                _selectedParteCorpo = v;
+                _selectedType = null;
+              });
+            },
+            validator: (v) => v == null ? 'Obrigatório' : null,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<InjuryType>(
+            value: _selectedType,
+            decoration: const InputDecoration(
+              labelText: "Natureza da Lesão Interna",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() => _selectedType = v),
+            validator: (v) => v == null ? 'Obrigatório' : null,
+          ),
+        ],
+      );
+    } else {
+      final tiposExternos = _availableTypes.where((t) => !t.isInterno).toList();
+
+      return DropdownButtonFormField<InjuryType>(
+        value: _selectedType,
+        decoration: const InputDecoration(
+          labelText: "Natureza da Lesão",
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12),
+        ),
+        items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
         onChanged: (v) => setState(() => _selectedType = v),
         validator: (v) => v == null ? 'Obrigatório' : null,
       );
+    }
+  }
 
   Widget _buildSizeDropdown() => DropdownButtonFormField<String>(
     initialValue: _selectedSize,

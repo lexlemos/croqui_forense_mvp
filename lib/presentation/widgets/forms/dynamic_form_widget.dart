@@ -37,7 +37,10 @@ class DynamicFormWidgetState extends State<DynamicFormWidget> {
     }
   }
 
-  bool validate() => _formKey.currentState?.validate() ?? false;
+  bool validate() {
+    if (_campos.isEmpty) return true;
+    return _formKey.currentState?.validate() ?? false;
+  }
 
   Map<String, dynamic> get formData => Map<String, dynamic>.from(_formData);
 

@@ -74,7 +74,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
-  Future<void> pushTextual(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload) async {
     try {
       final response = await _apiClient.dio.post(
         '/croqui/sync/push',
@@ -86,6 +86,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
           statusCode: response.statusCode,
         );
       }
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw SyncPushTextualException(
         'Falha de rede no push textual: ${e.message}',
@@ -103,9 +104,16 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     required String filePath,
   }) async {
     try {
-      final formData = FormData.fromMap({
+      final bool isGeral = achadoUuid.startsWith('GERAL_');
+      final bool isEmpty = achadoUuid.isEmpty;
+      final RegExp uuidRegExp = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      );
+      final bool isInvalidUuid = !uuidRegExp.hasMatch(achadoUuid);
+
+      final Map<String, dynamic> formDataMap = {
+        'uuid': evidenciaUuid,
         'caso_uuid': casoUuid,
-        'achado_uuid': achadoUuid,
         'hash_arquivo': hash,
         'hash_cifrado': hash,
         'salt_base64': '',
@@ -115,9 +123,15 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
           filename: p.basename(filePath),
           contentType: MediaType('image', 'jpeg'),
         ),
-      });
+      };
 
-      final evidencia = (uuid: evidenciaUuid, achado_uuid: achadoUuid);
+      if (!isGeral && !isEmpty && !isInvalidUuid) {
+        formDataMap['achado_uuid'] = achadoUuid;
+      }
+
+      final formData = FormData.fromMap(formDataMap);
+
+      final evidencia = (uuid: evidenciaUuid, achado_uuid: !isGeral && !isEmpty && !isInvalidUuid ? achadoUuid : null);
       developer.log(
         "[DEBUG FOTO] Despachando foto ${evidencia.uuid} do Achado ${evidencia.achado_uuid} vinculado ao Caso: $casoUuid",
       );

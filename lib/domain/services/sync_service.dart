@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
+import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
@@ -99,12 +101,20 @@ class SyncService {
     debugPrint('[SyncService] ${casosPendentes.length} caso(s) pendente(s).');
 
     // Fase 1: Push textual de metadados (JSON)
-    await _pushTextual(casosPendentes);
-
+    final syncResult = await _pushTextual(casosPendentes);
+    
+    // Extrai a lista de UUIDs com conflitos do backend
+    final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
     int totalFotosFalhas = 0;
+    int totalCasosConflito = conflitosUuids.length;
 
     // Fase 2: Upload individual das evidências fotográficas (idempotência local)
     for (final caso in casosPendentes) {
+      if (conflitosUuids.contains(caso.uuid)) {
+        debugPrint('[SyncService] Caso ${caso.uuid} está em conflito no servidor central. Ignorando upload de evidências.');
+        continue;
+      }
+
       final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
       final falhasNoCaso = await _processarCaso(caso, fotos);
       totalFotosFalhas += falhasNoCaso;
@@ -112,12 +122,19 @@ class SyncService {
 
     debugPrint('[SyncService] Ciclo concluído.');
 
-    if (totalFotosFalhas > 0) {
-      throw Exception('Metadados enviados, mas falha ao enviar $totalFotosFalhas fotos.');
+    if (totalCasosConflito > 0 || totalFotosFalhas > 0) {
+      final List<String> erros = [];
+      if (totalCasosConflito > 0) {
+        erros.add('$totalCasosConflito caso(s) em conflito no servidor central.');
+      }
+      if (totalFotosFalhas > 0) {
+        erros.add('falha ao enviar $totalFotosFalhas fotos.');
+      }
+      throw Exception('Sincronização parcial: ${erros.join(" e ")}');
     }
   }
 
-  Future<void> _pushTextual(List<Caso> casos) async {
+  Future<Map<String, dynamic>> _pushTextual(List<Caso> casos) async {
     final achadosPorCaso = await _repository.getAchadosEmLote(
       casos.map((c) => c.uuid).toList(),
     );
@@ -135,7 +152,7 @@ class SyncService {
       'casos': casosJson,
     };
 
-    await _remoteDataSource.pushTextual(payload);
+    return await _remoteDataSource.pushTextual(payload);
   }
 
   /// Processa a sincronização de fotos de um caso.
@@ -185,10 +202,9 @@ class SyncService {
     final bytes = await arquivoOriginal.readAsBytes();
     final String hashOriginal = sha256.convert(bytes).toString();
 
-    // Null check na extração do uuid da evidência
-    final String evidenciaUuid = (achado.dadosPreenchidos != null
-        ? achado.dadosPreenchidos['_evidencia_uuid']?.toString()
-        : null) ?? achado.uuid;
+    // Extração do uuid da evidência
+    final String evidenciaUuid =
+        achado.dadosPreenchidos['_evidencia_uuid']?.toString() ?? achado.uuid;
 
     await _remoteDataSource.uploadEvidencia(
       casoUuid: caso.uuid,
@@ -203,40 +219,69 @@ class SyncService {
     await _repository.marcarCasoComoSincronizado(caso);
   }
 
+  String _toDeterministicUuidV4(String namespace, String name) {
+    final String uuidV5 = const Uuid().v5(namespace, name);
+    return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
+  }
+
   Map<String, dynamic> _casoParaJson(Caso caso, List<Achado> achados) {
+    final uniqueDiagramNames = achados.map((a) => a.diagramaNome).toSet();
+
+    final List<Map<String, dynamic>> diagramasJson = [];
+    for (final diagName in uniqueDiagramNames) {
+      final String templateId = DiagramTemplates.templateIdParaView(diagName);
+      final String templateUuid = _toDeterministicUuidV4('6ba7b811-9dad-11d1-80b4-00c04fd430c8', templateId);
+      final String diagramaUuid = _toDeterministicUuidV4(caso.uuid, diagName);
+
+      diagramasJson.add({
+        'uuid': diagramaUuid,
+        'caso_uuid': caso.uuid,
+        'template_id': templateUuid,
+        'versao': 1,
+        'removido': false,
+        'device_id': caso.deviceId,
+        'proveniencia': caso.proveniencia ?? 'APP_TABLET',
+        'criado_em': caso.criadoEmDispositivo.toUtc().toIso8601String(),
+        'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
+      });
+    }
+
     return {
       'uuid': caso.uuid,
       'id_usuario_criador': caso.idUsuarioCriador,
-      'numero_laudo_externo': caso.numeroLaudoExterno,
-      'status': caso.status.name.toUpperCase(),
-      'dados_laudo_json': caso.dadosLaudo,
       'versao': caso.versao,
-      'criado_em_dispositivo': caso.criadoEmDispositivo.toUtc().toIso8601String(),
-      'device_id': caso.deviceId,
       'removido': caso.removido,
-      'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
-      'criado_em_rede_confiavel': caso.criadoEmRedeConfiavel?.toUtc().toIso8601String(),
+      'status': caso.status.name.toUpperCase(),
+      'numero_laudo_externo': caso.numeroLaudoExterno,
+      'dados_laudo_json': caso.dadosLaudo,
+      'device_id': caso.deviceId,
       'proveniencia': caso.proveniencia,
+      'criado_em_dispositivo': caso.criadoEmDispositivo.toUtc().toIso8601String(),
+      'criado_em_rede_confiavel': caso.criadoEmRedeConfiavel?.toUtc().toIso8601String(),
+      'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
+      'diagramas': diagramasJson,
       'achados': achados.map(_achadoParaJson).toList(),
     };
   }
 
   Map<String, dynamic> _achadoParaJson(Achado achado) {
+    final String diagramaCasoUuid = _toDeterministicUuidV4(achado.casoUuid, achado.diagramaNome);
+
     return {
       'uuid': achado.uuid,
-      'caso_uuid': achado.casoUuid,
-      'diagrama_nome': achado.diagramaNome,
+      'diagrama_caso_uuid': diagramaCasoUuid, // Chave obrigatória apontando para o diagrama correspondente
       'tipo_achado_id': achado.tipoAchadoId,
+      'versao': achado.versao,
+      'removido': achado.removido,
       'numero_sequencial': achado.numeroSequencial,
       'pos_x': achado.posX.toDouble(),
       'pos_y': achado.posY.toDouble(),
-      'is_interno': achado.isInterno,
+      'esta_pendente': false,
       'dados_preenchidos_json': achado.dadosPreenchidos,
       'observacoes_texto': achado.observacoesTexto,
-      'versao': achado.versao,
-      'criado_em': achado.criadoEm.toUtc().toIso8601String(),
       'device_id': achado.deviceId,
-      'removido': achado.removido, 
+      'proveniencia': achado.proveniencia ?? 'APP_TABLET',
+      'criado_em': achado.criadoEm.toUtc().toIso8601String(),
       'atualizado_em': (achado.atualizadoEm ?? achado.criadoEm).toUtc().toIso8601String(),
     };
   }

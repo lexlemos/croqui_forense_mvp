@@ -33,7 +33,7 @@ abstract interface class IRemoteDataSource {
   ///
   /// @throws [SyncPushTextualException] em caso de rejeição do payload
   /// pelo servidor central ou perda abrupta de conectividade.
-  Future<void> pushTextual(Map<String, dynamic> payload);
+  Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload);
 
   /// Transmite uma Evidência Fotográfica associada a uma lesão, 
   /// garantindo a Cadeia de Custódia.

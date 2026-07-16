@@ -18,6 +18,17 @@ class InjuryTypeRepository {
     return result.map((m) => InjuryType.fromMap(m)).toList();
   }
 
+  Future<List<InjuryType>> getTypesByScope({required bool isInterno}) async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      tableTiposAchados,
+      where: 'ativo = 1 AND is_interno = ?',
+      whereArgs: [isInterno ? 1 : 0],
+      orderBy: 'ordem ASC',
+    );
+    return result.map((m) => InjuryType.fromMap(m)).toList();
+  }
+
   Future<void> upsertAll(List<InjuryType> types) async {
     final db = await _dbHelper.database;
     await db.transaction((txn) async {

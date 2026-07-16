@@ -95,6 +95,7 @@ class DatabaseHelper {
     switch (version) {
       case 2:
         debugPrint('[DatabaseHelper] Executando migração para a versão 2...');
+        await txn.execute('ALTER TABLE tipos_achados ADD COLUMN is_interno INTEGER DEFAULT 0;');
         break;
         
       case 3:

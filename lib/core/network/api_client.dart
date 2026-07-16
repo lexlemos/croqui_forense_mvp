@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 
 
-const String _kBaseUrl = 'https://cadeia-de-custodia-iml-back.vercel.app/api/v1/';
+const String _kBaseUrl = 'http://192.168.15.89:8000/api/v1';
 const Duration _kConnectTimeout = Duration(seconds: 20);
 const Duration _kDataTimeout = Duration(seconds: 15);
 
