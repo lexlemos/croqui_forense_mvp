@@ -122,14 +122,75 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    List<Step> steps = [
-      Step(
-        title: const Text("Dados da Requisição"),
-        isActive: _currentStep >= 0,
-        state: _currentStep > 0 ? StepState.complete : StepState.indexed,
-        content: Column(
+  Widget _buildStepIndicator() {
+    return Row(
+      children: [
+        _buildStepIndicatorItem(0, "Dados da Requisição"),
+        Expanded(
+          child: Container(
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            color: _currentStep >= 1 ? Colors.indigo : Colors.grey[300],
+          ),
+        ),
+        _buildStepIndicatorItem(1, "Identificação"),
+      ],
+    );
+  }
+
+  Widget _buildStepIndicatorItem(int stepIndex, String title) {
+    final isActive = _currentStep == stepIndex;
+    final isCompleted = _currentStep > stepIndex;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive 
+                ? Colors.indigo 
+                : (isCompleted ? Colors.green : Colors.grey[100]),
+            border: Border.all(
+              color: isActive 
+                  ? Colors.indigo 
+                  : (isCompleted ? Colors.green : Colors.grey[400]!),
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                : Text(
+                    "${stepIndex + 1}",
+                    style: TextStyle(
+                      color: isActive ? Colors.white : Colors.grey[600],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(
+            color: isActive ? Colors.indigo : (isCompleted ? Colors.green : Colors.grey[600]),
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepContent() {
+    if (_currentStep == 0) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Column(
           children: [
             Row(
               children: [
@@ -142,7 +203,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     keyboardType: TextInputType.text,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: _buildTextField(
                     controller: _boController,
@@ -153,7 +214,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
@@ -165,63 +226,61 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     keyboardType: TextInputType.text,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: _buildTextField(
                     controller: _requisitanteController, 
                     label: "Autoridade Requisitante", 
-                    icon: Icons.account_balance
+                    icon: Icons.account_balance,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            
+            const SizedBox(height: 24),
             _buildTextField(
               controller: _vitimaController, 
               label: "Nome da Vítima", 
               icon: Icons.person,
               textCapitalization: TextCapitalization.words,
             ),
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 24),
             _buildTextField(
               controller: _destinoController, 
               label: "Destino do Laudo", 
-              icon: Icons.place
+              icon: Icons.place,
             ),
           ],
         ),
-      ),
-      Step(
-        title: const Text("Identificação"),
-        isActive: _currentStep >= 1,
-        content: Column(
+      );
+    } else {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildTextField(controller: _vestesController, label: "Vestes / Objetos", icon: Icons.checkroom, maxLines: null),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             _buildTextField(controller: _caracteristicasController, label: "Características Físicas", icon: Icons.accessibility, maxLines: null),
             
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
             const Divider(),
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Text("Sinais Tanatológicos", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Text("Sinais Tanatológicos", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 15)),
             ),
             _buildTextField(controller: _tanatoImediatoController, label: "Sinais Imediatos", icon: Icons.timer_outlined, maxLines: null),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             _buildTextField(controller: _tanatoConsecutivoController, label: "Sinais Consecutivos", icon: Icons.update, maxLines: null),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             _buildTextField(controller: _tanatoObservacaoController, label: "Comentários Tanatológicos", icon: Icons.comment_outlined, maxLines: null),
             
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
             const Divider(),
             
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Fotos de Identificação", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                const Text("Fotos de Identificação", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 15)),
                 TextButton.icon(
                   onPressed: _adicionarFoto,
                   icon: const Icon(Icons.camera_alt),
@@ -229,6 +288,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                 )
               ],
             ),
+            const SizedBox(height: 12),
             
             if (_fotosIdentificacao.isEmpty)
               Container(
@@ -285,52 +345,68 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               )
           ],
         ),
-      ),
-    ];
+      );
+    }
+  }
 
-    return AlertDialog(
-      title: const Text("Novo Caso"),
-      content: SizedBox(
-        width: 600, 
-        height: 550, 
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 600,
+        height: 620,
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: Stepper(
-            type: StepperType.horizontal,
-            currentStep: _currentStep,
-            onStepContinue: () {
-              if (_currentStep < steps.length - 1) {
-                if (_validarPassoAtual()) setState(() => _currentStep += 1);
-              } else {
-                _submit();
-              }
-            },
-            onStepCancel: () {
-              if (_currentStep > 0) {
-                setState(() => _currentStep -= 1);
-              } else {
-                Navigator.pop(context);
-              }
-            },
-            controlsBuilder: (context, details) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 20.0),
-                child: Row(
-                  children: [
-                    FilledButton(
-                      onPressed: details.onStepContinue,
-                      child: Text(_currentStep == steps.length - 1 ? "CRIAR CASO" : "PRÓXIMO"),
-                    ),
-                    const SizedBox(width: 12),
-                    TextButton(
-                      onPressed: details.onStepCancel,
-                      child: Text(_currentStep == 0 ? "CANCELAR" : "VOLTAR"),
-                    ),
-                  ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Novo Caso",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
-              );
-            },
-            steps: steps,
+              ),
+              const SizedBox(height: 20),
+              _buildStepIndicator(),
+              const SizedBox(height: 24),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _buildStepContent(),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      if (_currentStep > 0) {
+                        setState(() => _currentStep -= 1);
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: Text(_currentStep == 0 ? "CANCELAR" : "VOLTAR"),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: () {
+                      if (_currentStep < 1) {
+                        if (_validarPassoAtual()) {
+                          setState(() => _currentStep += 1);
+                        }
+                      } else {
+                        _submit();
+                      }
+                    },
+                    child: Text(_currentStep == 0 ? "PRÓXIMO" : "CRIAR CASO"),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

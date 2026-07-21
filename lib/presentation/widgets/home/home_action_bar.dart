@@ -42,11 +42,19 @@ class HomeActionBar extends StatelessWidget {
           const SizedBox(width: 8),
           
           Tooltip(
-            message: "Botão Novo Caso",
-            child: IconButton.filled(
-            onPressed: onNovoCaso,
-            icon: const Icon(Icons.add)
-          ),)
+            message: "Criar Novo Caso",
+            child: FilledButton.icon(
+              onPressed: onNovoCaso,
+              icon: const Icon(Icons.add),
+              label: const Text('Novo Caso'),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          )
         ],
       ),
     );

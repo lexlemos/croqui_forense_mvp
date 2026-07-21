@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 
 
-const String _kBaseUrl = 'http://192.168.15.88:8000/api/v1/';
-const Duration _kConnectTimeout = Duration(seconds: 5);
-const Duration _kDataTimeout = Duration(seconds: 8);
+const String _kBaseUrl = 'https://cadeia-de-custodia-iml-back.vercel.app/api/v1';
+const Duration _kConnectTimeout = Duration(seconds: 20);
+const Duration _kDataTimeout = Duration(seconds: 15);
 
 class SessionExpiredException implements Exception {
   @override
@@ -22,7 +22,7 @@ class AuthInterceptor extends QueuedInterceptor {
       : _onSessionExpired = onSessionExpired;
 
   @override
-  Future<void> onRequest(
+  Future<void> onRequest( 
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
@@ -54,7 +54,7 @@ class AuthInterceptor extends QueuedInterceptor {
     }
 
     final path = err.requestOptions.path;
-    if (path.contains('/auth/login') || path.contains('/auth/refresh')) {
+    if (path.contains('/auth/login') || path.contains('/auth/refresh') || path.contains('tipos-achados')) {
       return handler.next(err);
     }
 
@@ -79,7 +79,7 @@ class AuthInterceptor extends QueuedInterceptor {
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
-        final newAccessToken = data['token']?.toString();
+        final newAccessToken = data['access_token']?.toString();
         final newRefreshToken = data['refresh_token']?.toString();
 
         if (newAccessToken == null) {

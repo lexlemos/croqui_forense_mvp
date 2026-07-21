@@ -6,6 +6,7 @@ class InjuryType {
   final Map<String, dynamic> schemaFormulario;
   final int order;
   final bool isActive;
+  final bool isInterno;
 
   InjuryType({
     required this.id,
@@ -13,6 +14,7 @@ class InjuryType {
     this.schemaFormulario = const {},
     this.order = 0,
     this.isActive = true,
+    this.isInterno = false,
   });
 
   factory InjuryType.fromMap(Map<String, dynamic> map) {
@@ -32,6 +34,7 @@ class InjuryType {
       schemaFormulario: schema,
       order: map['ordem'] as int? ?? 0,
       isActive: (map['ativo'] as int? ?? 1) == 1,
+      isInterno: (map['is_interno'] as int? ?? 0) == 1,
     );
   }
 
@@ -52,6 +55,7 @@ class InjuryType {
       schemaFormulario: schema,
       order: json['ordem'] as int? ?? 0,
       isActive: true,
+      isInterno: json['is_interno'] as bool? ?? false,
     );
   }
 
@@ -59,6 +63,7 @@ class InjuryType {
     return {
       'id': id,
       'nome': label,
+      'is_interno': isInterno ? 1 : 0,
       'schema_formulario_json': jsonEncode(schemaFormulario),
       'ordem': order,
       'ativo': isActive ? 1 : 0,

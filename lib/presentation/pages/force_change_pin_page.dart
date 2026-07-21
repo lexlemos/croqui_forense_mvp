@@ -39,99 +39,102 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
           )
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Form(
-              key: _controller.formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      shape: BoxShape.circle,
+      body: SafeArea(
+        bottom: true,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Form(
+                key: _controller.formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.lock_reset, size: 64, color: Colors.orange),
                     ),
-                    child: const Icon(Icons.lock_reset, size: 64, color: Colors.orange),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  Text(
-                    'Troca de Senha Obrigatória',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold
+                    
+                    const SizedBox(height: 24),
+                    
+                    Text(
+                      'Troca de Senha Obrigatória',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  const Text(
-                    'Por segurança, defina um novo PIN pessoal de 4 dígitos para liberar seu acesso.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, height: 1.5),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  TextFormField(
-                    controller: _controller.pinController,
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    maxLength: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Novo PIN',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outline),
-                      counterText: "",
+                    
+                    const SizedBox(height: 12),
+                    
+                    const Text(
+                      'Por segurança, defina um novo PIN pessoal de 4 dígitos para liberar seu acesso.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, height: 1.5),
                     ),
-                    validator: _controller.validarPin,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _controller.confirmController,
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    maxLength: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirme o PIN',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.check_circle_outline),
-                      counterText: "",
+                    
+                    const SizedBox(height: 32),
+                    
+                    TextFormField(
+                      controller: _controller.pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Novo PIN',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock_outline),
+                        counterText: "",
+                      ),
+                      validator: _controller.validarPin,
+                      textInputAction: TextInputAction.next,
                     ),
-                    validator: _controller.validarConfirmacao,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _controller.submitChange(context),
-                  ),
-                  
-                  const SizedBox(height: 24),
-
-                  Selector<AuthProvider, bool>(
-                    selector: (_, provider) => provider.isLoading,
-                    builder: (context, isLoading, child) {
-                      return SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: FilledButton(
-                          onPressed: isLoading ? null : () => _controller.submitChange(context),
-                          child: isLoading
-                              ? const SizedBox(
-                                  width: 24, 
-                                  height: 24, 
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                )
-                              : const Text('DEFINIR NOVA SENHA'),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                    
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _controller.confirmController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirme o PIN',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.check_circle_outline),
+                        counterText: "",
+                      ),
+                      validator: _controller.validarConfirmacao,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _controller.submitChange(context),
+                    ),
+                    
+                    const SizedBox(height: 24),
+  
+                    Selector<AuthProvider, bool>(
+                      selector: (_, provider) => provider.isLoading,
+                      builder: (context, isLoading, child) {
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: FilledButton(
+                            onPressed: isLoading ? null : () => _controller.submitChange(context),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 24, 
+                                    height: 24, 
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                  )
+                                : const Text('DEFINIR NOVA SENHA'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

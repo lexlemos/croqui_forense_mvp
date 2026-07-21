@@ -8,15 +8,46 @@ import 'package:intl/intl.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 
 import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
+/// Serviço responsável pela geração e compilação do Laudo Pericial Oficial
+/// em formato PDF para fins de impressão e armazenamento.
+///
+/// Este serviço atua como o "Motor de Exportação do Laudo Cadavérico/Lesão Corporal Oficial",
+/// consolidando todas as informações coletadas pelo Perito durante o exame
+/// necroscópico ou clínico, incluindo as lesões registradas graficamente no
+/// croqui, fotos anexadas como evidências físicas e os quesitos respondidos.
+///
+/// O documento PDF resultante serve como uma "Impressão Oficial" dotada de
+/// "Validação Jurídica", contendo os "Metadados do Perito" e a assinatura de
+/// integridade para sua preservação legal.
 class PdfService {
   static Future<pw.Font>? _cachedFontRegularFuture;
   static Future<pw.Font>? _cachedFontBoldFuture;
   static Future<pw.MemoryImage?>? _cachedLogoPoliciaFuture;
 
+  /// Compila e gera o documento de "Impressão Oficial" do Laudo Pericial Cadavérico ou
+  /// de Lesão Corporal no formato PDF.
+  ///
+  /// Consolida o histórico, a identificação oficial da vítima, os dados tanatológicos,
+  /// as descrições detalhadas dos exames externo e interno, os exames complementares,
+  /// os esquemas anatômicos (croquis) e a resposta oficial aos quesitos formulados pela autoridade requisitante.
+  /// Também inclui no "Documento Físico" a certificação eletrônica com "Metadados do Perito"
+  /// para conferir autenticidade e "Validação Jurídica" na cadeia de custódia.
+  ///
+  /// Parâmetros obrigatórios:
+  /// - [caso] O Laudo do exame pericial contendo as informações cadastrais e administrativas.
+  /// - [achados] O conjunto de lesões, orifícios ou vestígios mapeados no croqui.
+  /// - [perito] O médico legista responsável pela emissão e encerramento do laudo.
+  /// - [schemas] Configurações de formulários dinâmicos utilizadas para mapear e formatar as características específicas das lesões.
+  ///
+  /// Retorna a representação em bytes do PDF compilado ([Uint8List]).
+  ///
+  /// @throws FileSystemException Caso ocorra falha de I/O por falta de permissão de escrita/leitura no disco ao recuperar fotografias (evidências físicas).
+  /// @throws FormatException Caso haja erro na conversão e renderização das imagens ou dos esquemas gráficos em SVG para o formato impresso.
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
@@ -411,7 +442,7 @@ class PdfService {
               ),
               pw.SizedBox(height: 4),
               pw.Text(
-                "Este documento foi gerado pelo sistema Croqui Forense Digital e assinado eletronicamente por $nomeResponsavel. "
+                "Este documento foi gerado pelo sistema Necropsia Digital e assinado eletronicamente por $nomeResponsavel. "
                 "A conferência de autenticidade deve ser feita via base de dados oficial da Coordenadoria Geral de Perícias.",
                 style: pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700, fontStyle: pw.FontStyle.italic),
               ),

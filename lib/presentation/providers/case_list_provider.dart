@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
+import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
 
@@ -29,6 +30,20 @@ class CaseListProvider extends ChangeNotifier {
   
   void updateService(CaseService newService) {
     _caseService = newService;
+  }
+
+  Future<Caso> criarCaso({
+    required Usuario criador,
+    required String numeroLaudo,
+    required Map<String, dynamic> dadosIniciais,
+  }) async {
+    final novoCaso = await _caseService.createNewCase(
+      criador: criador,
+      numeroLaudo: numeroLaudo,
+      dadosIniciais: dadosIniciais,
+    );
+    await carregarCasos();
+    return novoCaso;
   }
 
   Future<void> carregarCasos() async {

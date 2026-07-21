@@ -55,7 +55,7 @@ class AuthProvider extends ChangeNotifier {
       await _authService.login(matricula, pin);
       _usuario = _authService.usuario;
       _isLogged = true;
-      _domainSyncService?.syncTiposAchados();
+      await _domainSyncService?.syncTiposAchados();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -70,7 +70,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
-    if (_usuario == null) throw AuthException("Nenhum usuário logado");
+    if (_usuario == null) throw const AuthException("Nenhum usuário logado");
 
     _isLoading = true;
     notifyListeners();

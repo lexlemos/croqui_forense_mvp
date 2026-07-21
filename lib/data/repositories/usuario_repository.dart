@@ -75,11 +75,19 @@ class UsuarioRepository {
 
   Future<void> createUsuario(Usuario usuario) async {
     final db = await database;
-    await db.insert(
+    final rowsAffected = await db.update(
       'usuarios',
       usuario.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      where: 'id = ?',
+      whereArgs: [usuario.id],
     );
+    if (rowsAffected == 0) {
+      await db.insert(
+        'usuarios',
+        usuario.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
   Future<void> updatePin(String id, String novoHash, String novoSalt) async {
     final db = await database;

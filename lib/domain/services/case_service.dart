@@ -39,22 +39,39 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
   return dadosBase;
 }
 
+/// Serviço de domínio encarregado de gerenciar o ciclo de vida do [Caso] (Laudo Pericial Oficial).
+///
+/// Coordena a criação, o salvamento de rascunhos, a finalização e o congelamento de laudos
+/// para fins de auditoria e assinatura, garantindo a integridade digital de todos os dados do exame pericial.
 class CaseService {
   final CasoRepository _repository;
   final UsuarioRepository _usuarioRepository;
 
   CaseService(this._repository, this._usuarioRepository);
 
+  /// Inicializa e registra um novo [Caso] (Laudo Pericial Oficial) no repositório do dispositivo.
+  ///
+  /// Vincula o laudo ao [Perito] criador através de seu identificador funcional.
+  ///
+  /// @throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
   Future<Caso> createNewCase({required Usuario criador, required String numeroLaudo, Map<String, dynamic> dadosIniciais = const {}}) async {
     final novoCaso = Caso.novo(idUsuarioCriador: criador.id, numeroLaudoExterno: numeroLaudo, proveniencia: 'APP_TABLET', dadosLaudo: dadosIniciais);
     await _repository.insertCase(novoCaso);
     return novoCaso;
   }
 
+  /// Retorna todos os [Caso]s (Laudos) gravados no repositório local.
   Future<List<Caso>> listarCasos() async => await _repository.getAllCases();
 
+  /// Localiza um [Caso] (Laudo) específico com base em seu identificador universal único ([uuid]).
   Future<Caso?> buscarCasoPorUuid(String uuid) async => _repository.getCaseByUuid(uuid);
 
+  /// Finaliza e congela o [Caso] (Laudo) para auditoria e assinatura eletrônica do [Perito].
+  ///
+  /// Altera o status do caso para `StatusCaso.finalizado`, bloqueando modificações diretas
+  /// em lesões e fotos associadas a fim de manter a inalterabilidade da prova técnica.
+  ///
+  /// @throws [Exception] se o laudo com o [casoUuid] fornecido não for localizado no banco local.
   Future<void> finalizarCaso(String casoUuid, Map<String, dynamic> dadosConclusao) async {
     final casoAtual = await _repository.getCaseByUuid(casoUuid);
     if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
@@ -71,6 +88,12 @@ class CaseService {
     await _repository.updateCase(casoFinalizado);
   }
 
+  /// Reabre um [Caso] (Laudo) finalizado, restaurando seu status para rascunho.
+  ///
+  /// Limpa as assinaturas de integridade e incrementa a versão do documento, permitindo
+  /// que o [Perito] altere ou insira novas marcações de lesões antes do fechamento oficial definitivo.
+  ///
+  /// @throws [Exception] se o laudo com o [casoUuid] fornecido não for localizado.
   Future<void> reabrirCaso(String casoUuid) async {
     final casoAtual = await _repository.getCaseByUuid(casoUuid);
     if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
@@ -84,11 +107,23 @@ class CaseService {
     await _repository.updateCase(casoReaberto);
   }
 
+  /// Persiste as atualizações em modo rascunho de um [Caso] (Laudo).
+  ///
+  /// @throws [Exception] caso o laudo já tenha sido finalizado (bloqueado para edição) e
+  /// o perito tente salvar alterações sem antes realizar a reabertura formal.
   Future<void> salvarRascunho(Caso caso) async {
     final casoAtualizado = caso.copyWith(atualizadoEm: DateTime.now());
     await _repository.updateCase(casoAtualizado);
   }
 
+  /// Exporta o [Caso] (Laudo) em um arquivo JSON consolidado para auditoria externa.
+  ///
+  /// Realiza a conversão de todas as [Evidência Fotográfica]s cadastradas para codificação Base64.
+  /// A leitura e codificação de imagens são processadas em segundo plano (background thread/isolate)
+  /// para evitar o travamento da interface visual no tablet do [Perito].
+  ///
+  /// @throws [Exception] caso o laudo com [casoUuid] não exista ou ocorra um erro de leitura
+  /// dos arquivos físicos das evidências de imagem.
   Future<File> exportarJsonUnicoComBase64({
     required String casoUuid,
     required String nomeExportador,
@@ -233,7 +268,7 @@ class CaseService {
     return {
       'responsavel_pela_exportacao': nomeExportador, 
       'data_hora_exportado': DateTime.now().toIso8601String(), 
-      'software_origem': 'Croqui Forense App v1.1'
+      'software_origem': 'Necropsia Digital App v1.1'
     };
   }
 }

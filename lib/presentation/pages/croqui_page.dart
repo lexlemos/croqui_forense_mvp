@@ -12,7 +12,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_mod
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_widgets.dart';
-import 'package:croqui_forense_mvp/components/croqui/croqui_viewer.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;
@@ -109,45 +109,48 @@ class _CroquiView extends StatelessWidget {
             unselectedLabelColor: Colors.white60,
             indicatorColor: Colors.amber,
             tabs: [
-              Tab(text: "Frente / Costas"),
-              Tab(text: "Laterais"),
-              Tab(text: "Tronco"),
+              Tab(text: "Frontal / Dorsal"),
+              Tab(text: "Lateral Dir. / Esq."),
+              Tab(text: "Tronco Dir. / Esq."),
               Tab(text: "Períneo"),
-              Tab(text: "Rostos"),
+              Tab(text: "Face Dir. / Esq."),
               Tab(text: "Dados", icon: Icon(Icons.description, size: 16)),
             ],
           ),
         ),
-        body: Row(
-          children: [
-            Expanded(
-              child: Container(
-                color: Colors.grey[100],
-                child: TabBarView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildFrenteCostasTab(context, controller),
-                    _buildLateraisTab(context, controller),
-                    _buildTroncoTab(context, controller),
-                    _buildPerineoTab(context, controller),
-                    _buildRostosTab(context, controller),
-                    const CaseInfoTab(),
-                  ],
+        body: SafeArea(
+          bottom: true,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  color: Colors.grey[100],
+                  child: TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildFrenteCostasTab(context, controller),
+                      _buildLateraisTab(context, controller),
+                      _buildTroncoTab(context, controller),
+                      _buildPerineoTab(context, controller),
+                      _buildRostosTab(context, controller),
+                      const CaseInfoTab(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const VerticalDivider(width: 1),
-            
-            SizedBox(
-              width: sidebarWidth,
-              child: AchadosSidebar(
-                achados: controller.achados,
-                isReadOnly: controller.isReadOnly,
-                onEdit: (achado) => _showEditOrDetail(context, controller, achado),
-                onDelete: (uuid) => controller.deleteAchado(context, uuid),
-              ),
-            )
-          ],
+              const VerticalDivider(width: 1),
+              
+              SizedBox(
+                width: sidebarWidth,
+                child: AchadosSidebar(
+                  achados: controller.achados,
+                  isReadOnly: controller.isReadOnly,
+                  onEdit: (achado) => _showEditOrDetail(context, controller, achado),
+                  onDelete: (uuid) => controller.deleteAchado(context, uuid),
+                ),
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -382,12 +385,12 @@ class _FrenteCostasTabContentState extends State<_FrenteCostasTabContent> {
                 segments: const [
                   ButtonSegment(
                     value: 'frente',
-                    label: Text('Frente'),
+                    label: Text('Frontal'),
                     icon: Icon(Icons.accessibility_new, size: 18),
                   ),
                   ButtonSegment(
                     value: 'costas',
-                    label: Text('Costas'),
+                    label: Text('Dorsal'),
                     icon: Icon(Icons.accessibility, size: 18),
                   ),
                 ],

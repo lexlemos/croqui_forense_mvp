@@ -7,7 +7,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
-import 'package:croqui_forense_mvp/components/forms/dynamic_form_widget.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/forms/dynamic_form_widget.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class InjuryFormModal extends StatefulWidget {
@@ -40,6 +40,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   String? _currentPhotoPath;
   InjuryType? _selectedType;
+  String? _selectedParteCorpo;
   bool _isLoadingTypes = true;
   bool _isInterno = false;
   Map<String, dynamic> _dynamicData = {};
@@ -105,6 +106,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final types = await widget.injuryTypeRepository.getAllTypes();
       if (!mounted) return;
 
+      debugPrint("Types loaded: ${types.map((t) => '${t.label} (isInterno: ${t.isInterno}, parte: ${t.schemaFormulario['parte_corpo']})').toList()}");
+
       setState(() {
         _availableTypes = types;
         _isLoadingTypes = false;
@@ -118,6 +121,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               return legacy;
             },
           );
+
+          if (_isInterno) {
+            _selectedParteCorpo = _selectedType?.schemaFormulario['parte_corpo']?.toString();
+          }
 
           final autoRelKey = _findAutoRelacionamentoKey();
           if (autoRelKey != null && widget.achadoToEdit?.achadoRelacionadoUuid != null) {
@@ -179,99 +186,102 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   Widget build(BuildContext context) {
     final bool isEditing = widget.achadoToEdit != null;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom, 
-        left: 16, right: 16, top: 16
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeader(isEditing),
-              const Divider(),
-              const SizedBox(height: 16),
-
-              _buildSectionLabel("CLASSIFICAÇÃO DO EXAME"),
-              _buildClassificationToggle(),
-              const SizedBox(height: 20),
-
-              _buildSectionLabel("NATUREZA DA LESÃO"),
-              _buildTypeDropdown(),
-              if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+    return SafeArea(
+      bottom: true,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom, 
+          left: 16, right: 16, top: 16
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(isEditing),
+                const Divider(),
                 const SizedBox(height: 16),
-                _buildSectionLabel("DETALHES ESPECÍFICOS"),
-                DynamicFormWidget(
-                  key: _dynamicFormKey,
-                  schema: _selectedType!.schemaFormulario,
-                  initialData: _dynamicData,
-                  entradasDisponiveis: _entradasDisponiveis,
-                  onChanged: (data) => _dynamicData = data,
-                ),
-              ],
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(child: _buildSizeDropdown()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildTextField(_depthController, "Profundidade", Icons.vertical_align_bottom, false)),
-                ],
-              ),
-              if (_isCustomSize) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _customSizeController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.edit, size: 20),
-                    labelText: "Valor personalizado (cm)",
-                    border: OutlineInputBorder(),
+  
+                _buildSectionLabel("CLASSIFICAÇÃO DO EXAME"),
+                _buildClassificationToggle(),
+                const SizedBox(height: 20),
+  
+                _buildSectionLabel("NATUREZA DA LESÃO"),
+                _buildTypeDropdown(),
+                if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildSectionLabel("DETALHES ESPECÍFICOS"),
+                  DynamicFormWidget(
+                    key: _dynamicFormKey,
+                    schema: _selectedType!.schemaFormulario,
+                    initialData: _dynamicData,
+                    entradasDisponiveis: _entradasDisponiveis,
+                    onChanged: (data) => _dynamicData = data,
                   ),
-                  validator: null,
+                ],
+                const SizedBox(height: 16),
+  
+                Row(
+                  children: [
+                    Expanded(child: _buildSizeDropdown()),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildTextField(_depthController, "Profundidade", Icons.vertical_align_bottom, false)),
+                  ],
                 ),
+                if (_isCustomSize) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _customSizeController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.edit, size: 20),
+                      labelText: "Valor personalizado (cm)",
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: null,
+                  ),
+                ],
+                const SizedBox(height: 20),
+  
+                _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 60), // Aumente este valor para diminuir a foto
+                  child: _buildPhotoPicker(),
+                ),
+                const SizedBox(height: 20),
+  
+                _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
+                TextFormField(
+                  controller: _obsController,
+                  maxLines: null,
+                  minLines: 3,
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: "Descreva detalhes específicos da lesão...",
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                ),
+                const SizedBox(height: 24),
+  
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: _saveForm,
+                  icon: Icon(isEditing ? Icons.save : Icons.add_circle_outline),
+                  label: Text(isEditing ? "ATUALIZAR REGISTRO" : "CONFIRMAR ACHADO"),
+                ),
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 20),
-
-              _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 60), // Aumente este valor para diminuir a foto
-                child: _buildPhotoPicker(),
-              ),
-              const SizedBox(height: 20),
-
-              _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
-              TextFormField(
-                controller: _obsController,
-                maxLines: null,
-                minLines: 3,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: "Descreva detalhes específicos da lesão...",
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.all(12),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: _saveForm,
-                icon: Icon(isEditing ? Icons.save : Icons.add_circle_outline),
-                label: Text(isEditing ? "ATUALIZAR REGISTRO" : "CONFIRMAR ACHADO"),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),
@@ -317,8 +327,16 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     ),
     child: Row(
       children: [
-        _buildToggleItem("EXTERNO", !_isInterno, () => setState(() => _isInterno = false)),
-        _buildToggleItem("INTERNO", _isInterno, () => setState(() => _isInterno = true)),
+        _buildToggleItem("EXTERNO", !_isInterno, () => setState(() {
+          _isInterno = false;
+          _selectedType = null;
+          _selectedParteCorpo = null;
+        })),
+        _buildToggleItem("INTERNO", _isInterno, () => setState(() {
+          _isInterno = true;
+          _selectedType = null;
+          _selectedParteCorpo = null;
+        })),
       ],
     ),
   );
@@ -349,15 +367,72 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     ),
   );
 
-  Widget _buildTypeDropdown() => _isLoadingTypes 
-    ? const LinearProgressIndicator()
-    : DropdownButtonFormField<InjuryType>(
-        initialValue: _selectedType,
-        decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
-        items: _availableTypes.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+  Widget _buildTypeDropdown() {
+    if (_isLoadingTypes) {
+      return const LinearProgressIndicator();
+    }
+
+    if (_isInterno) {
+      final partesDeCorpo = _availableTypes
+          .where((t) => t.isInterno)
+          .map((t) => t.schemaFormulario['parte_corpo']?.toString())
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      final tiposFiltrados = _availableTypes
+          .where((t) => t.isInterno && t.schemaFormulario['parte_corpo'] == _selectedParteCorpo)
+          .toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<String>(
+            value: _selectedParteCorpo,
+            decoration: const InputDecoration(
+              labelText: "Parte do Corpo",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            items: partesDeCorpo.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+            onChanged: (v) {
+              setState(() {
+                _selectedParteCorpo = v;
+                _selectedType = null;
+              });
+            },
+            validator: (v) => v == null ? 'Obrigatório' : null,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<InjuryType>(
+            value: _selectedType,
+            decoration: const InputDecoration(
+              labelText: "Natureza da Lesão Interna",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() => _selectedType = v),
+            validator: (v) => v == null ? 'Obrigatório' : null,
+          ),
+        ],
+      );
+    } else {
+      final tiposExternos = _availableTypes.where((t) => !t.isInterno).toList();
+
+      return DropdownButtonFormField<InjuryType>(
+        value: _selectedType,
+        decoration: const InputDecoration(
+          labelText: "Natureza da Lesão",
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12),
+        ),
+        items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
         onChanged: (v) => setState(() => _selectedType = v),
         validator: (v) => v == null ? 'Obrigatório' : null,
       );
+    }
+  }
 
   Widget _buildSizeDropdown() => DropdownButtonFormField<String>(
     initialValue: _selectedSize,

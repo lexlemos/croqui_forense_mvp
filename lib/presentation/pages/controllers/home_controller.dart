@@ -1,0 +1,90 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.dart';
+import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
+
+class HomeController {
+  final searchController = TextEditingController();
+
+  void init(BuildContext context) {
+    searchController.addListener(() {
+      context.read<CaseListProvider>().setSearchQuery(searchController.text);
+    });
+  }
+
+  void dispose() {
+    searchController.dispose();
+  }
+
+  Future<void> iniciarNovoCaso(BuildContext context) async {
+    final dadosRetornados = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const NewCaseDialog(),
+    );
+
+    if (dadosRetornados != null) {
+      final String numero = dadosRetornados['numero_laudo'];
+      final Map<String, dynamic> conteudoJson = dadosRetornados['dados_laudo'];
+
+      if (context.mounted) {
+        await _criarCaso(context, numero, conteudoJson);
+      }
+    }
+  }
+
+  Future<void> abrirFiltro(BuildContext context) async {
+    final provider = context.read<CaseListProvider>();
+
+    final result = await showDialog<FilterResult>(
+      context: context,
+      builder: (_) => CaseFilterDialog(
+        currentCriteria: provider.sortCriteria,
+        currentOrder: provider.sortOrder,
+        currentStatuses: provider.statusFilter,
+      ),
+    );
+
+    if (result != null) {
+      provider.aplicarFiltrosAvancados(
+        criterio: result.sortCriteria,
+        ordem: result.sortOrder,
+        status: result.selectedStatuses,
+      );
+    }
+  }
+
+  Future<void> _criarCaso(
+    BuildContext context,
+    String numeroLaudo,
+    Map<String, dynamic> dadosLaudo,
+  ) async {
+    try {
+      final usuario = context.read<AuthProvider>().usuario;
+      if (usuario == null) return;
+      final novoCaso = await context.read<CaseListProvider>().criarCaso(
+            criador: usuario,
+            numeroLaudo: numeroLaudo,
+            dadosIniciais: dadosLaudo,
+          );
+
+      if (!context.mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CroquiPage(caso: novoCaso),
+        ),
+      );
+
+    } catch (e) {
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+}
