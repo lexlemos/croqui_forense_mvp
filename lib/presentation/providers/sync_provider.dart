@@ -40,8 +40,11 @@ class SyncProvider extends ChangeNotifier {
 
   bool get isLoading => _state == SyncState.loading;
 
+  bool _isExecuting = false;
+
   Future<void> startSync() async {
-    if (isLoading) return;
+    if (_isExecuting) return;
+    _isExecuting = true;
 
     _setState(SyncState.loading, error: null);
 
@@ -57,6 +60,7 @@ class SyncProvider extends ChangeNotifier {
       // Mantém a mensagem de resultado visível na UI antes de resetar.
       await Future.delayed(_kFeedbackDuration);
       _setState(SyncState.idle, error: null);
+      _isExecuting = false;
     }
   }
 

@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
 
 class CaseInfoTab extends StatefulWidget {
   const CaseInfoTab({super.key});
@@ -52,7 +54,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   late final CroquiController _croquiController;
   late final AuthProvider _authProvider;
 
-  List<String> _fotosIdentificacao = [];
   bool _isSaving = false;
 
   @override
@@ -60,34 +61,39 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     super.initState();
     _croquiController = context.read<CroquiController>();
     _authProvider = context.read<AuthProvider>();
-    final dados = _croquiController.casoAtual.dadosLaudo;
+    
+    final caso = _croquiController.casoAtual;
+    final dados = caso.dadosLaudo;
 
-    _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
+    _numeroLaudoCtrl = TextEditingController(text: caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? ''));
+    _boCtrl = TextEditingController(text: caso.numeroBo); 
+    _picCtrl = TextEditingController(text: caso.numeroPic);
     
-    _numeroLaudoCtrl = TextEditingController(text: _croquiController.casoAtual.numeroLaudoExterno ?? '');
-    _boCtrl = TextEditingController(text: dados['cabecalho']?['bo'] ?? ''); 
-    _picCtrl = TextEditingController(text: dados['cabecalho']?['pic'] ?? '');
-    
-    _reqOrigemCtrl = TextEditingController(text: dados['cabecalho']?['requisitante'] ?? '');
-    _reqDestinoCtrl = TextEditingController(text: dados['cabecalho']?['destino'] ?? '');
-    _nomeVitimaCtrl = TextEditingController(text: dados['cabecalho']?['vitima'] ?? '');
+    _reqOrigemCtrl = TextEditingController(text: caso.requisitante);
+    _reqDestinoCtrl = TextEditingController(text: caso.destino);
+    _nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
 
     _historicoCtrl = TextEditingController(
       text: dados['identificacao']?['historico'] ?? 
-            "Consta em Boletim de Ocorrência de número XXX que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+            "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
     );
 
     _vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
-    _caracteristicasCtrl = TextEditingController(text: dados['identificacao']?['caracteristicas'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
+    _caracteristicasCtrl = TextEditingController(text: 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
     
-    _tanatoImediatoCtrl = TextEditingController(text: dados['identificacao']?['tanato_imediato'] ?? 'XXX');
-    _tanatoConsecutivoCtrl = TextEditingController(text: dados['identificacao']?['tanato_consecutivo'] ?? 'XXX');
-    _tanatoObservacaoCtrl = TextEditingController(text: dados['identificacao']?['tanato_observacao'] ?? 'XXX');
+    _tanatoImediatoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_imediato'] ?? 'XXX');
+    _tanatoConsecutivoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_consecutivo'] ?? 'XXX');
+    _tanatoObservacaoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_observacao'] ?? 'XXX');
 
-    _anatomoCtrl = TextEditingController(text: dados['exames_complementares']?['anatomo'] ?? '');
-    _toxicologicoCtrl = TextEditingController(text: dados['exames_complementares']?['toxicologico'] ?? '');
-    _geneticaCtrl = TextEditingController(text: dados['exames_complementares']?['genetica'] ?? '');
-    _outrosExamesCtrl = TextEditingController(text: dados['exames_complementares']?['outros'] ?? '');
+    final anatomoEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'ANATOMO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final toxicologicoEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'TOXICOLOGICO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final geneticaEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'GENETICA', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final outrosEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'OUTROS', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+
+    _anatomoCtrl = TextEditingController(text: anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : '');
+    _toxicologicoCtrl = TextEditingController(text: toxicologicoEx.uuid.isNotEmpty ? toxicologicoEx.numeroLacre : '');
+    _geneticaCtrl = TextEditingController(text: geneticaEx.uuid.isNotEmpty ? geneticaEx.numeroLacre : '');
+    _outrosExamesCtrl = TextEditingController(text: outrosEx.uuid.isNotEmpty ? outrosEx.numeroLacre : '');
     
     _discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
     _conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
@@ -130,58 +136,59 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
     final nomePerito = _authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
 
-    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(_croquiController.casoAtual.dadosLaudo);
-
-    novosDados['cabecalho'] = {
-      ...(novosDados['cabecalho'] as Map<String, dynamic>? ?? {}),
-      'requisitante': _reqOrigemCtrl.text,
-      'destino': _reqDestinoCtrl.text,
-      'vitima': _nomeVitimaCtrl.text,
-      'requisicao': _numeroLaudoCtrl.text,
-      'bo': _boCtrl.text, 
-      'pic': _picCtrl.text, 
-    };
-
-    novosDados['identificacao'] = {
-      ...(novosDados['identificacao'] as Map<String, dynamic>? ?? {}),
-      'historico': _historicoCtrl.text,
-      'vestes': _vestesCtrl.text,
-      'caracteristicas': _caracteristicasCtrl.text,
-      'tanato_imediato': _tanatoImediatoCtrl.text,
-      'tanato_consecutivo': _tanatoConsecutivoCtrl.text,
-      'tanato_observacao': _tanatoObservacaoCtrl.text,
-      'fotos_gerais': _fotosIdentificacao,
-    };
-
-    novosDados['exames_complementares'] = {
-      'anatomo': _anatomoCtrl.text,
-      'toxicologico': _toxicologicoCtrl.text,
-      'genetica': _geneticaCtrl.text, 
-      'outros': _outrosExamesCtrl.text,
-    };
-
-    novosDados['conclusao'] = {
-      ...(novosDados['conclusao'] as Map<String, dynamic>? ?? {}),
-      'discussao': _discussaoCtrl.text,
-      'conclusao_texto': _conclusaoCtrl.text,
-      'quesito_1_morte': _quesito1Ctrl.text,
-      'quesito_2_causa': _quesito2Ctrl.text,
-      'quesito_3_instrumento': _quesito3Ctrl.text,
-      'quesito_4_meio': _quesito4Ctrl.text,
-    };
+    final Map<String, dynamic> novosDados = {};
 
     novosDados['auditoria'] = {
-      ...(novosDados['auditoria'] as Map<String, dynamic>? ?? {}),
       'perito_responsavel': nomePerito,
       'data_finalizacao': DateTime.now().toIso8601String(),
     };
 
-    _croquiController.atualizarDadosLaudoMemoria(novosDados);
+    novosDados['identificacao'] = {
+      'vestes': _vestesCtrl.text,
+      'historico': _historicoCtrl.text,
+    };
+
+    novosDados['caracteristicas'] = {
+      'tanato_imediato': _tanatoImediatoCtrl.text,
+      'tanato_observacao': _tanatoObservacaoCtrl.text,
+      'tanato_consecutivo': _tanatoConsecutivoCtrl.text,
+    };
+
+    novosDados['conclusao'] = {
+      'discussao': _discussaoCtrl.text,
+      'quesito_1_morte': _quesito1Ctrl.text,
+      'quesito_2_causa': _quesito2Ctrl.text,
+      'quesito_3_instrumento': _quesito3Ctrl.text,
+      'quesito_4_meio': _quesito4Ctrl.text,
+      'conclusao_texto': _conclusaoCtrl.text,
+    };
+
+    _croquiController.atualizarCasoCamposEJson(
+      numeroBo: _boCtrl.text,
+      numeroPic: _picCtrl.text,
+      numeroRequisicao: _numeroLaudoCtrl.text,
+      nomeVitima: _nomeVitimaCtrl.text,
+      destino: _reqDestinoCtrl.text,
+      requisitante: _reqOrigemCtrl.text,
+      novosDadosLaudo: novosDados,
+    );
+
+    _croquiController.salvarExamesSolicitados(
+      anatomoLacre: _anatomoCtrl.text.trim().isEmpty ? null : _anatomoCtrl.text.trim(),
+      toxicologicoLacre: _toxicologicoCtrl.text.trim().isEmpty ? null : _toxicologicoCtrl.text.trim(),
+      geneticaLacre: _geneticaCtrl.text.trim().isEmpty ? null : _geneticaCtrl.text.trim(),
+      outrosLacre: _outrosExamesCtrl.text.trim().isEmpty ? null : _outrosExamesCtrl.text.trim(),
+    );
   }
 
   Future<void> _tirarFoto() async {
     try {
-        final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 50,
+        maxWidth: 800,
+        preferredCameraDevice: CameraDevice.rear,
+      );
       
       if (photo != null) {
         final appDir = await getApplicationDocumentsDirectory();
@@ -192,17 +199,26 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         final localPath = '${evidenciasDir.path}/${const Uuid().v4()}.jpg';
 
         await File(photo.path).copy(localPath);
-        setState(() => _fotosIdentificacao.add(localPath));
-        _sincronizarDadosNaMemoria();
+        
+        await _croquiController.adicionarFotoGeral(localPath);
       }
+    } on FileSystemException catch (e) {
+      debugPrint("Erro de sistema de arquivos ao salvar foto: $e");
+      final isDiskFull = e.osError?.errorCode == 28 || e.message.contains('No space left');
+      final mensagem = isDiskFull
+          ? "Armazenamento esgotado! Libere espaço no dispositivo para continuar salvando fotos."
+          : "Falha ao gravar arquivo de imagem no disco.";
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(mensagem), backgroundColor: Colors.red.shade800, duration: const Duration(seconds: 4)),
+      );
     } catch(e){
-
       debugPrint("Erro ao tirar foto: $e");
-        globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text("Erro ao acessar a câmera ou salvar a foto."), backgroundColor: Colors.red),
-        );
+      globalMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text("Erro ao acessar a câmera ou salvar a foto."), backgroundColor: Colors.red),
+      );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();
@@ -281,40 +297,25 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 100,
+              height: 180,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _fotosIdentificacao.length,
+                itemCount: controller.evidenciasGerais.length,
                 itemBuilder: (context, index) {
+                  final ev = controller.evidenciasGerais[index];
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(_fotosIdentificacao[index]),
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                            cacheWidth: 200,
-                            cacheHeight: 200,
-                          ),
-                        ),
-                        if (!readOnly)
-                          Positioned(
-                            right: -6, top: -6,
-                            child: IconButton(
-                              padding: const EdgeInsets.all(12),
-                              constraints: const BoxConstraints(),
-                              icon: const Icon(Icons.remove_circle, color: Colors.red),
-                              onPressed: () {
-                                setState(() => _fotosIdentificacao.removeAt(index));
-                                _sincronizarDadosNaMemoria();
-                              },
-                            ),
-                          ),
-                      ],
+                    child: EvidenciaFotoCard(
+                      key: ValueKey(ev.uuid),
+                      path: ev.caminhoArquivoEncriptado ?? '',
+                      descricao: ev.descricao,
+                      readOnly: readOnly,
+                      onDescriptionChanged: (val) async {
+                        await controller.salvarDescricaoFotoGeral(ev.uuid, val.trim());
+                      },
+                      onDelete: () async {
+                        await controller.removerFotoGeral(ev.uuid);
+                      },
                     ),
                   );
                 },
@@ -458,7 +459,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 }
               ),
             ],
-            SizedBox(height: 40 + MediaQuery.of(context).viewPadding.bottom),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -533,3 +534,4 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+

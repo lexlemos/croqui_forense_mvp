@@ -399,6 +399,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               setState(() {
                 _selectedParteCorpo = v;
                 _selectedType = null;
+                _dynamicData = {};
               });
             },
             validator: (v) => v == null ? 'Obrigatório' : null,
@@ -412,7 +413,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
             items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() => _selectedType = v),
+            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() {
+              _selectedType = v;
+              _dynamicData = {};
+            }),
             validator: (v) => v == null ? 'Obrigatório' : null,
           ),
         ],
@@ -428,7 +432,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           contentPadding: EdgeInsets.symmetric(horizontal: 12),
         ),
         items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-        onChanged: (v) => setState(() => _selectedType = v),
+        onChanged: (v) => setState(() {
+          _selectedType = v;
+          _dynamicData = {};
+        }),
         validator: (v) => v == null ? 'Obrigatório' : null,
       );
     }

@@ -21,10 +21,14 @@ class Caso {
   final bool removido;
   final int versao;
   final String? deviceId;
-  final String? proveniencia; 
   final DateTime criadoEmDispositivo;
-  final DateTime? criadoEmRedeConfiavel; 
   final DateTime? atualizadoEm;
+  final String numeroPic;
+  final String numeroBo;
+  final String numeroRequisicao;
+  final String nomeVitima;
+  final String destino;
+  final String requisitante;
 
   Caso({
     required this.uuid,
@@ -35,28 +39,35 @@ class Caso {
     required this.removido,
     required this.versao,
     required this.criadoEmDispositivo,
-    this.criadoEmRedeConfiavel,
     this.atualizadoEm,
     this.deviceId,
     required this.dadosLaudo,
-    this.proveniencia,
+    required this.numeroPic,
+    required this.numeroBo,
+    required this.numeroRequisicao,
+    required this.nomeVitima,
+    required this.destino,
+    required this.requisitante,
   });
   
   Caso.novo({
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
     this.deviceId,
-    String? proveniencia,
     this.dadosLaudo = const {},
+    this.numeroPic = '',
+    this.numeroBo = '',
+    this.numeroRequisicao = '',
+    this.nomeVitima = '',
+    this.destino = '',
+    this.requisitante = '',
   }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
        hashIntegridade = null,
        removido = false,
        versao = 1,
        criadoEmDispositivo = DateTime.now(),
-       criadoEmRedeConfiavel = null,
-       atualizadoEm = DateTime.now(),
-       proveniencia = proveniencia ?? 'APP_TABLET';
+       atualizadoEm = DateTime.now();
 
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
@@ -67,7 +78,6 @@ class Caso {
         (e) => e.name.toUpperCase() == (map['status']?.toString() ?? '').toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
-      // CORREÇÃO PREVENTIVA: Garante o parsing seguro caso o JSON venha direto como Map ou String codificada
       dadosLaudo: map['dados_laudo_json'] != null 
           ? (map['dados_laudo_json'] is Map
               ? Map<String, dynamic>.from(map['dados_laudo_json'] as Map)
@@ -75,7 +85,6 @@ class Caso {
           : const {},
       
       hashIntegridade: map['hash_integridade']?.toString(),
-      // Mapeamento correto vindo do SQLite (0 ou 1) ou fallback caso venha da API como bool direto
       removido: map['removido'] is bool 
           ? map['removido'] as bool 
           : (map['removido'] as int? ?? 0) == 1,
@@ -87,7 +96,12 @@ class Caso {
           : null,
       
       deviceId: map['device_id']?.toString(),
-      proveniencia: map['proveniencia']?.toString(),
+      numeroPic: map['numero_pic']?.toString() ?? '',
+      numeroBo: map['numero_bo']?.toString() ?? '',
+      numeroRequisicao: map['numero_requisicao']?.toString() ?? '',
+      nomeVitima: map['nome_vitima']?.toString() ?? '',
+      destino: map['destino']?.toString() ?? '',
+      requisitante: map['requisitante']?.toString() ?? '',
     );
   }
 
@@ -101,10 +115,14 @@ class Caso {
     bool? removido,
     int? versao,
     String? deviceId,
-    String? proveniencia,
     DateTime? criadoEmDispositivo,
-    DateTime? criadoEmRedeConfiavel,
     DateTime? atualizadoEm,
+    String? numeroPic,
+    String? numeroBo,
+    String? numeroRequisicao,
+    String? nomeVitima,
+    String? destino,
+    String? requisitante,
   }) {
     return Caso(
       uuid: uuid ?? this.uuid,
@@ -116,14 +134,17 @@ class Caso {
       removido: removido ?? this.removido,
       versao: versao ?? this.versao,
       deviceId: deviceId ?? this.deviceId,
-      proveniencia: proveniencia ?? this.proveniencia,
       criadoEmDispositivo: criadoEmDispositivo ?? this.criadoEmDispositivo,
-      criadoEmRedeConfiavel: criadoEmRedeConfiavel ?? this.criadoEmRedeConfiavel,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
+      numeroPic: numeroPic ?? this.numeroPic,
+      numeroBo: numeroBo ?? this.numeroBo,
+      numeroRequisicao: numeroRequisicao ?? this.numeroRequisicao,
+      nomeVitima: nomeVitima ?? this.nomeVitima,
+      destino: destino ?? this.destino,
+      requisitante: requisitante ?? this.requisitante,
     );
   }
 
-  /// Método utilitário usado exclusivamente pelo repositório SQLite local
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,
@@ -132,30 +153,39 @@ class Caso {
       'status': status.name.toUpperCase(),
       'dados_laudo_json': jsonEncode(dadosLaudo),
       'hash_integridade': hashIntegridade,
-      'removido': removido ? 1 : 0, // SQLite armazena booleanos como inteiros
+      'removido': removido ? 1 : 0,
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
       'device_id': deviceId,
-      'proveniencia': proveniencia,
+      'numero_pic': numeroPic,
+      'numero_bo': numeroBo,
+      'numero_requisicao': numeroRequisicao,
+      'nome_vitima': nomeVitima,
+      'destino': destino,
+      'requisitante': requisitante,
     };
   }
 
-  /// NOVO MÉTODO: Mapeamento customizado para o payload do FastAPI
   Map<String, dynamic> toSyncMap() {
     return {
       'uuid': uuid,
       'id_usuario_criador': idUsuarioCriador,
       'numero_laudo_externo': numeroLaudoExterno,
       'status': status.name.toUpperCase(),
-      'dados_laudo_json': dadosLaudo, // Passa o mapa estruturado, o Dio cuida do JSON do root
+      'dados_laudo_json': dadosLaudo,
       'hash_integridade': hashIntegridade,
-      'removido': removido, // CORREÇÃO: Enviando tipo bool puro exigido pelo Pydantic
+      'removido': removido,
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
       'device_id': deviceId,
-      'proveniencia': proveniencia,
+      'numero_pic': numeroPic,
+      'numero_bo': numeroBo,
+      'numero_requisicao': numeroRequisicao,
+      'nome_vitima': nomeVitima,
+      'destino': destino,
+      'requisitante': requisitante,
     };
   }
 }

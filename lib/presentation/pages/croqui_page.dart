@@ -8,6 +8,7 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
+import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
 
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -25,8 +26,9 @@ import 'package:croqui_forense_mvp/core/constants/perineal_data.dart' as perinea
 
 class CroquiPage extends StatelessWidget {
   final Caso caso;
+  final bool? isReadOnly;
 
-  const CroquiPage({super.key, required this.caso});
+  const CroquiPage({super.key, required this.caso, this.isReadOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,7 @@ class CroquiPage extends StatelessWidget {
         ctx.read<CaseService>(),
         ctx.read<InjuryTypeRepository>(),
         ctx.read<AchadoRepository>(),
+        isReadOnly: isReadOnly,
       ),
       child: const _CroquiView(),
     );
@@ -77,6 +80,18 @@ class _CroquiView extends StatelessWidget {
           backgroundColor: controller.isReadOnly ? Colors.blueGrey[800] : Colors.indigo,
           foregroundColor: Colors.white,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf),
+              tooltip: 'Visualizar PDF',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PdfPreviewPage(caso: controller.casoAtual),
+                  ),
+                );
+              },
+            ),
             if (controller.isReadOnly)
               PopupMenuButton<String>(
                 onSelected: (value) {

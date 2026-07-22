@@ -6,10 +6,11 @@ import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
 class CasoRepository implements ISyncRepository {
-
   final DatabaseHelper _dbHelper;
 
   CasoRepository(this._dbHelper);
@@ -34,6 +35,36 @@ class CasoRepository implements ISyncRepository {
       }
     } catch (e) {
       throw Exception('Erro de persistência ao inserir caso: $e');
+    }
+  }
+
+  Future<void> insertCaseComEvidenciasLote(Caso novoCaso, List<EvidenciaMultimidia> evidencias) async {
+    final db = await database;
+    try {
+      await db.transaction((txn) async {
+        final rows = await txn.update(
+          tableCasos,
+          novoCaso.toMap(),
+          where: 'uuid = ?',
+          whereArgs: [novoCaso.uuid],
+        );
+        if (rows == 0) {
+          await txn.insert(
+            tableCasos,
+            novoCaso.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        for (final ev in evidencias) {
+          await txn.insert(
+            tableEvidenciasMultimidia,
+            ev.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      });
+    } catch (e) {
+      throw Exception('Erro de persistência atômica ao inserir caso e evidências em lote: $e');
     }
   }
 
@@ -114,70 +145,60 @@ class CasoRepository implements ISyncRepository {
     );
     return maps.map(Caso.fromMap).toList();
   }
-@override
+
+  @override
   Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids) async {
     if (casoUuids.isEmpty) return {};
 
     final Map<String, List<Achado>> grouped = {};
-    
     for (final uuid in casoUuids) {
       grouped[uuid] = [];
     }
 
     final db = await database;
-    
     final placeholders = List.filled(casoUuids.length, '?').join(',');
 
+    // 1. Fotos gerais do caso (SQL na tabela evidencias_multimidia)
     try {
-      final List<Map<String, dynamic>> casoRows = await db.query(
-        tableCasos,
-        where: 'uuid IN ($placeholders) AND removido = 0',
-        whereArgs: casoUuids,
+      final List<Map<String, dynamic>> generalEvidences = await db.query(
+        tableEvidenciasMultimidia,
+        where: 'caso_uuid IN ($placeholders) AND tipo = ? AND foto_sincronizada = 0 AND removido = 0',
+        whereArgs: [...casoUuids, 'GERAL'],
       );
 
-      for (final casoMap in casoRows) {
-        final uuid = casoMap['uuid'].toString();
-        final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
-        final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
-        final identificacao = dadosLaudo['identificacao'] as Map?;
-        final rawFotosGerais = identificacao?['fotos_gerais'];
-        final fotosGerais = rawFotosGerais is List ? rawFotosGerais : null;
+      for (final row in generalEvidences) {
+        final String caseUuid = row['caso_uuid'].toString();
+        final String pathString = row['caminho_arquivo_encriptado']?.toString() ?? '';
+        if (pathString.isEmpty) continue;
 
-        final rawSincronizadas = identificacao?['fotos_gerais_sincronizadas'];
-        final fotosSincronizadas = rawSincronizadas is List ? rawSincronizadas : [];
-
-        if (fotosGerais != null && fotosGerais.isNotEmpty) {
-          for (var i = 0; i < fotosGerais.length; i++) {
-            final String pathString = fotosGerais[i].toString();
-            if (pathString.isEmpty || pathString == 'null') continue;
-
-            if (fotosSincronizadas.contains(pathString)) continue;
-
-            final achadoVirtual = Achado(
-              uuid: 'GERAL_${uuid}_$i',
-              casoUuid: uuid,
-              diagramaNome: 'GERAL',
-              tipoAchadoId: 'FOTO_GERAL',
-              numeroSequencial: i,
-              posX: 0.0,
-              posY: 0.0,
-              isInterno: false,
-              versao: 1,
-              removido: false,
-              criadoEm: DateTime.now(),
-              dadosPreenchidos: {
-                'photo_path': pathString,
-                '_evidencia_uuid': 'GERAL_${uuid}_$i',
-              },
-            );
-            grouped[uuid]!.add(achadoVirtual);
-          }
-        }
+        final achadoVirtual = Achado(
+          uuid: row['uuid'].toString(),
+          casoUuid: caseUuid,
+          diagramaCasoUuid: '',
+          diagramaNome: 'GERAL',
+          tipoAchadoId: 'FOTO_GERAL',
+          numeroSequencial: 0,
+          posX: 0.0,
+          posY: 0.0,
+          isInterno: false,
+          versao: 1,
+          removido: false,
+          criadoEm: DateTime.tryParse(row['criado_em']?.toString() ?? '') ?? DateTime.now(),
+          dadosPreenchidos: {
+            'photo_path': pathString,
+            '_evidencia_uuid': row['uuid'].toString(),
+          },
+          tamanho: '',
+          vistaAnatomica: '',
+          localAnatomico: '',
+        );
+        grouped[caseUuid]!.add(achadoVirtual);
       }
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (JSON): $e');
+      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (GERAL): $e');
     }
 
+    // 2. Fotos de lesões (SQL na tabela evidencias_multimidia)
     try {
       final sqlAchados = '''
         SELECT
@@ -229,55 +250,44 @@ class CasoRepository implements ISyncRepository {
     final List<Achado> pending = [];
     final db = await database;
 
-    // 1. Fotos gerais do caso (JSON no caso)
+    // 1. Fotos gerais do caso (SQL na tabela evidencias_multimidia)
     try {
-      final List<Map<String, dynamic>> casoRows = await db.query(
-        tableCasos,
-        where: 'uuid = ? AND removido = 0',
-        whereArgs: [casoUuid],
+      final List<Map<String, dynamic>> generalEvidences = await db.query(
+        tableEvidenciasMultimidia,
+        where: 'caso_uuid = ? AND tipo = ? AND foto_sincronizada = 0 AND removido = 0',
+        whereArgs: [casoUuid, 'GERAL'],
       );
 
-      for (final casoMap in casoRows) {
-        final uuid = casoMap['uuid'].toString();
-        final dadosLaudoRaw = casoMap['dados_laudo_json'] as String? ?? '{}';
-        final Map<String, dynamic> dadosLaudo = _decodeJson(dadosLaudoRaw);
-        final identificacao = dadosLaudo['identificacao'] as Map?;
-        final rawFotosGerais = identificacao?['fotos_gerais'];
-        final fotosGerais = rawFotosGerais is List ? rawFotosGerais : null;
+      for (var i = 0; i < generalEvidences.length; i++) {
+        final row = generalEvidences[i];
+        final String pathString = row['caminho_arquivo_encriptado']?.toString() ?? '';
+        if (pathString.isEmpty) continue;
 
-        final rawSincronizadas = identificacao?['fotos_gerais_sincronizadas'];
-        final fotosSincronizadas = rawSincronizadas is List ? rawSincronizadas : [];
-
-        if (fotosGerais != null && fotosGerais.isNotEmpty) {
-          for (var i = 0; i < fotosGerais.length; i++) {
-            final String pathString = fotosGerais[i].toString();
-            if (pathString.isEmpty || pathString == 'null') continue;
-
-            if (fotosSincronizadas.contains(pathString)) continue;
-
-            final achadoVirtual = Achado(
-              uuid: 'GERAL_${uuid}_$i',
-              casoUuid: uuid,
-              diagramaNome: 'GERAL',
-              tipoAchadoId: 'FOTO_GERAL',
-              numeroSequencial: i,
-              posX: 0.0,
-              posY: 0.0,
-              isInterno: false,
-              versao: 1,
-              removido: false,
-              criadoEm: DateTime.now(),
-              dadosPreenchidos: {
-                'photo_path': pathString,
-                '_evidencia_uuid': 'GERAL_${uuid}_$i',
-              },
-            );
-            pending.add(achadoVirtual);
-          }
-        }
+        final achadoVirtual = Achado(
+          uuid: row['uuid'].toString(),
+          casoUuid: casoUuid,
+          diagramaCasoUuid: '',
+          diagramaNome: 'GERAL',
+          tipoAchadoId: 'FOTO_GERAL',
+          numeroSequencial: i,
+          posX: 0.0,
+          posY: 0.0,
+          isInterno: false,
+          versao: 1,
+          removido: false,
+          criadoEm: DateTime.tryParse(row['criado_em']?.toString() ?? '') ?? DateTime.now(),
+          dadosPreenchidos: {
+            'photo_path': pathString,
+            '_evidencia_uuid': row['uuid'].toString(),
+          },
+          tamanho: '',
+          vistaAnatomica: '',
+          localAnatomico: '',
+        );
+        pending.add(achadoVirtual);
       }
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (JSON): $e');
+      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (GERAL): $e');
     }
 
     // 2. Fotos vinculadas a lesões/achados (SQL)
@@ -342,35 +352,6 @@ class CasoRepository implements ISyncRepository {
   @override
   Future<void> marcarFotoComoSincronizada(Achado achado) async {
     final db = await database;
-    if (achado.uuid.startsWith('GERAL_')) {
-      final casoRows = await db.query(tableCasos, where: 'uuid = ?', whereArgs: [achado.casoUuid]);
-      if (casoRows.isEmpty) return;
-
-      final casoMap = Map<String, dynamic>.from(casoRows.first);
-      final dadosLaudo = _decodeJson(casoMap['dados_laudo_json'] as String? ?? '{}');
-
-      if (dadosLaudo['identificacao'] == null) {
-        dadosLaudo['identificacao'] = {};
-      }
-
-      final identificacao = dadosLaudo['identificacao'] as Map;
-      final List<dynamic> sincronizadas = List<dynamic>.from(identificacao['fotos_gerais_sincronizadas'] ?? []);
-      final String pathDaFoto = achado.dadosPreenchidos['photo_path'];
-
-      if (!sincronizadas.contains(pathDaFoto)) {
-        sincronizadas.add(pathDaFoto);
-        identificacao['fotos_gerais_sincronizadas'] = sincronizadas;
-
-        await db.update(
-          tableCasos,
-          {'dados_laudo_json': _encodeJson(dadosLaudo)},
-          where: 'uuid = ?',
-          whereArgs: [achado.casoUuid],
-        );
-      }
-      return;
-    }
-
     final evidenciaUuid = achado.dadosPreenchidos['_evidencia_uuid'];
     if (evidenciaUuid != null) {
       await db.update(
@@ -380,6 +361,102 @@ class CasoRepository implements ISyncRepository {
         whereArgs: [evidenciaUuid],
       );
     }
+  }
+
+  // Novos Métodos para Evidências Gerais e Exames Solicitados
+
+  Future<List<EvidenciaMultimidia>> getEvidenciasGerais(String casoUuid) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableEvidenciasMultimidia,
+      where: 'caso_uuid = ? AND tipo = ? AND removido = 0',
+      whereArgs: [casoUuid, 'GERAL'],
+    );
+    return maps.map((m) => EvidenciaMultimidia.fromMap(m)).toList();
+  }
+
+  Future<void> insertEvidenciaGeral(EvidenciaMultimidia evidencia) async {
+    final db = await database;
+    await db.insert(
+      tableEvidenciasMultimidia,
+      evidencia.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteEvidenciaGeral(String uuid) async {
+    final db = await database;
+    await db.update(
+      tableEvidenciasMultimidia,
+      {'removido': 1},
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+    );
+  }
+
+  Future<List<ExameSolicitado>> getExamesSolicitados(String casoUuid) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'exames_solicitados',
+      where: 'caso_uuid = ?',
+      whereArgs: [casoUuid],
+    );
+    return maps.map((m) => ExameSolicitado.fromMap(m)).toList();
+  }
+
+  Future<void> salvarExamesSolicitados({
+    required String casoUuid,
+    required String? anatomoLacre,
+    required String? toxicologicoLacre,
+    required String? geneticaLacre,
+    required String? outrosLacre,
+  }) async {
+    final db = await database;
+    final map = {
+      'ANATOMO': anatomoLacre,
+      'TOXICOLOGICO': toxicologicoLacre,
+      'GENETICA': geneticaLacre,
+      'OUTROS': outrosLacre,
+    };
+
+    await db.transaction((txn) async {
+      for (final entry in map.entries) {
+        final tipo = entry.key;
+        final lacre = entry.value;
+
+        if (lacre == null || lacre.trim().isEmpty) {
+          await txn.delete(
+            'exames_solicitados',
+            where: 'caso_uuid = ? AND tipo_exame = ?',
+            whereArgs: [casoUuid, tipo],
+          );
+        } else {
+          final existing = await txn.query(
+            'exames_solicitados',
+            where: 'caso_uuid = ? AND tipo_exame = ?',
+            whereArgs: [casoUuid, tipo],
+          );
+
+          if (existing.isEmpty) {
+            final novo = ExameSolicitado.novo(
+              casoUuid: casoUuid,
+              tipoExame: tipo,
+              numeroLacre: lacre,
+            );
+            await txn.insert('exames_solicitados', novo.toMap());
+          } else {
+            await txn.update(
+              'exames_solicitados',
+              {
+                'numero_lacre': lacre,
+              },
+              where: 'caso_uuid = ? AND tipo_exame = ?',
+              whereArgs: [casoUuid, tipo],
+            );
+          }
+        }
+      }
+    });
   }
 
   Map<String, dynamic> _decodeJson(String raw) {

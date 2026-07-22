@@ -17,7 +17,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   Future<Map<String, dynamic>> login(String matricula, String pin) async {
     try {
       final response = await _apiClient.dio.post(
-        '/croqui/auth/login',
+        'croqui/auth/login',
         data: {'matricula': matricula, 'senha': pin},
       );
       if (response.statusCode != 200 || response.data == null) {
@@ -45,7 +45,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   Future<void> trocarPin(String usuarioId, String novoPin) async {
     try {
       await _apiClient.dio.put(
-        '/croqui/auth/$usuarioId/senha',
+        'croqui/auth/$usuarioId/senha',
         data: {'nova_senha': novoPin},
       );
     } on DioException catch (e) {
@@ -59,7 +59,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   @override
   Future<List<Map<String, dynamic>>> getTiposAchados() async {
     try {
-      final response = await _apiClient.dio.get('/croqui/tipos-achados');
+      final response = await _apiClient.dio.get('croqui/tipos-achados');
       if (response.statusCode != 200 || response.data == null) {
         throw Exception('Resposta inesperada do servidor.');
       }
@@ -77,7 +77,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload) async {
     try {
       final response = await _apiClient.dio.post(
-        '/croqui/sync/push',
+        'croqui/sync/push',
         data: payload,
       );
       if (response.statusCode != 200) {
@@ -98,19 +98,12 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   @override
   Future<void> uploadEvidencia({
     required String casoUuid,
-    required String achadoUuid,
+    required String? achadoUuid,
     required String evidenciaUuid,
     required String hash,
     required String filePath,
   }) async {
     try {
-      final bool isGeral = achadoUuid.startsWith('GERAL_');
-      final bool isEmpty = achadoUuid.isEmpty;
-      final RegExp uuidRegExp = RegExp(
-        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-      );
-      final bool isInvalidUuid = !uuidRegExp.hasMatch(achadoUuid);
-
       final Map<String, dynamic> formDataMap = {
         'uuid': evidenciaUuid,
         'caso_uuid': casoUuid,
@@ -118,6 +111,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         'hash_cifrado': hash,
         'salt_base64': '',
         'chave_cifrada_base64': '',
+        'tipo': achadoUuid == null ? 'GERAL' : 'ACHADO',
         'item_file': await MultipartFile.fromFile(
           filePath,
           filename: p.basename(filePath),
@@ -125,19 +119,18 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         ),
       };
 
-      if (!isGeral && !isEmpty && !isInvalidUuid) {
+      if (achadoUuid != null && achadoUuid.isNotEmpty) {
         formDataMap['achado_uuid'] = achadoUuid;
       }
 
       final formData = FormData.fromMap(formDataMap);
 
-      final evidencia = (uuid: evidenciaUuid, achado_uuid: !isGeral && !isEmpty && !isInvalidUuid ? achadoUuid : null);
       developer.log(
-        "[DEBUG FOTO] Despachando foto ${evidencia.uuid} do Achado ${evidencia.achado_uuid} vinculado ao Caso: $casoUuid",
+        "[DEBUG FOTO] Despachando foto $evidenciaUuid do Achado $achadoUuid vinculado ao Caso: $casoUuid",
       );
 
       final response = await _apiClient.dio.post(
-        '/croqui/sync/evidencias',
+        'croqui/sync/evidencias',
         data: formData,
       );
 

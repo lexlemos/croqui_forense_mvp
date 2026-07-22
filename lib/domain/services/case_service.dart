@@ -6,6 +6,8 @@ import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 
 Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> params) async {
   final Map<String, dynamic> dadosBase = params['dados_json'];
@@ -54,10 +56,34 @@ class CaseService {
   /// Vincula o laudo ao [Perito] criador através de seu identificador funcional.
   ///
   /// @throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
-  Future<Caso> createNewCase({required Usuario criador, required String numeroLaudo, Map<String, dynamic> dadosIniciais = const {}}) async {
-    final novoCaso = Caso.novo(idUsuarioCriador: criador.id, numeroLaudoExterno: numeroLaudo, proveniencia: 'APP_TABLET', dadosLaudo: dadosIniciais);
+  Future<Caso> createNewCase({
+    required Usuario criador, 
+    required String numeroLaudo, 
+    Map<String, dynamic> dadosIniciais = const {},
+    String numeroPic = '',
+    String numeroBo = '',
+    String numeroRequisicao = '',
+    String nomeVitima = '',
+    String destino = '',
+    String requisitante = '',
+  }) async {
+    final novoCaso = Caso.novo(
+      idUsuarioCriador: criador.id, 
+      numeroLaudoExterno: numeroLaudo, 
+      dadosLaudo: dadosIniciais,
+      numeroPic: numeroPic,
+      numeroBo: numeroBo,
+      numeroRequisicao: numeroRequisicao,
+      nomeVitima: nomeVitima,
+      destino: destino,
+      requisitante: requisitante,
+    );
     await _repository.insertCase(novoCaso);
     return novoCaso;
+  }
+
+  Future<void> salvarCasoComEvidenciasLote(Caso caso, List<EvidenciaMultimidia> evidencias) async {
+    await _repository.insertCaseComEvidenciasLote(caso, evidencias);
   }
 
   /// Retorna todos os [Caso]s (Laudos) gravados no repositório local.
@@ -87,6 +113,35 @@ class CaseService {
     );
     await _repository.updateCase(casoFinalizado);
   }
+
+  // Métodos de delegação para fotos gerais e exames solicitados
+
+  Future<List<EvidenciaMultimidia>> getEvidenciasGerais(String casoUuid) =>
+      _repository.getEvidenciasGerais(casoUuid);
+
+  Future<void> salvarEvidenciaGeral(EvidenciaMultimidia ev) =>
+      _repository.insertEvidenciaGeral(ev);
+
+  Future<void> removerEvidenciaGeral(String uuid) =>
+      _repository.deleteEvidenciaGeral(uuid);
+
+  Future<List<ExameSolicitado>> getExamesSolicitados(String casoUuid) =>
+      _repository.getExamesSolicitados(casoUuid);
+
+  Future<void> salvarExamesSolicitados({
+    required String casoUuid,
+    required String? anatomoLacre,
+    required String? toxicologicoLacre,
+    required String? geneticaLacre,
+    required String? outrosLacre,
+  }) =>
+      _repository.salvarExamesSolicitados(
+        casoUuid: casoUuid,
+        anatomoLacre: anatomoLacre,
+        toxicologicoLacre: toxicologicoLacre,
+        geneticaLacre: geneticaLacre,
+        outrosLacre: outrosLacre,
+      );
 
   /// Reabre um [Caso] (Laudo) finalizado, restaurando seu status para rascunho.
   ///

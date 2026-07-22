@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 class Achado {
   final String uuid;
   final String casoUuid;
+  final String diagramaCasoUuid;
   final String diagramaNome;
   final String tipoAchadoId;
 
@@ -22,11 +23,15 @@ class Achado {
   final DateTime criadoEm;
   final DateTime? atualizadoEm;
   final String? deviceId;
-  final String? proveniencia;
+
+  final String tamanho;
+  final String vistaAnatomica;
+  final String localAnatomico;
 
   Achado({
     required this.uuid,
     required this.casoUuid,
+    required this.diagramaCasoUuid,
     required this.diagramaNome,
     required this.tipoAchadoId,
     required this.numeroSequencial,
@@ -41,14 +46,10 @@ class Achado {
     required this.criadoEm,
     this.atualizadoEm,
     this.deviceId,
-    this.proveniencia,
+    required this.tamanho,
+    required this.vistaAnatomica,
+    required this.localAnatomico,
   });
-
-  String get tamanho {
-    return dadosPreenchidos['size']?.toString() ??
-           dadosPreenchidos['tamanho']?.toString() ??
-           dadosPreenchidos['altura']?.toString() ?? '';
-  }
 
   String get profundidade {
     return dadosPreenchidos['depth']?.toString() ??
@@ -57,12 +58,16 @@ class Achado {
 
   Achado.novo({
     required this.casoUuid,
+    required this.diagramaCasoUuid,
     required this.diagramaNome,
     required this.tipoAchadoId,
     required this.numeroSequencial,
     required this.posX,
     required this.posY,
     required this.isInterno,
+    required this.tamanho,
+    required this.vistaAnatomica,
+    required this.localAnatomico,
     this.achadoRelacionadoUuid,
   }) : uuid = const Uuid().v4(),
        dadosPreenchidos = const {},
@@ -71,14 +76,13 @@ class Achado {
        versao = 1,
        criadoEm = DateTime.now(),
        atualizadoEm = null,
-       deviceId = null,
-       proveniencia = 'APP';
-
+       deviceId = null;
 
   factory Achado.fromMap(Map<String, dynamic> map) {
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
       casoUuid: map['caso_uuid']?.toString() ?? '',
+      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? '',
       diagramaNome: map['diagrama_nome']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
       achadoRelacionadoUuid: map['achado_relacionado_uuid']?.toString(),
@@ -101,13 +105,16 @@ class Achado {
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
       atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,
       deviceId: map['device_id']?.toString(),
-      proveniencia: map['proveniencia']?.toString(),
+      tamanho: map['tamanho']?.toString() ?? '',
+      vistaAnatomica: map['vista_anatomica']?.toString() ?? '',
+      localAnatomico: map['local_anatomico']?.toString() ?? '',
     );
   }
 
   Achado copyWith({
     String? uuid,
     String? casoUuid,
+    String? diagramaCasoUuid,
     String? diagramaNome,
     String? tipoAchadoId,
     String? achadoRelacionadoUuid,
@@ -122,11 +129,14 @@ class Achado {
     DateTime? criadoEm,
     DateTime? atualizadoEm,
     String? deviceId,
-    String? proveniencia,
+    String? tamanho,
+    String? vistaAnatomica,
+    String? localAnatomico,
   }) {
     return Achado(
       uuid: uuid ?? this.uuid,
       casoUuid: casoUuid ?? this.casoUuid,
+      diagramaCasoUuid: diagramaCasoUuid ?? this.diagramaCasoUuid,
       diagramaNome: diagramaNome ?? this.diagramaNome,
       tipoAchadoId: tipoAchadoId ?? this.tipoAchadoId,
       achadoRelacionadoUuid: achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
@@ -141,7 +151,9 @@ class Achado {
       criadoEm: criadoEm ?? this.criadoEm,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
       deviceId: deviceId ?? this.deviceId,
-      proveniencia: proveniencia ?? this.proveniencia,
+      tamanho: tamanho ?? this.tamanho,
+      vistaAnatomica: vistaAnatomica ?? this.vistaAnatomica,
+      localAnatomico: localAnatomico ?? this.localAnatomico,
     );
   }
 
@@ -149,6 +161,7 @@ class Achado {
     return {
       'uuid': uuid,
       'caso_uuid': casoUuid,
+      'diagrama_caso_uuid': diagramaCasoUuid,
       'diagrama_nome': diagramaNome,
       'tipo_achado_id': tipoAchadoId,
       'achado_relacionado_uuid': achadoRelacionadoUuid,
@@ -163,7 +176,30 @@ class Achado {
       'criado_em': criadoEm.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
       'device_id': deviceId,
-      'proveniencia': proveniencia,
+      'tamanho': tamanho,
+      'vista_anatomica': vistaAnatomica,
+      'local_anatomico': localAnatomico,
+    };
+  }
+
+  Map<String, dynamic> toSyncMap() {
+    return {
+      'uuid': uuid,
+      'caso_uuid': casoUuid,
+      'diagrama_caso_uuid': diagramaCasoUuid,
+      'tipo_achado_id': tipoAchadoId,
+      'versao': versao,
+      'removido': removido,
+      'numero_sequencial': numeroSequencial,
+      'pos_x': posX.toDouble(),
+      'pos_y': posY.toDouble(),
+      'dados_preenchidos_json': dadosPreenchidos,
+      'observacoes_texto': observacoesTexto,
+      'tamanho': tamanho,
+      'vista_anatomica': vistaAnatomica,
+      'local_anatomico': localAnatomico,
+      'criado_em': criadoEm.toUtc().toIso8601String(),
+      'atualizado_em': (atualizadoEm ?? criadoEm).toUtc().toIso8601String(),
     };
   }
 

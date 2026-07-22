@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
 
 class NewCaseDialog extends StatefulWidget {
   const NewCaseDialog({super.key});
@@ -29,7 +30,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final _tanatoConsecutivoController = TextEditingController();
   final _tanatoObservacaoController = TextEditingController();
 
-  final List<String> _fotosIdentificacao = [];
+  final List<Map<String, String>> _fotosIdentificacao = [];
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -65,7 +66,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
       await File(photo.path).copy(localPath);
 
-      setState(() => _fotosIdentificacao.add(localPath));
+      setState(() => _fotosIdentificacao.add({'path': localPath, 'descricao': ''}));
     } catch (e) {
       if (mounted) {
         globalMessengerKey.currentState?.showSnackBar(
@@ -95,21 +96,14 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final dadosLaudo = {
-        'cabecalho': {
-          'requisicao': _reqController.text.trim(),
-          'bo': _boController.text.trim(), 
-          'pic': _picController.text.trim(),
-          'requisitante': _requisitanteController.text.trim(),
-          'destino': _destinoController.text.trim(),
-          'vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
-        },
         'identificacao': {
           'vestes': _vestesController.text.trim(),
-          'caracteristicas': _caracteristicasController.text.trim(),
+          'historico': "Consta em Boletim de Ocorrência de número ${_boController.text.trim()} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX.",
+        },
+        'caracteristicas': {
           'tanato_imediato': _tanatoImediatoController.text.trim(),
           'tanato_consecutivo': _tanatoConsecutivoController.text.trim(),
           'tanato_observacao': _tanatoObservacaoController.text.trim(),
-          'fotos_gerais': _fotosIdentificacao, 
         },
         'conclusao': null,
         'auditoria': null,
@@ -117,7 +111,14 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
       Navigator.pop(context, {
         'numero_laudo': _reqController.text.trim(),
+        'numero_pic': _picController.text.trim(),
+        'numero_bo': _boController.text.trim(),
+        'numero_requisicao': _reqController.text.trim(),
+        'nome_vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
+        'destino': _destinoController.text.trim(),
+        'requisitante': _requisitanteController.text.trim(),
         'dados_laudo': dadosLaudo,
+        'fotos_gerais': _fotosIdentificacao,
       });
     }
   }
@@ -304,41 +305,28 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               )
             else
               SizedBox(
-                height: 110,
+                height: 180,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _fotosIdentificacao.length,
                   itemBuilder: (context, index) {
-                    return Stack(
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(right: 8, top: 8),
-                          width: 100, height: 100,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(File(_fotosIdentificacao[index]), fit: BoxFit.cover, cacheWidth: 200, cacheHeight: 200),
-                          ),
-                        ),
-                        Positioned(
-                          top: -6, right: -6,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _removerFoto(index),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                child: const Icon(Icons.close, color: Colors.white, size: 16),
-                              ),
-                            ),
-                          ),
-                        )
-                      ],
+                    final foto = _fotosIdentificacao[index];
+                    final path = foto['path'] ?? '';
+                    final descricao = foto['descricao'];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: EvidenciaFotoCard(
+                        key: ValueKey(path),
+                        path: path,
+                        descricao: descricao,
+                        readOnly: false,
+                        onDescriptionChanged: (val) {
+                          setState(() {
+                            _fotosIdentificacao[index]['descricao'] = val;
+                          });
+                        },
+                        onDelete: () => _removerFoto(index),
+                      ),
                     );
                   },
                 ),

@@ -45,7 +45,7 @@ abstract interface class IRemoteDataSource {
   /// houver divergência de hash na recepção ou o arquivo físico falhar.
   Future<void> uploadEvidencia({
     required String casoUuid,
-    required String achadoUuid,
+    required String? achadoUuid,
     required String evidenciaUuid,
     required String hash,
     required String filePath,

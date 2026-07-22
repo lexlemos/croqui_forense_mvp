@@ -95,15 +95,113 @@ class DatabaseHelper {
     switch (version) {
       case 2:
         debugPrint('[DatabaseHelper] Executando migração para a versão 2...');
-        await txn.execute('ALTER TABLE tipos_achados ADD COLUMN is_interno INTEGER DEFAULT 0;');
+        await _addColumnIfNotExists(txn, 'tipos_achados', 'is_interno', 'INTEGER DEFAULT 0');
         break;
         
       case 3:
         debugPrint('[DatabaseHelper] Executando migração para a versão 3...');
+        await _addColumnIfNotExists(txn, 'casos', 'numero_pic', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'numero_bo', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'numero_requisicao', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'nome_vitima', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'destino', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'requisitante', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'tamanho', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'vista_anatomica', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'local_anatomico', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'diagrama_caso_uuid', "TEXT DEFAULT ''");
+
+        await txn.execute('''
+          CREATE TABLE IF NOT EXISTS exames_solicitados (
+              uuid TEXT PRIMARY KEY,
+              caso_uuid TEXT NOT NULL,
+              tipo_exame TEXT NOT NULL,
+              quantidade_amostras INTEGER DEFAULT 1,
+              numero_lacre TEXT NOT NULL,
+              criado_em TEXT NOT NULL,
+              FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE
+          );
+        ''');
+
+        try {
+          await txn.execute('ALTER TABLE evidencias_multimidia RENAME TO old_evidencias_multimidia;');
+          await txn.execute('''
+            CREATE TABLE evidencias_multimidia (
+                uuid TEXT PRIMARY KEY,
+                caso_uuid TEXT NOT NULL,
+                achado_uuid TEXT,
+                substituida_por TEXT,
+                tipo TEXT DEFAULT 'ACHADO',
+                caminho_arquivo_encriptado TEXT,
+                hash_arquivo TEXT,
+                foto_sincronizada INTEGER NOT NULL DEFAULT 0,
+                removido INTEGER DEFAULT 0,
+                versao INTEGER DEFAULT 1,
+                criado_em TEXT,
+                atualizado_em TEXT,
+                descricao TEXT,
+                FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
+                FOREIGN KEY (achado_uuid) REFERENCES achados(uuid) ON DELETE CASCADE,
+                FOREIGN KEY (substituida_por) REFERENCES evidencias_multimidia(uuid) ON DELETE SET NULL
+            );
+          ''');
+          await txn.execute('''
+            INSERT INTO evidencias_multimidia (
+              uuid, caso_uuid, achado_uuid, substituida_por, tipo, 
+              caminho_arquivo_encriptado, hash_arquivo, foto_sincronizada, 
+              removido, versao, criado_em, atualizado_em
+            )
+            SELECT 
+              o.uuid, 
+              COALESCE(a.caso_uuid, ''), 
+              o.achado_uuid, 
+              o.substituida_por, 
+              'ACHADO', 
+              o.caminho_arquivo_encriptado, 
+              o.hash_arquivo, 
+              o.foto_sincronizada, 
+              o.removido, 
+              o.versao, 
+              o.criado_em, 
+              o.atualizado_em 
+            FROM old_evidencias_multimidia o
+            LEFT JOIN achados a ON a.uuid = o.achado_uuid;
+          ''');
+          await txn.execute('DROP TABLE IF EXISTS old_evidencias_multimidia;');
+        } catch (e) {
+          debugPrint('[DatabaseHelper] Falha ao alterar/migrar tabela evidencias_multimidia: $e');
+        }
+        break;
+
+      case 4:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 4...');
+        await _addColumnIfNotExists(txn, 'evidencias_multimidia', 'descricao', 'TEXT');
+        break;
+
+      case 5:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 5 (Limpeza de Tabelas Obsoletas)...');
+        await _addColumnIfNotExists(txn, 'evidencias_multimidia', 'descricao', 'TEXT');
+        // Limpeza de dívida técnica / remoção segura de tabelas descontinuadas
+        await txn.execute('DROP TABLE IF EXISTS diagramas_do_caso;');
+        await txn.execute('DROP TABLE IF EXISTS old_evidencias_multimidia;');
         break;
         
       default:
         debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');
+    }
+  }
+
+  /// Utilitário para adicionar coluna de forma idempotente (somente se não existir)
+  Future<void> _addColumnIfNotExists(
+    Transaction txn,
+    String tableName,
+    String columnName,
+    String columnTypeDef,
+  ) async {
+    final info = await txn.rawQuery("PRAGMA table_info($tableName);");
+    final exists = info.any((row) => row['name']?.toString() == columnName);
+    if (!exists) {
+      await txn.execute("ALTER TABLE $tableName ADD COLUMN $columnName $columnTypeDef;");
     }
   }
 }

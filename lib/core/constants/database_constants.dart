@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 2;
+const int kDatabaseVersion = 5;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -85,10 +85,14 @@ CREATE TABLE casos (
     dados_laudo_json TEXT,
     versao INTEGER DEFAULT 1,
     criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-    -- criado_em_rede_confiavel FOI EXCLUÍDA
     atualizado_em TEXT,
     device_id TEXT,
-    proveniencia TEXT,
+    numero_pic TEXT,
+    numero_bo TEXT,
+    numero_requisicao TEXT,
+    nome_vitima TEXT,
+    destino TEXT,
+    requisitante TEXT,
     FOREIGN KEY (id_usuario_criador) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 ''';
@@ -97,14 +101,14 @@ const String _kCreateAchados = '''
 CREATE TABLE achados (
     uuid TEXT PRIMARY KEY,
     caso_uuid TEXT NOT NULL,
+    diagrama_caso_uuid TEXT NOT NULL DEFAULT '',
     tipo_achado_id TEXT NOT NULL,
-    achado_relacionado_uuid TEXT, -- NOVA COLUNA: Auto-relacionamento (Ex: Tiro Entrada/Saída)
-    diagrama_nome TEXT,           -- NOVA COLUNA: Texto simples (ex: 'frente', 'costas')
+    achado_relacionado_uuid TEXT,
+    diagrama_nome TEXT,
     numero_sequencial INTEGER,
     pos_x REAL,
     pos_y REAL,
     is_interno INTEGER DEFAULT 0,
-    -- esta_pendente FOI EXCLUÍDA
     dados_preenchidos_json TEXT,
     observacoes_texto TEXT,
     removido INTEGER DEFAULT 0,
@@ -112,7 +116,9 @@ CREATE TABLE achados (
     criado_em TEXT,
     atualizado_em TEXT,
     device_id TEXT,
-    proveniencia TEXT,
+    tamanho TEXT,
+    vista_anatomica TEXT,
+    local_anatomico TEXT,
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
     FOREIGN KEY (achado_relacionado_uuid) REFERENCES achados(uuid) ON DELETE SET NULL,
     FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT
@@ -122,23 +128,33 @@ CREATE TABLE achados (
 const String _kCreateEvidencias = '''
 CREATE TABLE evidencias_multimidia (
     uuid TEXT PRIMARY KEY,
-    achado_uuid TEXT NOT NULL,
+    caso_uuid TEXT NOT NULL,
+    achado_uuid TEXT,
     substituida_por TEXT,
-    tipo TEXT DEFAULT 'FOTO',
+    tipo TEXT DEFAULT 'ACHADO',
     caminho_arquivo_encriptado TEXT,
     hash_arquivo TEXT,
-    hmac_arquivo TEXT,
-    salt_base64 TEXT,
-    chave_cifrada_base64 TEXT,
-    hash_exif TEXT,
     foto_sincronizada INTEGER NOT NULL DEFAULT 0,
     removido INTEGER DEFAULT 0,
     versao INTEGER DEFAULT 1,
     criado_em TEXT,
     atualizado_em TEXT,
-    device_id TEXT,
+    descricao TEXT,
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
     FOREIGN KEY (achado_uuid) REFERENCES achados(uuid) ON DELETE CASCADE,
     FOREIGN KEY (substituida_por) REFERENCES evidencias_multimidia(uuid) ON DELETE SET NULL
+);
+''';
+
+const String _kCreateExamesSolicitados = '''
+CREATE TABLE exames_solicitados (
+    uuid TEXT PRIMARY KEY,
+    caso_uuid TEXT NOT NULL,
+    tipo_exame TEXT NOT NULL,
+    quantidade_amostras INTEGER DEFAULT 1,
+    numero_lacre TEXT NOT NULL,
+    criado_em TEXT NOT NULL,
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE
 );
 ''';
 
@@ -165,10 +181,12 @@ const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_achados_tipo ON achados (tipo_achado_id);',
   'CREATE INDEX idx_achados_relacionado ON achados (achado_relacionado_uuid);',
   'CREATE INDEX idx_evidencias_achado ON evidencias_multimidia (achado_uuid);',
+  'CREATE INDEX idx_evidencias_caso ON evidencias_multimidia (caso_uuid);',
   'CREATE INDEX idx_evidencias_substituta ON evidencias_multimidia (substituida_por);',
   'CREATE INDEX idx_log_caso ON log_auditoria (caso_uuid);',
   'CREATE INDEX idx_log_usuario ON log_auditoria (id_usuario);',
   'CREATE INDEX idx_casos_status ON casos (status);',
+  'CREATE INDEX idx_exames_caso ON exames_solicitados (caso_uuid);',
 ];
 
 const Map<String, String> kTableScripts = {
@@ -181,6 +199,7 @@ const Map<String, String> kTableScripts = {
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,
   tableLogAuditoria: _kCreateLogAuditoria,
+  'exames_solicitados': _kCreateExamesSolicitados,
 };
 
 final List<String> kFullDatabaseCreationScripts = [

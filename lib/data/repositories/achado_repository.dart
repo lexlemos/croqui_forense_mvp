@@ -73,8 +73,9 @@ class AchadoRepository {
     if (rows.isEmpty) {
       await db.insert('evidencias_multimidia', {
         'uuid': const Uuid().v4(),
+        'caso_uuid': achado.casoUuid,
         'achado_uuid': achado.uuid,
-        'tipo': 'FOTO',
+        'tipo': 'ACHADO',
         'caminho_arquivo_encriptado': photo,
         'foto_sincronizada': 0,
         'removido': 0,

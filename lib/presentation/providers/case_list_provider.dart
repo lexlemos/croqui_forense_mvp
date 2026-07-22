@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
 
@@ -16,9 +17,20 @@ class CaseListProvider extends ChangeNotifier {
   String _searchQuery = '';
   SortCriteria _sortCriteria = SortCriteria.data;
   SortOrder _sortOrder = SortOrder.desc;
-  Set<StatusCaso> _statusFilter = {StatusCaso.rascunho, StatusCaso.finalizado};
+  Set<StatusCaso> _statusFilter = {
+    StatusCaso.rascunho,
+    StatusCaso.finalizado,
+    StatusCaso.sincronizado,
+  };
 
   List<Caso> get casos => _casosFiltrados;
+  List<Caso> get casosEmAndamento => _casosFiltrados
+      .where((c) => c.status == StatusCaso.rascunho || c.status == StatusCaso.finalizado)
+      .toList();
+  List<Caso> get casosSincronizados => _casosFiltrados
+      .where((c) => c.status == StatusCaso.sincronizado)
+      .toList();
+
   bool get isLoading => _isLoading;
   String? get erro => _erro;
   
@@ -36,12 +48,40 @@ class CaseListProvider extends ChangeNotifier {
     required Usuario criador,
     required String numeroLaudo,
     required Map<String, dynamic> dadosIniciais,
+    required String numeroPic,
+    required String numeroBo,
+    required String numeroRequisicao,
+    required String nomeVitima,
+    required String destino,
+    required String requisitante,
+    required List<dynamic> fotosGerais,
   }) async {
     final novoCaso = await _caseService.createNewCase(
       criador: criador,
       numeroLaudo: numeroLaudo,
       dadosIniciais: dadosIniciais,
+      numeroPic: numeroPic,
+      numeroBo: numeroBo,
+      numeroRequisicao: numeroRequisicao,
+      nomeVitima: nomeVitima,
+      destino: destino,
+      requisitante: requisitante,
     );
+
+    final List<EvidenciaMultimidia> evidencias = [];
+    for (final foto in fotosGerais) {
+      final Map<String, dynamic> map = Map<String, dynamic>.from(foto as Map);
+      evidencias.add(
+        EvidenciaMultimidia.novo(
+          casoUuid: novoCaso.uuid,
+          tipo: 'GERAL',
+          caminhoArquivoEncriptado: map['path'],
+          descricao: map['descricao'],
+        ),
+      );
+    }
+    await _caseService.salvarCasoComEvidenciasLote(novoCaso, evidencias);
+
     await carregarCasos();
     return novoCaso;
   }

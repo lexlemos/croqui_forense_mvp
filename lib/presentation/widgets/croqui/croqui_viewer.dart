@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/injury_pin.dart';
 
 typedef OnBodyPartSelected = void Function(
   String bodyPartId, 
@@ -220,18 +221,16 @@ class _CroquiViewerState extends State<CroquiViewer> {
                     }).map((marker) {
                       double left = (marker.posX.isNaN ? 0.5 : marker.posX) * containerWidth;
                       double top = (marker.posY.isNaN ? 0.5 : marker.posY) * containerHeight;
-                      const double iconSize = 24.0;
+                      const double touchTargetSize = 44.0;
 
                       return Positioned(
-                        left: left - (iconSize / 2),
-                        top: top - iconSize,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: iconSize,
-                          shadows: [
-                            Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(2, 2))
-                          ],
+                        left: left - (touchTargetSize / 2),
+                        top: top - (touchTargetSize / 2),
+                        child: InjuryPin(
+                          touchTargetSize: touchTargetSize,
+                          visualSize: 15.0, // Redução visual de ~37.5% (de 24px para 15px)
+                          color: marker.isInterno ? Colors.orange : Colors.red,
+                          label: marker.numeroSequencial > 0 ? marker.numeroSequencial.toString() : null,
                         ),
                       );
                     }),

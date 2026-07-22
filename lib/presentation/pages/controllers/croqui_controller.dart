@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
@@ -36,14 +38,32 @@ class CroquiController extends ChangeNotifier {
 
   Caso casoAtual;
   List<Achado> achados = [];
+  List<EvidenciaMultimidia> evidenciasGerais = [];
+  List<ExameSolicitado> examesSolicitados = [];
   bool isLoading = false;
   bool _isExporting = false;
   bool get isExporting => _isExporting;
 
-  bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
+  final bool? _isReadOnlyInput;
+  bool get isReadOnly =>
+      (_isReadOnlyInput == true) ||
+      casoAtual.status == StatusCaso.finalizado ||
+      casoAtual.status == StatusCaso.sincronizado;
 
-  CroquiController(this.casoAtual, this._achadoService, this._caseService, this._injuryTypeRepository, this._achadoRepository) {
+  CroquiController(
+    this.casoAtual,
+    this._achadoService,
+    this._caseService,
+    this._injuryTypeRepository,
+    this._achadoRepository, {
+    bool? isReadOnly,
+  }) : _isReadOnlyInput = isReadOnly {
     _loadAchados();
+  }
+
+  String _toDeterministicUuidV4(String namespace, String name) {
+    final String uuidV5 = const Uuid().v5(namespace, name);
+    return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
   }
 
   Future<void> _loadAchados() async {
@@ -52,6 +72,8 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
+      evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
+      examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
     } finally {
       isLoading = false;
       notifyListeners();
@@ -59,7 +81,7 @@ class CroquiController extends ChangeNotifier {
   }
 
   List<Achado> getMarkersForView(String view) {
-  return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
+    return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
   }
 
   Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
@@ -119,9 +141,12 @@ class CroquiController extends ChangeNotifier {
       if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
     };
 
+    final String diagramaCasoUuid = _toDeterministicUuidV4(casoAtual.uuid, viewType);
+
     final achadoFinal = Achado(
       uuid: const Uuid().v4(),
       casoUuid: casoAtual.uuid,
+      diagramaCasoUuid: diagramaCasoUuid,
       diagramaNome: DiagramTemplates.templateIdParaView(viewType),
       tipoAchadoId: tipoLesaoId,
       achadoRelacionadoUuid: achadoRelacionadoUuid,
@@ -134,7 +159,9 @@ class CroquiController extends ChangeNotifier {
       removido: false,
       versao: 1,
       criadoEm: DateTime.now(),
-      proveniencia: 'APP_TABLET',
+      tamanho: size,
+      vistaAnatomica: viewType,
+      localAnatomico: realPartName,
     );
 
     try {
@@ -208,6 +235,9 @@ class CroquiController extends ChangeNotifier {
       observacoesTexto: description,
       versao: achado.versao + 1,
       atualizadoEm: DateTime.now(),
+      tamanho: size,
+      vistaAnatomica: achado.vistaAnatomica,
+      localAnatomico: localNome,
     );
 
     try {
@@ -259,9 +289,23 @@ class CroquiController extends ChangeNotifier {
     if (confirm != true) return;
 
     try {
+      await _caseService.salvarRascunho(casoAtual);
       await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
-      await _reloadCaso();
-      _snack("Caso finalizado!", color: Colors.green);
+      
+      final casoAtualizado = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
+      if (casoAtualizado != null) {
+        casoAtual = casoAtualizado;
+      } else {
+        casoAtual = casoAtual.copyWith(
+          status: StatusCaso.finalizado,
+          atualizadoEm: DateTime.now(),
+        );
+      }
+
+      await _loadAchados();
+      notifyListeners();
+
+      _snack("Caso finalizado com sucesso!", color: Colors.green);
     } catch (e) {
       globalMessengerKey.currentState?.hideCurrentSnackBar();
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao finalizar: $e"), backgroundColor: Colors.red));
@@ -271,11 +315,21 @@ class CroquiController extends ChangeNotifier {
   Future<void> reabrirCaso(BuildContext context) async {
     try {
       await _caseService.reabrirCaso(casoAtual.uuid);
-      await _reloadCaso();
+      final casoAtualizado = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
+      if (casoAtualizado != null) {
+        casoAtual = casoAtualizado;
+      } else {
+        casoAtual = casoAtual.copyWith(
+          status: StatusCaso.rascunho,
+          atualizadoEm: DateTime.now(),
+        );
+      }
+      await _loadAchados();
+      notifyListeners();
       _snack("Edição habilitada.");
     } catch (e) {
       globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao reabrir"), backgroundColor: Colors.red));
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao reabrir: $e"), backgroundColor: Colors.red));
     }
   }
   Future<void> exportarCaso(BuildContext context) async {
@@ -310,6 +364,8 @@ class CroquiController extends ChangeNotifier {
         achados: achados,
         perito: usuarioLogado,
         schemas: schemas,
+        exames: examesSolicitados,
+        evidenciasGerais: evidenciasGerais,
       );
 
       final tempDir = await getTemporaryDirectory();
@@ -334,11 +390,6 @@ class CroquiController extends ChangeNotifier {
       _isExporting = false;
       notifyListeners();
     }
-  }
-  Future<void> _reloadCaso() async {
-    final caso = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
-    if (caso != null) casoAtual = caso;
-    notifyListeners();
   }
 
   String get sexoDoExaminado {
@@ -401,6 +452,79 @@ class CroquiController extends ChangeNotifier {
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 
+
+  Future<void> adicionarFotoGeral(String path) async {
+    final ev = EvidenciaMultimidia.novo(
+      casoUuid: casoAtual.uuid,
+      tipo: 'GERAL',
+      caminhoArquivoEncriptado: path,
+    );
+    await _caseService.salvarEvidenciaGeral(ev);
+    await _loadAchados();
+  }
+
+  Future<void> removerFotoGeral(String uuid) async {
+    await _caseService.removerEvidenciaGeral(uuid);
+    await _loadAchados();
+  }
+
+  Future<void> salvarExamesSolicitados({
+    required String? anatomoLacre,
+    required String? toxicologicoLacre,
+    required String? geneticaLacre,
+    required String? outrosLacre,
+  }) async {
+    await _caseService.salvarExamesSolicitados(
+      casoUuid: casoAtual.uuid,
+      anatomoLacre: anatomoLacre,
+      toxicologicoLacre: toxicologicoLacre,
+      geneticaLacre: geneticaLacre,
+      outrosLacre: outrosLacre,
+    );
+    examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
+    notifyListeners();
+  }
+
+  void atualizarCasoCamposEJson({
+    required String numeroBo,
+    required String numeroPic,
+    required String numeroRequisicao,
+    required String nomeVitima,
+    required String destino,
+    required String requisitante,
+    required Map<String, dynamic> novosDadosLaudo,
+  }) {
+    casoAtual = casoAtual.copyWith(
+      numeroBo: numeroBo,
+      numeroPic: numeroPic,
+      numeroRequisicao: numeroRequisicao,
+      nomeVitima: nomeVitima,
+      destino: destino,
+      requisitante: requisitante,
+      dadosLaudo: novosDadosLaudo,
+      atualizadoEm: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
+    final index = evidenciasGerais.indexWhere((e) => e.uuid == uuid);
+    if (index != -1) {
+      final evAtualizada = evidenciasGerais[index].copyWith(descricao: descricao);
+      await _caseService.salvarEvidenciaGeral(evAtualizada);
+      await _loadAchados();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!isReadOnly) {
+      _caseService.salvarRascunho(casoAtual).catchError((e) {
+        debugPrint("Erro ao salvar rascunho no dispose do CroquiController: $e");
+      });
+    }
+    super.dispose();
+  }
 
   void _snack(String msg, {Color? color}) {
     final messenger = globalMessengerKey.currentState;

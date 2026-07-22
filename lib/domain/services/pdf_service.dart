@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 
 import 'pdf_constants.dart';
@@ -37,22 +39,13 @@ class PdfService {
   /// os esquemas anatômicos (croquis) e a resposta oficial aos quesitos formulados pela autoridade requisitante.
   /// Também inclui no "Documento Físico" a certificação eletrônica com "Metadados do Perito"
   /// para conferir autenticidade e "Validação Jurídica" na cadeia de custódia.
-  ///
-  /// Parâmetros obrigatórios:
-  /// - [caso] O Laudo do exame pericial contendo as informações cadastrais e administrativas.
-  /// - [achados] O conjunto de lesões, orifícios ou vestígios mapeados no croqui.
-  /// - [perito] O médico legista responsável pela emissão e encerramento do laudo.
-  /// - [schemas] Configurações de formulários dinâmicos utilizadas para mapear e formatar as características específicas das lesões.
-  ///
-  /// Retorna a representação em bytes do PDF compilado ([Uint8List]).
-  ///
-  /// @throws FileSystemException Caso ocorra falha de I/O por falta de permissão de escrita/leitura no disco ao recuperar fotografias (evidências físicas).
-  /// @throws FormatException Caso haja erro na conversão e renderização das imagens ou dos esquemas gráficos em SVG para o formato impresso.
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
     required Usuario perito,
     Map<String, dynamic>? schemas,
+    required List<ExameSolicitado> exames,
+    required List<EvidenciaMultimidia> evidenciasGerais,
   }) async {
     final pdf = pw.Document();
 
@@ -72,7 +65,7 @@ class PdfService {
     final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
     final List<Achado> achadosInternos = achados.where((a) => a.isInterno).toList();
 
-    List<Map<String, dynamic>> anexosFotos = await _prepararFotos(caso, achados);
+    List<Map<String, dynamic>> anexosFotos = await _prepararFotos(caso, achados, evidenciasGerais);
     final croquisWidgets = await _gerarMapasSVG(achados, caso);
 
     final pageTheme = pw.PageTheme(
@@ -84,7 +77,7 @@ class PdfService {
     pdf.addPage(
       pw.MultiPage(
         pageTheme: pageTheme,
-        header: (context) => PdfHelpers.buildDynamicHeader(context, logoPolicia, caso.numeroLaudoExterno),
+        header: (context) => PdfHelpers.buildDynamicHeader(context, logoPolicia, caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : caso.numeroLaudoExterno),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
         build: (context) {
           return [
@@ -106,7 +99,7 @@ class PdfService {
             ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true, schemas: schemas, todosAchados: achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("5. EXAMES COMPLEMENTARES"),
-            _buildDadosComplementares(caso),
+            _buildDadosComplementares(exames),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("6. RASCUNHOS E ESQUEMAS DE LESÃO"),
             if (croquisWidgets.isEmpty)
@@ -141,16 +134,15 @@ class PdfService {
   }
 
   pw.Widget _buildDadosIniciais(Caso caso) {
-    final cab = caso.dadosLaudo['cabecalho'] ?? {};
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        PdfHelpers.buildLinhaDetalhe("Laudo Pericial Cadavérico nº CD", caso.numeroLaudoExterno ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Boletim de Ocorrência (B.O.):", cab['bo'] ?? 'XXX'), 
-        PdfHelpers.buildLinhaDetalhe("PIC:", cab['pic'] ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", cab['requisitante'] ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Destino:", cab['destino'] ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Nome da vítima:", cab['vitima'] ?? 'XXX', bold: true),
+        PdfHelpers.buildLinhaDetalhe("Laudo Pericial Cadavérico nº CD", caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? 'XXX')),
+        PdfHelpers.buildLinhaDetalhe("Boletim de Ocorrência (B.O.):", caso.numeroBo.isNotEmpty ? caso.numeroBo : 'XXX'), 
+        PdfHelpers.buildLinhaDetalhe("PIC:", caso.numeroPic.isNotEmpty ? caso.numeroPic : 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", caso.requisitante.isNotEmpty ? caso.requisitante : 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Destino:", caso.destino.isNotEmpty ? caso.destino : 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Nome da vítima:", caso.nomeVitima.isNotEmpty ? caso.nomeVitima : 'XXX', bold: true),
         pw.SizedBox(height: 20),
         pw.Center(child: pw.Text("LAUDO CADAVÉRICO", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))),
       ],
@@ -169,6 +161,7 @@ class PdfService {
 
   pw.Widget _buildIdentificacaoOficial(Caso caso) {
     final id = caso.dadosLaudo['identificacao'] ?? {};
+    final carac = caso.dadosLaudo['caracteristicas'] ?? {};
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -177,7 +170,7 @@ class PdfService {
         pw.SizedBox(height: 5),
         
         pw.Text("II) Características de identificação:", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-        PdfHelpers.buildParagrafoComRecuo(id['caracteristicas']?.toString().isNotEmpty == true ? id['caracteristicas'] : "Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos."),
+        PdfHelpers.buildParagrafoComRecuo("Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos."),
         pw.SizedBox(height: 5),
         
         pw.Text("III) Dados tanatológicos:", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
@@ -188,11 +181,11 @@ class PdfService {
             children: [
               pw.Text("A morte está evidenciada pela presença dos seguintes sinais tanatológicos:", style: const pw.TextStyle(fontSize: 10)),
               pw.SizedBox(height: 3),
-              PdfHelpers.buildItemComLabel("A) IMEDIATOS: ", id['tanato_imediato']?.toString().isNotEmpty == true ? id['tanato_imediato'] : 'XXX'),
+              PdfHelpers.buildItemComLabel("A) IMEDIATOS: ", carac['tanato_imediato']?.toString().isNotEmpty == true ? carac['tanato_imediato'] : 'XXX'),
               pw.SizedBox(height: 3),
-              PdfHelpers.buildItemComLabel("B) CONSECUTIVOS: ", id['tanato_consecutivo']?.toString().isNotEmpty == true ? id['tanato_consecutivo'] : 'XXX'),
+              PdfHelpers.buildItemComLabel("B) CONSECUTIVOS: ", carac['tanato_consecutivo']?.toString().isNotEmpty == true ? carac['tanato_consecutivo'] : 'XXX'),
               pw.SizedBox(height: 3),
-              PdfHelpers.buildItemComLabel("COMENTARIOS ADICIONAIS: ", id['tanato_observacao']?.toString().isNotEmpty == true ? id['tanato_observacao'] : 'XXX'),
+              PdfHelpers.buildItemComLabel("COMENTARIOS ADICIONAIS: ", carac['tanato_observacao']?.toString().isNotEmpty == true ? carac['tanato_observacao'] : 'XXX'),
             ]
           )
         )
@@ -323,15 +316,19 @@ class PdfService {
     return items;
   }
 
-  pw.Widget _buildDadosComplementares(Caso c) {
-    final ex = c.dadosLaudo['exames_complementares'] ?? {};
+  pw.Widget _buildDadosComplementares(List<ExameSolicitado> exames) {
+    final anatomoEx = exames.firstWhere((e) => e.tipoExame == 'ANATOMO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final toxicologicoEx = exames.firstWhere((e) => e.tipoExame == 'TOXICOLOGICO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final geneticaEx = exames.firstWhere((e) => e.tipoExame == 'GENETICA', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final outrosEx = exames.firstWhere((e) => e.tipoExame == 'OUTROS', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start, 
       children: [
-        PdfHelpers.buildItemComLabel("Anátomo-Patológico: ", (ex['anatomo']?.toString().isNotEmpty == true) ? ex['anatomo'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Toxicológico: ", (ex['toxicologico']?.toString().isNotEmpty == true) ? ex['toxicologico'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Outros: ", (ex['outros']?.toString().isNotEmpty == true) ? ex['outros'] : 'XXX')
+        PdfHelpers.buildItemComLabel("Anátomo-Patológico (Lacre): ", anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO'), 
+        PdfHelpers.buildItemComLabel("Toxicológico (Lacre): ", toxicologicoEx.uuid.isNotEmpty ? toxicologicoEx.numeroLacre : 'NÃO SOLICITADO'), 
+        PdfHelpers.buildItemComLabel("Genética (Lacre): ", geneticaEx.uuid.isNotEmpty ? geneticaEx.numeroLacre : 'NÃO SOLICITADO'), 
+        PdfHelpers.buildItemComLabel("Outros (Lacre): ", outrosEx.uuid.isNotEmpty ? outrosEx.numeroLacre : 'NÃO SOLICITADO')
       ]
     );
   }
@@ -454,21 +451,30 @@ class PdfService {
   );
 }
   
-  Future<List<Map<String, dynamic>>> _prepararFotos(Caso caso, List<Achado> achados) async {
+  static final Uint8List _fallbackImageBytes = Uint8List.fromList([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+    0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+  ]);
+
+  Future<List<Map<String, dynamic>>> _prepararFotos(Caso caso, List<Achado> achados, List<EvidenciaMultimidia> evidenciasGerais) async {
     List<Map<String, dynamic>> anexos = [];
     int contador = 1;
 
-    final rawFotosGerais = caso.dadosLaudo['identificacao']?['fotos_gerais'];
-    final List<dynamic> fotosGerais = rawFotosGerais is List ? rawFotosGerais : const [];
-    
-    for (var fotoPath in fotosGerais) {
-      final file = File(fotoPath.toString());
-      if (file.existsSync()) {
-        final bytes = await file.readAsBytes();
+    for (var ev in evidenciasGerais) {
+      final path = ev.caminhoArquivoEncriptado ?? '';
+      if (path.isNotEmpty) {
+        final file = File(path);
+        final bool existe = file.existsSync();
+        final Uint8List bytes = existe ? await file.readAsBytes() : _fallbackImageBytes;
+        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
         anexos.add({
           'numero': contador, 
           'bytes': bytes, 
-          'label': 'Fotografia $contador - Identificação Geral'
+          'label': 'Fotografia $contador$statusTag - Identificação Geral'
         });
         contador++;
       }
@@ -477,17 +483,17 @@ class PdfService {
     for (var a in achados) {
       final path = a.dadosPreenchidos['photo_path'];
       if (path != null && path.toString().isNotEmpty) {
-        final file = File(path);
-        if (file.existsSync()) {
-          final bytes = await file.readAsBytes();
-          anexos.add({
-            'numero': contador, 
-            'uuid': a.uuid, 
-            'bytes': bytes, 
-            'label': 'Fotografia $contador - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
-          });
-          contador++;
-        }
+        final file = File(path.toString());
+        final bool existe = file.existsSync();
+        final Uint8List bytes = existe ? await file.readAsBytes() : _fallbackImageBytes;
+        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
+        anexos.add({
+          'numero': contador, 
+          'uuid': a.uuid, 
+          'bytes': bytes, 
+          'label': 'Fotografia $contador$statusTag - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
+        });
+        contador++;
       }
     }
     return anexos;

@@ -4,7 +4,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
@@ -51,13 +50,13 @@ class SyncPushTextualException implements Exception {
 class SyncUploadEvidenciaException implements Exception {
   final String message;
   final String casoUuid;
-  final String achadoUuid;
+  final String? achadoUuid;
   final int? statusCode;
 
   const SyncUploadEvidenciaException(
     this.message, {
     required this.casoUuid,
-    required this.achadoUuid,
+    this.achadoUuid,
     this.statusCode,
   });
 
@@ -108,13 +107,8 @@ class SyncService {
     int totalFotosFalhas = 0;
     int totalCasosConflito = conflitosUuids.length;
 
-    // Fase 2: Upload individual das evidências fotográficas (idempotência local)
+    // Fase 2: Upload individual das evidências fotográficas (idempotência local e resiliência a reinicializações)
     for (final caso in casosPendentes) {
-      if (conflitosUuids.contains(caso.uuid)) {
-        debugPrint('[SyncService] Caso ${caso.uuid} está em conflito no servidor central. Ignorando upload de evidências.');
-        continue;
-      }
-
       final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
       final falhasNoCaso = await _processarCaso(caso, fotos);
       totalFotosFalhas += falhasNoCaso;
@@ -206,9 +200,11 @@ class SyncService {
     final String evidenciaUuid =
         achado.dadosPreenchidos['_evidencia_uuid']?.toString() ?? achado.uuid;
 
+    final bool isFotoGeral = achado.tipoAchadoId == 'FOTO_GERAL' || achado.diagramaNome == 'GERAL';
+
     await _remoteDataSource.uploadEvidencia(
       casoUuid: caso.uuid,
-      achadoUuid: achado.uuid,
+      achadoUuid: isFotoGeral ? null : achado.uuid,
       evidenciaUuid: evidenciaUuid,
       hash: hashOriginal,
       filePath: arquivoOriginal.path,
@@ -229,18 +225,14 @@ class SyncService {
 
     final List<Map<String, dynamic>> diagramasJson = [];
     for (final diagName in uniqueDiagramNames) {
-      final String templateId = DiagramTemplates.templateIdParaView(diagName);
-      final String templateUuid = _toDeterministicUuidV4('6ba7b811-9dad-11d1-80b4-00c04fd430c8', templateId);
       final String diagramaUuid = _toDeterministicUuidV4(caso.uuid, diagName);
 
       diagramasJson.add({
         'uuid': diagramaUuid,
         'caso_uuid': caso.uuid,
-        'template_id': templateUuid,
+        'nome_diagrama': diagName,
         'versao': 1,
         'removido': false,
-        'device_id': caso.deviceId,
-        'proveniencia': caso.proveniencia ?? 'APP_TABLET',
         'criado_em': caso.criadoEmDispositivo.toUtc().toIso8601String(),
         'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
       });
@@ -255,34 +247,20 @@ class SyncService {
       'numero_laudo_externo': caso.numeroLaudoExterno,
       'dados_laudo_json': caso.dadosLaudo,
       'device_id': caso.deviceId,
-      'proveniencia': caso.proveniencia,
       'criado_em_dispositivo': caso.criadoEmDispositivo.toUtc().toIso8601String(),
-      'criado_em_rede_confiavel': caso.criadoEmRedeConfiavel?.toUtc().toIso8601String(),
       'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
+      'numero_pic': caso.numeroPic,
+      'numero_bo': caso.numeroBo,
+      'numero_requisicao': caso.numeroRequisicao,
+      'nome_vitima': caso.nomeVitima,
+      'destino': caso.destino,
+      'requisitante': caso.requisitante,
       'diagramas': diagramasJson,
       'achados': achados.map(_achadoParaJson).toList(),
     };
   }
 
   Map<String, dynamic> _achadoParaJson(Achado achado) {
-    final String diagramaCasoUuid = _toDeterministicUuidV4(achado.casoUuid, achado.diagramaNome);
-
-    return {
-      'uuid': achado.uuid,
-      'diagrama_caso_uuid': diagramaCasoUuid, // Chave obrigatória apontando para o diagrama correspondente
-      'tipo_achado_id': achado.tipoAchadoId,
-      'versao': achado.versao,
-      'removido': achado.removido,
-      'numero_sequencial': achado.numeroSequencial,
-      'pos_x': achado.posX.toDouble(),
-      'pos_y': achado.posY.toDouble(),
-      'esta_pendente': false,
-      'dados_preenchidos_json': achado.dadosPreenchidos,
-      'observacoes_texto': achado.observacoesTexto,
-      'device_id': achado.deviceId,
-      'proveniencia': achado.proveniencia ?? 'APP_TABLET',
-      'criado_em': achado.criadoEm.toUtc().toIso8601String(),
-      'atualizado_em': (achado.atualizadoEm ?? achado.criadoEm).toUtc().toIso8601String(),
-    };
+    return achado.toSyncMap();
   }
 }
