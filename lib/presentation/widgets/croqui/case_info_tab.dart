@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
-import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
 
 class CaseInfoTab extends StatefulWidget {
@@ -37,11 +36,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   late final TextEditingController _tanatoImediatoCtrl;
   late final TextEditingController _tanatoConsecutivoCtrl;
   late final TextEditingController _tanatoObservacaoCtrl;
-
-  late final TextEditingController _anatomoCtrl;
-  late final TextEditingController _toxicologicoCtrl;
-  late final TextEditingController _geneticaCtrl; 
-  late final TextEditingController _outrosExamesCtrl;
 
   late final TextEditingController _discussaoCtrl;
   late final TextEditingController _conclusaoCtrl;
@@ -85,16 +79,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _tanatoConsecutivoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_consecutivo'] ?? 'XXX');
     _tanatoObservacaoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_observacao'] ?? 'XXX');
 
-    final anatomoEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'ANATOMO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-    final toxicologicoEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'TOXICOLOGICO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-    final geneticaEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'GENETICA', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-    final outrosEx = _croquiController.examesSolicitados.firstWhere((e) => e.tipoExame == 'OUTROS', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-
-    _anatomoCtrl = TextEditingController(text: anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : '');
-    _toxicologicoCtrl = TextEditingController(text: toxicologicoEx.uuid.isNotEmpty ? toxicologicoEx.numeroLacre : '');
-    _geneticaCtrl = TextEditingController(text: geneticaEx.uuid.isNotEmpty ? geneticaEx.numeroLacre : '');
-    _outrosExamesCtrl = TextEditingController(text: outrosEx.uuid.isNotEmpty ? outrosEx.numeroLacre : '');
-    
     _discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
     _conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
 
@@ -118,10 +102,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _tanatoImediatoCtrl.dispose();
     _tanatoConsecutivoCtrl.dispose();
     _tanatoObservacaoCtrl.dispose();
-    _anatomoCtrl.dispose();
-    _toxicologicoCtrl.dispose();
-    _geneticaCtrl.dispose();
-    _outrosExamesCtrl.dispose();
     _discussaoCtrl.dispose();
     _conclusaoCtrl.dispose();
     _quesito1Ctrl.dispose();
@@ -171,13 +151,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       destino: _reqDestinoCtrl.text,
       requisitante: _reqOrigemCtrl.text,
       novosDadosLaudo: novosDados,
-    );
-
-    _croquiController.salvarExamesSolicitados(
-      anatomoLacre: _anatomoCtrl.text.trim().isEmpty ? null : _anatomoCtrl.text.trim(),
-      toxicologicoLacre: _toxicologicoCtrl.text.trim().isEmpty ? null : _toxicologicoCtrl.text.trim(),
-      geneticaLacre: _geneticaCtrl.text.trim().isEmpty ? null : _geneticaCtrl.text.trim(),
-      outrosLacre: _outrosExamesCtrl.text.trim().isEmpty ? null : _outrosExamesCtrl.text.trim(),
     );
   }
 
@@ -323,20 +296,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
             
             const SizedBox(height: 32),
-            const _SectionHeader(title: "3. Exames Complementares", icon: Icons.science),
-            const SizedBox(height: 16),
-            _buildTextField("Anátomo-Patológico", _anatomoCtrl, readOnly: readOnly, hint: "Ex: Material coletado para análise..."),
-            _buildTextField("Toxicológico", _toxicologicoCtrl, readOnly: readOnly, hint: "Ex: Negativo / Aguardando laudo..."),
-            _buildTextField("Genética", _geneticaCtrl, readOnly: readOnly, hint: "Ex: Coleta de material biológico para DNA..."), 
-            _buildTextField("Outros Exames", _outrosExamesCtrl, readOnly: readOnly),
-            
-            const SizedBox(height: 32),
-            const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
+            const _SectionHeader(title: "3. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
             _buildTextField("Comentário Médico Forense", _discussaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 24),
-            const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
+            const _SectionHeader(title: "4. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
             _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: null),
             

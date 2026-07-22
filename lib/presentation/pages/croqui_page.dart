@@ -10,7 +10,9 @@ import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
 import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
 
+import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/exames_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_widgets.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
@@ -39,6 +41,7 @@ class CroquiPage extends StatelessWidget {
         ctx.read<CaseService>(),
         ctx.read<InjuryTypeRepository>(),
         ctx.read<AchadoRepository>(),
+        ctx.read<CasoRepository>(),
         isReadOnly: isReadOnly,
       ),
       child: const _CroquiView(),
@@ -55,7 +58,7 @@ class _CroquiView extends StatelessWidget {
     const double sidebarWidth = 320.0;
 
     return DefaultTabController(
-      length: 6,
+      length: 7,
       child: Scaffold(
         appBar: AppBar(
           title: Column(
@@ -129,6 +132,7 @@ class _CroquiView extends StatelessWidget {
               Tab(text: "Tronco Dir. / Esq."),
               Tab(text: "Períneo"),
               Tab(text: "Face Dir. / Esq."),
+              Tab(text: "Exames", icon: Icon(Icons.science, size: 16)),
               Tab(text: "Dados", icon: Icon(Icons.description, size: 16)),
             ],
           ),
@@ -148,6 +152,7 @@ class _CroquiView extends StatelessWidget {
                       _buildTroncoTab(context, controller),
                       _buildPerineoTab(context, controller),
                       _buildRostosTab(context, controller),
+                      const ExamesTab(),
                       const CaseInfoTab(),
                     ],
                   ),

@@ -17,7 +17,9 @@ import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
@@ -35,11 +37,13 @@ class CroquiController extends ChangeNotifier {
   final CaseService _caseService;
   final InjuryTypeRepository _injuryTypeRepository;
   final AchadoRepository _achadoRepository;
+  final CasoRepository _casoRepository;
 
   Caso casoAtual;
   List<Achado> achados = [];
   List<EvidenciaMultimidia> evidenciasGerais = [];
   List<ExameSolicitado> examesSolicitados = [];
+  List<ExameSolicitadoModel> examesSolicitadosModel = [];
   bool isLoading = false;
   bool _isExporting = false;
   bool get isExporting => _isExporting;
@@ -55,7 +59,8 @@ class CroquiController extends ChangeNotifier {
     this._achadoService,
     this._caseService,
     this._injuryTypeRepository,
-    this._achadoRepository, {
+    this._achadoRepository,
+    this._casoRepository, {
     bool? isReadOnly,
   }) : _isReadOnlyInput = isReadOnly {
     _loadAchados();
@@ -74,10 +79,17 @@ class CroquiController extends ChangeNotifier {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
       examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
+      examesSolicitadosModel = await _casoRepository.getExamesPorCaso(casoAtual.uuid);
     } finally {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
+    examesSolicitadosModel = exames;
+    await _casoRepository.salvarExames(casoAtual.uuid, exames);
+    notifyListeners();
   }
 
   List<Achado> getMarkersForView(String view) {
@@ -365,6 +377,7 @@ class CroquiController extends ChangeNotifier {
         perito: usuarioLogado,
         schemas: schemas,
         exames: examesSolicitados,
+        examesModel: examesSolicitadosModel,
         evidenciasGerais: evidenciasGerais,
       );
 

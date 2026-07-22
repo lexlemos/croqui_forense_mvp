@@ -185,6 +185,32 @@ class DatabaseHelper {
         await txn.execute('DROP TABLE IF EXISTS diagramas_do_caso;');
         await txn.execute('DROP TABLE IF EXISTS old_evidencias_multimidia;');
         break;
+
+      case 6:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 6 (Exames Complementares Polimórficos)...');
+        await txn.execute('DROP TABLE IF EXISTS exames_solicitados;');
+        await txn.execute(kCreateExamesSolicitadosSql);
+        await txn.execute(kCreateDetalhesToxicologicoSql);
+        await txn.execute(kCreateAmostrasGeneticaSql);
+        await txn.execute(kCreateFrascosAnatomoSql);
+        break;
+
+      case 7:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 7 (Lacre por Amostra / Frasco)...');
+        // Cadeia de Custódia (Lei 13.964/19): cada amostra/frasco possui seu próprio lacre.
+        await _addColumnIfNotExists(txn, 'amostras_genetica', 'numero_lacre', 'TEXT');
+        await _addColumnIfNotExists(txn, 'frascos_anatomo', 'numero_lacre', 'TEXT');
+        break;
+
+      case 8:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 8 (Lacre por Material Toxicológico)...');
+        // Cada material biológico coletado tem seu próprio recipiente/lacre.
+        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_sg', 'TEXT');
+        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ur', 'TEXT');
+        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_hv', 'TEXT');
+        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ce', 'TEXT');
+        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
+        break;
         
       default:
         debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');

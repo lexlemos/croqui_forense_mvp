@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 5;
+const int kDatabaseVersion = 6;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -146,15 +146,72 @@ CREATE TABLE evidencias_multimidia (
 );
 ''';
 
-const String _kCreateExamesSolicitados = '''
-CREATE TABLE exames_solicitados (
+const String tableDetalhesToxicologico = 'detalhes_toxicologico';
+const String tableAmostrasGenetica = 'amostras_genetica';
+const String tableFrascosAnatomo = 'frascos_anatomo';
+
+const String kCreateExamesSolicitadosSql = '''
+CREATE TABLE IF NOT EXISTS exames_solicitados (
     uuid TEXT PRIMARY KEY,
     caso_uuid TEXT NOT NULL,
     tipo_exame TEXT NOT NULL,
-    quantidade_amostras INTEGER DEFAULT 1,
-    numero_lacre TEXT NOT NULL,
+    numero_lacre TEXT,
     criado_em TEXT NOT NULL,
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE
+);
+''';
+
+const String kCreateDetalhesToxicologicoSql = '''
+CREATE TABLE IF NOT EXISTS detalhes_toxicologico (
+    uuid TEXT PRIMARY KEY,
+    exame_uuid TEXT NOT NULL,
+    historico_ocorrencia TEXT,
+    historico_outro TEXT,
+    material_sg_femoral INTEGER DEFAULT 0,
+    material_sg_cardiaca INTEGER DEFAULT 0,
+    material_sg_outro TEXT,
+    material_urina INTEGER DEFAULT 0,
+    material_humor_vitreo INTEGER DEFAULT 0,
+    material_estomago INTEGER DEFAULT 0,
+    material_pulmao INTEGER DEFAULT 0,
+    quantificacao_drogas INTEGER DEFAULT 0,
+    FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
+);
+''';
+
+const String kCreateAmostrasGeneticaSql = '''
+CREATE TABLE IF NOT EXISTS amostras_genetica (
+    uuid TEXT PRIMARY KEY,
+    exame_uuid TEXT NOT NULL,
+    tipo_amostra TEXT NOT NULL,
+    descricao_outro TEXT,
+    pesquisa_semen INTEGER DEFAULT 0,
+    pesquisa_dna INTEGER DEFAULT 0,
+    quantidade_swabs INTEGER DEFAULT 1,
+    FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
+);
+''';
+
+const String kCreateFrascosAnatomoSql = '''
+CREATE TABLE IF NOT EXISTS frascos_anatomo (
+    uuid TEXT PRIMARY KEY,
+    exame_uuid TEXT NOT NULL,
+    numero_frasco INTEGER NOT NULL,
+    coracao INTEGER DEFAULT 0,
+    figado INTEGER DEFAULT 0,
+    baco INTEGER DEFAULT 0,
+    encefalo INTEGER DEFAULT 0,
+    pulmao_d_lsd INTEGER DEFAULT 0,
+    pulmao_d_lmd INTEGER DEFAULT 0,
+    pulmao_d_lid INTEGER DEFAULT 0,
+    pulmao_e_lse INTEGER DEFAULT 0,
+    pulmao_e_lie INTEGER DEFAULT 0,
+    rim_d INTEGER DEFAULT 0,
+    rim_e INTEGER DEFAULT 0,
+    pele_regiao TEXT,
+    partes_moles_regiao TEXT,
+    outras_regiao TEXT,
+    FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
 );
 ''';
 
@@ -187,6 +244,9 @@ const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_log_usuario ON log_auditoria (id_usuario);',
   'CREATE INDEX idx_casos_status ON casos (status);',
   'CREATE INDEX idx_exames_caso ON exames_solicitados (caso_uuid);',
+  'CREATE INDEX idx_detalhes_toxicologico_exame ON detalhes_toxicologico (exame_uuid);',
+  'CREATE INDEX idx_amostras_genetica_exame ON amostras_genetica (exame_uuid);',
+  'CREATE INDEX idx_frascos_anatomo_exame ON frascos_anatomo (exame_uuid);',
 ];
 
 const Map<String, String> kTableScripts = {
@@ -199,7 +259,10 @@ const Map<String, String> kTableScripts = {
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,
   tableLogAuditoria: _kCreateLogAuditoria,
-  'exames_solicitados': _kCreateExamesSolicitados,
+  'exames_solicitados': kCreateExamesSolicitadosSql,
+  tableDetalhesToxicologico: kCreateDetalhesToxicologicoSql,
+  tableAmostrasGenetica: kCreateAmostrasGeneticaSql,
+  tableFrascosAnatomo: kCreateFrascosAnatomoSql,
 };
 
 final List<String> kFullDatabaseCreationScripts = [

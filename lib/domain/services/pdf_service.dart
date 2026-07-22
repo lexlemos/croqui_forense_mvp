@@ -10,6 +10,10 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart' as em;
+import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 
 import 'pdf_constants.dart';
@@ -45,6 +49,7 @@ class PdfService {
     required Usuario perito,
     Map<String, dynamic>? schemas,
     required List<ExameSolicitado> exames,
+    List<em.ExameSolicitadoModel>? examesModel,
     required List<EvidenciaMultimidia> evidenciasGerais,
   }) async {
     final pdf = pw.Document();
@@ -99,7 +104,7 @@ class PdfService {
             ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true, schemas: schemas, todosAchados: achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("5. EXAMES COMPLEMENTARES"),
-            _buildDadosComplementares(exames),
+            _buildDadosComplementares(exames, examesModel: examesModel),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("6. RASCUNHOS E ESQUEMAS DE LESÃO"),
             if (croquisWidgets.isEmpty)
@@ -316,22 +321,296 @@ class PdfService {
     return items;
   }
 
-  pw.Widget _buildDadosComplementares(List<ExameSolicitado> exames) {
-    final anatomoEx = exames.firstWhere((e) => e.tipoExame == 'ANATOMO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-    final toxicologicoEx = exames.firstWhere((e) => e.tipoExame == 'TOXICOLOGICO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-    final geneticaEx = exames.firstWhere((e) => e.tipoExame == 'GENETICA', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
-    final outrosEx = exames.firstWhere((e) => e.tipoExame == 'OUTROS', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+  pw.Widget _buildDadosComplementares(
+    List<ExameSolicitado> exames, {
+    List<em.ExameSolicitadoModel>? examesModel,
+  }) {
+    // Se temos os modelos ricos (Fase 4), usamos a renderização detalhada.
+    if (examesModel != null && examesModel.isNotEmpty) {
+      return _buildDadosComplementaresRico(examesModel);
+    }
 
+    // Fallback legado: só lacres, para casos sem migração.
+    final anatomoEx  = exames.firstWhere((e) => e.tipoExame == 'ANATOMO',      orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final toxEx      = exames.firstWhere((e) => e.tipoExame == 'TOXICOLOGICO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final genEx      = exames.firstWhere((e) => e.tipoExame == 'GENETICA',     orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final outrosEx   = exames.firstWhere((e) => e.tipoExame == 'OUTROS',       orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
     return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start, 
-      children: [
-        PdfHelpers.buildItemComLabel("Anátomo-Patológico (Lacre): ", anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO'), 
-        PdfHelpers.buildItemComLabel("Toxicológico (Lacre): ", toxicologicoEx.uuid.isNotEmpty ? toxicologicoEx.numeroLacre : 'NÃO SOLICITADO'), 
-        PdfHelpers.buildItemComLabel("Genética (Lacre): ", geneticaEx.uuid.isNotEmpty ? geneticaEx.numeroLacre : 'NÃO SOLICITADO'), 
-        PdfHelpers.buildItemComLabel("Outros (Lacre): ", outrosEx.uuid.isNotEmpty ? outrosEx.numeroLacre : 'NÃO SOLICITADO')
-      ]
+children: [
+        PdfHelpers.buildItemComLabel('Anátomo-Patológico (Lacre): ', anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Toxicológico (Lacre): ',        toxEx.uuid.isNotEmpty      ? toxEx.numeroLacre      : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Genética (Lacre): ',            genEx.uuid.isNotEmpty      ? genEx.numeroLacre      : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Outros (Lacre): ',              outrosEx.uuid.isNotEmpty   ? outrosEx.numeroLacre   : 'NÃO SOLICITADO'),
+      ],
     );
   }
+
+  // ─── Renderização rica (Fase 4) ───────────────────────────────────────────────────
+
+  pw.Widget _buildDadosComplementaresRico(List<em.ExameSolicitadoModel> exames) {
+    if (exames.isEmpty) {
+      return PdfHelpers.buildParagrafoComRecuo('Nenhum exame complementar solicitado.');
+    }
+
+    final List<pw.Widget> blocos = [];
+    int contador = 0;
+    final letras = ['A', 'B', 'C', 'D', 'E'];
+
+    for (final exame in exames) {
+      final tipo = exame.tipoExame.toUpperCase().trim();
+      final letra = contador < letras.length ? letras[contador] : '${contador + 1}';
+      contador++;
+
+      if (tipo == 'TOXICOLOGICO') {
+        blocos.add(_bloco5Toxicologico(exame, letra));
+      } else if (tipo == 'GENETICA') {
+        blocos.add(_bloco5Genetica(exame, letra));
+      } else if (tipo == 'ANATOMO') {
+        blocos.add(_bloco5Anatomo(exame, letra));
+      }
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: blocos);
+  }
+
+  // ─── Bloco: TOXICOLÓGICO ────────────────────────────────────────────────────────
+
+  pw.Widget _bloco5Toxicologico(em.ExameSolicitadoModel exame, String letra) {
+    final d = exame.detalhes is DetalhesToxicologicoModel
+        ? exame.detalhes as DetalhesToxicologicoModel
+        : null;
+
+    final List<pw.Widget> linhas = [];
+
+    // Título do bloco — estilo documento oficial: negrito, sem fundo colorido
+    linhas.add(
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Text(
+          '$letra) EXAME TOXICOLÓGICO',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+
+    if (d == null) {
+      linhas.add(_itemRecuado('Detalhes não disponíveis.'));
+      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+    }
+
+    // Histórico da ocorrência
+    final historico = d.historicoOcorrencia == 'Outro'
+        ? 'Outro: ${d.historicoOutro ?? 'não especificado'}'
+        : (d.historicoOcorrencia ?? 'Não informado');
+    linhas.add(_subTitulo('Histórico da Ocorrência:'));
+    linhas.add(_itemRecuado(historico));
+
+    // Materiais com lacres individuais
+    final bool temSg = d.materialSgFemoral || d.materialSgCardiaca || (d.materialSgOutro?.isNotEmpty == true);
+    final bool temAlgumMaterial = temSg || d.materialUrina || d.materialHumorVitreo || d.materialEstomago || d.materialPulmao;
+
+    if (temAlgumMaterial) {
+      linhas.add(_subTitulo('Materiais Biológicos Solicitados:'));
+    }
+
+    if (temSg) {
+      final subs = <String>[];
+      if (d.materialSgFemoral) subs.add('Veia Femoral');
+      if (d.materialSgCardiaca) subs.add('Cavidade Cardíaca');
+      if (d.materialSgOutro?.isNotEmpty == true) subs.add('Outro sítio: ${d.materialSgOutro}');
+      final lacreSg = d.numeroLacreSg?.isNotEmpty == true ? d.numeroLacreSg! : 'Não informado';
+      linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Lacre: $lacreSg'));
+      if (d.quantificacaoDrogas) {
+        linhas.add(_itemRecuadoSecundario('Solicita quantificacao de drogas / farmacos'));
+      }
+    }
+
+    if (d.materialUrina) {
+      final lacre = d.numeroLacreUr?.isNotEmpty == true ? d.numeroLacreUr! : 'Não informado';
+      linhas.add(_itemRecuado('- Urina (UR) — Lacre: $lacre'));
+    }
+    if (d.materialHumorVitreo) {
+      final lacre = d.numeroLacreHv?.isNotEmpty == true ? d.numeroLacreHv! : 'Não informado';
+      linhas.add(_itemRecuado('- Humor Vitreo (HV) — Lacre: $lacre'));
+    }
+    if (d.materialEstomago) {
+      final lacre = d.numeroLacreCe?.isNotEmpty == true ? d.numeroLacreCe! : 'Não informado';
+      linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Lacre: $lacre'));
+    }
+    if (d.materialPulmao) {
+      final lacre = d.numeroLacrePm?.isNotEmpty == true ? d.numeroLacrePm! : 'Não informado';
+      linhas.add(_itemRecuado('- Pulmao (PM) — Lacre: $lacre'));
+    }
+
+    if (!temAlgumMaterial) {
+      linhas.add(_itemRecuado('Nenhum material selecionado.'));
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+  }
+
+  // ─── Bloco: GENÉTICA E BIOLÓGICO ───────────────────────────────────────────────
+
+  pw.Widget _bloco5Genetica(em.ExameSolicitadoModel exame, String letra) {
+    final amostras = (exame.detalhes is List)
+        ? (exame.detalhes as List).whereType<AmostraGeneticaModel>().toList()
+        : <AmostraGeneticaModel>[];
+
+    final List<pw.Widget> linhas = [];
+
+    // Título do bloco
+    linhas.add(
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Text(
+          '$letra) EXAME GENÉTICO E BIOLÓGICO',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+
+    if (amostras.isEmpty) {
+      linhas.add(_itemRecuado('Nenhuma amostra registrada.'));
+      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+    }
+
+    final questionadas = amostras.where((a) => a.tipoAmostra != 'SWAB_BUCAL_VITIMA').toList();
+    final referencia   = amostras.where((a) => a.tipoAmostra == 'SWAB_BUCAL_VITIMA').toList();
+
+    if (questionadas.isNotEmpty) {
+      linhas.add(_subTitulo('Amostras Questionadas:'));
+      for (final a in questionadas) {
+        final desc = _descricaoAmostraGenetica(a);
+        final pesqs = <String>[];
+        if (a.pesquisaSemen) pesqs.add('Pesquisa de Semen');
+        if (a.pesquisaDna)   pesqs.add('Pesquisa de DNA');
+        final pesqStr = pesqs.isNotEmpty ? ' [${pesqs.join(' + ')}]' : '';
+        final lacre = a.numeroLacre?.isNotEmpty == true ? a.numeroLacre! : 'Não informado';
+        linhas.add(_itemRecuado('- $desc$pesqStr — Lacre do Envelope: $lacre'));
+      }
+    }
+
+    if (referencia.isNotEmpty) {
+      linhas.add(_subTitulo('Amostra de Referencia:'));
+      for (final a in referencia) {
+        final lacre = a.numeroLacre?.isNotEmpty == true ? a.numeroLacre! : 'Não informado';
+        linhas.add(_itemRecuado('- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Lacre do Envelope: $lacre'));
+      }
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+  }
+
+  String _descricaoAmostraGenetica(AmostraGeneticaModel a) {
+    const nomes = {
+      'SWAB_VAGINAL_1':    'SWAB VAGINAL - 1 (Pesquisa de sêmen e DNA)',
+      'SWAB_VAGINAL_2':    'SWAB VAGINAL - 2 (Pesquisa de sêmen e DNA)',
+      'SWAB_ANAL_1':       'SWAB ANAL - 1 (Pesquisa de sêmen e DNA)',
+      'SWAB_ANAL_2':       'SWAB ANAL - 2 (Pesquisa de sêmen e DNA)',
+      'SWAB_BUCAL_VITIMA': 'Swab Bucal da Vítima',
+    };
+    if (a.tipoAmostra == 'OUTRO') {
+      return a.descricaoOutro?.isNotEmpty == true ? a.descricaoOutro! : 'Amostra personalizada';
+    }
+    return nomes[a.tipoAmostra] ?? a.tipoAmostra;
+  }
+
+  // ─── Bloco: ANÁTOMO-PATOLÓGICO ────────────────────────────────────────────────
+
+  pw.Widget _bloco5Anatomo(em.ExameSolicitadoModel exame, String letra) {
+    final frascos = (exame.detalhes is List)
+        ? (exame.detalhes as List).whereType<FrascoAnatomoModel>().toList()
+        : <FrascoAnatomoModel>[];
+
+    frascos.sort((a, b) => a.numeroFrasco.compareTo(b.numeroFrasco));
+
+    final List<pw.Widget> linhas = [];
+
+    // Título do bloco
+    linhas.add(
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Text(
+          '$letra) EXAME ANÁTOMO-PATOLÓGICO (HISTOPATOLÓGICO)',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+
+    if (frascos.isEmpty) {
+      linhas.add(_itemRecuado('Nenhum frasco registrado.'));
+      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+    }
+
+    for (final f in frascos) {
+      final numStr = f.numeroFrasco.toString().padLeft(2, '0');
+      final lacre = f.numeroLacre?.isNotEmpty == true ? f.numeroLacre! : 'Não informado';
+
+      // Cabeçalho do frasco: numeracao + lacre
+      linhas.add(
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(left: 15, top: 6, bottom: 2),
+          child: pw.Text(
+            'Frasco $numStr — Lacre: $lacre',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5),
+          ),
+        ),
+      );
+
+      final orgaos = <String>[];
+      if (f.coracao)  orgaos.add('Coracao');
+      if (f.figado)   orgaos.add('Figado');
+      if (f.baco)     orgaos.add('Baco');
+      if (f.encefalo) orgaos.add('Encefalo');
+      if (f.rimD)     orgaos.add('Rim D.');
+      if (f.rimE)     orgaos.add('Rim E.');
+
+      final pulmoes = <String>[];
+      if (f.pulmaoDLsd) pulmoes.add('LSD');
+      if (f.pulmaoDLmd) pulmoes.add('LMD');
+      if (f.pulmaoDLid) pulmoes.add('LID');
+      if (f.pulmaoELse) pulmoes.add('LSE');
+      if (f.pulmaoELie) pulmoes.add('LIE');
+      if (pulmoes.isNotEmpty) orgaos.add('Pulmao (${pulmoes.join(', ')})');
+
+      if (orgaos.isNotEmpty) {
+        linhas.add(_itemRecuado('Orgaos: ${orgaos.join(' | ')}'));
+      }
+      if (f.peleRegiao?.isNotEmpty == true) {
+        linhas.add(_itemRecuado('Pele — Regiao: ${f.peleRegiao}'));
+      }
+      if (f.partesMolesRegiao?.isNotEmpty == true) {
+        linhas.add(_itemRecuado('Partes Moles — Regiao: ${f.partesMolesRegiao}'));
+      }
+      if (f.outrasRegiao?.isNotEmpty == true) {
+        linhas.add(_itemRecuado('Outras — Descricao: ${f.outrasRegiao}'));
+      }
+      if (orgaos.isEmpty && f.peleRegiao == null && f.partesMolesRegiao == null && f.outrasRegiao == null) {
+        linhas.add(_itemRecuado('(Frasco sem conteudo especificado)'));
+      }
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+  }
+
+  // ─── Helpers internos ───────────────────────────────────────────────────────────
+
+  pw.Widget _subTitulo(String texto) => pw.Padding(
+    padding: const pw.EdgeInsets.only(left: 15, top: 5, bottom: 2),
+    child: pw.Text(texto, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5)),
+  );
+
+  pw.Widget _itemRecuado(String texto) => pw.Padding(
+    padding: const pw.EdgeInsets.only(left: 25, top: 2),
+    child: pw.Text(texto, style: const pw.TextStyle(fontSize: 9.5)),
+  );
+
+  /// Recuo secundário para sub-itens (ex: quantificacao abaixo de Sangue SG).
+  pw.Widget _itemRecuadoSecundario(String texto) => pw.Padding(
+    padding: const pw.EdgeInsets.only(left: 38, top: 1),
+    child: pw.Text(texto, style: const pw.TextStyle(fontSize: 9)),
+  );
+
 
   pw.Widget _buildDadosQuesitosOficial(Caso caso) {
     final q = caso.dadosLaudo['conclusao'] ?? {};
