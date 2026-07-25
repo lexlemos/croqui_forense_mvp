@@ -151,6 +151,17 @@ class CasoRepository implements ISyncRepository {
   }
 
   @override
+  Future<List<Caso>> getRascunhosNaoSincronizados() async {
+    final db = await database;
+    final maps = await db.query(
+      tableCasos,
+      where: "status = 'RASCUNHO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      orderBy: 'criado_em_dispositivo ASC',
+    );
+    return maps.map(Caso.fromMap).toList();
+  }
+
+  @override
   Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids) async {
     if (casoUuids.isEmpty) return {};
 
@@ -350,6 +361,21 @@ class CasoRepository implements ISyncRepository {
          AND removido = 0
       ''',
       [DateTime.now().toIso8601String(), caso.uuid],
+    );
+  }
+
+  @override
+  Future<void> marcarRascunhoComoSincronizado(String casoUuid) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE $tableCasos
+         SET is_draft_synced = 1,
+             atualizado_em   = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [DateTime.now().toIso8601String(), casoUuid],
     );
   }
 

@@ -20,6 +20,15 @@ class DatabaseSeeder {
     await _seedPermissions();
     await _seedRolePermissions(); 
     await _seedDefaultUser();
+    await seedAtns();
+  }
+
+  Future<void> seedAtns() async {
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM atns'));
+    if (count != null && count > 0) return;
+
+    await db.insert('atns', {'id': 'atn-001', 'nome': 'ATN João'});
+    await db.insert('atns', {'id': 'atn-002', 'nome': 'ATN Maria'});
   }
   
   Future<void> _seedRoles() async {

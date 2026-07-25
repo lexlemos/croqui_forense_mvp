@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 6;
+const int kDatabaseVersion = 12;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -10,6 +10,15 @@ const String tableCasos = 'casos';
 const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
+const String tableAtns = 'atns';
+
+const String kCreateAtnsSql = '''
+CREATE TABLE IF NOT EXISTS atns (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    ativo INTEGER DEFAULT 1
+);
+''';
 
 const String _kCreatePapeis = '''
 CREATE TABLE papeis (
@@ -86,6 +95,7 @@ CREATE TABLE casos (
     versao INTEGER DEFAULT 1,
     criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
     atualizado_em TEXT,
+    finalizado_em TEXT,
     device_id TEXT,
     numero_pic TEXT,
     numero_bo TEXT,
@@ -93,6 +103,9 @@ CREATE TABLE casos (
     nome_vitima TEXT,
     destino TEXT,
     requisitante TEXT,
+    atn_responsavel TEXT,
+    pdf_local_path TEXT,
+    is_draft_synced INTEGER DEFAULT 0,
     FOREIGN KEY (id_usuario_criador) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 ''';
@@ -170,10 +183,15 @@ CREATE TABLE IF NOT EXISTS detalhes_toxicologico (
     material_sg_femoral INTEGER DEFAULT 0,
     material_sg_cardiaca INTEGER DEFAULT 0,
     material_sg_outro TEXT,
+    numero_lacre_sg TEXT,
     material_urina INTEGER DEFAULT 0,
+    numero_lacre_ur TEXT,
     material_humor_vitreo INTEGER DEFAULT 0,
+    numero_lacre_hv TEXT,
     material_estomago INTEGER DEFAULT 0,
+    numero_lacre_ce TEXT,
     material_pulmao INTEGER DEFAULT 0,
+    numero_lacre_pm TEXT,
     quantificacao_drogas INTEGER DEFAULT 0,
     FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
 );
@@ -188,6 +206,7 @@ CREATE TABLE IF NOT EXISTS amostras_genetica (
     pesquisa_semen INTEGER DEFAULT 0,
     pesquisa_dna INTEGER DEFAULT 0,
     quantidade_swabs INTEGER DEFAULT 1,
+    numero_lacre TEXT,
     FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
 );
 ''';
@@ -197,6 +216,7 @@ CREATE TABLE IF NOT EXISTS frascos_anatomo (
     uuid TEXT PRIMARY KEY,
     exame_uuid TEXT NOT NULL,
     numero_frasco INTEGER NOT NULL,
+    numero_lacre TEXT,
     coracao INTEGER DEFAULT 0,
     figado INTEGER DEFAULT 0,
     baco INTEGER DEFAULT 0,
@@ -263,6 +283,7 @@ const Map<String, String> kTableScripts = {
   tableDetalhesToxicologico: kCreateDetalhesToxicologicoSql,
   tableAmostrasGenetica: kCreateAmostrasGeneticaSql,
   tableFrascosAnatomo: kCreateFrascosAnatomoSql,
+  tableAtns: kCreateAtnsSql,
 };
 
 final List<String> kFullDatabaseCreationScripts = [

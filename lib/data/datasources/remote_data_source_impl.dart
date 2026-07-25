@@ -74,6 +74,23 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getAtns() async {
+    try {
+      final response = await _apiClient.dio.get('croqui/atns');
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception('Resposta inesperada do servidor.');
+      }
+      if (response.data is! List) {
+        throw Exception('Resposta inválida do servidor.');
+      }
+      final list = response.data as List<dynamic>;
+      return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      throw Exception('Falha ao buscar ATNs: ${e.message}');
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload) async {
     try {
       final response = await _apiClient.dio.post(

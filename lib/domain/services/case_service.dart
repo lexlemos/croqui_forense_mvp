@@ -167,7 +167,10 @@ class CaseService {
   /// @throws [Exception] caso o laudo já tenha sido finalizado (bloqueado para edição) e
   /// o perito tente salvar alterações sem antes realizar a reabertura formal.
   Future<void> salvarRascunho(Caso caso) async {
-    final casoAtualizado = caso.copyWith(atualizadoEm: DateTime.now());
+    final casoAtualizado = caso.copyWith(
+      atualizadoEm: DateTime.now(),
+      isDraftSynced: false,
+    );
     await _repository.updateCase(casoAtualizado);
   }
 

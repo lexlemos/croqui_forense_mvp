@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
+
 
 class CaseInfoTab extends StatefulWidget {
   const CaseInfoTab({super.key});
@@ -226,6 +228,49 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 Expanded(child: _buildTextField("Destino", _reqDestinoCtrl, readOnly: readOnly)),
               ],
             ),
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final selectedAtn = controller.casoAtual.atnResponsavel;
+                final List<AtnModel> rawAtns = controller.atns;
+                final List<AtnModel> atnsExibicao = List.from(rawAtns);
+
+                if (selectedAtn != null &&
+                    selectedAtn.isNotEmpty &&
+                    !atnsExibicao.any((a) => a.nome == selectedAtn)) {
+                  atnsExibicao.add(
+                    AtnModel(id: 'inativo', nome: selectedAtn, ativo: false),
+                  );
+                }
+
+                return DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: "A.T.N. Responsável",
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    enabled: !readOnly,
+                  ),
+                  value: (selectedAtn != null &&
+                          selectedAtn.isNotEmpty &&
+                          atnsExibicao.any((a) => a.nome == selectedAtn))
+                      ? selectedAtn
+                      : null,
+                  items: atnsExibicao.map((atn) {
+                    final bool isAtivo = atn.ativo;
+                    final String labelText = isAtivo ? atn.nome : "${atn.nome} (Inativo)";
+                    return DropdownMenuItem<String>(
+                      value: atn.nome,
+                      child: Text(labelText),
+                    );
+                  }).toList(),
+                  onChanged: readOnly
+                      ? null
+                      : (val) {
+                          controller.atualizarAtnResponsavel(val);
+                        },
+                );
+              },
+            ),
             
             const SizedBox(height: 32),
             const _SectionHeader(title: "1. Histórico", icon: Icons.history),
@@ -346,7 +391,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   label: _isSaving
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Text(
-                          "SALVAR DADOS E FINALIZAR CASO",
+                          "SALVAR DADOS E FINALIZAR EXAME",
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                   style: ElevatedButton.styleFrom(

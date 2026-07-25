@@ -28,6 +28,9 @@ abstract interface class IRemoteDataSource {
   /// a comunicação com a API falhe.
   Future<List<Map<String, dynamic>>> getTiposAchados();
 
+  /// Obtém a lista oficial de Auxiliares Técnicos de Necropsia (A.T.N.s) cadastrados no backend.
+  Future<List<Map<String, dynamic>>> getAtns();
+
   /// Transmite a carga textual dos Laudos Periciais finalizados e seus 
   /// respectivos Achados (lesões) para consolidação na base de dados central.
   ///

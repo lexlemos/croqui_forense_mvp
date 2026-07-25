@@ -14,6 +14,7 @@ import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/diagrama_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
@@ -67,6 +68,9 @@ class AppRoot extends StatelessWidget {
         Provider<InjuryTypeRepository>(
           create: (_) => InjuryTypeRepository(dbHelper),
         ),
+        Provider<AtnRepository>(
+          create: (_) => AtnRepository(dbHelper),
+        ),
 
         Provider<ApiClient>(
           create: (_) => ApiClient(keyStorage),
@@ -89,17 +93,19 @@ class AppRoot extends StatelessWidget {
           update: (_, achadoRepo, __) => AchadoService(achadoRepo),
         ),
 
-        ProxyProvider2<IRemoteDataSource, InjuryTypeRepository, DomainSyncService>(
-          update: (_, remoteDS, injuryTypeRepo, prev) =>
+        ProxyProvider3<IRemoteDataSource, InjuryTypeRepository, AtnRepository, DomainSyncService>(
+          update: (_, remoteDS, injuryTypeRepo, atnRepo, prev) =>
               prev ?? DomainSyncService(
                 remoteDataSource: remoteDS,
                 injuryTypeRepository: injuryTypeRepo,
+                atnRepository: atnRepo,
               ),
         ),
-        ProxyProvider2<IRemoteDataSource, CasoRepository, SyncService>(
-          update: (_, remoteDS, casoRepo, __) => SyncService(
+        ProxyProvider3<IRemoteDataSource, CasoRepository, DomainSyncService, SyncService>(
+          update: (_, remoteDS, casoRepo, domainSync, __) => SyncService(
             remoteDataSource: remoteDS,
             repository: casoRepo,
+            domainSyncService: domainSync,
           ),
         ),
         ChangeNotifierProxyProvider3<AuthService, ApiClient, DomainSyncService, AuthProvider>(
@@ -112,9 +118,13 @@ class AppRoot extends StatelessWidget {
           },
         ),
 
-        ChangeNotifierProxyProvider<CaseService, CaseListProvider>(
-          create: (ctx) => CaseListProvider(ctx.read<CaseService>()),
-          update: (_, caseService, previous) => previous!..updateService(caseService),
+        ChangeNotifierProxyProvider2<CaseService, SyncService, CaseListProvider>(
+          create: (ctx) => CaseListProvider(
+            ctx.read<CaseService>(),
+            syncService: ctx.read<SyncService>(),
+          ),
+          update: (_, caseService, syncService, previous) =>
+              previous!..updateServices(caseService: caseService, syncService: syncService),
         ),
 
         ChangeNotifierProxyProvider<UserService, UserManagementProvider>(

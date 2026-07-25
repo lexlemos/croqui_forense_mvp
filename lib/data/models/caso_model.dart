@@ -6,6 +6,7 @@ enum SortOrder { asc, desc }
 
 enum StatusCaso {
   rascunho,
+  laudo_pendente,
   finalizado,
   sincronizado,
   arquivado
@@ -23,12 +24,16 @@ class Caso {
   final String? deviceId;
   final DateTime criadoEmDispositivo;
   final DateTime? atualizadoEm;
+  final DateTime? finalizadoEm;
   final String numeroPic;
   final String numeroBo;
   final String numeroRequisicao;
   final String nomeVitima;
   final String destino;
   final String requisitante;
+  final String? atnResponsavel;
+  final String? pdfLocalPath;
+  final bool isDraftSynced;
 
   Caso({
     required this.uuid,
@@ -40,6 +45,7 @@ class Caso {
     required this.versao,
     required this.criadoEmDispositivo,
     this.atualizadoEm,
+    this.finalizadoEm,
     this.deviceId,
     required this.dadosLaudo,
     required this.numeroPic,
@@ -48,6 +54,9 @@ class Caso {
     required this.nomeVitima,
     required this.destino,
     required this.requisitante,
+    this.atnResponsavel,
+    this.pdfLocalPath,
+    this.isDraftSynced = false,
   });
   
   Caso.novo({
@@ -61,13 +70,17 @@ class Caso {
     this.nomeVitima = '',
     this.destino = '',
     this.requisitante = '',
+    this.atnResponsavel,
+    this.pdfLocalPath,
+    this.isDraftSynced = false,
   }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
        hashIntegridade = null,
        removido = false,
        versao = 1,
        criadoEmDispositivo = DateTime.now(),
-       atualizadoEm = DateTime.now();
+       atualizadoEm = DateTime.now(),
+       finalizadoEm = null;
 
   factory Caso.fromMap(Map<String, dynamic> map) {
     return Caso(
@@ -94,6 +107,9 @@ class Caso {
       atualizadoEm: map['atualizado_em'] != null 
           ? DateTime.tryParse(map['atualizado_em'].toString()) 
           : null,
+      finalizadoEm: map['finalizado_em'] != null 
+          ? DateTime.tryParse(map['finalizado_em'].toString()) 
+          : null,
       
       deviceId: map['device_id']?.toString(),
       numeroPic: map['numero_pic']?.toString() ?? '',
@@ -102,6 +118,11 @@ class Caso {
       nomeVitima: map['nome_vitima']?.toString() ?? '',
       destino: map['destino']?.toString() ?? '',
       requisitante: map['requisitante']?.toString() ?? '',
+      atnResponsavel: map['atn_responsavel']?.toString(),
+      pdfLocalPath: map['pdf_local_path']?.toString(),
+      isDraftSynced: map['is_draft_synced'] is bool
+          ? map['is_draft_synced'] as bool
+          : (map['is_draft_synced'] as int? ?? 0) == 1,
     );
   }
 
@@ -117,12 +138,16 @@ class Caso {
     String? deviceId,
     DateTime? criadoEmDispositivo,
     DateTime? atualizadoEm,
+    DateTime? finalizadoEm,
     String? numeroPic,
     String? numeroBo,
     String? numeroRequisicao,
     String? nomeVitima,
     String? destino,
     String? requisitante,
+    String? atnResponsavel,
+    String? pdfLocalPath,
+    bool? isDraftSynced,
   }) {
     return Caso(
       uuid: uuid ?? this.uuid,
@@ -136,12 +161,16 @@ class Caso {
       deviceId: deviceId ?? this.deviceId,
       criadoEmDispositivo: criadoEmDispositivo ?? this.criadoEmDispositivo,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
+      finalizadoEm: finalizadoEm ?? this.finalizadoEm,
       numeroPic: numeroPic ?? this.numeroPic,
       numeroBo: numeroBo ?? this.numeroBo,
       numeroRequisicao: numeroRequisicao ?? this.numeroRequisicao,
       nomeVitima: nomeVitima ?? this.nomeVitima,
       destino: destino ?? this.destino,
       requisitante: requisitante ?? this.requisitante,
+      atnResponsavel: atnResponsavel ?? this.atnResponsavel,
+      pdfLocalPath: pdfLocalPath ?? this.pdfLocalPath,
+      isDraftSynced: isDraftSynced ?? this.isDraftSynced,
     );
   }
 
@@ -157,6 +186,7 @@ class Caso {
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
+      'finalizado_em': finalizadoEm?.toIso8601String(),
       'device_id': deviceId,
       'numero_pic': numeroPic,
       'numero_bo': numeroBo,
@@ -164,6 +194,9 @@ class Caso {
       'nome_vitima': nomeVitima,
       'destino': destino,
       'requisitante': requisitante,
+      'atn_responsavel': atnResponsavel,
+      'pdf_local_path': pdfLocalPath,
+      'is_draft_synced': isDraftSynced ? 1 : 0,
     };
   }
 
@@ -179,6 +212,7 @@ class Caso {
       'versao': versao,
       'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
       'atualizado_em': atualizadoEm?.toIso8601String(),
+      'finalizado_em': finalizadoEm?.toIso8601String(),
       'device_id': deviceId,
       'numero_pic': numeroPic,
       'numero_bo': numeroBo,
@@ -186,6 +220,9 @@ class Caso {
       'nome_vitima': nomeVitima,
       'destino': destino,
       'requisitante': requisitante,
+      'atn_responsavel': atnResponsavel,
+      'pdf_local_path': pdfLocalPath,
+      'is_draft_synced': isDraftSynced,
     };
   }
 }

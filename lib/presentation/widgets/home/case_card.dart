@@ -16,9 +16,14 @@ class CaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
       StatusCaso.rascunho => (
+        const Color(0xFF00838F),
+        const Color(0xFFE0F7FA),
+        'RASCUNHO',
+      ),
+      StatusCaso.laudo_pendente => (
         const Color(0xFFE65100),
         const Color(0xFFFFF3E0),
-        'RASCUNHO',
+        'LAUDO PENDENTE',
       ),
       StatusCaso.finalizado => (
         const Color(0xFF2E7D32),

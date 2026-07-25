@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -7,13 +8,17 @@ import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
+import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
 /// Contrato de repositório local responsável pelas operações de leitura e atualização
 /// de integridade dos [Caso]s (Laudos) e seus respectivos [Achado]s durante o processo de sincronização.
 abstract interface class ISyncRepository {
-  /// Obtém todos os [Caso]s (Laudos) finalizados ou rascunhos que ainda não foram sincronizados com o servidor central.
+  /// Obtém todos os [Caso]s (Laudos) finalizados que ainda não foram sincronizados com o servidor central.
   Future<List<Caso>> getCasosNaoSincronizados();
+
+  /// Obtém todos os [Caso]s em rascunho com `is_draft_synced = 0` pendentes de envio.
+  Future<List<Caso>> getRascunhosNaoSincronizados();
 
   /// Recupera todas as lesões corporais ([Achado]s) associadas a um determinado [Caso] pelo seu identificador único.
   Future<List<Achado>> getAchadosPorCaso(String casoUuid);
@@ -26,6 +31,9 @@ abstract interface class ISyncRepository {
 
   /// Atualiza o status local do [Caso] (Laudo) para marcado como sincronizado no banco de dados.
   Future<void> marcarCasoComoSincronizado(Caso caso);
+
+  /// Atualiza a marcação local de um rascunho como sincronizado no SQLite (`is_draft_synced = 1`).
+  Future<void> marcarRascunhoComoSincronizado(String casoUuid);
 
   /// Atualiza o status local da [Evidência Fotográfica] de um [Achado] para marcado como sincronizada.
   Future<void> marcarFotoComoSincronizada(Achado achado);
@@ -66,6 +74,15 @@ class SyncUploadEvidenciaException implements Exception {
       'status: $statusCode): $message';
 }
 
+/// Função utilitária para leitura e codificação de PDF em Base64 em Isolate separado (via compute).
+/// Previne Out-Of-Memory (OOM) e bloqueios na UI Isolate ao processar laudos extensos.
+String? _readAndEncodePdfBase64(String filePath) {
+  final pdfFile = File(filePath);
+  if (!pdfFile.existsSync()) return null;
+  final bytes = pdfFile.readAsBytesSync();
+  return base64Encode(bytes);
+}
+
 /// Serviço de domínio encarregado da [Sincronização] e conformidade dos dados periciais do IML.
 ///
 /// Ele garante que a [Cadeia de Custódia] dos [Caso]s (Laudos) e suas respectivas [Evidência Fotográfica]s
@@ -74,30 +91,49 @@ class SyncUploadEvidenciaException implements Exception {
 class SyncService {
   final IRemoteDataSource _remoteDataSource;
   final ISyncRepository _repository;
+  final DomainSyncService? _domainSyncService;
 
   SyncService({
     required IRemoteDataSource remoteDataSource,
     required ISyncRepository repository,
+    DomainSyncService? domainSyncService,
   })  : _remoteDataSource = remoteDataSource,
-        _repository = repository;
+        _repository = repository,
+        _domainSyncService = domainSyncService;
 
   /// Executa o fluxo completo de sincronização pericial do dispositivo com a central.
   ///
-  /// Busca todos os laudos locais pendentes de envio, faz o push textual agregado de toda a carga de dados,
+  /// Busca todos os laudos locais e rascunhos pendentes de envio, faz o push textual agregado de toda a carga de dados,
   /// e então executa o upload em lote de cada [Evidência Fotográfica] associada. Ao fim do envio bem-sucedido
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
-  ///
-  /// @throws [SyncPushTextualException] se o envio inicial dos dados dos laudos falhar ou for recusado no servidor.
-  /// @throws [SyncUploadEvidenciaException] se o upload de alguma evidência fotográfica falhar durante a transmissão.
   Future<void> execute() async {
     debugPrint('[SyncService] Iniciando sincronização...');
+
+    // Fase 0: Atualização periódica de referência dos A.T.N.s do backend (resiliente offline)
+    try {
+      await _domainSyncService?.syncAtns();
+    } catch (e) {
+      debugPrint('[SyncService] ⚠️ Falha na atualização periódica de ATNs: $e');
+    }
+
+    // Fase 0.1: Push textual de rascunhos não sincronizados pendentes
+    final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados();
+    if (rascunhosPendentes.isNotEmpty) {
+      debugPrint('[SyncService] 🔄 Encontrados ${rascunhosPendentes.length} rascunho(s) pendente(s) de envio. Processando...');
+      for (final rascunho in rascunhosPendentes) {
+        await pushCasoRascunho(rascunho);
+      }
+    }
 
     final List<Caso> casosPendentes =
         await _repository.getCasosNaoSincronizados();
 
-    if (casosPendentes.isEmpty) return;
+    if (casosPendentes.isEmpty) {
+      debugPrint('[SyncService] Nenhum caso finalizado pendente de sincronização.');
+      return;
+    }
 
-    debugPrint('[SyncService] ${casosPendentes.length} caso(s) pendente(s).');
+    debugPrint('[SyncService] ${casosPendentes.length} caso(s) finalizado(s) pendente(s).');
 
     // Fase 1: Push textual de metadados (JSON)
     final syncResult = await _pushTextual(casosPendentes);
@@ -128,6 +164,30 @@ class SyncService {
     }
   }
 
+  /// Dispara a sincronização silenciosa de um novo rascunho de caso para rastreamento no backend.
+  /// Não bloqueia a interface. Caso falhe por queda de rede, a marcação `is_draft_synced = 0` no SQLite
+  /// garante o reenvio automático assim que a conectividade retornar.
+  Future<void> pushCasoRascunho(Caso caso) async {
+    try {
+      debugPrint('[SyncService] 🚀 Disparando push silencioso de rascunho para o caso ${caso.uuid}...');
+      final achados = await _repository.getAchadosPorCaso(caso.uuid);
+      final casoJson = await _casoParaJson(caso, achados);
+      final deviceId = await DeviceInfoService.getDeviceId();
+
+      final payload = {
+        'device_id': deviceId,
+        'timestamp_sincronizacao': DateTime.now().toUtc().toIso8601String(),
+        'casos': [casoJson],
+      };
+
+      await _remoteDataSource.pushTextual(payload);
+      await _repository.marcarRascunhoComoSincronizado(caso.uuid);
+      debugPrint('[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.');
+    } catch (e) {
+      debugPrint('[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e');
+    }
+  }
+
   Future<Map<String, dynamic>> _pushTextual(List<Caso> casos) async {
     final achadosPorCaso = await _repository.getAchadosEmLote(
       casos.map((c) => c.uuid).toList(),
@@ -136,7 +196,7 @@ class SyncService {
     final List<Map<String, dynamic>> casosJson = [];
     for (final caso in casos) {
       final achados = achadosPorCaso[caso.uuid] ?? [];
-      casosJson.add(_casoParaJson(caso, achados));
+      casosJson.add(await _casoParaJson(caso, achados));
     }
 
     final deviceId = await DeviceInfoService.getDeviceId();
@@ -220,7 +280,7 @@ class SyncService {
     return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
   }
 
-  Map<String, dynamic> _casoParaJson(Caso caso, List<Achado> achados) {
+  Future<Map<String, dynamic>> _casoParaJson(Caso caso, List<Achado> achados) async {
     final uniqueDiagramNames = achados.map((a) => a.diagramaNome).toSet();
 
     final List<Map<String, dynamic>> diagramasJson = [];
@@ -238,6 +298,19 @@ class SyncService {
       });
     }
 
+    String? pdfBase64;
+    if (caso.pdfLocalPath != null && caso.pdfLocalPath!.isNotEmpty) {
+      final pdfFile = File(caso.pdfLocalPath!);
+      if (pdfFile.existsSync()) {
+        try {
+          // Offload da codificação Base64 para um Isolate secundário via compute para evitar Jank e OOM na UI
+          pdfBase64 = await compute(_readAndEncodePdfBase64, pdfFile.path);
+        } catch (e) {
+          debugPrint('[SyncService] ⚠️ Erro ao ler PDF local em base64 no Isolate: $e');
+        }
+      }
+    }
+
     return {
       'uuid': caso.uuid,
       'id_usuario_criador': caso.idUsuarioCriador,
@@ -249,12 +322,16 @@ class SyncService {
       'device_id': caso.deviceId,
       'criado_em_dispositivo': caso.criadoEmDispositivo.toUtc().toIso8601String(),
       'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
+      'finalizado_em': caso.finalizadoEm?.toUtc().toIso8601String(),
       'numero_pic': caso.numeroPic,
       'numero_bo': caso.numeroBo,
       'numero_requisicao': caso.numeroRequisicao,
       'nome_vitima': caso.nomeVitima,
       'destino': caso.destino,
       'requisitante': caso.requisitante,
+      'atn_responsavel': caso.atnResponsavel,
+      'pdf_local_path': caso.pdfLocalPath,
+      'pdf_base64': pdfBase64,
       'diagramas': diagramasJson,
       'achados': achados.map(_achadoParaJson).toList(),
     };

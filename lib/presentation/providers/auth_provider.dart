@@ -56,6 +56,7 @@ class AuthProvider extends ChangeNotifier {
       _usuario = _authService.usuario;
       _isLogged = true;
       await _domainSyncService?.syncTiposAchados();
+      await _domainSyncService?.syncAtns();
     } finally {
       _isLoading = false;
       notifyListeners();
