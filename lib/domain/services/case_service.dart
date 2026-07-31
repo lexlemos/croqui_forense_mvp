@@ -171,6 +171,7 @@ class CaseService {
       atualizadoEm: DateTime.now(),
       isDraftSynced: false,
     );
+    debugPrint('[CaseService] 💾 salvarRascunho - dados_laudo_json: ${jsonEncode(casoAtualizado.dadosLaudo)}');
     await _repository.updateCase(casoAtualizado);
   }
 

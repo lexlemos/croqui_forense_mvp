@@ -163,6 +163,7 @@ class _CroquiAppState extends State<CroquiApp> {
     return MaterialApp(
       title: 'Necropsia Digital',
       scaffoldMessengerKey: globalMessengerKey,
+      navigatorKey: globalNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
@@ -179,6 +180,9 @@ class _CroquiAppState extends State<CroquiApp> {
         ),
       ),
       home: const AuthWrapper(),
+      routes: {
+        '/login': (context) => const AuthWrapper(),
+      },
     );
   }
 }

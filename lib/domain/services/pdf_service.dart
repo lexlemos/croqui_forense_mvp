@@ -419,7 +419,7 @@ children: [
       if (d.materialSgCardiaca) subs.add('Cavidade Cardíaca');
       if (d.materialSgOutro?.isNotEmpty == true) subs.add('Outro sítio: ${d.materialSgOutro}');
       final lacreSg = d.numeroLacreSg?.isNotEmpty == true ? d.numeroLacreSg! : 'Não informado';
-      linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Nº do Lacre: $lacreSg'));
+      linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Lacre: $lacreSg'));
       if (d.quantificacaoDrogas) {
         linhas.add(_itemRecuadoSecundario('Solicita quantificacao de drogas / farmacos'));
       }
@@ -427,19 +427,19 @@ children: [
 
     if (d.materialUrina) {
       final lacre = d.numeroLacreUr?.isNotEmpty == true ? d.numeroLacreUr! : 'Não informado';
-      linhas.add(_itemRecuado('- Urina (UR) — Nº do Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Urina (UR) — Lacre: $lacre'));
     }
     if (d.materialHumorVitreo) {
       final lacre = d.numeroLacreHv?.isNotEmpty == true ? d.numeroLacreHv! : 'Não informado';
-      linhas.add(_itemRecuado('- Humor Vitreo (HV) — Nº do Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Humor Vitreo (HV) — Lacre: $lacre'));
     }
     if (d.materialEstomago) {
       final lacre = d.numeroLacreCe?.isNotEmpty == true ? d.numeroLacreCe! : 'Não informado';
-      linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Nº do Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Lacre: $lacre'));
     }
     if (d.materialPulmao) {
       final lacre = d.numeroLacrePm?.isNotEmpty == true ? d.numeroLacrePm! : 'Não informado';
-      linhas.add(_itemRecuado('- Pulmao (PM) — Nº do Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Pulmao (PM) — Lacre: $lacre'));
     }
 
     if (!temAlgumMaterial) {
@@ -486,7 +486,7 @@ children: [
         if (a.pesquisaDna)   pesqs.add('Pesquisa de DNA');
         final pesqStr = pesqs.isNotEmpty ? ' [${pesqs.join(' + ')}]' : '';
         final lacre = a.numeroLacre?.isNotEmpty == true ? a.numeroLacre! : 'Não informado';
-        linhas.add(_itemRecuado('- $desc$pesqStr — Nº do Lacre do Envelope: $lacre'));
+        linhas.add(_itemRecuado('- $desc$pesqStr — Lacre do Envelope: $lacre'));
       }
     }
 
@@ -494,7 +494,7 @@ children: [
       linhas.add(_subTitulo('Amostra de Referencia:'));
       for (final a in referencia) {
         final lacre = a.numeroLacre?.isNotEmpty == true ? a.numeroLacre! : 'Não informado';
-        linhas.add(_itemRecuado('- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Nº do Lacre do Envelope: $lacre'));
+        linhas.add(_itemRecuado('- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Lacre do Envelope: $lacre'));
       }
     }
 
@@ -551,7 +551,7 @@ children: [
         pw.Padding(
           padding: const pw.EdgeInsets.only(left: 15, top: 6, bottom: 2),
           child: pw.Text(
-            'Frasco $numStr — Nº do Lacre: $lacre',
+            'Frasco $numStr — Lacre: $lacre',
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5),
           ),
         ),

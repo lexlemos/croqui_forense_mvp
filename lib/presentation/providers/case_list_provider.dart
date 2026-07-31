@@ -159,4 +159,14 @@ class CaseListProvider extends ChangeNotifier {
 
     _casosFiltrados = temp;
   }
+
+  /// Limpa todos os dados da memória RAM no momento do logout.
+  void clear() {
+    _todosCasos = [];
+    _casosFiltrados = [];
+    _searchQuery = '';
+    _erro = null;
+    _isLoading = false;
+    notifyListeners();
+  }
 }

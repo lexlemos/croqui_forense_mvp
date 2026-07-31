@@ -14,11 +14,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   RemoteDataSourceImpl(this._apiClient);
 
   @override
-  Future<Map<String, dynamic>> login(String matricula, String pin) async {
+  Future<Map<String, dynamic>> login(String login, String senha) async {
     try {
       final response = await _apiClient.dio.post(
-        'croqui/auth/login',
-        data: {'matricula': matricula, 'senha': pin},
+        'auth/login',
+        data: {'login': login, 'senha': senha},
       );
       if (response.statusCode != 200 || response.data == null) {
         throw const AuthException('Resposta inesperada do servidor.');

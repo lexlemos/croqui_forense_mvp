@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -54,6 +56,9 @@ class CroquiController extends ChangeNotifier {
   bool _isExporting = false;
   bool get isExporting => _isExporting;
 
+  Timer? _autoSaveTimer;
+  bool _isAutoSavePending = false;
+
   final bool? _isReadOnlyInput;
   bool get isReadOnly =>
       (_isReadOnlyInput == true) ||
@@ -96,19 +101,36 @@ class CroquiController extends ChangeNotifier {
 
 
 
-  Future<void> atualizarAtnResponsavel(String? atnNome) async {
+  Future<void> atualizarAtnResponsavel(String? atnId, [String? atnNome]) async {
+    String? nome = atnNome;
+    String? id = atnId;
+
+    if (id != null && id.isNotEmpty) {
+      final match = atns.where((a) => a.id == id || a.nome == id).firstOrNull;
+      if (match != null) {
+        id = match.id;
+        nome = match.nome;
+      }
+    }
+
     casoAtual = casoAtual.copyWith(
-      atnResponsavel: atnNome,
+      atnId: id,
+      atnResponsavel: nome ?? id,
       atualizadoEm: DateTime.now(),
     );
-    await _caseService.salvarRascunho(casoAtual);
+
+    debugPrint('[CroquiController] 🔄 ATN Atualizado na RAIZ do Caso: atn_id=${casoAtual.atnId}, atn_responsavel=${casoAtual.atnResponsavel}');
+    debugPrint('[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}');
+
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
     examesSolicitadosModel = exames;
     await _casoRepository.salvarExames(casoAtual.uuid, exames);
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   List<Achado> getMarkersForView(String view) {
@@ -298,6 +320,7 @@ class CroquiController extends ChangeNotifier {
       atualizadoEm: DateTime.now(),
     );
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
@@ -606,11 +629,7 @@ class CroquiController extends ChangeNotifier {
     atualizarDadosLaudoMemoria(novosDados);
     
     if (!isReadOnly) {
-      try {
-        await _caseService.salvarRascunho(casoAtual);
-      } catch (e) {
-        debugPrint("Erro ao salvar rascunho após alterar sexo: $e");
-      }
+      _scheduleAutoSave();
     }
   }
 
@@ -669,6 +688,14 @@ class CroquiController extends ChangeNotifier {
     required String requisitante,
     required Map<String, dynamic> novosDadosLaudo,
   }) {
+    final Map<String, dynamic> finalDadosLaudo = Map<String, dynamic>.from(novosDadosLaudo);
+    if (finalDadosLaudo['auditoria'] is Map) {
+      final auditoriaMap = Map<String, dynamic>.from(finalDadosLaudo['auditoria'] as Map);
+      auditoriaMap.remove('atn_id');
+      auditoriaMap.remove('atn_nome');
+      finalDadosLaudo['auditoria'] = auditoriaMap;
+    }
+
     casoAtual = casoAtual.copyWith(
       numeroBo: numeroBo,
       numeroPic: numeroPic,
@@ -676,10 +703,14 @@ class CroquiController extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
-      dadosLaudo: novosDadosLaudo,
+      dadosLaudo: finalDadosLaudo,
       atualizadoEm: DateTime.now(),
     );
+
+    debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atn_id na RAIZ: ${casoAtual.atnId}, atn_responsavel: ${casoAtual.atnResponsavel}');
+    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN): ${jsonEncode(casoAtual.dadosLaudo)}');
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
@@ -691,12 +722,45 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  void _scheduleAutoSave() {
+    if (isReadOnly) return;
+    _isAutoSavePending = true;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 3), () async {
+      if (_isAutoSavePending && !isReadOnly) {
+        _isAutoSavePending = false;
+        try {
+          await _caseService.salvarRascunho(casoAtual);
+          debugPrint('[CroquiController] 💾 Auto-save resiliente gravado no SQLite.');
+        } catch (e) {
+          debugPrint('[CroquiController] ⚠️ Erro no auto-save resiliente: $e');
+        }
+      }
+    });
+  }
+
+  Future<void> flushAutoSave() async {
+    _autoSaveTimer?.cancel();
+    if (_isAutoSavePending && !isReadOnly) {
+      _isAutoSavePending = false;
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+        debugPrint('[CroquiController] 💾 Flush imediato de rascunho gravado no SQLite.');
+      } catch (e) {
+        debugPrint('[CroquiController] ⚠️ Erro ao forçar flush de rascunho: $e');
+      }
+    } else if (!isReadOnly) {
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+      } catch (_) {}
+    }
+  }
+
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     if (!isReadOnly) {
-      _caseService.salvarRascunho(casoAtual).catchError((e) {
-        debugPrint("Erro ao salvar rascunho no dispose do CroquiController: $e");
-      });
+      flushAutoSave();
     }
     super.dispose();
   }

@@ -42,9 +42,13 @@ class CaseCard extends StatelessWidget {
       ),
     };
 
-    final laudoNum = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
-        ? caso.numeroLaudoExterno!
-        : (caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : 'Novo Caso');
+    final mainTitle = (caso.numeroPic.isNotEmpty) 
+        ? 'N. PIC: ${caso.numeroPic}'
+        : 'N. PIC: Não informado';
+    
+    final laudoSub = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
+        ? 'Laudo: ${caso.numeroLaudoExterno}'
+        : 'Laudo: Pendente';
 
     return Container(
       decoration: BoxDecoration(
@@ -80,7 +84,7 @@ class CaseCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            laudoNum,
+                            mainTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -92,7 +96,7 @@ class CaseCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Nº Laudo',
+                            laudoSub,
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade500,

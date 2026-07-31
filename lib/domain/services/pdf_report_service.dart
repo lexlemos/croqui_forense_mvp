@@ -49,13 +49,17 @@ class PdfReportService {
 
       // Sanitização: Se o caso tinha um pdfLocalPath antigo diferente do novo destino, limpa o arquivo antigo
       if (caso.pdfLocalPath != null && caso.pdfLocalPath!.isNotEmpty && caso.pdfLocalPath != filePath) {
-        final oldFile = File(caso.pdfLocalPath!);
-        if (oldFile.existsSync()) {
-          try {
-            await oldFile.delete();
-            debugPrint('[PdfReportService] 🧹 PDF residual antigo removido: ${caso.pdfLocalPath}');
-          } catch (e) {
-            debugPrint('[PdfReportService] ⚠️ Falha ao remover PDF residual antigo: $e');
+        // Só deleta o PDF antigo se o caso já tiver sido sincronizado com o backend.
+        // Se ainda não for sincronizado (status != StatusCaso.sincronizado), mantém o arquivo intacto no dispositivo.
+        if (caso.status == StatusCaso.sincronizado) {
+          final oldFile = File(caso.pdfLocalPath!);
+          if (oldFile.existsSync()) {
+            try {
+              await oldFile.delete();
+              debugPrint('[PdfReportService] 🧹 PDF residual antigo removido de caso sincronizado: ${caso.pdfLocalPath}');
+            } catch (e) {
+              debugPrint('[PdfReportService] ⚠️ Falha ao remover PDF residual antigo: $e');
+            }
           }
         }
       }

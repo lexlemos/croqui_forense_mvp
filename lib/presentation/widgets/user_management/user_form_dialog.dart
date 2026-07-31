@@ -14,14 +14,37 @@ class _UserFormDialogState extends State<UserFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nomeController = TextEditingController();
   final _matriculaController = TextEditingController();
+  final _classeController = TextEditingController();
+  final _crmController = TextEditingController();
   final _pinController = TextEditingController();
   
   String? _selectedPapelId;
   bool _obscurePin = true;
 
   @override
+  void dispose() {
+    _nomeController.dispose();
+    _matriculaController.dispose();
+    _classeController.dispose();
+    _crmController.dispose();
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  bool _checkIsPeritoOuMedico(List<Papel> papeis) {
+    if (_selectedPapelId == null) return false;
+    final papel = papeis.firstWhere(
+      (p) => p.id == _selectedPapelId,
+      orElse: () => Papel(id: '', nome: '', ePadrao: false, criadoEm: DateTime.now()),
+    );
+    final nomeUpper = papel.nome.toUpperCase();
+    return nomeUpper.contains('PERITO') || nomeUpper.contains('MEDICO') || nomeUpper.contains('MÉDICO');
+  }
+
+  @override
   Widget build(BuildContext context) {
     final papeis = context.select<UserManagementProvider, List<Papel>>((p) => p.papeis);
+    final isPeritoMedico = _checkIsPeritoOuMedico(papeis);
 
     return AlertDialog(
       title: const Text('Novo Usuário'),
@@ -60,7 +83,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedPapelId,
+                        initialValue: _selectedPapelId,
                         decoration: const InputDecoration(
                           labelText: 'Cargo / Função',
                           border: OutlineInputBorder(),
@@ -78,6 +101,46 @@ class _UserFormDialogState extends State<UserFormDialog> {
                     ),
                   ],
                 ),
+
+                if (isPeritoMedico) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _classeController,
+                          decoration: const InputDecoration(
+                            labelText: 'Classe',
+                            prefixIcon: Icon(Icons.stars),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (v) {
+                            if (!isPeritoMedico) return null;
+                            if (v == null || v.trim().isEmpty) return 'Obrigatório';
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _crmController,
+                          decoration: const InputDecoration(
+                            labelText: 'CRM',
+                            prefixIcon: Icon(Icons.medical_information),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (v) {
+                            if (!isPeritoMedico) return null;
+                            if (v == null || v.trim().isEmpty) return 'Obrigatório';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
                 const SizedBox(height: 16),
 
                 TextFormField(
@@ -112,19 +175,21 @@ class _UserFormDialogState extends State<UserFormDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: _submit,
+          onPressed: () => _submit(isPeritoMedico),
           child: const Text('Criar Usuário'),
         ),
       ],
     );
   }
 
-  void _submit() {
+  void _submit(bool isPeritoMedico) {
     if (_formKey.currentState!.validate()) {
       Navigator.pop(context, {
         'nome': _nomeController.text.trim(),
         'matricula': _matriculaController.text.trim(),
         'papelId': _selectedPapelId,
+        'classe': isPeritoMedico ? _classeController.text.trim() : null,
+        'crm': isPeritoMedico ? _crmController.text.trim() : null,
         'pin': _pinController.text.trim(),
       });
     }

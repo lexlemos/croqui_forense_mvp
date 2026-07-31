@@ -13,7 +13,7 @@ abstract interface class IRemoteDataSource {
   ///
   /// @throws [AuthException] caso as credenciais (matrícula/PIN) sejam
   /// inválidas ou haja falha na conectividade.
-  Future<Map<String, dynamic>> login(String matricula, String pin);
+  Future<Map<String, dynamic>> login(String login, String senha);
 
   /// Atualiza a credencial de acesso local (PIN) do Perito no servidor central.
   ///

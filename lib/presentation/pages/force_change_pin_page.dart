@@ -33,7 +33,7 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
         centerTitle: true,
         actions: [
           TextButton.icon(
-            onPressed: () => context.read<AuthProvider>().logout(),
+            onPressed: () => context.read<AuthProvider>().logout(context),
             icon: const Icon(Icons.logout, size: 18, color: Colors.red),
             label: const Text('Sair', style: TextStyle(color: Colors.red)),
           )

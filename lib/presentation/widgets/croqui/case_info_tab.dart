@@ -1,14 +1,13 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
 
 
@@ -119,6 +118,15 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     final nomePerito = _authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
 
     final Map<String, dynamic> novosDados = {};
+    final auditoriaExistente = Map<String, dynamic>.from(_croquiController.casoAtual.dadosLaudo['auditoria'] as Map? ?? {});
+
+    final selectedAtnNome = _croquiController.casoAtual.atnResponsavel ?? auditoriaExistente['atn_nome']?.toString();
+    String? selectedAtnId = auditoriaExistente['atn_id']?.toString();
+
+    if (selectedAtnNome != null && selectedAtnNome.isNotEmpty && selectedAtnId == null) {
+      final match = _croquiController.atns.where((a) => a.nome == selectedAtnNome).firstOrNull;
+      selectedAtnId = match?.id;
+    }
 
     novosDados['auditoria'] = {
       'perito_responsavel': nomePerito,
@@ -160,22 +168,15 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 50,
-        maxWidth: 800,
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
         preferredCameraDevice: CameraDevice.rear,
       );
       
       if (photo != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final evidenciasDir = Directory('${appDir.path}/evidencias');
-
-        await evidenciasDir.create(recursive: true);
-
-        final localPath = '${evidenciasDir.path}/${const Uuid().v4()}.jpg';
-
-        await File(photo.path).copy(localPath);
-        
-        await _croquiController.adicionarFotoGeral(localPath);
+        final File compressedFile = await ImageHelper.compressImage(File(photo.path));
+        await _croquiController.adicionarFotoGeral(compressedFile.path);
       }
     } on FileSystemException catch (e) {
       debugPrint("Erro de sistema de arquivos ao salvar foto: $e");
@@ -186,10 +187,13 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       globalMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text(mensagem), backgroundColor: Colors.red.shade800, duration: const Duration(seconds: 4)),
       );
-    } catch(e){
-      debugPrint("Erro ao tirar foto: $e");
+    } catch (e) {
+      debugPrint("Erro ao acessar câmera ou permissão negada: $e");
       globalMessengerKey.currentState?.showSnackBar(
-        const SnackBar(content: Text("Erro ao acessar a câmera ou salvar a foto."), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -209,13 +213,13 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
             const SizedBox(height: 16),
             
-            _buildTextField("Número do Laudo / Requisição", _numeroLaudoCtrl, readOnly: true, isBold: true),
+            _buildTextField("Nº PIC", _picCtrl, readOnly: readOnly, isBold: true),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Boletim de Ocorrência", _boCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Número do Laudo / Requisição", _numeroLaudoCtrl, readOnly: true)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Nº PIC", _picCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Boletim de Ocorrência", _boCtrl, readOnly: readOnly)),
               ],
             ),
 
@@ -231,17 +235,27 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 12),
             Builder(
               builder: (context) {
-                final selectedAtn = controller.casoAtual.atnResponsavel;
+                final selectedAtnId = controller.casoAtual.atnId;
+                final selectedAtnNome = controller.casoAtual.atnResponsavel;
                 final List<AtnModel> rawAtns = controller.atns;
                 final List<AtnModel> atnsExibicao = List.from(rawAtns);
 
-                if (selectedAtn != null &&
-                    selectedAtn.isNotEmpty &&
-                    !atnsExibicao.any((a) => a.nome == selectedAtn)) {
-                  atnsExibicao.add(
-                    AtnModel(id: 'inativo', nome: selectedAtn, ativo: false),
-                  );
+                AtnModel? matchedAtn;
+                if (selectedAtnId != null && selectedAtnId.isNotEmpty) {
+                  matchedAtn = atnsExibicao.where((a) => a.id == selectedAtnId).firstOrNull;
                 }
+                if (matchedAtn == null && selectedAtnNome != null && selectedAtnNome.isNotEmpty) {
+                  matchedAtn = atnsExibicao.where((a) => a.nome == selectedAtnNome).firstOrNull;
+                }
+
+                if (matchedAtn == null && ((selectedAtnId != null && selectedAtnId.isNotEmpty) || (selectedAtnNome != null && selectedAtnNome.isNotEmpty))) {
+                  final String fallbackId = selectedAtnId ?? selectedAtnNome!;
+                  final String fallbackNome = selectedAtnNome ?? selectedAtnId!;
+                  matchedAtn = AtnModel(id: fallbackId, nome: fallbackNome, ativo: false);
+                  atnsExibicao.add(matchedAtn);
+                }
+
+                final String? dropdownValue = matchedAtn?.id;
 
                 return DropdownButtonFormField<String>(
                   decoration: InputDecoration(
@@ -250,23 +264,22 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     isDense: true,
                     enabled: !readOnly,
                   ),
-                  value: (selectedAtn != null &&
-                          selectedAtn.isNotEmpty &&
-                          atnsExibicao.any((a) => a.nome == selectedAtn))
-                      ? selectedAtn
+                  value: (dropdownValue != null && atnsExibicao.any((a) => a.id == dropdownValue))
+                      ? dropdownValue
                       : null,
                   items: atnsExibicao.map((atn) {
                     final bool isAtivo = atn.ativo;
                     final String labelText = isAtivo ? atn.nome : "${atn.nome} (Inativo)";
                     return DropdownMenuItem<String>(
-                      value: atn.nome,
+                      value: atn.id,
                       child: Text(labelText),
                     );
                   }).toList(),
                   onChanged: readOnly
                       ? null
                       : (val) {
-                          controller.atualizarAtnResponsavel(val);
+                          final selectedObj = atnsExibicao.where((a) => a.id == val).firstOrNull;
+                          controller.atualizarAtnResponsavel(val, selectedObj?.nome);
                         },
                 );
               },

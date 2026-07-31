@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 
 
-const String _kBaseUrl = 'http://192.168.15.89:8000/api/v1/';
-const Duration _kConnectTimeout = Duration(seconds: 20);
-const Duration _kDataTimeout = Duration(seconds: 15);
+const String _kBaseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'http://127.0.0.1:8000/api/v1/',
+);
+const Duration _kConnectTimeout = Duration(seconds: 8);
+const Duration _kDataTimeout = Duration(seconds: 8);
 
 class SessionExpiredException implements Exception {
   @override
@@ -180,14 +183,13 @@ class ApiClient {
         dio,
         onSessionExpired: () => onSessionExpired?.call(),
       ),
-      if (const bool.fromEnvironment('dart.vm.product') == false)
+      if (kDebugMode)
         LogInterceptor(
           requestBody: true,
           responseBody: true,
           requestHeader: true,
           responseHeader: false,
           logPrint: (object) {
-            if (!kDebugMode) return;
             final logStr = object.toString();
 
             if (logStr.length > 5000) {

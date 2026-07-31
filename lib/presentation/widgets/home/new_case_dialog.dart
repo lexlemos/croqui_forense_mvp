@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
 
 class NewCaseDialog extends StatefulWidget {
@@ -53,24 +52,26 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 50,
-        maxWidth: 800,
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
         preferredCameraDevice: CameraDevice.rear,
       );
 
       if (photo == null) return;
 
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String fileName = 'id_${const Uuid().v4()}.jpg';
-      final String localPath = '${appDir.path}/$fileName';
+      final File compressedFile = await ImageHelper.compressImage(File(photo.path));
 
-      await File(photo.path).copy(localPath);
-
-      setState(() => _fotosIdentificacao.add({'path': localPath, 'descricao': ''}));
+      if (!mounted) return;
+      setState(() => _fotosIdentificacao.add({'path': compressedFile.path, 'descricao': ''}));
     } catch (e) {
+      debugPrint("Erro ao acessar câmera ou permissão negada: $e");
       if (mounted) {
         globalMessengerKey.currentState?.showSnackBar(
-          SnackBar(content: Text('Erro ao capturar foto: $e')),
+          const SnackBar(
+            content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

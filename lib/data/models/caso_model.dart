@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
+import 'package:croqui_forense_mvp/data/models/auditoria_model.dart';
 
 enum SortCriteria { numero, data }
 enum SortOrder { asc, desc }
@@ -31,9 +32,20 @@ class Caso {
   final String nomeVitima;
   final String destino;
   final String requisitante;
+  final String? atnId;
   final String? atnResponsavel;
   final String? pdfLocalPath;
   final bool isDraftSynced;
+
+  AuditoriaModel get auditoria {
+    final map = dadosLaudo['auditoria'];
+    if (map is Map<String, dynamic>) {
+      return AuditoriaModel.fromJson(map);
+    } else if (map is Map) {
+      return AuditoriaModel.fromJson(Map<String, dynamic>.from(map));
+    }
+    return AuditoriaModel();
+  }
 
   Caso({
     required this.uuid,
@@ -54,6 +66,7 @@ class Caso {
     required this.nomeVitima,
     required this.destino,
     required this.requisitante,
+    this.atnId,
     this.atnResponsavel,
     this.pdfLocalPath,
     this.isDraftSynced = false,
@@ -70,6 +83,7 @@ class Caso {
     this.nomeVitima = '',
     this.destino = '',
     this.requisitante = '',
+    this.atnId,
     this.atnResponsavel,
     this.pdfLocalPath,
     this.isDraftSynced = false,
@@ -83,6 +97,23 @@ class Caso {
        finalizadoEm = null;
 
   factory Caso.fromMap(Map<String, dynamic> map) {
+    final Map<String, dynamic> dadosLaudoParsed = map['dados_laudo_json'] != null 
+        ? (map['dados_laudo_json'] is Map
+            ? Map<String, dynamic>.from(map['dados_laudo_json'] as Map)
+            : Map<String, dynamic>.from(jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {}))
+        : <String, dynamic>{};
+
+    // Limpa chaves legadas de ATN de dentro do auditoria no dados_laudo_json
+    if (dadosLaudoParsed['auditoria'] is Map) {
+      final auditoriaMap = Map<String, dynamic>.from(dadosLaudoParsed['auditoria'] as Map);
+      auditoriaMap.remove('atn_id');
+      auditoriaMap.remove('atn_nome');
+      dadosLaudoParsed['auditoria'] = auditoriaMap;
+    }
+
+    final String? atnIdRestaurado = map['atn_id']?.toString();
+    final String? atnNomeRestaurado = map['atn_responsavel']?.toString();
+
     return Caso(
       uuid: map['uuid']?.toString() ?? '',
       idUsuarioCriador: map['id_usuario_criador']?.toString() ?? '',
@@ -91,11 +122,7 @@ class Caso {
         (e) => e.name.toUpperCase() == (map['status']?.toString() ?? '').toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
-      dadosLaudo: map['dados_laudo_json'] != null 
-          ? (map['dados_laudo_json'] is Map
-              ? Map<String, dynamic>.from(map['dados_laudo_json'] as Map)
-              : Map<String, dynamic>.from(jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {}))
-          : const {},
+      dadosLaudo: dadosLaudoParsed,
       
       hashIntegridade: map['hash_integridade']?.toString(),
       removido: map['removido'] is bool 
@@ -118,7 +145,8 @@ class Caso {
       nomeVitima: map['nome_vitima']?.toString() ?? '',
       destino: map['destino']?.toString() ?? '',
       requisitante: map['requisitante']?.toString() ?? '',
-      atnResponsavel: map['atn_responsavel']?.toString(),
+      atnId: atnIdRestaurado,
+      atnResponsavel: atnNomeRestaurado,
       pdfLocalPath: map['pdf_local_path']?.toString(),
       isDraftSynced: map['is_draft_synced'] is bool
           ? map['is_draft_synced'] as bool
@@ -145,6 +173,7 @@ class Caso {
     String? nomeVitima,
     String? destino,
     String? requisitante,
+    String? atnId,
     String? atnResponsavel,
     String? pdfLocalPath,
     bool? isDraftSynced,
@@ -168,6 +197,7 @@ class Caso {
       nomeVitima: nomeVitima ?? this.nomeVitima,
       destino: destino ?? this.destino,
       requisitante: requisitante ?? this.requisitante,
+      atnId: atnId ?? this.atnId,
       atnResponsavel: atnResponsavel ?? this.atnResponsavel,
       pdfLocalPath: pdfLocalPath ?? this.pdfLocalPath,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
@@ -194,6 +224,7 @@ class Caso {
       'nome_vitima': nomeVitima,
       'destino': destino,
       'requisitante': requisitante,
+      'atn_id': atnId,
       'atn_responsavel': atnResponsavel,
       'pdf_local_path': pdfLocalPath,
       'is_draft_synced': isDraftSynced ? 1 : 0,
@@ -220,6 +251,7 @@ class Caso {
       'nome_vitima': nomeVitima,
       'destino': destino,
       'requisitante': requisitante,
+      'atn_id': atnId,
       'atn_responsavel': atnResponsavel,
       'pdf_local_path': pdfLocalPath,
       'is_draft_synced': isDraftSynced,

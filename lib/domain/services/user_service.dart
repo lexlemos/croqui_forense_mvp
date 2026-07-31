@@ -67,8 +67,8 @@ class UserService {
   Future<void> cadastrarNovoUsuario({
     required String nome,
     required String matricula,
-    required String crm,
-    required String classe,
+    String? crm,
+    String? classe,
     required String papelId,
     required String pinInicial,
   }) async {

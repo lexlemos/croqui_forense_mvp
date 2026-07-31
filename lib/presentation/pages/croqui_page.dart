@@ -51,8 +51,38 @@ class CroquiPage extends StatelessWidget {
   }
 }
 
-class _CroquiView extends StatelessWidget {
+class _CroquiView extends StatefulWidget {
   const _CroquiView();
+
+  @override
+  State<_CroquiView> createState() => _CroquiViewState();
+}
+
+class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      if (mounted) {
+        final controller = context.read<CroquiController>();
+        debugPrint('[AppLifecycleObserver] App minimizado/inativo — forçando flush de rascunho...');
+        controller.flushAutoSave();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -131,14 +161,15 @@ class _CroquiView extends StatelessWidget {
                   if (value == 'export') controller.exportarCaso(context);
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit, color: Colors.indigo),
-                      title: Text('Editar Caso'),
-                      contentPadding: EdgeInsets.zero,
+                  if (controller.casoAtual.status != StatusCaso.sincronizado)
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit, color: Colors.indigo),
+                        title: Text('Editar Caso'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
-                  ),
                   const PopupMenuItem<String>(
                     value: 'export',
                     child: ListTile(

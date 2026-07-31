@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
+import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
+import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthService _authService;
@@ -21,11 +26,13 @@ class AuthProvider extends ChangeNotifier {
     _domainSyncService = service;
   }
 
-  void onSessionExpired() {
+  void onSessionExpired([BuildContext? context]) {
     _authService.forceExpireSession();
     _usuario = null;
     _isLogged = false;
+    _limparMemoriaEController(context);
     notifyListeners();
+    _redirecionarParaLogin(context);
   }
 
   Usuario? get usuario => _usuario;
@@ -47,12 +54,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> login(String matricula, String pin) async {
+  Future<void> login(String login, String senha) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      await _authService.login(matricula, pin);
+      await _authService.login(login, senha);
       _usuario = _authService.usuario;
       _isLogged = true;
       await _domainSyncService?.syncTiposAchados();
@@ -63,11 +70,45 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout([BuildContext? context]) async {
+    final targetContext = context ?? globalMessengerKey.currentContext;
     await _authService.logout();
     _usuario = null;
     _isLogged = false;
+    // ignore: use_build_context_synchronously
+    _limparMemoriaEController(targetContext);
     notifyListeners();
+    // ignore: use_build_context_synchronously
+    _redirecionarParaLogin(targetContext);
+  }
+
+  void _limparMemoriaEController(BuildContext? context) {
+    final ctx = context ?? globalNavigatorKey.currentContext ?? globalMessengerKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      try {
+        ctx.read<CaseListProvider>().clear();
+      } catch (e) {
+        debugPrint('[AuthProvider] Erro ao limpar CaseListProvider no logout: $e');
+      }
+      try {
+        ctx.read<UserManagementProvider>().clear();
+      } catch (e) {
+        debugPrint('[AuthProvider] Erro ao limpar UserManagementProvider no logout: $e');
+      }
+      try {
+        ctx.read<SyncProvider>().clear();
+      } catch (e) {
+        debugPrint('[AuthProvider] Erro ao limpar SyncProvider no logout: $e');
+      }
+    }
+  }
+
+  void _redirecionarParaLogin([BuildContext? context]) {
+    if (context != null && context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
+    } else if (globalNavigatorKey.currentState != null) {
+      globalNavigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
+    }
   }
 
   Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {

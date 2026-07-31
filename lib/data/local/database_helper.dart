@@ -92,6 +92,8 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_hv', 'TEXT');
     await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ce', 'TEXT');
     await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
+    await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
+    await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
   }
 
   Future<void> close() async {
@@ -262,6 +264,17 @@ class DatabaseHelper {
       case 12:
         debugPrint('[DatabaseHelper] Executando migração para a versão 12 (Campo is_draft_synced em casos)...');
         await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
+        break;
+
+      case 13:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 13 (Campo atn_id em casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'atn_id', 'TEXT');
+        break;
+
+      case 14:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 14 (Campos classe e crm na tabela usuarios)...');
+        await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
+        await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
         break;
         
       default:

@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:dio/dio.dart';
+import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
@@ -106,12 +108,33 @@ class SyncService {
   /// Busca todos os laudos locais e rascunhos pendentes de envio, faz o push textual agregado de toda a carga de dados,
   /// e então executa o upload em lote de cada [Evidência Fotográfica] associada. Ao fim do envio bem-sucedido
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
+  bool _isSessionExpiredError(Object error) {
+    if (error is DioException) {
+      if (error.response?.statusCode == 401 || error.error is SessionExpiredException) {
+        return true;
+      }
+    }
+    if (error is SessionExpiredException) return true;
+    return false;
+  }
+
+  /// Executa o fluxo completo de sincronização pericial do dispositivo com a central.
+  ///
+  /// Busca todos os laudos locais e rascunhos pendentes de envio, faz o push textual agregado de toda a carga de dados,
+  /// e então executa o upload em lote de cada [Evidência Fotográfica] associada. Ao fim do envio bem-sucedido
+  /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
   Future<void> execute() async {
     debugPrint('[SyncService] Iniciando sincronização...');
 
     // Fase 0: Atualização periódica de referência dos A.T.N.s do backend (resiliente offline)
     try {
       await _domainSyncService?.syncAtns();
+    } on DioException catch (e) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401) ao sincronizar ATNs. Abortando ciclo de sincronização.');
+        rethrow;
+      }
+      debugPrint('[SyncService] ⚠️ Falha na atualização periódica de ATNs: $e');
     } catch (e) {
       debugPrint('[SyncService] ⚠️ Falha na atualização periódica de ATNs: $e');
     }
@@ -121,12 +144,18 @@ class SyncService {
     if (rascunhosPendentes.isNotEmpty) {
       debugPrint('[SyncService] 🔄 Encontrados ${rascunhosPendentes.length} rascunho(s) pendente(s) de envio. Processando...');
       for (final rascunho in rascunhosPendentes) {
-        await pushCasoRascunho(rascunho);
+        try {
+          await pushCasoRascunho(rascunho);
+        } on DioException catch (e) {
+          if (_isSessionExpiredError(e)) {
+            debugPrint('[SyncService] 🛑 Sessão expirada (401) no push de rascunho. Abortando ciclo de sincronização.');
+            rethrow;
+          }
+        }
       }
     }
 
-    final List<Caso> casosPendentes =
-        await _repository.getCasosNaoSincronizados();
+    final List<Caso> casosPendentes = await _repository.getCasosNaoSincronizados();
 
     if (casosPendentes.isEmpty) {
       debugPrint('[SyncService] Nenhum caso finalizado pendente de sincronização.');
@@ -135,19 +164,43 @@ class SyncService {
 
     debugPrint('[SyncService] ${casosPendentes.length} caso(s) finalizado(s) pendente(s).');
 
-    // Fase 1: Push textual de metadados (JSON)
-    final syncResult = await _pushTextual(casosPendentes);
-    
-    // Extrai a lista de UUIDs com conflitos do backend
-    final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
     int totalFotosFalhas = 0;
-    int totalCasosConflito = conflitosUuids.length;
+    int totalCasosConflito = 0;
 
-    // Fase 2: Upload individual das evidências fotográficas (idempotência local e resiliência a reinicializações)
+    // Fila FIFO Segura: Processa os casos finalizados UM POR UM sequencialmente (evita sobrecarga de rede 3G/4G).
     for (final caso in casosPendentes) {
-      final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
-      final falhasNoCaso = await _processarCaso(caso, fotos);
-      totalFotosFalhas += falhasNoCaso;
+      try {
+        debugPrint('[SyncService] 📦 Processando sincronização do caso ${caso.uuid}...');
+
+        // Fase 1: Push textual de metadados (JSON) para o caso específico
+        final syncResult = await _pushTextual([caso]);
+        final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
+        if (conflitosUuids.contains(caso.uuid)) {
+          debugPrint('[SyncService] ⚠️ Caso ${caso.uuid} em conflito no servidor central.');
+          totalCasosConflito++;
+          continue;
+        }
+
+        // Fase 2: Upload das evidências fotográficas do caso
+        final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
+        final falhasNoCaso = await _processarCaso(caso, fotos);
+        totalFotosFalhas += falhasNoCaso;
+
+      } on DioException catch (e) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint('[SyncService] 🛑 Sessão expirada (401) no envio do caso ${caso.uuid}. Abortando fila.');
+          rethrow;
+        }
+        debugPrint('[SyncService] ⚠️ Falha na rede ao enviar o caso ${caso.uuid}: $e');
+        totalFotosFalhas++;
+      } catch (e) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint('[SyncService] 🛑 Sessão expirada (401) no envio do caso ${caso.uuid}. Abortando fila.');
+          rethrow;
+        }
+        debugPrint('[SyncService] ⚠️ Erro inesperado no caso ${caso.uuid}: $e');
+        totalFotosFalhas++;
+      }
     }
 
     debugPrint('[SyncService] Ciclo concluído.');
@@ -158,7 +211,7 @@ class SyncService {
         erros.add('$totalCasosConflito caso(s) em conflito no servidor central.');
       }
       if (totalFotosFalhas > 0) {
-        erros.add('falha ao enviar $totalFotosFalhas fotos.');
+        erros.add('falha ao enviar $totalFotosFalhas item(ns).');
       }
       throw Exception('Sincronização parcial: ${erros.join(" e ")}');
     }
@@ -184,6 +237,10 @@ class SyncService {
       await _repository.marcarRascunhoComoSincronizado(caso.uuid);
       debugPrint('[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.');
     } catch (e) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401) no push silencioso do rascunho. Abortando.');
+        rethrow;
+      }
       debugPrint('[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e');
     }
   }
@@ -228,6 +285,10 @@ class SyncService {
         // Idempotência Local: Marcar a foto como sincronizada imediatamente após sucesso individual
         await _repository.marcarFotoComoSincronizada(achado);
       } catch (e) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint('[SyncService] 🛑 Sessão expirada (401) no upload de foto. Abortando.');
+          rethrow;
+        }
         // Captura timeouts de rede (como DioExceptionType.connectionTimeout) e erros de rede gerais
         erros.add(e);
         debugPrint('[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e');
@@ -329,6 +390,7 @@ class SyncService {
       'nome_vitima': caso.nomeVitima,
       'destino': caso.destino,
       'requisitante': caso.requisitante,
+      'atn_id': caso.atnId,
       'atn_responsavel': caso.atnResponsavel,
       'pdf_local_path': caso.pdfLocalPath,
       'pdf_base64': pdfBase64,
