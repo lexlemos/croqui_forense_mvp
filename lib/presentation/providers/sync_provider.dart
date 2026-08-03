@@ -72,6 +72,14 @@ class SyncProvider extends ChangeNotifier {
     _errorMessage = error;
     notifyListeners();
   }
+
+  /// Limpa o estado da sincronização durante o logout.
+  void clear() {
+    _state = SyncState.idle;
+    _errorMessage = null;
+    _isExecuting = false;
+    notifyListeners();
+  }
 }
 
 class SyncButtonWidget extends StatefulWidget {

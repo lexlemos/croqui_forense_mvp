@@ -14,11 +14,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   RemoteDataSourceImpl(this._apiClient);
 
   @override
-  Future<Map<String, dynamic>> login(String matricula, String pin) async {
+  Future<Map<String, dynamic>> login(String login, String senha) async {
     try {
       final response = await _apiClient.dio.post(
-        'croqui/auth/login',
-        data: {'matricula': matricula, 'senha': pin},
+        'auth/login',
+        data: {'login': login, 'senha': senha},
       );
       if (response.statusCode != 200 || response.data == null) {
         throw const AuthException('Resposta inesperada do servidor.');
@@ -70,6 +70,23 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       return list.map((e) => e as Map<String, dynamic>).toList();
     } on DioException catch (e) {
       throw Exception('Falha ao sincronizar tipos de achados: ${e.message}');
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAtns() async {
+    try {
+      final response = await _apiClient.dio.get('croqui/atns');
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception('Resposta inesperada do servidor.');
+      }
+      if (response.data is! List) {
+        throw Exception('Resposta inválida do servidor.');
+      }
+      final list = response.data as List<dynamic>;
+      return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      throw Exception('Falha ao buscar ATNs: ${e.message}');
     }
   }
 

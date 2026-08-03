@@ -250,7 +250,7 @@ class AppHeader extends StatelessWidget {
         break;
       case 'logout':
         final authProvider = context.read<AuthProvider>();
-        await authProvider.logout();
+        await authProvider.logout(context);
         break;
     }
   }

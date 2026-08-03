@@ -1,14 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/forms/dynamic_form_widget.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -515,19 +514,25 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   Future<void> _takePhoto() async {
     try {
-      final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 50, preferredCameraDevice: CameraDevice.rear);
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        preferredCameraDevice: CameraDevice.rear,
+      );
       if (photo == null) return;
-      final appDir = await getApplicationDocumentsDirectory();
-      final localPath = '${appDir.path}/evidencias/${const Uuid().v4()}.jpg';
-      await Directory('${appDir.path}/evidencias').create(recursive: true);
-      await File(photo.path).copy(localPath);
+      final File compressedFile = await ImageHelper.compressImage(File(photo.path));
       if (!mounted) return;
-      setState(() => _currentPhotoPath = localPath);
+      setState(() => _currentPhotoPath = compressedFile.path);
     } catch (e) {
-      debugPrint("Erro câmera: $e");
-      if(mounted){
+      debugPrint("Erro ao acessar câmera ou permissão negada: $e");
+      if (mounted) {
         globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text("Erro ao acessar câmera. Tente novamente."), backgroundColor: Colors.red)
+          const SnackBar(
+            content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

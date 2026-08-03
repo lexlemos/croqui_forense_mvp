@@ -5,13 +5,13 @@ import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
 class LoginController {
-  final matriculaController = TextEditingController();
-  final pinController = TextEditingController();
+  final loginController = TextEditingController();
+  final senhaController = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
   void dispose() {
-    matriculaController.dispose();
-    pinController.dispose();
+    loginController.dispose();
+    senhaController.dispose();
   }
 
   Future<void> submitLogin(BuildContext context) async {
@@ -21,8 +21,8 @@ class LoginController {
 
     try {
       await provider.login(
-        matriculaController.text.trim(),
-        pinController.text.trim(),
+        loginController.text.trim(),
+        senhaController.text,
       );
 
     } on AuthException catch (e) {

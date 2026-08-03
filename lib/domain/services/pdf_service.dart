@@ -337,10 +337,10 @@ class PdfService {
     final outrosEx   = exames.firstWhere((e) => e.tipoExame == 'OUTROS',       orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
     return pw.Column(
 children: [
-        PdfHelpers.buildItemComLabel('Anátomo-Patológico (Lacre): ', anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO'),
-        PdfHelpers.buildItemComLabel('Toxicológico (Lacre): ',        toxEx.uuid.isNotEmpty      ? toxEx.numeroLacre      : 'NÃO SOLICITADO'),
-        PdfHelpers.buildItemComLabel('Genética (Lacre): ',            genEx.uuid.isNotEmpty      ? genEx.numeroLacre      : 'NÃO SOLICITADO'),
-        PdfHelpers.buildItemComLabel('Outros (Lacre): ',              outrosEx.uuid.isNotEmpty   ? outrosEx.numeroLacre   : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Anátomo-Patológico (Nº do Lacre): ', anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Toxicológico (Nº do Lacre): ',        toxEx.uuid.isNotEmpty      ? toxEx.numeroLacre      : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Genética (Nº do Lacre): ',            genEx.uuid.isNotEmpty      ? genEx.numeroLacre      : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Outros (Nº do Lacre): ',              outrosEx.uuid.isNotEmpty   ? outrosEx.numeroLacre   : 'NÃO SOLICITADO'),
       ],
     );
   }

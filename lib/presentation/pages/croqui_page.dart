@@ -11,6 +11,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_mod
 import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/exames_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -42,6 +43,7 @@ class CroquiPage extends StatelessWidget {
         ctx.read<InjuryTypeRepository>(),
         ctx.read<AchadoRepository>(),
         ctx.read<CasoRepository>(),
+        ctx.read<AtnRepository>(),
         isReadOnly: isReadOnly,
       ),
       child: const _CroquiView(),
@@ -49,8 +51,38 @@ class CroquiPage extends StatelessWidget {
   }
 }
 
-class _CroquiView extends StatelessWidget {
+class _CroquiView extends StatefulWidget {
   const _CroquiView();
+
+  @override
+  State<_CroquiView> createState() => _CroquiViewState();
+}
+
+class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      if (mounted) {
+        final controller = context.read<CroquiController>();
+        debugPrint('[AppLifecycleObserver] App minimizado/inativo — forçando flush de rascunho...');
+        controller.flushAutoSave();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +106,13 @@ class _CroquiView extends StatelessWidget {
                       decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
                       child: const Text("CONCLUÍDO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     )
+                  else if (controller.casoAtual.status == StatusCaso.laudo_pendente)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.orange[800], borderRadius: BorderRadius.circular(4)),
+                      child: const Text("LAUDO PENDENTE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
                 ],
               ),
               Text("Laudo: ${controller.casoAtual.numeroLaudoExterno ?? 'Novo'}",
@@ -95,6 +134,26 @@ class _CroquiView extends StatelessWidget {
                 );
               },
             ),
+            if (!controller.isReadOnly)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                icon: Icon(
+                  controller.casoAtual.status == StatusCaso.laudo_pendente
+                      ? Icons.check_circle_outline
+                      : Icons.assignment_turned_in,
+                  size: 20,
+                ),
+                label: Text(
+                  controller.casoAtual.status == StatusCaso.laudo_pendente
+                      ? "CONCLUIR LAUDO"
+                      : "FINALIZAR EXAME",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                onPressed: () => controller.finalizarCasoDireto(context),
+              ),
             if (controller.isReadOnly)
               PopupMenuButton<String>(
                 onSelected: (value) {
@@ -102,14 +161,15 @@ class _CroquiView extends StatelessWidget {
                   if (value == 'export') controller.exportarCaso(context);
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit, color: Colors.indigo),
-                      title: Text('Editar Caso'),
-                      contentPadding: EdgeInsets.zero,
+                  if (controller.casoAtual.status != StatusCaso.sincronizado)
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit, color: Colors.indigo),
+                        title: Text('Editar Caso'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
-                  ),
                   const PopupMenuItem<String>(
                     value: 'export',
                     child: ListTile(

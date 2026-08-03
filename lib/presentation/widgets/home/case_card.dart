@@ -16,9 +16,14 @@ class CaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
       StatusCaso.rascunho => (
+        const Color(0xFF00838F),
+        const Color(0xFFE0F7FA),
+        'RASCUNHO',
+      ),
+      StatusCaso.laudo_pendente => (
         const Color(0xFFE65100),
         const Color(0xFFFFF3E0),
-        'RASCUNHO',
+        'LAUDO PENDENTE',
       ),
       StatusCaso.finalizado => (
         const Color(0xFF2E7D32),
@@ -37,9 +42,13 @@ class CaseCard extends StatelessWidget {
       ),
     };
 
-    final laudoNum = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
-        ? caso.numeroLaudoExterno!
-        : (caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : 'Novo Caso');
+    final mainTitle = (caso.numeroPic.isNotEmpty) 
+        ? 'N. PIC: ${caso.numeroPic}'
+        : 'N. PIC: Não informado';
+    
+    final laudoSub = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
+        ? 'Laudo: ${caso.numeroLaudoExterno}'
+        : 'Laudo: Pendente';
 
     return Container(
       decoration: BoxDecoration(
@@ -75,7 +84,7 @@ class CaseCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            laudoNum,
+                            mainTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -87,7 +96,7 @@ class CaseCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Nº Laudo',
+                            laudoSub,
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade500,

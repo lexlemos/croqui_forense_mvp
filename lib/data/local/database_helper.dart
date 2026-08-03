@@ -67,10 +67,33 @@ class DatabaseHelper {
           await seeder.seedAll();
         });
       },
-      onUpgrade: _onUpgrade, 
+      onUpgrade: _onUpgrade,
     );
 
+    await db.transaction((txn) async {
+      await _ensureColumns(txn);
+    });
+
     return db;
+  }
+
+  Future<void> _ensureColumns(Transaction txn) async {
+    await _addColumnIfNotExists(txn, 'casos', 'finalizado_em', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'atn_responsavel', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
+    await txn.execute(kCreateAtnsSql);
+    await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
+    await DatabaseSeeder(txn).seedAtns();
+    await _addColumnIfNotExists(txn, 'amostras_genetica', 'numero_lacre', 'TEXT');
+    await _addColumnIfNotExists(txn, 'frascos_anatomo', 'numero_lacre', 'TEXT');
+    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_sg', 'TEXT');
+    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ur', 'TEXT');
+    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_hv', 'TEXT');
+    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ce', 'TEXT');
+    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
+    await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
+    await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
   }
 
   Future<void> close() async {
@@ -78,6 +101,15 @@ class DatabaseHelper {
     _db = null;
   }
   
+  /// Executa o upgrade do banco de dados em cascata de forma estritamente sequencial.
+  /// 
+  /// NOTA TÉCNICA DE ARQUITETURA DE MIGRAÇÃO:
+  /// O laço `for (int i = oldVersion + 1; i <= newVersion; i++)` garante a execução
+  /// ordenada de cada versão intermediária (ex: v9 -> v10 -> v11 -> v12) em uma única transação atômica.
+  /// Dentro do `_executeMigration`, a instrução `break` encerra o bloco `switch` correspondente à versão `i`,
+  /// permitindo que a iteração seguinte execute com sucesso a versão `i + 1`. Isso evita bugs de fallthrough
+  /// acidentais e garante que usuários que atualizarem de versões legadas distantes recebam todas as
+  /// alterações de schema sem pular nenhuma versão.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     debugPrint('[DatabaseHelper] 🔄 Iniciando migração do banco (v$oldVersion para v$newVersion)...');
 
@@ -210,6 +242,39 @@ class DatabaseHelper {
         await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_hv', 'TEXT');
         await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ce', 'TEXT');
         await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
+        break;
+
+      case 9:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 9 (Campo finalizado_em para Casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'finalizado_em', 'TEXT');
+        break;
+
+      case 10:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 10 (Tabela atns e atn_responsavel)...');
+        await _addColumnIfNotExists(txn, 'casos', 'atn_responsavel', 'TEXT');
+        await txn.execute(kCreateAtnsSql);
+        await DatabaseSeeder(txn).seedAtns();
+        break;
+
+      case 11:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 11 (Campo pdf_local_path em casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
+        break;
+
+      case 12:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 12 (Campo is_draft_synced em casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
+        break;
+
+      case 13:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 13 (Campo atn_id em casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'atn_id', 'TEXT');
+        break;
+
+      case 14:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 14 (Campos classe e crm na tabela usuarios)...');
+        await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
+        await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
         break;
         
       default:

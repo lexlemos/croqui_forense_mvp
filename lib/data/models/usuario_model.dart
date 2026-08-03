@@ -2,8 +2,8 @@ class Usuario {
   final String id;
   final String matriculaFuncional;
   final String nomeCompleto;
-  final String crm;
-  final String classe;
+  final String? crm;
+  final String? classe;
   final String papelId;
   final bool ativo;
   final String? hashPinOffline;
@@ -21,11 +21,15 @@ class Usuario {
     required this.hashPinOffline,
     required this.deveAlterarPin,
     required this.criadoEm,
-    required this.crm,
-    required this.classe,
+    this.crm,
+    this.classe,
     this.salt,
     this.deviceId,
   });
+
+  factory Usuario.fromJson(Map<String, dynamic> json) => Usuario.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
 
   Usuario copyWith({
     String? id,
@@ -62,8 +66,8 @@ class Usuario {
       id: map['id']?.toString() ?? '',
       matriculaFuncional: map['matricula_funcional']?.toString() ?? '',
       nomeCompleto: map['nome_completo']?.toString() ?? '',
-      crm: map['crm']?.toString() ?? '',
-      classe: map['classe']?.toString() ?? '',
+      crm: map['crm']?.toString(),
+      classe: map['classe']?.toString(),
       papelId: map['papel_id']?.toString() ?? '',
       hashPinOffline: map['hash_pin_offline']?.toString(),
       salt: map['salt']?.toString(),

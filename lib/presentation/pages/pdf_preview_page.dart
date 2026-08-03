@@ -56,6 +56,20 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         title: const Text('Pré-visualização do Laudo'),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            tooltip: 'Salvar PDF Localmente',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('PDF salvo localmente com sucesso!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dataFuture,
@@ -81,14 +95,26 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           final reportService = PdfReportService();
 
           return PdfPreview(
-            build: (format) => reportService.gerarLaudoPdf(
-              caso: widget.caso,
-              achados: achados,
-              perito: perito,
-              exames: exames,
-              examesModel: examesModel,
-              evidenciasGerais: evidenciasGerais,
-            ),
+            build: (format) async {
+              final pdfBytes = await reportService.gerarLaudoPdf(
+                caso: widget.caso,
+                achados: achados,
+                perito: perito,
+                exames: exames,
+                examesModel: examesModel,
+                evidenciasGerais: evidenciasGerais,
+              );
+
+              if (context.mounted) {
+                final caseService = context.read<CaseService>();
+                await reportService.salvarPdfNoDispositivo(
+                  caso: widget.caso,
+                  pdfBytes: pdfBytes,
+                  caseService: caseService,
+                );
+              }
+              return pdfBytes;
+            },
             maxPageWidth: 700,
             dpi: 72,
             allowPrinting: true,

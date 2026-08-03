@@ -93,8 +93,8 @@ class UserManagementProvider extends ChangeNotifier {
     required String nome,
     required String matricula,
     required String papelId,
-    required String crm,
-    required String classe,
+    String? crm,
+    String? classe,
     required String pinInicial,
   }) async {
     _isLoading = true;
@@ -143,5 +143,17 @@ class UserManagementProvider extends ChangeNotifier {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Limpa todos os dados da memória RAM no momento do logout.
+  void clear() {
+    _usuarios = [];
+    _papeis = [];
+    _searchQuery = '';
+    _currentPage = 0;
+    _totalItems = 0;
+    _erro = null;
+    _isLoading = false;
+    notifyListeners();
   }
 }

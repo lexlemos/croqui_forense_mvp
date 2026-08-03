@@ -70,12 +70,12 @@ class AuthService {
   /// Tenta inicialmente realizar o login online no servidor central. Se a conexão falhar por motivos
   /// de conectividade, intercepta o erro e faz a validação offline usando credenciais locais.
   /// Se as credenciais estiverem incorretas ou inválidas (401/403), rejeita imediatamente.
-  Future<void> login(String matricula, String pin) async {
+  Future<void> login(String login, String senha) async {
     try {
       // Passo A: Tentar realizar a requisição de login na API
-      final responseData = await _remoteDataSource.login(matricula, pin);
+      final responseData = await _remoteDataSource.login(login, senha);
 
-      final perfil = responseData['usuario'] as Map<String, dynamic>;
+      final perfil = (responseData['user'] ?? responseData['usuario']) as Map<String, dynamic>? ?? {};
       final accessToken = responseData['access_token']?.toString();
       final refreshToken = responseData['refresh_token']?.toString();
 
@@ -89,14 +89,14 @@ class AuthService {
       }
       await _keyStorage.save(key: 'user_id', value: perfil['id']?.toString() ?? '');
 
-      final credenciais = _gerarCredenciaisEmBackground(pin);
+      final credenciais = _gerarCredenciaisEmBackground(senha);
 
       final novoUsuario = Usuario(
         id: perfil['id']?.toString() ?? '',
-        matriculaFuncional: matricula,
+        matriculaFuncional: perfil['matricula_funcional']?.toString() ?? login,
         nomeCompleto: perfil['nome_completo']?.toString() ?? '',
-        crm: perfil['crm']?.toString() ?? '',
-        classe: perfil['classe']?.toString() ?? '',
+        crm: perfil['crm']?.toString(),
+        classe: perfil['classe']?.toString(),
         papelId: perfil['papel_id']?.toString() ?? 'perito',
         ativo: true,
         hashPinOffline: credenciais['hash']!,
@@ -114,7 +114,7 @@ class AuthService {
     } catch (e) {
       // Passo B: Se for uma exceção de conectividade, tentar local fallback
       if (_isConnectivityError(e)) {
-        final localUsuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
+        final localUsuario = await _usuarioRepository.getUsuarioByMatricula(login);
         if (localUsuario == null) {
           throw const AuthException('Dispositivo offline e sem dados locais armazenados para este usuário.');
         }
@@ -128,13 +128,13 @@ class AuthService {
         }
 
         final bool isPinValido = await compute(_verificarPinEmBackground, {
-          'pin': pin,
+          'pin': senha,
           'hash': localUsuario.hashPinOffline!,
           'salt': localUsuario.salt!,
         });
 
         if (!isPinValido) {
-          throw const AuthException('PIN incorreto');
+          throw const AuthException('Senha ou PIN incorreto');
         }
 
         _usuarioLogado = localUsuario;

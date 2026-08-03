@@ -13,7 +13,7 @@ abstract interface class IRemoteDataSource {
   ///
   /// @throws [AuthException] caso as credenciais (matrícula/PIN) sejam
   /// inválidas ou haja falha na conectividade.
-  Future<Map<String, dynamic>> login(String matricula, String pin);
+  Future<Map<String, dynamic>> login(String login, String senha);
 
   /// Atualiza a credencial de acesso local (PIN) do Perito no servidor central.
   ///
@@ -27,6 +27,9 @@ abstract interface class IRemoteDataSource {
   /// @throws [Exception] caso o formato da resposta (JSON) seja inválido ou
   /// a comunicação com a API falhe.
   Future<List<Map<String, dynamic>>> getTiposAchados();
+
+  /// Obtém a lista oficial de Auxiliares Técnicos de Necropsia (A.T.N.s) cadastrados no backend.
+  Future<List<Map<String, dynamic>>> getAtns();
 
   /// Transmite a carga textual dos Laudos Periciais finalizados e seus 
   /// respectivos Achados (lesões) para consolidação na base de dados central.

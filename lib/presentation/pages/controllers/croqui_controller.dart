@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,6 +16,8 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
@@ -27,6 +31,8 @@ import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;
 import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart' as face_left;
 import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart' as lat_right;
+import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart' as lat_left;
 import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart' as trunk_right;
 import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart' as trunk_left;
@@ -38,15 +44,20 @@ class CroquiController extends ChangeNotifier {
   final InjuryTypeRepository _injuryTypeRepository;
   final AchadoRepository _achadoRepository;
   final CasoRepository _casoRepository;
+  final AtnRepository _atnRepository;
 
   Caso casoAtual;
   List<Achado> achados = [];
   List<EvidenciaMultimidia> evidenciasGerais = [];
   List<ExameSolicitado> examesSolicitados = [];
   List<ExameSolicitadoModel> examesSolicitadosModel = [];
+  List<AtnModel> atns = [];
   bool isLoading = false;
   bool _isExporting = false;
   bool get isExporting => _isExporting;
+
+  Timer? _autoSaveTimer;
+  bool _isAutoSavePending = false;
 
   final bool? _isReadOnlyInput;
   bool get isReadOnly =>
@@ -60,7 +71,8 @@ class CroquiController extends ChangeNotifier {
     this._caseService,
     this._injuryTypeRepository,
     this._achadoRepository,
-    this._casoRepository, {
+    this._casoRepository,
+    this._atnRepository, {
     bool? isReadOnly,
   }) : _isReadOnlyInput = isReadOnly {
     _loadAchados();
@@ -80,16 +92,45 @@ class CroquiController extends ChangeNotifier {
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
       examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
       examesSolicitadosModel = await _casoRepository.getExamesPorCaso(casoAtual.uuid);
+      atns = await _atnRepository.getAtns();
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
+
+
+  Future<void> atualizarAtnResponsavel(String? atnId, [String? atnNome]) async {
+    String? nome = atnNome;
+    String? id = atnId;
+
+    if (id != null && id.isNotEmpty) {
+      final match = atns.where((a) => a.id == id || a.nome == id).firstOrNull;
+      if (match != null) {
+        id = match.id;
+        nome = match.nome;
+      }
+    }
+
+    casoAtual = casoAtual.copyWith(
+      atnId: id,
+      atnResponsavel: nome ?? id,
+      atualizadoEm: DateTime.now(),
+    );
+
+    debugPrint('[CroquiController] 🔄 ATN Atualizado na RAIZ do Caso: atn_id=${casoAtual.atnId}, atn_responsavel=${casoAtual.atnResponsavel}');
+    debugPrint('[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}');
+
+    notifyListeners();
+    _scheduleAutoSave();
+  }
+
   Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
     examesSolicitadosModel = exames;
     await _casoRepository.salvarExames(casoAtual.uuid, exames);
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   List<Achado> getMarkersForView(String view) {
@@ -279,48 +320,185 @@ class CroquiController extends ChangeNotifier {
       atualizadoEm: DateTime.now(),
     );
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
-    final confirm = await showDialog<bool>(
+    final statusAtual = casoAtual.status;
+
+    // Cenário A: Se o status for RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
+    if (statusAtual == StatusCaso.rascunho) {
+      final confirmExame = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Finalizar Exame Físico?"),
+          content: const Text(
+            "A etapa de exame corporal será concluída. Você poderá optar por concluir o laudo agora ou manter pendente para finalizar o texto depois.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Voltar"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Sim, prosseguir"),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmExame != true) return;
+    }
+
+    // Cenário B: Se for LAUDO_PENDENTE, pula o Modal 1 e vai DIRETAMENTE ao Modal 2
+    if (!context.mounted) return;
+    final opcaoSelecionada = await showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Finalizar Laudo?"),
-        content: const Text("O caso será marcado como concluído e não poderá ser mais editado."),
+        title: const Text("Conclusão do Laudo"),
+        content: const Text(
+          "Deseja concluir o laudo pericial definitivamente agora (com geração automática do PDF e assinatura) ou deixar pendente?",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
-          ElevatedButton(
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, "PENDENTE"),
+            child: const Text("Deixar Pendente"),
+          ),
+          ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("FINALIZAR")
+            icon: const Icon(Icons.check_circle),
+            label: const Text("Concluir Laudo Agora"),
+            onPressed: () => Navigator.pop(ctx, "CONCLUIR"),
           ),
         ],
       ),
     );
 
-    if (confirm != true) return;
+    if (opcaoSelecionada == null) return;
 
+    if (opcaoSelecionada == "PENDENTE") {
+      await _processarDeixarPendente(context);
+    } else if (opcaoSelecionada == "CONCLUIR") {
+      await _processarConcluirLaudoAgora(context);
+    }
+  }
+
+  Future<void> _processarDeixarPendente(BuildContext context) async {
     try {
-      await _caseService.salvarRascunho(casoAtual);
-      await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
-      
-      final casoAtualizado = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
-      if (casoAtualizado != null) {
-        casoAtual = casoAtualizado;
-      } else {
-        casoAtual = casoAtual.copyWith(
-          status: StatusCaso.finalizado,
-          atualizadoEm: DateTime.now(),
-        );
-      }
+      final now = DateTime.now();
+      final casoAtualizado = casoAtual.copyWith(
+        status: StatusCaso.laudo_pendente,
+        atualizadoEm: now,
+        isDraftSynced: false,
+        versao: casoAtual.versao + 1,
+      );
 
-      await _loadAchados();
+      await _caseService.salvarRascunho(casoAtualizado);
+      casoAtual = casoAtualizado;
       notifyListeners();
 
-      _snack("Caso finalizado com sucesso!", color: Colors.green);
+      _snack("Exame finalizado. Laudo mantido em andamento.", color: Colors.orange[800]);
+
+      if (context.mounted) {
+        final syncService = Provider.of<SyncService>(context, listen: false);
+        syncService.pushCasoRascunho(casoAtual).catchError((e) {
+          debugPrint('[CroquiController] Erro no push em background: $e');
+        });
+      }
     } catch (e) {
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao finalizar: $e"), backgroundColor: Colors.red));
+      _snack("Erro ao salvar status pendente: $e", color: Colors.red);
+    }
+  }
+
+  Future<void> _processarConcluirLaudoAgora(BuildContext context) async {
+    // 1. Exibe indicador de carregamento bloqueante
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Expanded(
+                child: Text("Gerando laudo PDF e finalizando caso..."),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final usuarioLogado = auth.usuario;
+
+      if (usuarioLogado == null) {
+        throw Exception("Usuário não autenticado.");
+      }
+
+      await _caseService.salvarRascunho(casoAtual);
+
+      final pdfReportService = PdfReportService();
+
+      // 2. Geração automática do PDF em background
+      final pdfBytes = await pdfReportService.gerarLaudoPdf(
+        caso: casoAtual,
+        achados: achados,
+        perito: usuarioLogado,
+        exames: examesSolicitados,
+        examesModel: examesSolicitadosModel,
+        evidenciasGerais: evidenciasGerais,
+      );
+
+      // 3. Gravação física do PDF e atualização do pdfLocalPath
+      final pdfFilePath = await pdfReportService.salvarPdfNoDispositivo(
+        caso: casoAtual,
+        pdfBytes: pdfBytes,
+        caseService: _caseService,
+      );
+
+      // 4. Mudar status para FINALIZADO e gravar pdfLocalPath
+      final now = DateTime.now();
+      final casoFinalizado = casoAtual.copyWith(
+        status: StatusCaso.finalizado,
+        pdfLocalPath: pdfFilePath,
+        finalizadoEm: now,
+        atualizadoEm: now,
+        isDraftSynced: false,
+        versao: casoAtual.versao + 1,
+      );
+
+      // 5. Salva no SQLite
+      await _caseService.salvarRascunho(casoFinalizado);
+      casoAtual = casoFinalizado;
+      notifyListeners();
+
+      // Dispara o push via SyncService (que usará pdfLocalPath para codificar em Base64 no Isolate)
+      if (context.mounted) {
+        final syncService = Provider.of<SyncService>(context, listen: false);
+        syncService.pushCasoRascunho(casoFinalizado).catchError((e) {
+          debugPrint('[CroquiController] Erro no push do caso finalizado: $e');
+        });
+
+        // 6. Fecha o loading
+        Navigator.pop(context);
+        _snack("Laudo concluído com sucesso e PDF gerado!", color: Colors.green);
+
+        // Fecha a tela do croqui retornando para a biblioteca
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint("Erro ao concluir laudo programaticamente: $e");
+      if (context.mounted) {
+        Navigator.pop(context); // Fecha dialog de loading em erro
+      }
+      _snack("Erro ao concluir laudo: ${e.toString()}", color: Colors.red);
     }
   }
 
@@ -361,6 +539,7 @@ class CroquiController extends ChangeNotifier {
 
     _snack("Gerando laudo PDF oficial...");
 
+    File? tempPdfFile;
     try {
       if (!isReadOnly) {
         await _caseService.salvarRascunho(casoAtual);
@@ -383,16 +562,16 @@ class CroquiController extends ChangeNotifier {
 
       final tempDir = await getTemporaryDirectory();
       final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
-      final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
+      tempPdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
       
-      await pdfFile.writeAsBytes(pdfBytes, flush: true);
+      await tempPdfFile.writeAsBytes(pdfBytes, flush: true);
 
       if (!context.mounted) return;
       globalMessengerKey.currentState?.hideCurrentSnackBar();
 
       await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        subject: 'Laudo Pericial PDF - ' + casoAtual.numeroLaudoExterno.toString(),
+        [XFile(tempPdfFile.path)],
+        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
       );
 
     } catch (e) {
@@ -400,6 +579,12 @@ class CroquiController extends ChangeNotifier {
       globalMessengerKey.currentState?.hideCurrentSnackBar();
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
     } finally {
+      if (tempPdfFile != null && tempPdfFile.existsSync()) {
+        try {
+          await tempPdfFile.delete();
+          debugPrint('[CroquiController] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}');
+        } catch (_) {}
+      }
       _isExporting = false;
       notifyListeners();
     }
@@ -444,11 +629,7 @@ class CroquiController extends ChangeNotifier {
     atualizarDadosLaudoMemoria(novosDados);
     
     if (!isReadOnly) {
-      try {
-        await _caseService.salvarRascunho(casoAtual);
-      } catch (e) {
-        debugPrint("Erro ao salvar rascunho após alterar sexo: $e");
-      }
+      _scheduleAutoSave();
     }
   }
 
@@ -507,6 +688,14 @@ class CroquiController extends ChangeNotifier {
     required String requisitante,
     required Map<String, dynamic> novosDadosLaudo,
   }) {
+    final Map<String, dynamic> finalDadosLaudo = Map<String, dynamic>.from(novosDadosLaudo);
+    if (finalDadosLaudo['auditoria'] is Map) {
+      final auditoriaMap = Map<String, dynamic>.from(finalDadosLaudo['auditoria'] as Map);
+      auditoriaMap.remove('atn_id');
+      auditoriaMap.remove('atn_nome');
+      finalDadosLaudo['auditoria'] = auditoriaMap;
+    }
+
     casoAtual = casoAtual.copyWith(
       numeroBo: numeroBo,
       numeroPic: numeroPic,
@@ -514,10 +703,14 @@ class CroquiController extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
-      dadosLaudo: novosDadosLaudo,
+      dadosLaudo: finalDadosLaudo,
       atualizadoEm: DateTime.now(),
     );
+
+    debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atn_id na RAIZ: ${casoAtual.atnId}, atn_responsavel: ${casoAtual.atnResponsavel}');
+    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN): ${jsonEncode(casoAtual.dadosLaudo)}');
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
@@ -529,12 +722,45 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  void _scheduleAutoSave() {
+    if (isReadOnly) return;
+    _isAutoSavePending = true;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 3), () async {
+      if (_isAutoSavePending && !isReadOnly) {
+        _isAutoSavePending = false;
+        try {
+          await _caseService.salvarRascunho(casoAtual);
+          debugPrint('[CroquiController] 💾 Auto-save resiliente gravado no SQLite.');
+        } catch (e) {
+          debugPrint('[CroquiController] ⚠️ Erro no auto-save resiliente: $e');
+        }
+      }
+    });
+  }
+
+  Future<void> flushAutoSave() async {
+    _autoSaveTimer?.cancel();
+    if (_isAutoSavePending && !isReadOnly) {
+      _isAutoSavePending = false;
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+        debugPrint('[CroquiController] 💾 Flush imediato de rascunho gravado no SQLite.');
+      } catch (e) {
+        debugPrint('[CroquiController] ⚠️ Erro ao forçar flush de rascunho: $e');
+      }
+    } else if (!isReadOnly) {
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+      } catch (_) {}
+    }
+  }
+
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     if (!isReadOnly) {
-      _caseService.salvarRascunho(casoAtual).catchError((e) {
-        debugPrint("Erro ao salvar rascunho no dispose do CroquiController: $e");
-      });
+      flushAutoSave();
     }
     super.dispose();
   }

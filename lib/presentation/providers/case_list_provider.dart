@@ -3,11 +3,11 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
-
-
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
 class CaseListProvider extends ChangeNotifier {
   CaseService _caseService;
+  SyncService? _syncService;
 
   List<Caso> _todosCasos = [];
   List<Caso> _casosFiltrados = [];
@@ -19,13 +19,14 @@ class CaseListProvider extends ChangeNotifier {
   SortOrder _sortOrder = SortOrder.desc;
   Set<StatusCaso> _statusFilter = {
     StatusCaso.rascunho,
+    StatusCaso.laudo_pendente,
     StatusCaso.finalizado,
     StatusCaso.sincronizado,
   };
 
   List<Caso> get casos => _casosFiltrados;
   List<Caso> get casosEmAndamento => _casosFiltrados
-      .where((c) => c.status == StatusCaso.rascunho || c.status == StatusCaso.finalizado)
+      .where((c) => c.status == StatusCaso.rascunho || c.status == StatusCaso.laudo_pendente || c.status == StatusCaso.finalizado)
       .toList();
   List<Caso> get casosSincronizados => _casosFiltrados
       .where((c) => c.status == StatusCaso.sincronizado)
@@ -38,10 +39,16 @@ class CaseListProvider extends ChangeNotifier {
   SortOrder get sortOrder => _sortOrder;
   List<StatusCaso> get statusFilter => List.unmodifiable(_statusFilter);
 
-  CaseListProvider(this._caseService);
+  CaseListProvider(this._caseService, {SyncService? syncService})
+      : _syncService = syncService;
   
   void updateService(CaseService newService) {
     _caseService = newService;
+  }
+
+  void updateServices({required CaseService caseService, SyncService? syncService}) {
+    _caseService = caseService;
+    _syncService = syncService;
   }
 
   Future<Caso> criarCaso({
@@ -81,6 +88,11 @@ class CaseListProvider extends ChangeNotifier {
       );
     }
     await _caseService.salvarCasoComEvidenciasLote(novoCaso, evidencias);
+
+    // Dispara push silencioso em background sem travar a UI
+    _syncService?.pushCasoRascunho(novoCaso).catchError((e) {
+      debugPrint('Erro ao fazer push silencioso do rascunho: $e');
+    });
 
     await carregarCasos();
     return novoCaso;
@@ -146,5 +158,15 @@ class CaseListProvider extends ChangeNotifier {
     });
 
     _casosFiltrados = temp;
+  }
+
+  /// Limpa todos os dados da memória RAM no momento do logout.
+  void clear() {
+    _todosCasos = [];
+    _casosFiltrados = [];
+    _searchQuery = '';
+    _erro = null;
+    _isLoading = false;
+    notifyListeners();
   }
 }
