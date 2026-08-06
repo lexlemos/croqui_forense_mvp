@@ -86,38 +86,40 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<CroquiController>();
+    final controller = context.read<CroquiController>();
     const double sidebarWidth = 320.0;
 
     return DefaultTabController(
       length: 7,
       child: Scaffold(
         appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text("Exame Corporal", style: TextStyle(fontSize: 16)),
-                  if (controller.isReadOnly)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
-                      child: const Text("CONCLUÍDO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                    )
-                  else if (controller.casoAtual.status == StatusCaso.laudo_pendente)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.orange[800], borderRadius: BorderRadius.circular(4)),
-                      child: const Text("LAUDO PENDENTE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                ],
-              ),
-              Text("Laudo: ${controller.casoAtual.numeroLaudoExterno ?? 'Novo'}",
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300)),
-            ],
+          title: Consumer<CroquiController>(
+            builder: (context, c, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text("Exame Corporal", style: TextStyle(fontSize: 16)),
+                    if (c.isReadOnly)
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
+                        child: const Text("CONCLUÍDO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                      )
+                    else if (c.casoAtual.status == StatusCaso.laudo_pendente)
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.orange[800], borderRadius: BorderRadius.circular(4)),
+                        child: const Text("LAUDO PENDENTE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+                Text("Laudo: ${c.casoAtual.numeroLaudoExterno ?? 'Novo'}",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300)),
+              ],
+            ),
           ),
           backgroundColor: controller.isReadOnly ? Colors.blueGrey[800] : Colors.indigo,
           foregroundColor: Colors.white,
@@ -135,24 +137,26 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               },
             ),
             if (!controller.isReadOnly)
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+              Builder(
+                builder: (innerContext) => TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  icon: Icon(
+                    controller.casoAtual.status == StatusCaso.laudo_pendente
+                        ? Icons.check_circle_outline
+                        : Icons.assignment_turned_in,
+                    size: 20,
+                  ),
+                  label: Text(
+                    controller.casoAtual.status == StatusCaso.laudo_pendente
+                        ? "CONCLUIR LAUDO"
+                        : "FINALIZAR EXAME",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  onPressed: () => controller.finalizarCasoDireto(innerContext),
                 ),
-                icon: Icon(
-                  controller.casoAtual.status == StatusCaso.laudo_pendente
-                      ? Icons.check_circle_outline
-                      : Icons.assignment_turned_in,
-                  size: 20,
-                ),
-                label: Text(
-                  controller.casoAtual.status == StatusCaso.laudo_pendente
-                      ? "CONCLUIR LAUDO"
-                      : "FINALIZAR EXAME",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                onPressed: () => controller.finalizarCasoDireto(context),
               ),
             if (controller.isReadOnly)
               PopupMenuButton<String>(
@@ -222,11 +226,13 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               
               SizedBox(
                 width: sidebarWidth,
-                child: AchadosSidebar(
-                  achados: controller.achados,
-                  isReadOnly: controller.isReadOnly,
-                  onEdit: (achado) => _showEditOrDetail(context, controller, achado),
-                  onDelete: (uuid) => controller.deleteAchado(context, uuid),
+                child: Consumer<CroquiController>(
+                  builder: (context, c, _) => AchadosSidebar(
+                    achados: c.achados,
+                    isReadOnly: c.isReadOnly,
+                    onEdit: (achado) => _showEditOrDetail(context, c, achado),
+                    onDelete: (uuid) => c.deleteAchado(context, uuid),
+                  ),
                 ),
               )
             ],
@@ -325,13 +331,15 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
 
   Widget _buildCroquiTab(BuildContext context, CroquiController controller, String view, String svg, String mask,
       Map<int, String> colors, Map<String, BodyPartDefinition> defs) {
-    return CroquiViewer(
-      svgPath: svg,
-      maskPath: mask,
-      colorToIdMap: colors,
-      idToDefMap: defs,
-      markers: controller.getMarkersForView(view),
-      onPartTap: (id, name, x, y) => controller.addAchado(context, view, id, x, y),
+    return Consumer<CroquiController>(
+      builder: (context, c, _) => CroquiViewer(
+        svgPath: svg,
+        maskPath: mask,
+        colorToIdMap: colors,
+        idToDefMap: defs,
+        markers: c.getMarkersForView(view),
+        onPartTap: (id, name, x, y) => c.addAchado(context, view, id, x, y),
+      ),
     );
   }
 }

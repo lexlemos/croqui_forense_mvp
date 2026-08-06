@@ -5,7 +5,6 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
-import 'package:croqui_forense_mvp/presentation/pages/user_management_page.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
@@ -79,17 +78,7 @@ class AppHeader extends StatelessWidget {
                     isActive: isHome,
                   ),
                 ];
-                if (_isAdmin) {
-                  menuItems.add(const PopupMenuDivider(height: 1));
-                  menuItems.add(
-                    _buildMenuItem(
-                      value: 'users',
-                      icon: Icons.manage_accounts_outlined,
-                      text: 'Gestão de Usuários',
-                      isActive: title == 'Gestão de Usuários',
-                    ),
-                  );
-                }
+
                 menuItems.addAll([
                   const PopupMenuDivider(height: 1),
                   _buildMenuItem(
@@ -234,12 +223,7 @@ class AppHeader extends StatelessWidget {
           );
         }
         break;
-      case 'users':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UserManagementPage()),
-        );
-        break;
+
       case 'settings':
         if (title != 'Configurações') {
           Navigator.push(

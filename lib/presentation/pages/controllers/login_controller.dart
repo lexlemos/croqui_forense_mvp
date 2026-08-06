@@ -14,17 +14,26 @@ class LoginController {
     senhaController.dispose();
   }
 
+  Future<void> carregarLoginSalvo(BuildContext context) async {
+    final provider = Provider.of<AuthProvider>(context, listen: false);
+    final salvo = await provider.getSavedLogin();
+    if (salvo != null && salvo.isNotEmpty) {
+      loginController.text = salvo;
+    }
+  }
+
   Future<void> submitLogin(BuildContext context) async {
     if (!formKey.currentState!.validate()) return;
 
     final provider = Provider.of<AuthProvider>(context, listen: false);
+    final loginText = loginController.text.trim();
 
     try {
       await provider.login(
-        loginController.text.trim(),
+        loginText,
         senhaController.text,
       );
-
+      await provider.saveSavedLogin(loginText);
     } on AuthException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {

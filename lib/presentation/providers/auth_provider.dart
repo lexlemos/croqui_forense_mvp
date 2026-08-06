@@ -45,11 +45,12 @@ class AuthProvider extends ChangeNotifier {
     
     try {
       _usuario = await _authService.checkSession();
+      _isLogged = _usuario != null;
     } catch (e) {
       _usuario = null;
+      _isLogged = false;
     } finally {
       _isLoading = false;
-      _isLogged = false;
       notifyListeners();
     }
   }
@@ -83,7 +84,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _limparMemoriaEController(BuildContext? context) {
-    final ctx = context ?? globalNavigatorKey.currentContext ?? globalMessengerKey.currentContext;
+    final ctx = globalNavigatorKey.currentContext ?? context ?? globalMessengerKey.currentContext;
     if (ctx != null && ctx.mounted) {
       try {
         ctx.read<CaseListProvider>().clear();
@@ -104,10 +105,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _redirecionarParaLogin([BuildContext? context]) {
-    if (context != null && context.mounted) {
+    final nav = globalNavigatorKey.currentState;
+    if (nav != null) {
+      nav.pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
+    } else if (context != null && context.mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
-    } else if (globalNavigatorKey.currentState != null) {
-      globalNavigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
     }
   }
 
@@ -123,5 +125,13 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> saveSavedLogin(String login) async {
+    await _authService.saveSavedLogin(login);
+  }
+
+  Future<String?> getSavedLogin() async {
+    return await _authService.getSavedLogin();
   }
 }

@@ -65,6 +65,26 @@ class CroquiController extends ChangeNotifier {
       casoAtual.status == StatusCaso.finalizado ||
       casoAtual.status == StatusCaso.sincronizado;
 
+  // Form text controllers
+  late final TextEditingController numeroLaudoCtrl;
+  late final TextEditingController boCtrl;
+  late final TextEditingController picCtrl;
+  late final TextEditingController reqOrigemCtrl;
+  late final TextEditingController reqDestinoCtrl;
+  late final TextEditingController nomeVitimaCtrl;
+  late final TextEditingController historicoCtrl;
+  late final TextEditingController vestesCtrl;
+  late final TextEditingController caracteristicasCtrl;
+  late final TextEditingController tanatoImediatoCtrl;
+  late final TextEditingController tanatoConsecutivoCtrl;
+  late final TextEditingController tanatoObservacaoCtrl;
+  late final TextEditingController discussaoCtrl;
+  late final TextEditingController conclusaoCtrl;
+  late final TextEditingController quesito1Ctrl;
+  late final TextEditingController quesito2Ctrl;
+  late final TextEditingController quesito3Ctrl;
+  late final TextEditingController quesito4Ctrl;
+
   CroquiController(
     this.casoAtual,
     this._achadoService,
@@ -75,7 +95,39 @@ class CroquiController extends ChangeNotifier {
     this._atnRepository, {
     bool? isReadOnly,
   }) : _isReadOnlyInput = isReadOnly {
-    _loadAchados();
+    scheduleMicrotask(() => _loadAchados());
+    _initControllers();
+  }
+
+  void _initControllers() {
+    final caso = casoAtual;
+    final dados = caso.dadosLaudo;
+
+    numeroLaudoCtrl = TextEditingController(text: caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? ''));
+    boCtrl = TextEditingController(text: caso.numeroBo);
+    picCtrl = TextEditingController(text: caso.numeroPic);
+    reqOrigemCtrl = TextEditingController(text: caso.requisitante);
+    reqDestinoCtrl = TextEditingController(text: caso.destino);
+    nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
+
+    historicoCtrl = TextEditingController(
+      text: dados['identificacao']?['historico'] ?? 
+            "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+    );
+
+    vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
+    caracteristicasCtrl = TextEditingController(text: dados['caracteristicas']?['identificacao'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
+    tanatoImediatoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_imediato'] ?? 'XXX');
+    tanatoConsecutivoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_consecutivo'] ?? 'XXX');
+    tanatoObservacaoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_observacao'] ?? 'XXX');
+
+    discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
+    conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
+
+    quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
+    quesito2Ctrl = TextEditingController(text: dados['conclusao']?['quesito_2_causa'] ?? '');
+    quesito3Ctrl = TextEditingController(text: dados['conclusao']?['quesito_3_instrumento'] ?? '');
+    quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
   }
 
   String _toDeterministicUuidV4(String namespace, String name) {
@@ -324,6 +376,26 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    // 1. Sincronizar dados em memória (rascunho)
+    sincronizarDadosEmMemoria(auth);
+
+    // 2. Validação obrigatória
+    if (!validarCamposObrigatorios()) {
+      globalMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text("Por favor, responda todos os quesitos obrigatórios."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      try {
+        DefaultTabController.of(context).animateTo(6);
+      } catch (_) {}
+      return;
+    }
+
     final statusAtual = casoAtual.status;
 
     // Cenário A: Se o status for RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
@@ -762,7 +834,86 @@ class CroquiController extends ChangeNotifier {
     if (!isReadOnly) {
       flushAutoSave();
     }
+    numeroLaudoCtrl.dispose();
+    boCtrl.dispose();
+    picCtrl.dispose();
+    reqOrigemCtrl.dispose();
+    reqDestinoCtrl.dispose();
+    nomeVitimaCtrl.dispose();
+    historicoCtrl.dispose();
+    vestesCtrl.dispose();
+    caracteristicasCtrl.dispose();
+    tanatoImediatoCtrl.dispose();
+    tanatoConsecutivoCtrl.dispose();
+    tanatoObservacaoCtrl.dispose();
+    discussaoCtrl.dispose();
+    conclusaoCtrl.dispose();
+    quesito1Ctrl.dispose();
+    quesito2Ctrl.dispose();
+    quesito3Ctrl.dispose();
+    quesito4Ctrl.dispose();
     super.dispose();
+  }
+
+  void sincronizarDadosEmMemoria(AuthProvider authProvider) {
+    if (isReadOnly) return;
+
+    final nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
+
+    final Map<String, dynamic> novosDados = {};
+    final auditoriaExistente = Map<String, dynamic>.from(casoAtual.dadosLaudo['auditoria'] as Map? ?? {});
+
+    final selectedAtnNome = casoAtual.atnResponsavel ?? auditoriaExistente['atn_nome']?.toString();
+    String? selectedAtnId = auditoriaExistente['atn_id']?.toString();
+
+    if (selectedAtnNome != null && selectedAtnNome.isNotEmpty && selectedAtnId == null) {
+      final match = atns.where((a) => a.nome == selectedAtnNome).firstOrNull;
+      selectedAtnId = match?.id;
+    }
+
+    novosDados['auditoria'] = {
+      'perito_responsavel': nomePerito,
+      'data_finalizacao': DateTime.now().toIso8601String(),
+    };
+
+    novosDados['identificacao'] = {
+      'vestes': vestesCtrl.text,
+      'historico': historicoCtrl.text,
+    };
+
+    novosDados['caracteristicas'] = {
+      'identificacao': caracteristicasCtrl.text,
+      'tanato_imediato': tanatoImediatoCtrl.text,
+      'tanato_observacao': tanatoObservacaoCtrl.text,
+      'tanato_consecutivo': tanatoConsecutivoCtrl.text,
+    };
+
+    novosDados['conclusao'] = {
+      'discussao': discussaoCtrl.text,
+      'quesito_1_morte': quesito1Ctrl.text,
+      'quesito_2_causa': quesito2Ctrl.text,
+      'quesito_3_instrumento': quesito3Ctrl.text,
+      'quesito_4_meio': quesito4Ctrl.text,
+      'conclusao_texto': conclusaoCtrl.text,
+    };
+
+    atualizarCasoCamposEJson(
+      numeroBo: boCtrl.text,
+      numeroPic: picCtrl.text,
+      numeroRequisicao: numeroLaudoCtrl.text,
+      nomeVitima: nomeVitimaCtrl.text,
+      destino: reqDestinoCtrl.text,
+      requisitante: reqOrigemCtrl.text,
+      novosDadosLaudo: novosDados,
+    );
+  }
+
+  bool validarCamposObrigatorios() {
+    if (quesito1Ctrl.text.trim().isEmpty) return false;
+    if (quesito2Ctrl.text.trim().isEmpty) return false;
+    if (quesito3Ctrl.text.trim().isEmpty) return false;
+    if (quesito4Ctrl.text.trim().isEmpty) return false;
+    return true;
   }
 
   void _snack(String msg, {Color? color}) {

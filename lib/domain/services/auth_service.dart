@@ -91,13 +91,16 @@ class AuthService {
 
       final credenciais = _gerarCredenciaisEmBackground(senha);
 
+      final String backendPerfil = (perfil['perfil']?.toString() ?? perfil['papel_id']?.toString() ?? '').toUpperCase();
+      final String papelId = backendPerfil.contains('ADMIN')
+          ? '11111111-2222-3333-4444-555555555555'
+          : '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
+
       final novoUsuario = Usuario(
         id: perfil['id']?.toString() ?? '',
         matriculaFuncional: perfil['matricula_funcional']?.toString() ?? login,
         nomeCompleto: perfil['nome_completo']?.toString() ?? '',
-        crm: perfil['crm']?.toString(),
-        classe: perfil['classe']?.toString(),
-        papelId: perfil['papel_id']?.toString() ?? 'perito',
+        papelId: papelId,
         ativo: true,
         hashPinOffline: credenciais['hash']!,
         salt: credenciais['salt']!,
@@ -222,4 +225,13 @@ class AuthService {
       _usuarioLogado = _usuarioLogado!.copyWith(deveAlterarPin: false);
     }
   }
+
+  Future<void> saveSavedLogin(String login) async {
+    await _keyStorage.save(key: 'saved_login', value: login);
+  }
+
+  Future<String?> getSavedLogin() async {
+    return await _keyStorage.read(key: 'saved_login');
+  }
 }
+

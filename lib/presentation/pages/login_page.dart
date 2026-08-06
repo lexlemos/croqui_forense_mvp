@@ -18,6 +18,9 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _controller = LoginController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.carregarLoginSalvo(context);
+    });
   }
 
   @override

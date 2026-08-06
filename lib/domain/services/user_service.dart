@@ -67,8 +67,6 @@ class UserService {
   Future<void> cadastrarNovoUsuario({
     required String nome,
     required String matricula,
-    String? crm,
-    String? classe,
     required String papelId,
     required String pinInicial,
   }) async {
@@ -80,8 +78,6 @@ class UserService {
       id: newId, 
       matriculaFuncional: matricula,
       nomeCompleto: nome,
-      crm: crm,
-      classe: classe,
       papelId: papelId,
       ativo: true,
       hashPinOffline: hashPin,

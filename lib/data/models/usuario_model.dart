@@ -2,8 +2,6 @@ class Usuario {
   final String id;
   final String matriculaFuncional;
   final String nomeCompleto;
-  final String? crm;
-  final String? classe;
   final String papelId;
   final bool ativo;
   final String? hashPinOffline;
@@ -21,8 +19,6 @@ class Usuario {
     required this.hashPinOffline,
     required this.deveAlterarPin,
     required this.criadoEm,
-    this.crm,
-    this.classe,
     this.salt,
     this.deviceId,
   });
@@ -42,15 +38,11 @@ class Usuario {
     String? salt,
     DateTime? criadoEm,
     String? deviceId,
-    String? crm,
-    String? classe,
   }) {
     return Usuario(
       id: id ?? this.id,
       matriculaFuncional: matriculaFuncional ?? this.matriculaFuncional,
       nomeCompleto: nomeCompleto ?? this.nomeCompleto,
-      crm: crm ?? this.crm,
-      classe: classe ?? this.classe,
       papelId: papelId ?? this.papelId,
       ativo: ativo ?? this.ativo,
       hashPinOffline: hashPinOffline ?? this.hashPinOffline,
@@ -66,8 +58,6 @@ class Usuario {
       id: map['id']?.toString() ?? '',
       matriculaFuncional: map['matricula_funcional']?.toString() ?? '',
       nomeCompleto: map['nome_completo']?.toString() ?? '',
-      crm: map['crm']?.toString(),
-      classe: map['classe']?.toString(),
       papelId: map['papel_id']?.toString() ?? '',
       hashPinOffline: map['hash_pin_offline']?.toString(),
       salt: map['salt']?.toString(),
@@ -84,8 +74,6 @@ class Usuario {
       'matricula_funcional': matriculaFuncional,
       'nome_completo': nomeCompleto,
       'papel_id': papelId,
-      'crm': crm,
-      'classe': classe,
       'hash_pin_offline': hashPinOffline,
       'deve_alterar_pin': deveAlterarPin ? 1 : 0,
       'ativo': ativo ? 1 : 0,

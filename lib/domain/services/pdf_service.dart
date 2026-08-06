@@ -148,6 +148,8 @@ class PdfService {
         PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", caso.requisitante.isNotEmpty ? caso.requisitante : 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Destino:", caso.destino.isNotEmpty ? caso.destino : 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Nome da vítima:", caso.nomeVitima.isNotEmpty ? caso.nomeVitima : 'XXX', bold: true),
+        if (caso.atnResponsavel != null && caso.atnResponsavel!.isNotEmpty)
+          PdfHelpers.buildLinhaDetalhe("Técnico de Necrópsia:", caso.atnResponsavel!),
         pw.SizedBox(height: 20),
         pw.Center(child: pw.Text("LAUDO CADAVÉRICO", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))),
       ],

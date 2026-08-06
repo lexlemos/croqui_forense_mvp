@@ -57,111 +57,33 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     _croquiController = context.read<CroquiController>();
     _authProvider = context.read<AuthProvider>();
     
-    final caso = _croquiController.casoAtual;
-    final dados = caso.dadosLaudo;
-
-    _numeroLaudoCtrl = TextEditingController(text: caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? ''));
-    _boCtrl = TextEditingController(text: caso.numeroBo); 
-    _picCtrl = TextEditingController(text: caso.numeroPic);
-    
-    _reqOrigemCtrl = TextEditingController(text: caso.requisitante);
-    _reqDestinoCtrl = TextEditingController(text: caso.destino);
-    _nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
-
-    _historicoCtrl = TextEditingController(
-      text: dados['identificacao']?['historico'] ?? 
-            "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
-    );
-
-    _vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
-    _caracteristicasCtrl = TextEditingController(text: 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
-    
-    _tanatoImediatoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_imediato'] ?? 'XXX');
-    _tanatoConsecutivoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_consecutivo'] ?? 'XXX');
-    _tanatoObservacaoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_observacao'] ?? 'XXX');
-
-    _discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
-    _conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
-
-    _quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
-    _quesito2Ctrl = TextEditingController(text: dados['conclusao']?['quesito_2_causa'] ?? '');
-    _quesito3Ctrl = TextEditingController(text: dados['conclusao']?['quesito_3_instrumento'] ?? '');
-    _quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
+    _numeroLaudoCtrl = _croquiController.numeroLaudoCtrl;
+    _boCtrl = _croquiController.boCtrl;
+    _picCtrl = _croquiController.picCtrl;
+    _reqOrigemCtrl = _croquiController.reqOrigemCtrl;
+    _reqDestinoCtrl = _croquiController.reqDestinoCtrl;
+    _nomeVitimaCtrl = _croquiController.nomeVitimaCtrl;
+    _historicoCtrl = _croquiController.historicoCtrl;
+    _vestesCtrl = _croquiController.vestesCtrl;
+    _caracteristicasCtrl = _croquiController.caracteristicasCtrl;
+    _tanatoImediatoCtrl = _croquiController.tanatoImediatoCtrl;
+    _tanatoConsecutivoCtrl = _croquiController.tanatoConsecutivoCtrl;
+    _tanatoObservacaoCtrl = _croquiController.tanatoObservacaoCtrl;
+    _discussaoCtrl = _croquiController.discussaoCtrl;
+    _conclusaoCtrl = _croquiController.conclusaoCtrl;
+    _quesito1Ctrl = _croquiController.quesito1Ctrl;
+    _quesito2Ctrl = _croquiController.quesito2Ctrl;
+    _quesito3Ctrl = _croquiController.quesito3Ctrl;
+    _quesito4Ctrl = _croquiController.quesito4Ctrl;
   }
 
   @override
   void dispose() {
-    _numeroLaudoCtrl.dispose();
-    _boCtrl.dispose();
-    _picCtrl.dispose(); 
-    _reqOrigemCtrl.dispose();
-    _reqDestinoCtrl.dispose();
-    _nomeVitimaCtrl.dispose();
-    _historicoCtrl.dispose();
-    _vestesCtrl.dispose();
-    _caracteristicasCtrl.dispose();
-    _tanatoImediatoCtrl.dispose();
-    _tanatoConsecutivoCtrl.dispose();
-    _tanatoObservacaoCtrl.dispose();
-    _discussaoCtrl.dispose();
-    _conclusaoCtrl.dispose();
-    _quesito1Ctrl.dispose();
-    _quesito2Ctrl.dispose();
-    _quesito3Ctrl.dispose();
-    _quesito4Ctrl.dispose();
     super.dispose();
   }
 
   void _sincronizarDadosNaMemoria() {
-    if (_croquiController.isReadOnly) return;
-
-    final nomePerito = _authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
-
-    final Map<String, dynamic> novosDados = {};
-    final auditoriaExistente = Map<String, dynamic>.from(_croquiController.casoAtual.dadosLaudo['auditoria'] as Map? ?? {});
-
-    final selectedAtnNome = _croquiController.casoAtual.atnResponsavel ?? auditoriaExistente['atn_nome']?.toString();
-    String? selectedAtnId = auditoriaExistente['atn_id']?.toString();
-
-    if (selectedAtnNome != null && selectedAtnNome.isNotEmpty && selectedAtnId == null) {
-      final match = _croquiController.atns.where((a) => a.nome == selectedAtnNome).firstOrNull;
-      selectedAtnId = match?.id;
-    }
-
-    novosDados['auditoria'] = {
-      'perito_responsavel': nomePerito,
-      'data_finalizacao': DateTime.now().toIso8601String(),
-    };
-
-    novosDados['identificacao'] = {
-      'vestes': _vestesCtrl.text,
-      'historico': _historicoCtrl.text,
-    };
-
-    novosDados['caracteristicas'] = {
-      'tanato_imediato': _tanatoImediatoCtrl.text,
-      'tanato_observacao': _tanatoObservacaoCtrl.text,
-      'tanato_consecutivo': _tanatoConsecutivoCtrl.text,
-    };
-
-    novosDados['conclusao'] = {
-      'discussao': _discussaoCtrl.text,
-      'quesito_1_morte': _quesito1Ctrl.text,
-      'quesito_2_causa': _quesito2Ctrl.text,
-      'quesito_3_instrumento': _quesito3Ctrl.text,
-      'quesito_4_meio': _quesito4Ctrl.text,
-      'conclusao_texto': _conclusaoCtrl.text,
-    };
-
-    _croquiController.atualizarCasoCamposEJson(
-      numeroBo: _boCtrl.text,
-      numeroPic: _picCtrl.text,
-      numeroRequisicao: _numeroLaudoCtrl.text,
-      nomeVitima: _nomeVitimaCtrl.text,
-      destino: _reqDestinoCtrl.text,
-      requisitante: _reqOrigemCtrl.text,
-      novosDadosLaudo: novosDados,
-    );
+    _croquiController.sincronizarDadosEmMemoria(_authProvider);
   }
 
   Future<void> _tirarFoto() async {
@@ -524,7 +446,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         minLines: maxLines == null ? 3 : null,
         keyboardType: maxLines == null ? TextInputType.multiline : TextInputType.text,
         textCapitalization: TextCapitalization.sentences,
-        onChanged: (_) => _sincronizarDadosNaMemoria(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(

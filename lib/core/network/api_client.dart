@@ -6,7 +6,7 @@ import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 
 const String _kBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://127.0.0.1:8000/api/v1/',
+  defaultValue: 'http://192.168.15.3:8000/api/v1/',
 );
 const Duration _kConnectTimeout = Duration(seconds: 8);
 const Duration _kDataTimeout = Duration(seconds: 8);
