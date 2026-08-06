@@ -6,7 +6,6 @@ import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
-import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class AppHeader extends StatelessWidget {
   final Usuario? usuario;
@@ -29,7 +28,7 @@ class AppHeader extends StatelessWidget {
     return partes.first.substring(0, 2).toUpperCase();
   }
 
-  bool get _isAdmin => usuario?.papelId == DatabaseSeeder.roleAdminId;
+  bool get _isAdmin => usuario?.hasRole('ADMIN') ?? false;
 
   @override
   Widget build(BuildContext context) {

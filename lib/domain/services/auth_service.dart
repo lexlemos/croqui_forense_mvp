@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -75,32 +76,66 @@ class AuthService {
       // Passo A: Tentar realizar a requisição de login na API
       final responseData = await _remoteDataSource.login(login, senha);
 
-      final perfil = (responseData['user'] ?? responseData['usuario']) as Map<String, dynamic>? ?? {};
-      final accessToken = responseData['access_token']?.toString();
+      final perfil = (responseData['user'] ?? responseData['usuario']) as Map<String, dynamic>? ?? responseData;
+      final accessToken = responseData['access_token']?.toString() ?? responseData['token']?.toString();
       final refreshToken = responseData['refresh_token']?.toString();
 
       if (accessToken == null) {
         throw const AuthException('Token ausente na resposta.');
       }
 
+      final userId = perfil['usuario_id']?.toString() ??
+          perfil['id']?.toString() ??
+          responseData['usuario_id']?.toString() ??
+          responseData['id']?.toString() ??
+          '';
+
+      final nomeCompleto = perfil['usuario_nome']?.toString() ??
+          perfil['nome_completo']?.toString() ??
+          perfil['nome']?.toString() ??
+          responseData['usuario_nome']?.toString() ??
+          '';
+
+      final matriculaFuncional = perfil['matricula_funcional']?.toString() ??
+          perfil['matricula']?.toString() ??
+          login;
+
+      if (userId.isEmpty) {
+        throw const AuthException('ID do usuário não fornecido pela API.');
+      }
+
       await _keyStorage.save(key: 'access_token', value: accessToken);
       if (refreshToken != null) {
         await _keyStorage.save(key: 'refresh_token', value: refreshToken);
       }
-      await _keyStorage.save(key: 'user_id', value: perfil['id']?.toString() ?? '');
+      await _keyStorage.save(key: 'user_id', value: userId);
 
       final credenciais = _gerarCredenciaisEmBackground(senha);
 
-      final String backendPerfil = (perfil['perfil']?.toString() ?? perfil['papel_id']?.toString() ?? '').toUpperCase();
-      final String papelId = backendPerfil.contains('ADMIN')
-          ? '11111111-2222-3333-4444-555555555555'
-          : '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
+      final rawRoles = perfil['roles'] ?? perfil['role'] ?? responseData['roles'];
+      List<String> roles = [];
+      if (rawRoles is List) {
+        roles = rawRoles.map((e) => e.toString()).toList();
+      } else if (rawRoles is String && rawRoles.isNotEmpty) {
+        if (rawRoles.startsWith('[') && rawRoles.endsWith(']')) {
+          try {
+            final decoded = jsonDecode(rawRoles);
+            if (decoded is List) {
+              roles = decoded.map((e) => e.toString()).toList();
+            }
+          } catch (_) {
+            roles = [rawRoles];
+          }
+        } else {
+          roles = [rawRoles];
+        }
+      }
 
       final novoUsuario = Usuario(
-        id: perfil['id']?.toString() ?? '',
-        matriculaFuncional: perfil['matricula_funcional']?.toString() ?? login,
-        nomeCompleto: perfil['nome_completo']?.toString() ?? '',
-        papelId: papelId,
+        id: userId,
+        matriculaFuncional: matriculaFuncional,
+        nomeCompleto: nomeCompleto,
+        roles: roles,
         ativo: true,
         hashPinOffline: credenciais['hash']!,
         salt: credenciais['salt']!,
@@ -112,7 +147,7 @@ class AuthService {
       await _usuarioRepository.createUsuario(novoUsuario);
       _usuarioLogado = novoUsuario;
 
-      developer.log('[AUTH] Login online realizado com sucesso', name: 'AuthService');
+      developer.log('[AUTH] Login online realizado com sucesso (ID: $userId)', name: 'AuthService');
 
     } catch (e) {
       // Passo B: Se for uma exceção de conectividade, tentar local fallback

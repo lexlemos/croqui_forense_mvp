@@ -94,6 +94,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
+    await _addColumnIfNotExists(txn, 'usuarios', 'roles', 'TEXT');
   }
 
   Future<void> close() async {

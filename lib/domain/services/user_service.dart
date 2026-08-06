@@ -59,7 +59,7 @@ class UserService {
   /// - [matricula]: Matrícula funcional oficial.
   /// - [crm]: Número do conselho regional de medicina (para médicos legistas).
   /// - [classe]: Categoria funcional da carreira policial pericial.
-  /// - [papelId]: Identificador único do perfil/papel do profissional.
+  /// - [role]: Perfil/papel do profissional (ex: 'PERITO_GERAL', 'ADMIN').
   /// - [pinInicial]: PIN provisório para primeiro acesso.
   ///
   /// @throws ArgumentError se alguma informação obrigatória for inválida.
@@ -67,7 +67,7 @@ class UserService {
   Future<void> cadastrarNovoUsuario({
     required String nome,
     required String matricula,
-    required String papelId,
+    required String role,
     required String pinInicial,
   }) async {
     final salt = SecurityHelper.generateSalt();
@@ -78,7 +78,7 @@ class UserService {
       id: newId, 
       matriculaFuncional: matricula,
       nomeCompleto: nome,
-      papelId: papelId,
+      roles: [role],
       ativo: true,
       hashPinOffline: hashPin,
       deveAlterarPin: true,

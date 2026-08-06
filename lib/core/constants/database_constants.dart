@@ -42,7 +42,8 @@ const String _kCreateUsuarios = '''
 CREATE TABLE usuarios (
     id TEXT PRIMARY KEY,
     matricula_funcional TEXT NOT NULL UNIQUE,
-    papel_id TEXT NOT NULL,
+    papel_id TEXT,
+    roles TEXT,
     nome_completo TEXT NOT NULL,
     crm TEXT,
     classe TEXT,
@@ -53,8 +54,7 @@ CREATE TABLE usuarios (
     atualizado_em TEXT,
     versao INTEGER DEFAULT 1,
     device_id TEXT,
-    salt TEXT,
-    FOREIGN KEY (papel_id) REFERENCES papeis(id) ON DELETE RESTRICT
+    salt TEXT
 );
 ''';
 

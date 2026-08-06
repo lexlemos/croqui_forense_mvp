@@ -92,7 +92,7 @@ class UserManagementProvider extends ChangeNotifier {
   Future<void> criarUsuario({
     required String nome,
     required String matricula,
-    required String papelId,
+    required String role,
     required String pinInicial,
   }) async {
     _isLoading = true;
@@ -102,7 +102,7 @@ class UserManagementProvider extends ChangeNotifier {
       await _userService.cadastrarNovoUsuario(
         nome: nome,
         matricula: matricula,
-        papelId: papelId,
+        role: role,
         pinInicial: pinInicial,
       );
       await inicializar();
@@ -121,17 +121,7 @@ class UserManagementProvider extends ChangeNotifier {
       final index = _usuarios.indexWhere((u) => u.id == usuario.id);
       if (index != -1) {
         final atual = _usuarios[index];
-        _usuarios[index] = Usuario(
-          id: atual.id,
-          matriculaFuncional: atual.matriculaFuncional,
-          nomeCompleto: atual.nomeCompleto,
-          papelId: atual.papelId,
-          ativo: !atual.ativo,
-          hashPinOffline: atual.hashPinOffline,
-          deveAlterarPin: atual.deveAlterarPin,
-          salt: atual.salt,
-          criadoEm: atual.criadoEm,
-        );
+        _usuarios[index] = atual.copyWith(ativo: !atual.ativo);
         notifyListeners();
       }
     } catch (e) {

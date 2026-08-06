@@ -84,9 +84,9 @@ class _SettingsPageState extends State<SettingsPage> {
                             context,
                             icon: Icons.security,
                             label: 'Perfil / Função',
-                            value: usuario?.papelId == '11111111-2222-3333-4444-555555555555'
+                            value: (usuario?.hasRole('ADMIN') ?? false)
                                 ? 'Administrador'
-                                : 'Médico Legista / Perito',
+                                : (usuario?.roles.isNotEmpty == true ? usuario!.roles.join(', ') : 'Médico Legista / Perito'),
                           ),
                         ],
                       ),

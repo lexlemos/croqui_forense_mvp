@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 
@@ -39,7 +40,7 @@ class DatabaseSeeder {
       'id': roleAdminId, 'nome': 'ADMIN', 'descricao': 'Administrador do Sistema', 'e_padrao': 0
     });
     await db.insert('papeis', {
-      'id': roleLegistaId, 'nome': 'PERITO', 'descricao': 'Médico Perito', 'e_padrao': 1
+      'id': roleLegistaId, 'nome': 'PERITO_GERAL', 'descricao': 'Médico Perito', 'e_padrao': 1
     });
   }
 
@@ -77,6 +78,7 @@ class DatabaseSeeder {
       'matricula_funcional': 'ADMIN002',
       'nome_completo': 'Administrador Padrao',
       'papel_id': roleAdminId,
+      'roles': jsonEncode(['ADMIN']),
       'hash_pin_offline': hashedPin,
       'salt': salt,
       'ativo': 1,

@@ -16,7 +16,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
   final _matriculaController = TextEditingController();
   final _pinController = TextEditingController();
   
-  String? _selectedPapelId;
+  String? _selectedRole;
   bool _obscurePin = true;
 
   @override
@@ -68,7 +68,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedPapelId,
+                        initialValue: _selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Cargo / Função',
                           border: OutlineInputBorder(),
@@ -76,11 +76,11 @@ class _UserFormDialogState extends State<UserFormDialog> {
                         ),
                         items: papeis.map((papel) {
                           return DropdownMenuItem<String>(
-                            value: papel.id,
+                            value: papel.nome,
                             child: Text(papel.nome),
                           );
                         }).toList(),
-                        onChanged: (val) => setState(() => _selectedPapelId = val),
+                        onChanged: (val) => setState(() => _selectedRole = val),
                         validator: (v) => v == null ? 'Selecione' : null,
                       ),
                     ),
@@ -133,7 +133,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
       Navigator.pop(context, {
         'nome': _nomeController.text.trim(),
         'matricula': _matriculaController.text.trim(),
-        'papelId': _selectedPapelId,
+        'role': _selectedRole,
         'pin': _pinController.text.trim(),
       });
     }
