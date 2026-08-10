@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:convert';
+
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +12,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
+import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 
 /// Contrato de repositório local responsável pelas operações de leitura e atualização
 /// de integridade dos [Caso]s (Laudos) e seus respectivos [Achado]s durante o processo de sincronização.
@@ -76,14 +77,7 @@ class SyncUploadEvidenciaException implements Exception {
       'status: $statusCode): $message';
 }
 
-/// Função utilitária para leitura e codificação de PDF em Base64 em Isolate separado (via compute).
-/// Previne Out-Of-Memory (OOM) e bloqueios na UI Isolate ao processar laudos extensos.
-String? _readAndEncodePdfBase64(String filePath) {
-  final pdfFile = File(filePath);
-  if (!pdfFile.existsSync()) return null;
-  final bytes = pdfFile.readAsBytesSync();
-  return base64Encode(bytes);
-}
+// Função utilitária removida: _readAndEncodePdfBase64 (agora o PDF é enviado como arquivo físico)
 
 /// Serviço de domínio encarregado da [Sincronização] e conformidade dos dados periciais do IML.
 ///
@@ -94,14 +88,19 @@ class SyncService {
   final IRemoteDataSource _remoteDataSource;
   final ISyncRepository _repository;
   final DomainSyncService? _domainSyncService;
+  final AuthService? _authService;
 
   SyncService({
     required IRemoteDataSource remoteDataSource,
     required ISyncRepository repository,
     DomainSyncService? domainSyncService,
+    AuthService? authService,
   })  : _remoteDataSource = remoteDataSource,
         _repository = repository,
-        _domainSyncService = domainSyncService;
+        _domainSyncService = domainSyncService,
+        _authService = authService;
+
+  final Set<String> _uuidsEmTransito = {};
 
   /// Executa o fluxo completo de sincronização pericial do dispositivo com a central.
   ///
@@ -110,7 +109,7 @@ class SyncService {
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
   bool _isSessionExpiredError(Object error) {
     if (error is DioException) {
-      if (error.response?.statusCode == 401 || error.error is SessionExpiredException) {
+      if (error.response?.statusCode == 401 || error.response?.statusCode == 403 || error.error is SessionExpiredException) {
         return true;
       }
     }
@@ -144,12 +143,21 @@ class SyncService {
     if (rascunhosPendentes.isNotEmpty) {
       debugPrint('[SyncService] 🔄 Encontrados ${rascunhosPendentes.length} rascunho(s) pendente(s) de envio. Processando...');
       for (final rascunho in rascunhosPendentes) {
+        if (_authService != null && !_authService.isLogged) {
+          debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de rascunhos prematuramente.');
+          return;
+        }
         try {
           await pushCasoRascunho(rascunho);
         } on DioException catch (e) {
           if (_isSessionExpiredError(e)) {
-            debugPrint('[SyncService] 🛑 Sessão expirada (401) no push de rascunho. Abortando ciclo de sincronização.');
-            rethrow;
+            debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push de rascunho. Abortando ciclo de sincronização.');
+            return;
+          }
+        } catch (e) {
+          if (_isSessionExpiredError(e)) {
+            debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push de rascunho. Abortando ciclo de sincronização.');
+            return;
           }
         }
       }
@@ -169,6 +177,10 @@ class SyncService {
 
     // Fila FIFO Segura: Processa os casos finalizados UM POR UM sequencialmente (evita sobrecarga de rede 3G/4G).
     for (final caso in casosPendentes) {
+      if (_authService != null && !_authService.isLogged) {
+        debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de casos finalizados prematuramente.');
+        return;
+      }
       try {
         debugPrint('[SyncService] 📦 Processando sincronização do caso ${caso.uuid}...');
 
@@ -188,15 +200,15 @@ class SyncService {
 
       } on DioException catch (e) {
         if (_isSessionExpiredError(e)) {
-          debugPrint('[SyncService] 🛑 Sessão expirada (401) no envio do caso ${caso.uuid}. Abortando fila.');
-          rethrow;
+          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio do caso ${caso.uuid}. Abortando fila.');
+          return;
         }
         debugPrint('[SyncService] ⚠️ Falha na rede ao enviar o caso ${caso.uuid}: $e');
         totalFotosFalhas++;
       } catch (e) {
         if (_isSessionExpiredError(e)) {
-          debugPrint('[SyncService] 🛑 Sessão expirada (401) no envio do caso ${caso.uuid}. Abortando fila.');
-          rethrow;
+          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio do caso ${caso.uuid}. Abortando fila.');
+          return;
         }
         debugPrint('[SyncService] ⚠️ Erro inesperado no caso ${caso.uuid}: $e');
         totalFotosFalhas++;
@@ -221,10 +233,19 @@ class SyncService {
   /// Não bloqueia a interface. Caso falhe por queda de rede, a marcação `is_draft_synced = 0` no SQLite
   /// garante o reenvio automático assim que a conectividade retornar.
   Future<void> pushCasoRascunho(Caso caso) async {
+    if (_uuidsEmTransito.contains(caso.uuid)) {
+      debugPrint('[SyncService] ⏭️ Caso ${caso.uuid} já em trânsito. Ignorando push duplicado.');
+      return;
+    }
+    _uuidsEmTransito.add(caso.uuid);
+
     try {
       debugPrint('[SyncService] 🚀 Disparando push silencioso de rascunho para o caso ${caso.uuid}...');
-      final achados = await _repository.getAchadosPorCaso(caso.uuid);
-      final casoJson = await _casoParaJson(caso, achados);
+      
+      final casoProcessado = await _sincronizarPdfCaso(caso);
+      
+      final achados = await _repository.getAchadosPorCaso(casoProcessado.uuid);
+      final casoJson = await _casoParaJson(casoProcessado, achados);
       final deviceId = await DeviceInfoService.getDeviceId();
 
       final payload = {
@@ -238,10 +259,12 @@ class SyncService {
       debugPrint('[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.');
     } catch (e) {
       if (_isSessionExpiredError(e)) {
-        debugPrint('[SyncService] 🛑 Sessão expirada (401) no push silencioso do rascunho. Abortando.');
+        debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push silencioso do rascunho. Abortando.');
         rethrow;
       }
       debugPrint('[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e');
+    } finally {
+      _uuidsEmTransito.remove(caso.uuid);
     }
   }
 
@@ -252,8 +275,9 @@ class SyncService {
 
     final List<Map<String, dynamic>> casosJson = [];
     for (final caso in casos) {
-      final achados = achadosPorCaso[caso.uuid] ?? [];
-      casosJson.add(await _casoParaJson(caso, achados));
+      final casoProcessado = await _sincronizarPdfCaso(caso);
+      final achados = achadosPorCaso[casoProcessado.uuid] ?? [];
+      casosJson.add(await _casoParaJson(casoProcessado, achados));
     }
 
     final deviceId = await DeviceInfoService.getDeviceId();
@@ -278,6 +302,10 @@ class SyncService {
     final List<Object> erros = [];
 
     for (final achado in achadosComFotos) {
+      if (_authService != null && !_authService.isLogged) {
+        debugPrint('[SyncService] 🛑 Sessão nula. Abortando upload de fotos prematuramente.');
+        throw SessionExpiredException();
+      }
       try {
         // Envio individual (loop) via multipart/form-data
         await _uploadEvidencia(caso, achado);
@@ -286,7 +314,7 @@ class SyncService {
         await _repository.marcarFotoComoSincronizada(achado);
       } catch (e) {
         if (_isSessionExpiredError(e)) {
-          debugPrint('[SyncService] 🛑 Sessão expirada (401) no upload de foto. Abortando.');
+          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.');
           rethrow;
         }
         // Captura timeouts de rede (como DioExceptionType.connectionTimeout) e erros de rede gerais
@@ -336,6 +364,28 @@ class SyncService {
     await _repository.marcarCasoComoSincronizado(caso);
   }
 
+  /// Sincroniza o PDF fisicamente usando a nova rota multipart.
+  /// Retorna um [Caso] atualizado contendo a `pdfUrl` gerada pelo backend.
+  Future<Caso> _sincronizarPdfCaso(Caso caso) async {
+    if (caso.pdfLocalPath != null && caso.pdfLocalPath!.isNotEmpty) {
+      final pdfFile = File(caso.pdfLocalPath!);
+      if (pdfFile.existsSync()) {
+        try {
+          debugPrint('[SyncService] 📄 Fazendo upload físico do Laudo PDF: ${caso.pdfLocalPath}');
+          final pdfUrl = await _remoteDataSource.uploadLaudoPdf(
+            casoUuid: caso.uuid,
+            filePath: pdfFile.path,
+          );
+          return caso.copyWith(pdfUrl: pdfUrl);
+        } catch (e) {
+          debugPrint('[SyncService] ⚠️ Erro ao fazer upload do PDF para o caso ${caso.uuid}: $e');
+          rethrow;
+        }
+      }
+    }
+    return caso;
+  }
+
   String _toDeterministicUuidV4(String namespace, String name) {
     final String uuidV5 = const Uuid().v5(namespace, name);
     return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
@@ -359,18 +409,8 @@ class SyncService {
       });
     }
 
-    String? pdfBase64;
-    if (caso.pdfLocalPath != null && caso.pdfLocalPath!.isNotEmpty) {
-      final pdfFile = File(caso.pdfLocalPath!);
-      if (pdfFile.existsSync()) {
-        try {
-          // Offload da codificação Base64 para um Isolate secundário via compute para evitar Jank e OOM na UI
-          pdfBase64 = await compute(_readAndEncodePdfBase64, pdfFile.path);
-        } catch (e) {
-          debugPrint('[SyncService] ⚠️ Erro ao ler PDF local em base64 no Isolate: $e');
-        }
-      }
-    }
+    // Remoção da leitura em Base64 do PDF.
+    // A propriedade pdfUrl já estará preenchida no caso se o upload físico ocorreu com sucesso antes dessa serialização.
 
     return {
       'uuid': caso.uuid,
@@ -393,7 +433,7 @@ class SyncService {
       'atn_id': caso.atnId,
       'atn_responsavel': caso.atnResponsavel,
       'pdf_local_path': caso.pdfLocalPath,
-      'pdf_base64': pdfBase64,
+      'pdf_url': caso.pdfUrl,
       'diagramas': diagramasJson,
       'achados': achados.map(_achadoParaJson).toList(),
     };

@@ -155,7 +155,7 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                         : "FINALIZAR EXAME",
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                  onPressed: () => controller.finalizarCasoDireto(innerContext),
+                  onPressed: controller.isProcessing ? null : () => controller.finalizarCasoDireto(innerContext),
                 ),
               ),
             if (controller.isReadOnly)

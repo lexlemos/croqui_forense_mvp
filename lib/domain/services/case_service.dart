@@ -119,11 +119,25 @@ class CaseService {
   Future<List<EvidenciaMultimidia>> getEvidenciasGerais(String casoUuid) =>
       _repository.getEvidenciasGerais(casoUuid);
 
-  Future<void> salvarEvidenciaGeral(EvidenciaMultimidia ev) =>
-      _repository.insertEvidenciaGeral(ev);
+  Future<void> salvarEvidenciaGeral(EvidenciaMultimidia ev) async {
+    final caso = await _repository.getCaseByUuid(ev.casoUuid);
+    if (caso != null && caso.status == StatusCaso.finalizado) {
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+    await _repository.insertEvidenciaGeral(ev);
+  }
 
-  Future<void> removerEvidenciaGeral(String uuid) =>
-      _repository.deleteEvidenciaGeral(uuid);
+  Future<void> removerEvidenciaGeral(String uuid) async {
+    // Resolve o caso pai antes de deletar para aplicar a trava de imutabilidade
+    final ev = await _repository.getEvidenciaByUuid(uuid);
+    if (ev != null) {
+      final caso = await _repository.getCaseByUuid(ev.casoUuid);
+      if (caso != null && caso.status == StatusCaso.finalizado) {
+        throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+      }
+    }
+    await _repository.deleteEvidenciaGeral(uuid);
+  }
 
   Future<List<ExameSolicitado>> getExamesSolicitados(String casoUuid) =>
       _repository.getExamesSolicitados(casoUuid);
@@ -134,14 +148,19 @@ class CaseService {
     required String? toxicologicoLacre,
     required String? geneticaLacre,
     required String? outrosLacre,
-  }) =>
-      _repository.salvarExamesSolicitados(
-        casoUuid: casoUuid,
-        anatomoLacre: anatomoLacre,
-        toxicologicoLacre: toxicologicoLacre,
-        geneticaLacre: geneticaLacre,
-        outrosLacre: outrosLacre,
-      );
+  }) async {
+    final caso = await _repository.getCaseByUuid(casoUuid);
+    if (caso != null && caso.status == StatusCaso.finalizado) {
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+    await _repository.salvarExamesSolicitados(
+      casoUuid: casoUuid,
+      anatomoLacre: anatomoLacre,
+      toxicologicoLacre: toxicologicoLacre,
+      geneticaLacre: geneticaLacre,
+      outrosLacre: outrosLacre,
+    );
+  }
 
   /// Reabre um [Caso] (Laudo) finalizado, restaurando seu status para rascunho.
   ///
@@ -159,7 +178,7 @@ class CaseService {
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now(),
     );
-    await _repository.updateCase(casoReaberto);
+    await _repository.reabrirCaso(casoReaberto);
   }
 
   /// Persiste as atualizações em modo rascunho de um [Caso] (Laudo).
@@ -167,6 +186,14 @@ class CaseService {
   /// @throws [Exception] caso o laudo já tenha sido finalizado (bloqueado para edição) e
   /// o perito tente salvar alterações sem antes realizar a reabertura formal.
   Future<void> salvarRascunho(Caso caso) async {
+    final casoExistente = await _repository.getCaseByUuid(caso.uuid);
+    if (casoExistente != null && casoExistente.status == StatusCaso.finalizado) {
+      if (caso.status != StatusCaso.finalizado) {
+        throw Exception("Segurança Jurídica: Para alterar um laudo finalizado, utilize a reabertura formal.");
+      }
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+
     final casoAtualizado = caso.copyWith(
       atualizadoEm: DateTime.now(),
       isDraftSynced: false,

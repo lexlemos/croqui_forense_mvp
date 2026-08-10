@@ -522,7 +522,15 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         preferredCameraDevice: CameraDevice.rear,
       );
       if (photo == null) return;
-      final File compressedFile = await ImageHelper.compressImage(File(photo.path));
+      final originalFile = File(photo.path);
+      final File compressedFile = await ImageHelper.compressImage(originalFile);
+      
+      try {
+        if (await originalFile.exists()) await originalFile.delete();
+      } catch (e) {
+        debugPrint('[InjuryFormModal] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+      }
+
       if (!mounted) return;
       setState(() => _currentPhotoPath = compressedFile.path);
     } catch (e) {

@@ -25,12 +25,6 @@ class CaseListProvider extends ChangeNotifier {
   };
 
   List<Caso> get casos => _casosFiltrados;
-  List<Caso> get casosEmAndamento => _casosFiltrados
-      .where((c) => c.status == StatusCaso.rascunho || c.status == StatusCaso.laudo_pendente || c.status == StatusCaso.finalizado)
-      .toList();
-  List<Caso> get casosSincronizados => _casosFiltrados
-      .where((c) => c.status == StatusCaso.sincronizado)
-      .toList();
 
   bool get isLoading => _isLoading;
   String? get erro => _erro;

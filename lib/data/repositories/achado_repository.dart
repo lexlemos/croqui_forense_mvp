@@ -14,39 +14,72 @@ class AchadoRepository {
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
     try {
-      final rowsAffected = await db.update(
-        'achados',
-        achado.toMap(),
-        where: 'uuid = ?',
-        whereArgs: [achado.uuid],
-      );
-      if (rowsAffected == 0) {
-        await db.insert(
+      await db.transaction((txn) async {
+        final rowsAffected = await txn.update(
           'achados',
           achado.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.ignore,
+          where: 'uuid = ?',
+          whereArgs: [achado.uuid],
         );
-      }
-      await _garantirEvidencia(db, achado);
+        if (rowsAffected == 0) {
+          await txn.insert(
+            'achados',
+            achado.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+        await _garantirEvidencia(txn, achado);
+      });
     } catch (e) {
       throw Exception('Erro de persistência ao inserir achado: $e');
     }
   }
 
+  Future<bool> isCasoFinalizado(String casoUuid) async {
+    final db = await _db;
+    final res = await db.query(
+      'casos',
+      columns: ['status'],
+      where: 'uuid = ? AND removido = 0',
+      whereArgs: [casoUuid],
+      limit: 1,
+    );
+    if (res.isEmpty) return false;
+    final statusStr = res.first['status']?.toString().toUpperCase() ?? '';
+    return statusStr == 'FINALIZADO';
+  }
+
+  Future<Achado?> getAchadoByUuid(String uuid) async {
+    final db = await _db;
+    final res = await db.query(
+      'achados',
+      where: 'uuid = ? AND removido = 0',
+      whereArgs: [uuid],
+      limit: 1,
+    );
+    if (res.isEmpty) return null;
+    return Achado.fromMap(res.first);
+  }
+
   Future<void> updateAchado(Achado achado) async {
+    if (await isCasoFinalizado(achado.casoUuid)) {
+      throw Exception('Segurança Jurídica: Impossível atualizar achado de laudo finalizado.');
+    }
     final db = await _db;
     try {
-      final rowsAffected = await db.update(
-        'achados',
-        achado.toMap(),
-        where: 'uuid = ?',
-        whereArgs: [achado.uuid],
-      );
-      debugPrint('[AchadoRepository] updateAchado ${achado.uuid}: $rowsAffected row(s) affected');
-      if (rowsAffected == 0) {
-        throw Exception('Achado ${achado.uuid} não encontrado no banco.');
-      }
-      await _garantirEvidencia(db, achado);
+      await db.transaction((txn) async {
+        final rowsAffected = await txn.update(
+          'achados',
+          achado.toMap(),
+          where: "uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
+          whereArgs: [achado.uuid],
+        );
+        debugPrint('[AchadoRepository] updateAchado ${achado.uuid}: $rowsAffected row(s) affected');
+        if (rowsAffected == 0) {
+          throw Exception('Achado ${achado.uuid} não encontrado no banco ou laudo finalizado.');
+        }
+        await _garantirEvidencia(txn, achado);
+      });
     } catch (e) {
       throw Exception('Erro de persistência ao atualizar achado: $e');
     }
@@ -104,9 +137,16 @@ class AchadoRepository {
   }
 
   Future<void> deleteAchado(String uuid) async {
+    final achado = await getAchadoByUuid(uuid);
+    if (achado != null && await isCasoFinalizado(achado.casoUuid)) {
+      throw Exception('Segurança Jurídica: Impossível remover achado de laudo finalizado.');
+    }
     final db = await _db;
     try {
-      await db.rawUpdate('UPDATE achados SET removido = 1 WHERE uuid = ?', [uuid]);
+      await db.rawUpdate(
+        "UPDATE achados SET removido = 1 WHERE uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
+        [uuid],
+      );
     } catch (e) {
       throw Exception('Erro de persistência ao remover achado: $e');
     }

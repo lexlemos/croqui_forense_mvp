@@ -31,9 +31,9 @@ class CaseCard extends StatelessWidget {
         'FINALIZADO',
       ),
       StatusCaso.sincronizado => (
-        const Color(0xFF3F51B5),
-        const Color(0xFFE8EAF6),
-        'SINCRONIZADO',
+        const Color(0xFF2E7D32),
+        const Color(0xFFE8F5E9),
+        'FINALIZADO',
       ),
       StatusCaso.arquivado => (
         const Color(0xFF616161),
@@ -74,7 +74,7 @@ class CaseCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Topo: Número do Laudo (Esquerda) + Chip de Status (Direita)
+                // Topo: Número do Laudo (Esquerda) + Status e Ícone da Nuvem (Direita)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -107,21 +107,44 @@ class CaseCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusBg,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: statusColor,
-                          letterSpacing: 0.4,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Tooltip(
+                          message: caso.isDraftSynced
+                              ? 'Sincronizado na nuvem'
+                              : 'Sincronização pendente',
+                          child: Icon(
+                            caso.isDraftSynced
+                                ? Icons.cloud_done_rounded
+                                : Icons.cloud_upload_rounded,
+                            size: 18,
+                            color: caso.isDraftSynced
+                                ? Colors.teal.shade600
+                                : Colors.grey.shade400,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: statusColor,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

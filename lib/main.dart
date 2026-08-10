@@ -8,6 +8,7 @@ import 'package:croqui_forense_mvp/data/datasources/remote_data_source_impl.dart
 import 'package:croqui_forense_mvp/data/local/database_factory_impl.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/domain/services/local_storage_gc_service.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -36,10 +37,20 @@ void main() async {
 
   final dbFactory = DatabaseFactoryImpl();
   final keyStorage = SecureKeyStorage();
-  
+
   DatabaseHelper.init(dbFactory, keyStorage);
 
- 
+  // Garbage Collection: expurga arquivos físicos e registros SQLite de laudos
+  // finalizados, sincronizados na nuvem e com mais de 30 dias.
+  // O bloco try/catch garante que uma falha na limpeza nunca impeça o app de abrir.
+  try {
+    await LocalStorageGcService(
+      dbHelper: DatabaseHelper.instance,
+    ).executarLimpezaDeRotina();
+  } catch (e) {
+    debugPrint('[GC] ⚠️ Falha silenciosa na rotina de Garbage Collection: $e');
+  }
+
   runApp(const AppRoot());
 }
 
@@ -101,11 +112,12 @@ class AppRoot extends StatelessWidget {
                 atnRepository: atnRepo,
               ),
         ),
-        ProxyProvider3<IRemoteDataSource, CasoRepository, DomainSyncService, SyncService>(
-          update: (_, remoteDS, casoRepo, domainSync, __) => SyncService(
+        ProxyProvider4<IRemoteDataSource, CasoRepository, DomainSyncService, AuthService, SyncService>(
+          update: (_, remoteDS, casoRepo, domainSync, authService, __) => SyncService(
             remoteDataSource: remoteDS,
             repository: casoRepo,
             domainSyncService: domainSync,
+            authService: authService,
           ),
         ),
         ChangeNotifierProxyProvider3<AuthService, ApiClient, DomainSyncService, AuthProvider>(

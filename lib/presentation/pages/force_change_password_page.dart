@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
-import 'package:croqui_forense_mvp/presentation/pages/controllers/force_change_pin_controller.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/force_change_password_controller.dart';
 
-class ForceChangePinPage extends StatefulWidget {
-  const ForceChangePinPage({super.key});
+class ForceChangePasswordPage extends StatefulWidget {
+  const ForceChangePasswordPage({super.key});
 
   @override
-  State<ForceChangePinPage> createState() => _ForceChangePinPageState();
+  State<ForceChangePasswordPage> createState() => _ForceChangePasswordPageState();
 }
 
-class _ForceChangePinPageState extends State<ForceChangePinPage> {
-  late final ForceChangePinController _controller;
+class _ForceChangePasswordPageState extends State<ForceChangePasswordPage> {
+  late final ForceChangePasswordController _controller;
+  bool _obscureSenha = true;
+  bool _obscureConfirm = true;
 
   @override
   void initState() {
     super.initState();
-    _controller = ForceChangePinController();
+    _controller = ForceChangePasswordController();
   }
 
   @override
@@ -54,66 +56,77 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
+                        color: Colors.orange.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.lock_reset, size: 64, color: Colors.orange),
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'Troca de Senha Obrigatória',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold
+                        fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     const Text(
-                      'Por segurança, defina um novo PIN pessoal de 4 dígitos para liberar seu acesso.',
+                      'Por segurança, defina uma nova senha pessoal para liberar seu acesso ao sistema.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey, height: 1.5),
                     ),
-                    
+
                     const SizedBox(height: 32),
-                    
+
                     TextFormField(
-                      controller: _controller.pinController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      maxLength: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Novo PIN',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.lock_outline),
-                        counterText: "",
+                      controller: _controller.senhaController,
+                      keyboardType: TextInputType.visiblePassword,
+                      obscureText: _obscureSenha,
+                      decoration: InputDecoration(
+                        labelText: 'Nova Senha',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureSenha ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
+                          tooltip: _obscureSenha ? 'Mostrar senha' : 'Ocultar senha',
+                        ),
                       ),
-                      validator: _controller.validarPin,
+                      validator: _controller.validarSenha,
                       textInputAction: TextInputAction.next,
                     ),
-                    
+
                     const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _controller.confirmController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      maxLength: 4,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirme o PIN',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.check_circle_outline),
-                        counterText: "",
+                      keyboardType: TextInputType.visiblePassword,
+                      obscureText: _obscureConfirm,
+                      decoration: InputDecoration(
+                        labelText: 'Confirmar Nova Senha',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.check_circle_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          tooltip: _obscureConfirm ? 'Mostrar senha' : 'Ocultar senha',
+                        ),
                       ),
                       validator: _controller.validarConfirmacao,
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _controller.submitChange(context),
                     ),
-                    
+
                     const SizedBox(height: 24),
-  
+
                     Selector<AuthProvider, bool>(
                       selector: (_, provider) => provider.isLoading,
                       builder: (context, isLoading, child) {
@@ -124,9 +137,9 @@ class _ForceChangePinPageState extends State<ForceChangePinPage> {
                             onPressed: isLoading ? null : () => _controller.submitChange(context),
                             child: isLoading
                                 ? const SizedBox(
-                                    width: 24, 
-                                    height: 24, 
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                   )
                                 : const Text('DEFINIR NOVA SENHA'),
                           ),

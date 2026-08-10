@@ -35,6 +35,7 @@ class Caso {
   final String? atnId;
   final String? atnResponsavel;
   final String? pdfLocalPath;
+  final String? pdfUrl;
   final bool isDraftSynced;
 
   AuditoriaModel get auditoria {
@@ -69,6 +70,7 @@ class Caso {
     this.atnId,
     this.atnResponsavel,
     this.pdfLocalPath,
+    this.pdfUrl,
     this.isDraftSynced = false,
   });
   
@@ -86,6 +88,7 @@ class Caso {
     this.atnId,
     this.atnResponsavel,
     this.pdfLocalPath,
+    this.pdfUrl,
     this.isDraftSynced = false,
   }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
@@ -148,6 +151,7 @@ class Caso {
       atnId: atnIdRestaurado,
       atnResponsavel: atnNomeRestaurado,
       pdfLocalPath: map['pdf_local_path']?.toString(),
+      pdfUrl: map['pdf_url']?.toString(),
       isDraftSynced: map['is_draft_synced'] is bool
           ? map['is_draft_synced'] as bool
           : (map['is_draft_synced'] as int? ?? 0) == 1,
@@ -176,6 +180,7 @@ class Caso {
     String? atnId,
     String? atnResponsavel,
     String? pdfLocalPath,
+    String? pdfUrl,
     bool? isDraftSynced,
   }) {
     return Caso(
@@ -200,6 +205,7 @@ class Caso {
       atnId: atnId ?? this.atnId,
       atnResponsavel: atnResponsavel ?? this.atnResponsavel,
       pdfLocalPath: pdfLocalPath ?? this.pdfLocalPath,
+      pdfUrl: pdfUrl ?? this.pdfUrl,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
     );
   }
@@ -227,6 +233,7 @@ class Caso {
       'atn_id': atnId,
       'atn_responsavel': atnResponsavel,
       'pdf_local_path': pdfLocalPath,
+      'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced ? 1 : 0,
     };
   }
@@ -254,6 +261,7 @@ class Caso {
       'atn_id': atnId,
       'atn_responsavel': atnResponsavel,
       'pdf_local_path': pdfLocalPath,
+      'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced,
     };
   }

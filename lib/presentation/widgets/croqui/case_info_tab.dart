@@ -22,30 +22,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
-  late final TextEditingController _numeroLaudoCtrl; 
-  late final TextEditingController _boCtrl; 
-  late final TextEditingController _picCtrl;
-  
-  late final TextEditingController _reqOrigemCtrl;
-  late final TextEditingController _reqDestinoCtrl;
-  late final TextEditingController _nomeVitimaCtrl;
-
-  late final TextEditingController _historicoCtrl;
-
-  late final TextEditingController _vestesCtrl;
-  late final TextEditingController _caracteristicasCtrl;
-  late final TextEditingController _tanatoImediatoCtrl;
-  late final TextEditingController _tanatoConsecutivoCtrl;
-  late final TextEditingController _tanatoObservacaoCtrl;
-
-  late final TextEditingController _discussaoCtrl;
-  late final TextEditingController _conclusaoCtrl;
-
-  late final TextEditingController _quesito1Ctrl;
-  late final TextEditingController _quesito2Ctrl;
-  late final TextEditingController _quesito3Ctrl;
-  late final TextEditingController _quesito4Ctrl;
-
   late final CroquiController _croquiController;
   late final AuthProvider _authProvider;
 
@@ -56,25 +32,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     super.initState();
     _croquiController = context.read<CroquiController>();
     _authProvider = context.read<AuthProvider>();
-    
-    _numeroLaudoCtrl = _croquiController.numeroLaudoCtrl;
-    _boCtrl = _croquiController.boCtrl;
-    _picCtrl = _croquiController.picCtrl;
-    _reqOrigemCtrl = _croquiController.reqOrigemCtrl;
-    _reqDestinoCtrl = _croquiController.reqDestinoCtrl;
-    _nomeVitimaCtrl = _croquiController.nomeVitimaCtrl;
-    _historicoCtrl = _croquiController.historicoCtrl;
-    _vestesCtrl = _croquiController.vestesCtrl;
-    _caracteristicasCtrl = _croquiController.caracteristicasCtrl;
-    _tanatoImediatoCtrl = _croquiController.tanatoImediatoCtrl;
-    _tanatoConsecutivoCtrl = _croquiController.tanatoConsecutivoCtrl;
-    _tanatoObservacaoCtrl = _croquiController.tanatoObservacaoCtrl;
-    _discussaoCtrl = _croquiController.discussaoCtrl;
-    _conclusaoCtrl = _croquiController.conclusaoCtrl;
-    _quesito1Ctrl = _croquiController.quesito1Ctrl;
-    _quesito2Ctrl = _croquiController.quesito2Ctrl;
-    _quesito3Ctrl = _croquiController.quesito3Ctrl;
-    _quesito4Ctrl = _croquiController.quesito4Ctrl;
+
   }
 
   @override
@@ -97,7 +55,15 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       );
       
       if (photo != null) {
-        final File compressedFile = await ImageHelper.compressImage(File(photo.path));
+        final originalFile = File(photo.path);
+        final File compressedFile = await ImageHelper.compressImage(originalFile);
+        
+        try {
+          if (await originalFile.exists()) await originalFile.delete();
+        } catch (e) {
+          debugPrint('[CaseInfoTab] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+        }
+
         await _croquiController.adicionarFotoGeral(compressedFile.path);
       }
     } on FileSystemException catch (e) {
@@ -135,23 +101,23 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
             const SizedBox(height: 16),
             
-            _buildTextField("Nº PIC", _picCtrl, readOnly: readOnly, isBold: true),
+            _buildTextField("Nº PIC", controller.picCtrl, readOnly: readOnly, isBold: true),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Número do Laudo / Requisição", _numeroLaudoCtrl, readOnly: true)),
+                Expanded(child: _buildTextField("Número do Laudo / Requisição", controller.numeroLaudoCtrl, readOnly: true)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Boletim de Ocorrência", _boCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Boletim de Ocorrência", controller.boCtrl, readOnly: readOnly)),
               ],
             ),
 
-            _buildTextField("Vítima", _nomeVitimaCtrl, readOnly: readOnly),
+            _buildTextField("Vítima", controller.nomeVitimaCtrl, readOnly: readOnly),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Requisitante (Delegado)", _reqOrigemCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Requisitante (Delegado)", controller.reqOrigemCtrl, readOnly: readOnly)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Destino", _reqDestinoCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Destino", controller.reqDestinoCtrl, readOnly: readOnly)),
               ],
             ),
             const SizedBox(height: 12),
@@ -210,13 +176,13 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 32),
             const _SectionHeader(title: "1. Histórico", icon: Icons.history),
             const SizedBox(height: 16),
-            _buildTextField("Histórico do Caso", _historicoCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Histórico do Caso", controller.historicoCtrl, readOnly: readOnly, maxLines: null),
 
             const SizedBox(height: 32),
             const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
             const SizedBox(height: 16),
-            _buildTextField("Vestes", _vestesCtrl, readOnly: readOnly, maxLines: null),
-            _buildTextField("Características de Identificação", _caracteristicasCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Vestes", controller.vestesCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Características de Identificação", controller.caracteristicasCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 16),
             Container(
@@ -232,9 +198,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   const SizedBox(height: 4),
                   const Text("A morte está evidenciada pela presença dos seguintes sinais:", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
                   const SizedBox(height: 12),
-                  _buildTextField("A) Imediatos", _tanatoImediatoCtrl, readOnly: readOnly, maxLines: null),
-                  _buildTextField("B) Consecutivos", _tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: null),
-                  _buildTextField("C) Comentários Adicionais", _tanatoObservacaoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("A) Imediatos", controller.tanatoImediatoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("B) Consecutivos", controller.tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("C) Comentários Adicionais", controller.tanatoObservacaoCtrl, readOnly: readOnly, maxLines: null),
                 ],
               ),
             ),
@@ -278,12 +244,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 32),
             const _SectionHeader(title: "3. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
-            _buildTextField("Comentário Médico Forense", _discussaoCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Comentário Médico Forense", controller.discussaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 24),
             const _SectionHeader(title: "4. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
-            _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Conclusão Final", controller.conclusaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 32),
             Container(
@@ -308,10 +274,10 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   ),
                   const Divider(),
                   const SizedBox(height: 10),
-                  _buildTextField("1. Houve Morte?", _quesito1Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("2. Qual a Causa?", _quesito2Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("3. Qual o Instrumento?", _quesito3Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("4. Qual o Meio?", _quesito4Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField("1. Houve Morte?", controller.quesito1Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField("2. Qual a Causa?", controller.quesito2Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField("3. Qual o Instrumento?", controller.quesito3Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField("4. Qual o Meio?", controller.quesito4Ctrl, readOnly: readOnly, required: true),
                 ],
               ),
             ),

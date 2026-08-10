@@ -24,19 +24,21 @@ class CasoRepository implements ISyncRepository {
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
     try {
-      final rowsAffected = await db.update(
-        tableCasos,
-        novoCaso.toMap(),
-        where: 'uuid = ?',
-        whereArgs: [novoCaso.uuid],
-      );
-      if (rowsAffected == 0) {
-        await db.insert(
+      await db.transaction((txn) async {
+        final rowsAffected = await txn.update(
           tableCasos,
           novoCaso.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.ignore,
+          where: 'uuid = ?',
+          whereArgs: [novoCaso.uuid],
         );
-      }
+        if (rowsAffected == 0) {
+          await txn.insert(
+            tableCasos,
+            novoCaso.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      });
     } catch (e) {
       throw Exception('Erro de persistência ao inserir caso: $e');
     }
@@ -78,11 +80,25 @@ class CasoRepository implements ISyncRepository {
       await db.update(
         tableCasos,
         caso.toMap(),
-        where: 'uuid = ?',
+        where: "uuid = ? AND UPPER(status) != 'FINALIZADO'",
         whereArgs: [caso.uuid],
       );
     } catch (e) {
       throw Exception('Erro de persistência ao atualizar caso: $e');
+    }
+  }
+
+  Future<void> reabrirCaso(Caso caso) async {
+    final db = await database;
+    try {
+      await db.update(
+        tableCasos,
+        caso.toMap(),
+        where: 'uuid = ?',
+        whereArgs: [caso.uuid],
+      );
+    } catch (e) {
+      throw Exception('Erro de persistência ao reabrir caso: $e');
     }
   }
 
@@ -144,7 +160,7 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final maps = await db.query(
       tableCasos,
-      where: "status = 'FINALIZADO' AND removido = 0",
+      where: "status = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
       orderBy: 'criado_em_dispositivo ASC',
     );
     return maps.map(Caso.fromMap).toList();
@@ -355,8 +371,8 @@ class CasoRepository implements ISyncRepository {
     await db.rawUpdate(
       '''
       UPDATE $tableCasos
-         SET status        = 'SINCRONIZADO',
-             atualizado_em = ?
+         SET is_draft_synced = 1,
+             atualizado_em   = ?
        WHERE uuid     = ?
          AND removido = 0
       ''',
@@ -394,6 +410,18 @@ class CasoRepository implements ISyncRepository {
   }
 
   // Novos Métodos para Evidências Gerais e Exames Solicitados
+
+  Future<EvidenciaMultimidia?> getEvidenciaByUuid(String uuid) async {
+    final db = await database;
+    final maps = await db.query(
+      tableEvidenciasMultimidia,
+      where: 'uuid = ? AND removido = 0',
+      whereArgs: [uuid],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return EvidenciaMultimidia.fromMap(maps.first);
+  }
 
   Future<List<EvidenciaMultimidia>> getEvidenciasGerais(String casoUuid) async {
     final db = await database;
@@ -501,6 +529,12 @@ class CasoRepository implements ISyncRepository {
 
   /// Persiste a lista de exames solicitados e suas filhas polimórficas de forma atômica e performática.
   Future<void> salvarExames(String casoUuid, List<ExameSolicitadoModel> exames) async {
+    // Guard de imutabilidade: bloqueia escrita se o laudo já estiver finalizado
+    final casoAtual = await getCaseByUuid(casoUuid);
+    if (casoAtual != null && casoAtual.status == StatusCaso.finalizado) {
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+
     final db = await database;
     try {
       await db.transaction((txn) async {

@@ -113,13 +113,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> atualizarPinPrimeiroAcesso(String novoPin) async {
+  Future<void> atualizarSenhaPrimeiroAcesso(String novaSenha) async {
     if (_usuario == null) throw const AuthException("Nenhum usuário logado");
 
     _isLoading = true;
     notifyListeners();
     try {
-      await _authService.trocarPinObrigatorio(_usuario!, novoPin);
+      await _authService.alterarSenhaObrigatoria(_usuario!, novaSenha);
       _usuario = _authService.usuario;
     } finally {
       _isLoading = false;

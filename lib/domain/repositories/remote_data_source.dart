@@ -15,11 +15,11 @@ abstract interface class IRemoteDataSource {
   /// inválidas ou haja falha na conectividade.
   Future<Map<String, dynamic>> login(String login, String senha);
 
-  /// Atualiza a credencial de acesso local (PIN) do Perito no servidor central.
+  /// Atualiza a senha de acesso do Perito no servidor central.
   ///
   /// @throws [AuthException] caso a operação seja rejeitada pelo backend
   /// ou ocorra timeout de rede.
-  Future<void> trocarPin(String usuarioId, String novoPin);
+  Future<void> alterarSenha(String usuarioId, String novaSenha);
 
   /// Sincroniza os esquemas de formulários dinâmicos e templates anatômicos
   /// atualizados e aprovados pela central para uso nos Laudos Periciais.
@@ -51,6 +51,13 @@ abstract interface class IRemoteDataSource {
     required String? achadoUuid,
     required String evidenciaUuid,
     required String hash,
+    required String filePath,
+  });
+
+  /// Faz o upload do PDF físico do Laudo para o servidor via multipart/form-data.
+  /// Retorna a URL (pdfUrl) de onde o arquivo foi armazenado.
+  Future<String> uploadLaudoPdf({
+    required String casoUuid,
     required String filePath,
   });
 }

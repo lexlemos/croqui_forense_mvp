@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
@@ -18,6 +19,7 @@ class DatabaseHelper {
 
   static DatabaseHelper? _instance;
   Database? _db;
+  Completer<Database>? _dbInitCompleter;
 
   DatabaseHelper._internal(this._dbFactory, this._keyStorage);
 
@@ -34,9 +36,25 @@ class DatabaseHelper {
   }
 
   Future<Database> get database async {
+    // Retorno rápido se o banco já está aberto e saudável
     if (_db != null && _db!.isOpen) return _db!;
-    _db = await _initDb();
-    return _db!;
+
+    // Mutex leve: se já existe uma inicialização em andamento,
+    // aguarda a mesma Future em vez de disparar um _initDb() paralelo.
+    if (_dbInitCompleter != null) return _dbInitCompleter!.future;
+
+    _dbInitCompleter = Completer<Database>();
+    try {
+      final db = await _initDb();
+      _db = db;
+      _dbInitCompleter!.complete(db);
+      return db;
+    } catch (e, st) {
+      _dbInitCompleter!.completeError(e, st);
+      rethrow;
+    } finally {
+      _dbInitCompleter = null;
+    }
   }
 
   Future<Database> _initDb() async {
@@ -81,6 +99,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'finalizado_em', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'atn_responsavel', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
     await txn.execute(kCreateAtnsSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
@@ -276,6 +295,11 @@ class DatabaseHelper {
         debugPrint('[DatabaseHelper] Executando migração para a versão 14 (Campos classe e crm na tabela usuarios)...');
         await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
         await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
+        break;
+        
+      case 15:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 15 (Campo pdf_url na tabela casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
         break;
         
       default:

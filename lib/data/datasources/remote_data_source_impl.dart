@@ -42,11 +42,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
-  Future<void> trocarPin(String usuarioId, String novoPin) async {
+  Future<void> alterarSenha(String usuarioId, String novaSenha) async {
     try {
       await _apiClient.dio.put(
         'croqui/auth/$usuarioId/senha',
-        data: {'nova_senha': novoPin},
+        data: {'nova_senha': novaSenha},
       );
     } on DioException catch (e) {
       throw AuthException(
@@ -172,6 +172,40 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         casoUuid: casoUuid,
         achadoUuid: achadoUuid,
       );
+    }
+  }
+
+  @override
+  Future<String> uploadLaudoPdf({
+    required String casoUuid,
+    required String filePath,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'caso_uuid': casoUuid,
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: p.basename(filePath),
+          contentType: MediaType('application', 'pdf'),
+        ),
+      });
+
+      developer.log("[DEBUG PDF] Fazendo upload do PDF para o Caso: $casoUuid");
+
+      final response = await _apiClient.dio.post(
+        'croqui/sync/laudo-pdf',
+        data: formData,
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Backend retornou status inesperado no upload do PDF: ${response.statusCode}');
+      }
+
+      return response.data['pdf_url']?.toString() ?? '';
+    } on DioException catch (e) {
+      throw Exception('Falha de rede no upload do PDF: ${e.message}');
+    } catch (e) {
+      throw Exception('Erro inesperado no upload do PDF: $e');
     }
   }
 }

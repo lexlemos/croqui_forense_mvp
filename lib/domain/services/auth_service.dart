@@ -237,18 +237,18 @@ class AuthService {
     }
   }
 
-  /// Efetua a troca obrigatória de PIN (senha offline) do [Perito].
+  /// Efetua a troca obrigatória de senha do [Perito].
   ///
-  /// Envia o novo PIN cifrado para atualização no servidor central e, após confirmação remota,
+  /// Envia a nova senha cifrada para atualização no servidor central e, após confirmação remota,
   /// calcula a derivação da credencial (hash e salt) em segundo plano para persistir a nova chave
   /// de validação local no banco de dados do dispositivo.
   ///
   /// @throws [AuthException] se ocorrer falha de conectividade com a rede ou se a alteração for
   /// rejeitada pelas políticas de segurança do servidor.
-  Future<void> trocarPinObrigatorio(Usuario usuario, String novoPin) async {
-    await _remoteDataSource.trocarPin(usuario.id, novoPin);
+  Future<void> alterarSenhaObrigatoria(Usuario usuario, String novaSenha) async {
+    await _remoteDataSource.alterarSenha(usuario.id, novaSenha);
 
-    final resultado = await compute(_gerarCredenciaisEmBackground, novoPin);
+    final resultado = await compute(_gerarCredenciaisEmBackground, novaSenha);
 
     await _usuarioRepository.updatePin(
       usuario.id,

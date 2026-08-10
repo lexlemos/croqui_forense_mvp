@@ -60,7 +60,14 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
       if (photo == null) return;
 
-      final File compressedFile = await ImageHelper.compressImage(File(photo.path));
+      final originalFile = File(photo.path);
+      final File compressedFile = await ImageHelper.compressImage(originalFile);
+
+      try {
+        if (await originalFile.exists()) await originalFile.delete();
+      } catch (e) {
+        debugPrint('[NewCaseDialog] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+      }
 
       if (!mounted) return;
       setState(() => _fotosIdentificacao.add({'path': compressedFile.path, 'descricao': ''}));

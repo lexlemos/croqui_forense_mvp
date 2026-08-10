@@ -3,23 +3,25 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
-class ForceChangePinController {
-  final pinController = TextEditingController();
+class ForceChangePasswordController {
+  final senhaController = TextEditingController();
   final confirmController = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
   void dispose() {
-    pinController.dispose();
+    senhaController.dispose();
     confirmController.dispose();
   }
 
-  String? validarPin(String? v) {
-    if (v == null || v.length != 4) return 'Deve ter 4 dígitos';
+  String? validarSenha(String? v) {
+    if (v == null || v.trim().isEmpty) return 'A senha não pode ser vazia';
+    if (v.length < 8) return 'A senha deve ter no mínimo 8 caracteres';
     return null;
   }
 
   String? validarConfirmacao(String? v) {
-    if (v != pinController.text) return 'Os PINs não conferem';
+    if (v == null || v.trim().isEmpty) return 'Confirme a nova senha';
+    if (v != senhaController.text) return 'As senhas não conferem';
     return null;
   }
 
@@ -29,8 +31,8 @@ class ForceChangePinController {
     final authProvider = context.read<AuthProvider>();
 
     try {
-      await authProvider.atualizarPinPrimeiroAcesso(pinController.text);
-      
+      await authProvider.atualizarSenhaPrimeiroAcesso(senhaController.text);
+
       globalMessengerKey.currentState?.showSnackBar(
         const SnackBar(
           content: Text('Senha atualizada com sucesso!'),
@@ -40,7 +42,7 @@ class ForceChangePinController {
     } catch (e) {
       globalMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('Erro ao atualizar: $e'), 
+          content: Text('Erro ao atualizar: $e'),
           backgroundColor: Colors.red[700],
           behavior: SnackBarBehavior.floating,
         ),

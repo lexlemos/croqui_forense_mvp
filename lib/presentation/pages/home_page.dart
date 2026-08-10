@@ -20,7 +20,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late final HomeController _controller;
-  int _viewIndex = 0; // 0: Em Andamento, 1: Sincronizados
 
   @override
   void initState() {
@@ -43,7 +42,7 @@ class _HomePageState extends State<HomePage> {
     final usuario = context.select((AuthProvider p) => p.usuario);
     final caseList = context.watch<CaseListProvider>();
 
-    final currentCases = _viewIndex == 0 ? caseList.casosEmAndamento : caseList.casosSincronizados;
+    final currentCases = caseList.casos;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -64,35 +63,11 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 12),
 
-            // SegmentedButton MD3 + Contador de Casos
+            // Contador de Casos
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment<int>(
-                        value: 0,
-                        label: Text('Em Andamento'),
-                        icon: Icon(Icons.edit_document),
-                      ),
-                      ButtonSegment<int>(
-                        value: 1,
-                        label: Text('Sincronizados'),
-                        icon: Icon(Icons.cloud_done),
-                      ),
-                    ],
-                    selected: {_viewIndex},
-                    onSelectionChanged: (Set<int> newSelection) {
-                      setState(() {
-                        _viewIndex = newSelection.first;
-                      });
-                    },
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -119,7 +94,7 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: Container(
                 color: const Color(0xFFF8F9FA),
-                child: _buildCasesGrid(context, currentCases, isReadOnly: _viewIndex == 1),
+                child: _buildCasesGrid(context, currentCases),
               ),
             ),
           ],
@@ -128,16 +103,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildCasesGrid(BuildContext context, List<Caso> list, {required bool isReadOnly}) {
+  Widget _buildCasesGrid(BuildContext context, List<Caso> list) {
     final caseList = context.watch<CaseListProvider>();
     if (caseList.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (list.isEmpty) {
       return EmptyState(
-        message: _viewIndex == 0
-            ? 'Nenhum caso em andamento.'
-            : 'Nenhum caso sincronizado.',
+        message: 'Nenhum caso encontrado.',
         errorDetails: caseList.erro,
       );
     }
@@ -161,7 +134,7 @@ class _HomePageState extends State<HomePage> {
               MaterialPageRoute(
                 builder: (context) => CroquiPage(
                   caso: casoExistente,
-                  isReadOnly: isReadOnly,
+                  isReadOnly: casoExistente.status == StatusCaso.sincronizado,
                 ),
               ),
             );

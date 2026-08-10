@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
-import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
+import 'package:croqui_forense_mvp/presentation/pages/force_change_password_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -95,12 +95,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 12),
                   ListTile(
                     leading: const Icon(Icons.lock, color: Colors.indigo),
-                    title: const Text('Alterar PIN de Acesso'),
+                    title: const Text('Alterar Senha de Acesso'),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const ForceChangePinPage(),
+                          builder: (context) => const ForceChangePasswordPage(),
                         ),
                       );
                     },

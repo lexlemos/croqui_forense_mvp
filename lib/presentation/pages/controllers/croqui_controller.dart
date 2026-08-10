@@ -56,6 +56,11 @@ class CroquiController extends ChangeNotifier {
   bool _isExporting = false;
   bool get isExporting => _isExporting;
 
+  bool _isProcessing = false;
+  bool get isProcessing => _isProcessing;
+
+  bool _isDisposed = false;
+
   Timer? _autoSaveTimer;
   bool _isAutoSavePending = false;
 
@@ -194,163 +199,179 @@ class CroquiController extends ChangeNotifier {
       _snack("Caso finalizado. Edição bloqueada.");
       return;
     }
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
 
     try {
-      await _caseService.salvarRascunho(casoAtual);
-    } catch (e) {
-      debugPrint("Erro ao garantir salvamento do caso: $e");
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
-      return;
-    }
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+      } catch (e) {
+        debugPrint("Erro ao garantir salvamento do caso: $e");
+        globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
+        return;
+      }
 
-    final String realPartName = _resolveBodyPartName(viewType, partId);
+      final String realPartName = _resolveBodyPartName(viewType, partId);
 
-    if (!context.mounted) return;
+      if (!context.mounted) return;
 
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => InjuryFormModal(
-        bodyPartName: realPartName,
-        injuryTypeRepository: _injuryTypeRepository,
-        achadoRepository: _achadoRepository,
+      final result = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => InjuryFormModal(
+          bodyPartName: realPartName,
+          injuryTypeRepository: _injuryTypeRepository,
+          achadoRepository: _achadoRepository,
+          casoUuid: casoAtual.uuid,
+        ),
+      );
+
+      if (result == null) return;
+
+      final String size = result['size']?.toString() ?? '';
+      final String depth = result['depth']?.toString() ?? '';
+      final String description = result['description']?.toString() ?? '';
+      final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
+      final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
+      final bool isInterno = result['isInterno'] ?? false;
+      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
+
+      String? finalPhotoPath = result['photoPath'];
+      if (finalPhotoPath != null) {
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+        finalPhotoPath = compressedFile.path;
+      }
+
+      final Map<String, dynamic> dadosExtras = {
+        'view': viewType,
+        'local_anatomico_id': partId,
+        'local_anatomico_nome': realPartName,
+        'type_label': tipoLesaoNome,
+        'size': size,
+        'depth': depth,
+        'photo_path': finalPhotoPath,
+        'is_interno': isInterno,
+        if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
+      };
+
+      final String diagramaCasoUuid = _toDeterministicUuidV4(casoAtual.uuid, viewType);
+
+      final achadoFinal = Achado(
+        uuid: const Uuid().v4(),
         casoUuid: casoAtual.uuid,
-      ),
-    );
+        diagramaCasoUuid: diagramaCasoUuid,
+        diagramaNome: DiagramTemplates.templateIdParaView(viewType),
+        tipoAchadoId: tipoLesaoId,
+        achadoRelacionadoUuid: achadoRelacionadoUuid,
+        numeroSequencial: achados.length + 1,
+        posX: x,
+        posY: y,
+        isInterno: isInterno,
+        dadosPreenchidos: dadosExtras,
+        observacoesTexto: description,
+        removido: false,
+        versao: 1,
+        criadoEm: DateTime.now(),
+        tamanho: size,
+        vistaAnatomica: viewType,
+        localAnatomico: realPartName,
+      );
 
-    if (result == null) return;
-
-    final String size = result['size']?.toString() ?? '';
-    final String depth = result['depth']?.toString() ?? '';
-    final String description = result['description']?.toString() ?? '';
-    final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
-    final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
-    final bool isInterno = result['isInterno'] ?? false;
-    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
-
-    String? finalPhotoPath = result['photoPath'];
-    if (finalPhotoPath != null) {
-      final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
-      finalPhotoPath = compressedFile.path;
-    }
-
-    final Map<String, dynamic> dadosExtras = {
-      'view': viewType,
-      'local_anatomico_id': partId,
-      'local_anatomico_nome': realPartName,
-      'type_label': tipoLesaoNome,
-      'size': size,
-      'depth': depth,
-      'photo_path': finalPhotoPath,
-      'is_interno': isInterno,
-      if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
-    };
-
-    final String diagramaCasoUuid = _toDeterministicUuidV4(casoAtual.uuid, viewType);
-
-    final achadoFinal = Achado(
-      uuid: const Uuid().v4(),
-      casoUuid: casoAtual.uuid,
-      diagramaCasoUuid: diagramaCasoUuid,
-      diagramaNome: DiagramTemplates.templateIdParaView(viewType),
-      tipoAchadoId: tipoLesaoId,
-      achadoRelacionadoUuid: achadoRelacionadoUuid,
-      numeroSequencial: achados.length + 1,
-      posX: x,
-      posY: y,
-      isInterno: isInterno,
-      dadosPreenchidos: dadosExtras,
-      observacoesTexto: description,
-      removido: false,
-      versao: 1,
-      criadoEm: DateTime.now(),
-      tamanho: size,
-      vistaAnatomica: viewType,
-      localAnatomico: realPartName,
-    );
-
-    try {
-      await _achadoService.salvarAchado(achadoFinal);
-      await _loadAchados();
-      
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
-      
-    } catch (e) {
-      debugPrint("Erro real ao salvar achado: $e");
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
+      try {
+        await _achadoService.salvarAchado(achadoFinal);
+        await _loadAchados();
+        
+        globalMessengerKey.currentState?.hideCurrentSnackBar();
+        globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
+        
+      } catch (e) {
+        debugPrint("Erro real ao salvar achado: $e");
+        globalMessengerKey.currentState?.hideCurrentSnackBar();
+        globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
     }
   }
 
   Future<void> editAchado(BuildContext context, Achado achado) async {
     if (isReadOnly) return;
-
-    final dados = achado.dadosPreenchidos;
-    final String localNome = dados['local_anatomico_nome'] ?? 
-                             _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
-
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => InjuryFormModal(
-        bodyPartName: localNome,
-        injuryTypeRepository: _injuryTypeRepository,
-        achadoRepository: _achadoRepository,
-        casoUuid: casoAtual.uuid,
-        achadoToEdit: achado,
-      ),
-    );
-
-    if (result == null) return;
-
-    final String size = result['size']?.toString() ?? '';
-    final String depth = result['depth']?.toString() ?? '';
-    final String description = result['description']?.toString() ?? '';
-    final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
-    final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
-    final bool isInterno = result['isInterno'] ?? achado.isInterno;
-    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
-
-    String? finalPhotoPath = result['photoPath'];
-    String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
-
-    if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
-      final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
-      finalPhotoPath = compressedFile.path;
-    }
-
-    if (!context.mounted) return;
-
-    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
-    novosDados['type_label'] = tipoLesaoNome;
-    novosDados['size'] = size;
-    novosDados['depth'] = depth;
-    novosDados['photo_path'] = finalPhotoPath;
-    novosDados['is_interno'] = isInterno;
-    if (result['dynamicFields'] is Map) {
-      novosDados['dynamicFields'] = result['dynamicFields'];
-    }
-
-    final achadoAtualizado = achado.copyWith(
-      tipoAchadoId: tipoLesaoId,
-      achadoRelacionadoUuid: achadoRelacionadoUuid,
-      isInterno: isInterno,
-      dadosPreenchidos: novosDados,
-      observacoesTexto: description,
-      versao: achado.versao + 1,
-      atualizadoEm: DateTime.now(),
-      tamanho: size,
-      vistaAnatomica: achado.vistaAnatomica,
-      localAnatomico: localNome,
-    );
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
 
     try {
-      await _achadoService.atualizarAchado(achadoAtualizado);
-      await _loadAchados();
-      _snack("Achado atualizado!");
-    } catch (e) {
-      _snack("Erro ao atualizar: $e", color: Colors.red);
+      final dados = achado.dadosPreenchidos;
+      final String localNome = dados['local_anatomico_nome'] ?? 
+                               _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
+
+      final result = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => InjuryFormModal(
+          bodyPartName: localNome,
+          injuryTypeRepository: _injuryTypeRepository,
+          achadoRepository: _achadoRepository,
+          casoUuid: casoAtual.uuid,
+          achadoToEdit: achado,
+        ),
+      );
+
+      if (result == null) return;
+
+      final String size = result['size']?.toString() ?? '';
+      final String depth = result['depth']?.toString() ?? '';
+      final String description = result['description']?.toString() ?? '';
+      final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
+      final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
+      final bool isInterno = result['isInterno'] ?? achado.isInterno;
+      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
+
+      String? finalPhotoPath = result['photoPath'];
+      String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
+
+      if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+        finalPhotoPath = compressedFile.path;
+      }
+
+      if (!context.mounted) return;
+
+      final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
+      novosDados['type_label'] = tipoLesaoNome;
+      novosDados['size'] = size;
+      novosDados['depth'] = depth;
+      novosDados['photo_path'] = finalPhotoPath;
+      novosDados['is_interno'] = isInterno;
+      if (result['dynamicFields'] is Map) {
+        novosDados['dynamicFields'] = result['dynamicFields'];
+      }
+
+      final achadoAtualizado = achado.copyWith(
+        tipoAchadoId: tipoLesaoId,
+        achadoRelacionadoUuid: achadoRelacionadoUuid,
+        isInterno: isInterno,
+        dadosPreenchidos: novosDados,
+        observacoesTexto: description,
+        versao: achado.versao + 1,
+        atualizadoEm: DateTime.now(),
+        tamanho: size,
+        vistaAnatomica: achado.vistaAnatomica,
+        localAnatomico: localNome,
+      );
+
+      try {
+        await _achadoService.atualizarAchado(achadoAtualizado);
+        await _loadAchados();
+        _snack("Achado atualizado!");
+      } catch (e) {
+        _snack("Erro ao atualizar: $e", color: Colors.red);
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
     }
   }
 
@@ -376,85 +397,94 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
 
-    // 1. Sincronizar dados em memória (rascunho)
-    sincronizarDadosEmMemoria(auth);
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
 
-    // 2. Validação obrigatória
-    if (!validarCamposObrigatorios()) {
-      globalMessengerKey.currentState?.showSnackBar(
-        const SnackBar(
-          content: Text("Por favor, responda todos os quesitos obrigatórios."),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      // 1. Sincronizar dados em memória (rascunho)
+      sincronizarDadosEmMemoria(auth);
 
-      try {
-        DefaultTabController.of(context).animateTo(6);
-      } catch (_) {}
-      return;
-    }
+      // 2. Validação obrigatória
+      if (!validarCamposObrigatorios()) {
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text("Por favor, responda todos os quesitos obrigatórios."),
+            backgroundColor: Colors.orange,
+          ),
+        );
 
-    final statusAtual = casoAtual.status;
+        try {
+          DefaultTabController.of(context).animateTo(6);
+        } catch (_) {}
+        return;
+      }
 
-    // Cenário A: Se o status for RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
-    if (statusAtual == StatusCaso.rascunho) {
-      final confirmExame = await showDialog<bool>(
+      final statusAtual = casoAtual.status;
+
+      // Cenário A: Se o status for RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
+      if (statusAtual == StatusCaso.rascunho) {
+        final confirmExame = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Finalizar Exame Físico?"),
+            content: const Text(
+              "A etapa de exame corporal será concluída. Você poderá optar por concluir o laudo agora ou manter pendente para finalizar o texto depois.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Voltar"),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Sim, prosseguir"),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmExame != true) return;
+      }
+
+      // Cenário B: Se for LAUDO_PENDENTE, pula o Modal 1 e vai DIRETAMENTE ao Modal 2
+      if (!context.mounted) return;
+      final opcaoSelecionada = await showDialog<String>(
         context: context,
+        barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text("Finalizar Exame Físico?"),
+          title: const Text("Conclusão do Laudo"),
           content: const Text(
-            "A etapa de exame corporal será concluída. Você poderá optar por concluir o laudo agora ou manter pendente para finalizar o texto depois.",
+            "Deseja concluir o laudo pericial definitivamente agora (com geração automática do PDF e assinatura) ou deixar pendente?",
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Voltar"),
+              onPressed: () => Navigator.pop(ctx, "PENDENTE"),
+              child: const Text("Deixar Pendente"),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Sim, prosseguir"),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              icon: const Icon(Icons.check_circle),
+              label: const Text("Concluir Laudo Agora"),
+              onPressed: () => Navigator.pop(ctx, "CONCLUIR"),
             ),
           ],
         ),
       );
 
-      if (confirmExame != true) return;
-    }
+      if (opcaoSelecionada == null) return;
 
-    // Cenário B: Se for LAUDO_PENDENTE, pula o Modal 1 e vai DIRETAMENTE ao Modal 2
-    if (!context.mounted) return;
-    final opcaoSelecionada = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Conclusão do Laudo"),
-        content: const Text(
-          "Deseja concluir o laudo pericial definitivamente agora (com geração automática do PDF e assinatura) ou deixar pendente?",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, "PENDENTE"),
-            child: const Text("Deixar Pendente"),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-            icon: const Icon(Icons.check_circle),
-            label: const Text("Concluir Laudo Agora"),
-            onPressed: () => Navigator.pop(ctx, "CONCLUIR"),
-          ),
-        ],
-      ),
-    );
-
-    if (opcaoSelecionada == null) return;
-
-    if (opcaoSelecionada == "PENDENTE") {
-      await _processarDeixarPendente(context);
-    } else if (opcaoSelecionada == "CONCLUIR") {
-      await _processarConcluirLaudoAgora(context);
+      if (opcaoSelecionada == "PENDENTE") {
+        await _processarDeixarPendente(context);
+      } else if (opcaoSelecionada == "CONCLUIR") {
+        await _processarConcluirLaudoAgora(context);
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
     }
   }
 
@@ -595,8 +625,8 @@ class CroquiController extends ChangeNotifier {
     }
   }
   Future<void> exportarCaso(BuildContext context) async {
-    if (_isExporting) return;
-    _isExporting = true;
+    if (_isProcessing) return;
+    _isProcessing = true;
     notifyListeners();
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -604,7 +634,7 @@ class CroquiController extends ChangeNotifier {
 
     if (usuarioLogado == null) {
       globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
-      _isExporting = false;
+      _isProcessing = false;
       notifyListeners();
       return;
     }
@@ -657,7 +687,7 @@ class CroquiController extends ChangeNotifier {
           debugPrint('[CroquiController] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}');
         } catch (_) {}
       }
-      _isExporting = false;
+      _isProcessing = false;
       notifyListeners();
     }
   }
@@ -799,6 +829,7 @@ class CroquiController extends ChangeNotifier {
     _isAutoSavePending = true;
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(seconds: 3), () async {
+      if (_isDisposed) return;
       if (_isAutoSavePending && !isReadOnly) {
         _isAutoSavePending = false;
         try {
@@ -830,10 +861,15 @@ class CroquiController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _autoSaveTimer?.cancel();
-    if (!isReadOnly) {
-      flushAutoSave();
-    }
+
+    // Copia o estado necessário ANTES de liberar os controllers
+    // para evitar use-after-free na escrita assíncrona pós-dispose.
+    final casoParaFlush = casoAtual;
+    final deveFlush = _isAutoSavePending && !isReadOnly;
+
+    // Libera todos os recursos síncronos imediatamente
     numeroLaudoCtrl.dispose();
     boCtrl.dispose();
     picCtrl.dispose();
@@ -853,6 +889,14 @@ class CroquiController extends ChangeNotifier {
     quesito3Ctrl.dispose();
     quesito4Ctrl.dispose();
     super.dispose();
+
+    // Dispara o flush DEPOIS do super.dispose() operando apenas
+    // sobre a cópia local — nunca sobre membros já liberados.
+    if (deveFlush) {
+      _caseService.salvarRascunho(casoParaFlush).catchError(
+        (e) => debugPrint('[CroquiController] ⚠️ Erro no flush pós-dispose: $e'),
+      );
+    }
   }
 
   void sincronizarDadosEmMemoria(AuthProvider authProvider) {
