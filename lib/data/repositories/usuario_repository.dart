@@ -89,24 +89,6 @@ class UsuarioRepository {
       );
     }
   }
-  Future<void> updatePin(String id, String novoHash, String novoSalt) async {
-    final db = await database;
-    try {
-      await db.update(
-        'usuarios',
-        {
-          'hash_pin_offline': novoHash,
-          'salt': novoSalt,
-          'deve_alterar_pin': 0, 
-          'atualizado_em': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    } catch (e) {
-      throw Exception('Erro de persistência ao atualizar PIN: $e');
-    }
-  }
 
   Future<void> updateStatusUsuario(String id, bool ativo) async {
     final db = await database;

@@ -7,7 +7,6 @@ class Usuario {
   final List<String> roles;
   final bool ativo;
   final String? hashPinOffline;
-  final bool deveAlterarPin;
   final String? salt;
   final DateTime criadoEm;
   final String? deviceId;
@@ -19,7 +18,6 @@ class Usuario {
     required this.roles,
     required this.ativo,
     required this.hashPinOffline,
-    required this.deveAlterarPin,
     required this.criadoEm,
     this.salt,
     this.deviceId,
@@ -40,7 +38,6 @@ class Usuario {
     List<String>? roles,
     bool? ativo,
     String? hashPinOffline,
-    bool? deveAlterarPin,
     String? salt,
     DateTime? criadoEm,
     String? deviceId,
@@ -52,7 +49,6 @@ class Usuario {
       roles: roles ?? this.roles,
       ativo: ativo ?? this.ativo,
       hashPinOffline: hashPinOffline ?? this.hashPinOffline,
-      deveAlterarPin: deveAlterarPin ?? this.deveAlterarPin,
       salt: salt ?? this.salt,
       criadoEm: criadoEm ?? this.criadoEm,
       deviceId: deviceId ?? this.deviceId,
@@ -87,7 +83,6 @@ class Usuario {
       hashPinOffline: map['hash_pin_offline']?.toString(),
       salt: map['salt']?.toString(),
       ativo: (map['ativo'] as int? ?? 0) == 1 || map['ativo'] == true,
-      deveAlterarPin: (map['deve_alterar_pin'] as int? ?? 0) == 1 || map['deve_alterar_pin'] == true,
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
       deviceId: map['device_id']?.toString(),
     );
@@ -100,7 +95,6 @@ class Usuario {
       'nome_completo': nomeCompleto,
       'roles': jsonEncode(roles),
       'hash_pin_offline': hashPinOffline,
-      'deve_alterar_pin': deveAlterarPin ? 1 : 0,
       'ativo': ativo ? 1 : 0,
       'criado_em': criadoEm.toIso8601String(),
       'salt': salt,

@@ -43,6 +43,9 @@ abstract interface class ISyncRepository {
 
   /// Recupera as lesões com fotos pendentes de sincronização para um caso específico.
   Future<List<Achado>> getEvidenciasPendentesPorCaso(String casoUuid);
+
+  /// Motor de Upsert (Sincronização Pull). Resolve conflitos e insere/atualiza casos, achados e evidências.
+  Future<void> upsertCasoTransaction(Map<String, dynamic> jsonCaso);
 }
 
 /// Exceção lançada quando o push dos dados textuais de sincronização dos laudos é rejeitado pelo servidor central.
@@ -138,6 +141,19 @@ class SyncService {
       debugPrint('[SyncService] ⚠️ Falha na atualização periódica de ATNs: $e');
     }
 
+    // Fase 0.05: Pull de Casos Remotos para evitar conflitos
+    try {
+      await pullCasos();
+    } on DioException catch (e) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401) no pull de casos. Abortando ciclo.');
+        rethrow;
+      }
+      debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
+    } catch (e) {
+      debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
+    }
+
     // Fase 0.1: Push textual de rascunhos não sincronizados pendentes
     final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados();
     if (rascunhosPendentes.isNotEmpty) {
@@ -226,6 +242,41 @@ class SyncService {
         erros.add('falha ao enviar $totalFotosFalhas item(ns).');
       }
       throw Exception('Sincronização parcial: ${erros.join(" e ")}');
+    }
+  }
+
+  /// Baixa casos da base central e sincroniza localmente através de Upsert com resolução de conflito.
+  Future<void> pullCasos() async {
+    debugPrint('[SyncService] Iniciando Pull Synchronization...');
+    try {
+      final casosRemotos = await _remoteDataSource.pullCasos();
+      
+      if (casosRemotos.isEmpty) {
+        debugPrint('[SyncService] Nenhum caso recebido no pull.');
+        return;
+      }
+      
+      debugPrint('[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.');
+      
+      for (final casoJson in casosRemotos) {
+        try {
+          await _repository.upsertCasoTransaction(casoJson);
+        } catch (e) {
+          debugPrint('[SyncService] Erro ao sincronizar (upsert) o caso ${casoJson['uuid']}: $e');
+          // Continua para o próximo caso
+        }
+      }
+      debugPrint('[SyncService] Pull Synchronization concluído com sucesso.');
+    } on DioException catch (e) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.');
+        rethrow;
+      }
+      debugPrint('[SyncService] ⚠️ Falha na rede durante o Pull: $e');
+      rethrow;
+    } catch (e) {
+      debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e');
+      rethrow;
     }
   }
 

@@ -82,7 +82,6 @@ class DatabaseSeeder {
       'hash_pin_offline': hashedPin,
       'salt': salt,
       'ativo': 1,
-      'deve_alterar_pin': 1, 
       'criado_em': fixedDate,
     });
   }

@@ -15,11 +15,6 @@ abstract interface class IRemoteDataSource {
   /// inválidas ou haja falha na conectividade.
   Future<Map<String, dynamic>> login(String login, String senha);
 
-  /// Atualiza a senha de acesso do Perito no servidor central.
-  ///
-  /// @throws [AuthException] caso a operação seja rejeitada pelo backend
-  /// ou ocorra timeout de rede.
-  Future<void> alterarSenha(String usuarioId, String novaSenha);
 
   /// Sincroniza os esquemas de formulários dinâmicos e templates anatômicos
   /// atualizados e aprovados pela central para uso nos Laudos Periciais.
@@ -37,6 +32,11 @@ abstract interface class IRemoteDataSource {
   /// @throws [SyncPushTextualException] em caso de rejeição do payload
   /// pelo servidor central ou perda abrupta de conectividade.
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload);
+
+  /// Sincroniza (Puxa) os casos da base central para o aplicativo,
+  /// permitindo o uso em múltiplos tablets e restaurando o trabalho
+  /// (inclui Lápides / Registros Removidos).
+  Future<List<Map<String, dynamic>>> pullCasos();
 
   /// Transmite uma Evidência Fotográfica associada a uma lesão, 
   /// garantindo a Cadeia de Custódia.

@@ -5,7 +5,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/forms/dynamic_form_widget.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/dynamic_form/dynamic_form_builder.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 
@@ -31,7 +31,6 @@ class InjuryFormModal extends StatefulWidget {
 
 class _InjuryFormModalState extends State<InjuryFormModal> {
   final _formKey = GlobalKey<FormState>();
-  final _dynamicFormKey = GlobalKey<DynamicFormWidgetState>();
 
   late final TextEditingController _customSizeController;
   late final TextEditingController _depthController;
@@ -42,8 +41,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   String? _selectedParteCorpo;
   bool _isLoadingTypes = true;
   bool _isInterno = false;
-  Map<String, dynamic> _dynamicData = {};
-  List<Achado> _entradasDisponiveis = [];
+  Map<String, dynamic> _currentFormData = {};
 
   static const List<String> _sizeOptions = ['0.5', '1.0', '1.5', '2.0', '2.5', 'Outro'];
   String? _selectedSize;
@@ -70,9 +68,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _currentPhotoPath = m?.photoPath;
     _isInterno = m?.isInterno ?? false;
 
-    final existingDynamic = m?.dadosPreenchidos['dynamicFields'];
+    final existingDynamic = m?.dadosPreenchidos['dados_dinamicos_json'] ?? m?.dadosPreenchidos['dynamicFields'];
     if (existingDynamic is Map<String, dynamic>) {
-      _dynamicData = Map<String, dynamic>.from(existingDynamic);
+      _currentFormData = Map<String, dynamic>.from(existingDynamic);
+    } else if (existingDynamic is Map) {
+      _currentFormData = Map<String, dynamic>.from(existingDynamic);
     }
 
     _loadTypes(initialTypeLabel: m?.type);
@@ -94,10 +94,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   }
 
   Future<void> _loadEntradas() async {
-    try {
-      final entradas = await widget.achadoRepository.getAchadosDeEntradaPorCaso(widget.casoUuid);
-      if (mounted) setState(() => _entradasDisponiveis = entradas);
-    } catch (_) {}
+    // Mantido para não quebrar referências futuras caso precisem (mas sem usar a variável de estado)
   }
 
   Future<void> _loadTypes({String? initialTypeLabel}) async {
@@ -127,7 +124,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
           final autoRelKey = _findAutoRelacionamentoKey();
           if (autoRelKey != null && widget.achadoToEdit?.achadoRelacionadoUuid != null) {
-            _dynamicData[autoRelKey] = widget.achadoToEdit!.achadoRelacionadoUuid;
+            _currentFormData[autoRelKey] = widget.achadoToEdit!.achadoRelacionadoUuid;
           }
         }
       });
@@ -153,17 +150,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     if (!mounted) return;
 
     final mainValid = _formKey.currentState?.validate() ?? false;
-    final dynamicValid = _dynamicFormKey.currentState?.validate() ?? true;
 
-    if (mainValid && dynamicValid) {
-      final dynamicFields = Map<String, dynamic>.from(
-        _dynamicFormKey.currentState?.formData ?? _dynamicData,
-      );
+    if (mainValid) {
+      final dadosDinamicos = Map<String, dynamic>.from(_currentFormData);
 
       String? achadoRelacionadoUuid;
       final autoRelKey = _findAutoRelacionamentoKey();
-      if (autoRelKey != null && dynamicFields.containsKey(autoRelKey)) {
-        achadoRelacionadoUuid = dynamicFields.remove(autoRelKey)?.toString();
+      if (autoRelKey != null && dadosDinamicos.containsKey(autoRelKey)) {
+        achadoRelacionadoUuid = dadosDinamicos.remove(autoRelKey)?.toString();
       }
 
       final data = {
@@ -174,7 +168,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'description': _obsController.text.trim(),
         'photoPath': _currentPhotoPath,
         'isInterno': _isInterno,
-        'dynamicFields': dynamicFields,
+        'dados_dinamicos_json': dadosDinamicos,
         'achadoRelacionadoUuid': achadoRelacionadoUuid,
       };
       Navigator.pop(context, data);
@@ -210,15 +204,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   
                 _buildSectionLabel("NATUREZA DA LESÃO"),
                 _buildTypeDropdown(),
-                if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+                if (_selectedType != null && _currentFormData.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _buildSectionLabel("DETALHES ESPECÍFICOS"),
-                  DynamicFormWidget(
-                    key: _dynamicFormKey,
-                    schema: _selectedType!.schemaFormulario,
-                    initialData: _dynamicData,
-                    entradasDisponiveis: _entradasDisponiveis,
-                    onChanged: (data) => _dynamicData = data,
+                  DynamicFormBuilder(
+                    schema: _currentFormData,
+                    onChanged: (data) {
+                      _currentFormData = data;
+                    },
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -398,7 +391,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               setState(() {
                 _selectedParteCorpo = v;
                 _selectedType = null;
-                _dynamicData = {};
+                _currentFormData = {};
               });
             },
             validator: (v) => v == null ? 'Obrigatório' : null,
@@ -414,7 +407,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
             onChanged: _selectedParteCorpo == null ? null : (v) => setState(() {
               _selectedType = v;
-              _dynamicData = {};
+              _currentFormData = Map<String, dynamic>.from(v?.schemaFormulario ?? {});
             }),
             validator: (v) => v == null ? 'Obrigatório' : null,
           ),
@@ -433,7 +426,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
         onChanged: (v) => setState(() {
           _selectedType = v;
-          _dynamicData = {};
+          _currentFormData = Map<String, dynamic>.from(v?.schemaFormulario ?? {});
         }),
         validator: (v) => v == null ? 'Obrigatório' : null,
       );

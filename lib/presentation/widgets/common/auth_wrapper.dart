@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/login_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
-import 'package:croqui_forense_mvp/presentation/pages/force_change_password_page.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -11,11 +10,10 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (:isLoading, :isLogged, :deveAlterarPin) = context.select(
+    final (:isLoading, :isLogged) = context.select(
       (AuthProvider p) => (
         isLoading: p.isLoading,
         isLogged: p.isLogged,
-        deveAlterarPin: p.usuario?.deveAlterarPin ?? false,
       ),
     );
 
@@ -30,9 +28,6 @@ class AuthWrapper extends StatelessWidget {
 
     if (!isLogged) {
       return const LoginPage();
-    }
-    if (deveAlterarPin) {
-      return const ForceChangePasswordPage();
     }
     return const HomePage();
   }

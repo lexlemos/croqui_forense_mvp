@@ -81,7 +81,6 @@ class UserService {
       roles: [role],
       ativo: true,
       hashPinOffline: hashPin,
-      deveAlterarPin: true,
       salt: salt,
       criadoEm: DateTime.now(),
     );

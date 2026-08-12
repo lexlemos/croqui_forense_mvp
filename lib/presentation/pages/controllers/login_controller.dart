@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
 class LoginController {
   final loginController = TextEditingController();
@@ -34,6 +35,13 @@ class LoginController {
         senhaController.text,
       );
       await provider.saveSavedLogin(loginText);
+      
+      try {
+        final syncService = Provider.of<SyncService>(context, listen: false);
+        await syncService.pullCasos();
+      } catch (e) {
+        debugPrint('Falha silenciosa ao realizar pullCasos pós-login: $e');
+      }
     } on AuthException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {

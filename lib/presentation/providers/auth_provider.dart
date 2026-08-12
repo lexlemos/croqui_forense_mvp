@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
-import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
@@ -113,19 +112,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> atualizarSenhaPrimeiroAcesso(String novaSenha) async {
-    if (_usuario == null) throw const AuthException("Nenhum usuário logado");
-
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _authService.alterarSenhaObrigatoria(_usuario!, novaSenha);
-      _usuario = _authService.usuario;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
 
   Future<void> saveSavedLogin(String login) async {
     await _authService.saveSavedLogin(login);

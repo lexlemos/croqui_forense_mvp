@@ -252,7 +252,7 @@ class CroquiController extends ChangeNotifier {
         'depth': depth,
         'photo_path': finalPhotoPath,
         'is_interno': isInterno,
-        if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
+        if (result['dados_dinamicos_json'] is Map) 'dados_dinamicos_json': result['dados_dinamicos_json'],
       };
 
       final String diagramaCasoUuid = _toDeterministicUuidV4(casoAtual.uuid, viewType);
@@ -345,8 +345,8 @@ class CroquiController extends ChangeNotifier {
       novosDados['depth'] = depth;
       novosDados['photo_path'] = finalPhotoPath;
       novosDados['is_interno'] = isInterno;
-      if (result['dynamicFields'] is Map) {
-        novosDados['dynamicFields'] = result['dynamicFields'];
+      if (result['dados_dinamicos_json'] is Map) {
+        novosDados['dados_dinamicos_json'] = result['dados_dinamicos_json'];
       }
 
       final achadoAtualizado = achado.copyWith(

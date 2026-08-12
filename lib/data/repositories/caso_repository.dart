@@ -74,6 +74,136 @@ class CasoRepository implements ISyncRepository {
     }
   }
 
+  /// Motor de Upsert (Sincronização Pull). Resolve conflitos verificando o [atualizado_em] e lida com Tombstones.
+  @override
+  Future<void> upsertCasoTransaction(Map<String, dynamic> jsonCaso) async {
+    final db = await database;
+    try {
+      await db.transaction((txn) async {
+        final casoBackend = Caso.fromMap(jsonCaso);
+        
+        final localRow = await txn.query(
+          tableCasos,
+          where: 'uuid = ?',
+          whereArgs: [casoBackend.uuid],
+          limit: 1,
+        );
+
+        bool deveAtualizarCaso = true;
+        
+        if (localRow.isNotEmpty) {
+          final localAtualizadoEmStr = localRow.first['atualizado_em']?.toString();
+          final localAtualizadoEm = localAtualizadoEmStr != null ? DateTime.tryParse(localAtualizadoEmStr) : null;
+          final backendAtualizadoEm = casoBackend.atualizadoEm;
+          
+          if (localAtualizadoEm != null && backendAtualizadoEm != null) {
+            if (!backendAtualizadoEm.isAfter(localAtualizadoEm)) {
+              deveAtualizarCaso = false;
+            }
+          }
+        }
+
+        if (deveAtualizarCaso) {
+          Map<String, dynamic> mapParaSalvar = casoBackend.toMap();
+          if (jsonCaso['removido'] == true) {
+            mapParaSalvar['removido'] = 1;
+          }
+          
+          if (localRow.isEmpty) {
+            await txn.insert(tableCasos, mapParaSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
+          } else {
+            await txn.update(tableCasos, mapParaSalvar, where: 'uuid = ?', whereArgs: [casoBackend.uuid]);
+          }
+        }
+
+        if (jsonCaso['achados'] is List) {
+          final achadosList = jsonCaso['achados'] as List;
+          for (final achadoJson in achadosList) {
+             final achadoBackend = Achado.fromMap(achadoJson as Map<String, dynamic>);
+             
+             final localAchadoRow = await txn.query(
+               tableAchados,
+               where: 'uuid = ?',
+               whereArgs: [achadoBackend.uuid],
+               limit: 1,
+             );
+
+             bool deveAtualizarAchado = true;
+             
+             if (localAchadoRow.isNotEmpty) {
+               final localAchadoAtualizadoEmStr = localAchadoRow.first['atualizado_em']?.toString();
+               final localAchadoAtualizadoEm = localAchadoAtualizadoEmStr != null ? DateTime.tryParse(localAchadoAtualizadoEmStr) : null;
+               final backendAchadoAtualizadoEm = achadoBackend.atualizadoEm;
+               
+               if (localAchadoAtualizadoEm != null && backendAchadoAtualizadoEm != null) {
+                 if (!backendAchadoAtualizadoEm.isAfter(localAchadoAtualizadoEm)) {
+                   deveAtualizarAchado = false;
+                 }
+               }
+             }
+
+             if (deveAtualizarAchado) {
+               Map<String, dynamic> mapAchadoSalvar = achadoBackend.toMap();
+               if (achadoJson['removido'] == true) {
+                 mapAchadoSalvar['removido'] = 1;
+               }
+               
+               if (localAchadoRow.isEmpty) {
+                 await txn.insert(tableAchados, mapAchadoSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
+               } else {
+                 await txn.update(tableAchados, mapAchadoSalvar, where: 'uuid = ?', whereArgs: [achadoBackend.uuid]);
+               }
+             }
+          }
+        }
+
+        if (jsonCaso['evidencias_multimidia'] is List) {
+          final evidenciasList = jsonCaso['evidencias_multimidia'] as List;
+          for (final evJson in evidenciasList) {
+             final evBackend = EvidenciaMultimidia.fromMap(evJson as Map<String, dynamic>);
+             
+             final localEvRow = await txn.query(
+               tableEvidenciasMultimidia,
+               where: 'uuid = ?',
+               whereArgs: [evBackend.uuid],
+               limit: 1,
+             );
+
+             bool deveAtualizarEv = true;
+             
+             if (localEvRow.isNotEmpty) {
+               final localEvAtualizadoEmStr = localEvRow.first['atualizado_em']?.toString();
+               final localEvAtualizadoEm = localEvAtualizadoEmStr != null ? DateTime.tryParse(localEvAtualizadoEmStr) : null;
+               final backendEvAtualizadoEm = evBackend.atualizadoEm;
+               
+               if (localEvAtualizadoEm != null && backendEvAtualizadoEm != null) {
+                 if (!backendEvAtualizadoEm.isAfter(localEvAtualizadoEm)) {
+                   deveAtualizarEv = false;
+                 }
+               }
+             }
+
+             if (deveAtualizarEv) {
+               Map<String, dynamic> mapEvSalvar = evBackend.toMap();
+               if (evJson['removido'] == true) {
+                 mapEvSalvar['removido'] = 1;
+               }
+               
+               if (localEvRow.isEmpty) {
+                 await txn.insert(tableEvidenciasMultimidia, mapEvSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
+               } else {
+                 await txn.update(tableEvidenciasMultimidia, mapEvSalvar, where: 'uuid = ?', whereArgs: [evBackend.uuid]);
+               }
+             }
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction: $e');
+      throw Exception('Erro de persistência atômica no Upsert: $e');
+    }
+  }
+
   Future<void> updateCase(Caso caso) async {
     final db = await database;
     try {

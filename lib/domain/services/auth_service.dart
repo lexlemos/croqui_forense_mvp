@@ -109,6 +109,7 @@ class AuthService {
         await _keyStorage.save(key: 'refresh_token', value: refreshToken);
       }
       await _keyStorage.save(key: 'user_id', value: userId);
+      await _keyStorage.save(key: 'last_user_id', value: userId);
 
       final credenciais = _gerarCredenciaisEmBackground(senha);
 
@@ -139,7 +140,6 @@ class AuthService {
         ativo: true,
         hashPinOffline: credenciais['hash']!,
         salt: credenciais['salt']!,
-        deveAlterarPin: perfil['deve_alterar_pin'] == true || perfil['deve_alterar_pin'] == 1,
         criadoEm: DateTime.now(),
         deviceId: perfil['device_id']?.toString(),
       );
@@ -155,6 +155,11 @@ class AuthService {
         final localUsuario = await _usuarioRepository.getUsuarioByMatricula(login);
         if (localUsuario == null) {
           throw const AuthException('Dispositivo offline e sem dados locais armazenados para este usuário.');
+        }
+
+        final String? lastUserId = await _keyStorage.read(key: 'last_user_id');
+        if (lastUserId == null || localUsuario.id != lastUserId) {
+          throw const AuthException('O login offline só é permitido para o último usuário autenticado neste dispositivo.');
         }
 
         if (localUsuario.ativo == false) {
@@ -237,29 +242,7 @@ class AuthService {
     }
   }
 
-  /// Efetua a troca obrigatória de senha do [Perito].
-  ///
-  /// Envia a nova senha cifrada para atualização no servidor central e, após confirmação remota,
-  /// calcula a derivação da credencial (hash e salt) em segundo plano para persistir a nova chave
-  /// de validação local no banco de dados do dispositivo.
-  ///
-  /// @throws [AuthException] se ocorrer falha de conectividade com a rede ou se a alteração for
-  /// rejeitada pelas políticas de segurança do servidor.
-  Future<void> alterarSenhaObrigatoria(Usuario usuario, String novaSenha) async {
-    await _remoteDataSource.alterarSenha(usuario.id, novaSenha);
 
-    final resultado = await compute(_gerarCredenciaisEmBackground, novaSenha);
-
-    await _usuarioRepository.updatePin(
-      usuario.id,
-      resultado['hash']!,
-      resultado['salt']!,
-    );
-
-    if (_usuarioLogado != null && _usuarioLogado!.id == usuario.id) {
-      _usuarioLogado = _usuarioLogado!.copyWith(deveAlterarPin: false);
-    }
-  }
 
   Future<void> saveSavedLogin(String login) async {
     await _keyStorage.save(key: 'saved_login', value: login);

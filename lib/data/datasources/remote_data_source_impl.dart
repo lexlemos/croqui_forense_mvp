@@ -41,20 +41,6 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     }
   }
 
-  @override
-  Future<void> alterarSenha(String usuarioId, String novaSenha) async {
-    try {
-      await _apiClient.dio.put(
-        'croqui/auth/$usuarioId/senha',
-        data: {'nova_senha': novaSenha},
-      );
-    } on DioException catch (e) {
-      throw AuthException(
-        'Não foi possível alterar a senha no servidor. '
-        'Verifique sua conexão e tente novamente. (${e.type.name})',
-      );
-    }
-  }
 
   @override
   Future<List<Map<String, dynamic>>> getTiposAchados() async {
@@ -109,6 +95,29 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         'Falha de rede no push textual: ${e.message}',
         statusCode: e.response?.statusCode,
       );
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> pullCasos() async {
+    try {
+      final response = await _apiClient.dio.get('croqui/sync/pull');
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception('Resposta inesperada do servidor ao tentar puxar os casos.');
+      }
+      final data = response.data;
+      if (data is Map && data.containsKey('casos')) {
+        final list = data['casos'] as List<dynamic>;
+        return list.map((e) => e as Map<String, dynamic>).toList();
+      } else if (data is List) {
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        throw const AuthException('Sessão expirada. Autentique-se novamente.');
+      }
+      throw Exception('Falha na rede ao sincronizar casos (pull): ${e.message}');
     }
   }
 
