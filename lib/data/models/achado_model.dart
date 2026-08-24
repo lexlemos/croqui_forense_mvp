@@ -79,6 +79,40 @@ class Achado {
        deviceId = null;
 
   factory Achado.fromMap(Map<String, dynamic> map) {
+    final Map<String, dynamic> dados = map['dados_preenchidos_json'] != null
+        ? (map['dados_preenchidos_json'] is Map
+            ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
+            : Map<String, dynamic>.from((() {
+                try {
+                  return jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {};
+                } catch (_) {
+                  return {};
+                }
+              })()))
+        : <String, dynamic>{};
+
+    if (!dados.containsKey('photo_path') || dados['photo_path'] == null || dados['photo_path'].toString().isEmpty) {
+      final rawEvidencias = map['evidencias_multimidia'] ?? map['evidencias'];
+      if (rawEvidencias is List && rawEvidencias.isNotEmpty) {
+        final firstEv = rawEvidencias.first;
+        if (firstEv is Map) {
+          final photoUrl = firstEv['caminho_arquivo_encriptado']?.toString() ??
+              firstEv['url']?.toString() ??
+              firstEv['path']?.toString();
+          if (photoUrl != null && photoUrl.isNotEmpty) {
+            dados['photo_path'] = photoUrl;
+          }
+        }
+      } else {
+        final photoDirect = map['photo_path']?.toString() ??
+            map['caminho_arquivo_encriptado']?.toString() ??
+            map['url']?.toString();
+        if (photoDirect != null && photoDirect.isNotEmpty) {
+          dados['photo_path'] = photoDirect;
+        }
+      }
+    }
+
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
       casoUuid: map['caso_uuid']?.toString() ?? '',
@@ -92,11 +126,7 @@ class Achado {
       isInterno: map['is_interno'] is bool 
           ? map['is_interno'] as bool 
           : (map['is_interno'] as int? ?? 0) == 1,
-      dadosPreenchidos: map['dados_preenchidos_json'] != null
-          ? (map['dados_preenchidos_json'] is Map
-              ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
-              : Map<String, dynamic>.from(jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {}))
-          : const {},
+      dadosPreenchidos: dados,
       observacoesTexto: map['observacoes_texto']?.toString(),
       removido: map['removido'] is bool 
           ? map['removido'] as bool 

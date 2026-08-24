@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'package:path/path.dart' as p;
 
 class EvidenciaMultimidia {
   final String uuid;
@@ -38,7 +39,9 @@ class EvidenciaMultimidia {
     this.caminhoArquivoEncriptado,
     this.hashArquivo,
     this.descricao,
-  })  : uuid = const Uuid().v4(),
+  })  : uuid = (caminhoArquivoEncriptado != null && caminhoArquivoEncriptado.isNotEmpty && !caminhoArquivoEncriptado.startsWith('http')) 
+            ? p.basenameWithoutExtension(caminhoArquivoEncriptado) 
+            : const Uuid().v4(),
         substituidaPor = null,
         fotoSincronizada = false,
         removido = false,
@@ -47,17 +50,23 @@ class EvidenciaMultimidia {
         atualizadoEm = null;
 
   factory EvidenciaMultimidia.fromMap(Map<String, dynamic> map) {
+    final pathOrUrl = map['caminho_arquivo_encriptado']?.toString() ??
+        map['url']?.toString() ??
+        map['path']?.toString() ??
+        map['url_foto']?.toString() ??
+        map['url_arquivo']?.toString();
+
     return EvidenciaMultimidia(
       uuid: map['uuid']?.toString() ?? '',
       casoUuid: map['caso_uuid']?.toString() ?? '',
       achadoUuid: map['achado_uuid']?.toString(),
       substituidaPor: map['substituida_por']?.toString(),
       tipo: map['tipo']?.toString() ?? 'ACHADO',
-      caminhoArquivoEncriptado: map['caminho_arquivo_encriptado']?.toString(),
+      caminhoArquivoEncriptado: pathOrUrl,
       hashArquivo: map['hash_arquivo']?.toString(),
       fotoSincronizada: map['foto_sincronizada'] is bool
           ? map['foto_sincronizada'] as bool
-          : (map['foto_sincronizada'] as int? ?? 0) == 1,
+          : (map['foto_sincronizada'] as int? ?? 1) == 1,
       removido: map['removido'] is bool
           ? map['removido'] as bool
           : (map['removido'] as int? ?? 0) == 1,

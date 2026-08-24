@@ -10,6 +10,8 @@ class Usuario {
   final String? salt;
   final DateTime criadoEm;
   final String? deviceId;
+  final String? crm;
+  final String? classe;
 
   Usuario({
     required this.id,
@@ -21,6 +23,8 @@ class Usuario {
     required this.criadoEm,
     this.salt,
     this.deviceId,
+    this.crm,
+    this.classe,
   });
 
   bool hasRole(String roleName) {
@@ -41,6 +45,8 @@ class Usuario {
     String? salt,
     DateTime? criadoEm,
     String? deviceId,
+    String? crm,
+    String? classe,
   }) {
     return Usuario(
       id: id ?? this.id,
@@ -52,6 +58,8 @@ class Usuario {
       salt: salt ?? this.salt,
       criadoEm: criadoEm ?? this.criadoEm,
       deviceId: deviceId ?? this.deviceId,
+      crm: crm ?? this.crm,
+      classe: classe ?? this.classe,
     );
   }
 
@@ -85,6 +93,8 @@ class Usuario {
       ativo: (map['ativo'] as int? ?? 0) == 1 || map['ativo'] == true,
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
       deviceId: map['device_id']?.toString(),
+      crm: map['crm']?.toString(),
+      classe: map['classe']?.toString(),
     );
   }
 
@@ -99,6 +109,8 @@ class Usuario {
       'criado_em': criadoEm.toIso8601String(),
       'salt': salt,
       'device_id': deviceId,
+      'crm': crm,
+      'classe': classe,
     };
   }
 }

@@ -160,10 +160,15 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
   Widget _getSvgBackground() {
     _cachedSvg ??= RepaintBoundary(
-      child: SvgPicture.asset(
-        widget.svgPath,
-        fit: BoxFit.fill,
-      ),
+      child: widget.svgPath.toLowerCase().endsWith('.svg')
+          ? SvgPicture.asset(
+              widget.svgPath,
+              fit: BoxFit.fill,
+            )
+          : Image.asset(
+              widget.svgPath,
+              fit: BoxFit.fill,
+            ),
     );
     return _cachedSvg!;
   }

@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class EvidenciaFotoCard extends StatelessWidget {
   final String path;
@@ -51,10 +51,7 @@ class EvidenciaFotoCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Image.file(
-                      File(path),
-                      fit: BoxFit.cover,
-                    ),
+                    child: ImageResolver.buildImage(path, fit: BoxFit.cover),
                   ),
                   if (!readOnly && onDelete != null)
                     Positioned(

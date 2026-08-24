@@ -11,9 +11,9 @@ import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
 bool _verificarPinEmBackground(Map<String, String> dados) {
-  final pin = dados['pin']!;
-  final hash = dados['hash']!;
-  final salt = dados['salt']!;
+  final pin = dados['pin'] ?? '';
+  final hash = dados['hash'] ?? '';
+  final salt = dados['salt'] ?? '';
   return SecurityHelper.verifyPin(pin, hash, salt);
 }
 
@@ -105,6 +105,8 @@ class AuthService {
       }
 
       await _keyStorage.save(key: 'access_token', value: accessToken);
+      _remoteDataSource.setBearerToken(accessToken);
+
       if (refreshToken != null) {
         await _keyStorage.save(key: 'refresh_token', value: refreshToken);
       }
@@ -138,8 +140,8 @@ class AuthService {
         nomeCompleto: nomeCompleto,
         roles: roles,
         ativo: true,
-        hashPinOffline: credenciais['hash']!,
-        salt: credenciais['salt']!,
+        hashPinOffline: credenciais['hash'] ?? '',
+        salt: credenciais['salt'] ?? '',
         criadoEm: DateTime.now(),
         deviceId: perfil['device_id']?.toString(),
       );
@@ -172,8 +174,8 @@ class AuthService {
 
         final bool isPinValido = await compute(_verificarPinEmBackground, {
           'pin': senha,
-          'hash': localUsuario.hashPinOffline!,
-          'salt': localUsuario.salt!,
+          'hash': localUsuario.hashPinOffline ?? '',
+          'salt': localUsuario.salt ?? '',
         });
 
         if (!isPinValido) {
@@ -241,6 +243,7 @@ class AuthService {
       await logout();
     }
   }
+
 
 
 

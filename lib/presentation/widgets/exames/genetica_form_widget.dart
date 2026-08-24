@@ -144,7 +144,7 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.teal.shade200),
       ),
-      color: Colors.teal.shade50.withOpacity(0.3),
+      color: Colors.teal.shade50.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

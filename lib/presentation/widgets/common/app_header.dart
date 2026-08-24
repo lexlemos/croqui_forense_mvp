@@ -43,7 +43,7 @@ class AppHeader extends StatelessWidget {
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Color(0xFFF0F0F0)),
+                  side: const BorderSide(color: AppColors.headerBorder),
                 ),
                 elevation: 10,
               ),
@@ -56,10 +56,10 @@ class AppHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE1E1E1)),
+                  border: Border.all(color: AppColors.headerIconBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -161,9 +161,9 @@ class AppHeader extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
+                color: AppColors.avatarBg,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE0E0E0)),
+                border: Border.all(color: AppColors.avatarBorder),
               ),
               alignment: Alignment.center,
               child: Text(

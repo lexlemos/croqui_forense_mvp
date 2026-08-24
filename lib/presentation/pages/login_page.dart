@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/login_controller.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -113,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: FilledButton(
                                 onPressed: isLoading ? null : () => _controller.submitLogin(context),
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1A237E),
+                                  backgroundColor: AppColors.loginButtonBg,
                                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),

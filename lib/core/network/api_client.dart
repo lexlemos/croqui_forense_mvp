@@ -1,13 +1,12 @@
 
 import 'package:dio/dio.dart';
+import 'package:sentry_dio/sentry_dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 
-const String _kBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://192.168.15.3:8000/api/v1/',
-);
+final String _kBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.15.88:8000/api/v1/';
 const Duration _kConnectTimeout = Duration(seconds: 8);
 const Duration _kDataTimeout = Duration(seconds: 8);
 
@@ -19,17 +18,22 @@ class SessionExpiredException implements Exception {
 class AuthInterceptor extends QueuedInterceptor {
   final KeyStorageInterface _keyStorage;
   final Dio _dio;
+  final String? Function() _getTokenMemoria;
   final VoidCallback? _onSessionExpired;
 
-  AuthInterceptor(this._keyStorage, this._dio, {VoidCallback? onSessionExpired})
-      : _onSessionExpired = onSessionExpired;
+  AuthInterceptor(
+    this._keyStorage, 
+    this._dio, 
+    this._getTokenMemoria, 
+    {VoidCallback? onSessionExpired}
+  ) : _onSessionExpired = onSessionExpired;
 
   @override
   Future<void> onRequest( 
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await _keyStorage.read(key: 'access_token');
+    final token = _getTokenMemoria() ?? await _keyStorage.read(key: 'access_token');
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -157,12 +161,13 @@ class AuthInterceptor extends QueuedInterceptor {
 class ApiClient {
   late final Dio dio;
   final KeyStorageInterface _keyStorage;
+  String? _bearerTokenMemoria;
 
   VoidCallback? onSessionExpired;
 
-  ApiClient(this._keyStorage, {String baseUrl = _kBaseUrl}) {
+  ApiClient(this._keyStorage, {String? baseUrl}) {
     final baseOptions = BaseOptions(
-      baseUrl: baseUrl,
+      baseUrl: baseUrl ?? _kBaseUrl,
       connectTimeout: _kConnectTimeout,
       receiveTimeout: _kDataTimeout,
       sendTimeout: _kDataTimeout,
@@ -173,7 +178,13 @@ class ApiClient {
     );
 
     dio = Dio(baseOptions);
+    dio.transformer = BackgroundTransformer();
     _configureInterceptors();
+  }
+
+  void setBearerToken(String token) {
+    _bearerTokenMemoria = token;
+    dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
   void _configureInterceptors() {
@@ -181,6 +192,7 @@ class ApiClient {
       AuthInterceptor(
         _keyStorage,
         dio,
+        () => _bearerTokenMemoria,
         onSessionExpired: () => onSessionExpired?.call(),
       ),
       if (kDebugMode)
@@ -212,5 +224,6 @@ class ApiClient {
           },
         ),
     ]);
+    dio.addSentry();
   }
 }

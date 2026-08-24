@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 15;
+const int kDatabaseVersion = 17;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -105,6 +105,7 @@ CREATE TABLE casos (
     requisitante TEXT,
     atn_responsavel TEXT,
     atn_id TEXT,
+    atns_ids TEXT,
     pdf_local_path TEXT,
     pdf_url TEXT,
     is_draft_synced INTEGER DEFAULT 0,
@@ -256,6 +257,7 @@ CREATE TABLE log_auditoria (
 const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);',
   'CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);',
+  'CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);',
   'CREATE INDEX idx_achados_caso ON achados (caso_uuid);',
   'CREATE INDEX idx_achados_tipo ON achados (tipo_achado_id);',
   'CREATE INDEX idx_achados_relacionado ON achados (achado_relacionado_uuid);',

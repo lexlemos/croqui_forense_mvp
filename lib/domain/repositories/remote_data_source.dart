@@ -36,7 +36,7 @@ abstract interface class IRemoteDataSource {
   /// Sincroniza (Puxa) os casos da base central para o aplicativo,
   /// permitindo o uso em múltiplos tablets e restaurando o trabalho
   /// (inclui Lápides / Registros Removidos).
-  Future<List<Map<String, dynamic>>> pullCasos();
+  Future<List<Map<String, dynamic>>> pullCasos({String? lastSyncTimestamp});
 
   /// Transmite uma Evidência Fotográfica associada a uma lesão, 
   /// garantindo a Cadeia de Custódia.
@@ -60,4 +60,7 @@ abstract interface class IRemoteDataSource {
     required String casoUuid,
     required String filePath,
   });
+
+  /// Configura o token Bearer de forma síncrona na memória do cliente HTTP.
+  void setBearerToken(String token);
 }

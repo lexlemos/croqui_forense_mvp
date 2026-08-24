@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -55,8 +56,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
       );
       
       if (photo != null) {
+        final String fotoUuid = const Uuid().v4();
         final originalFile = File(photo.path);
-        final File compressedFile = await ImageHelper.compressImage(originalFile);
+        final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
         
         try {
           if (await originalFile.exists()) await originalFile.delete();
@@ -84,6 +86,96 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         ),
       );
     }
+  }
+
+  Future<void> _abrirSeletorAtn(BuildContext context, CroquiController controller, List<String> currentSelected, List<AtnModel> atns) async {
+    final List<String> tempSelected = List.from(currentSelected);
+    await showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      builder: (ctx) {
+        List filteredAtns = List.from(atns);
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              bottom: true,
+              child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Selecione A.T.N.s (Máximo 4)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar A.T.N...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final term = value.trim().toLowerCase();
+                      setModalState(() {
+                        if (term.isEmpty) {
+                          filteredAtns = List.from(atns);
+                        } else {
+                          filteredAtns = atns.where((a) => a.nome.toLowerCase().contains(term)).toList();
+                        }
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredAtns.length,
+                    itemBuilder: (ctx, index) {
+                      final atn = filteredAtns[index];
+                      final isSelected = tempSelected.contains(atn.id);
+                      return CheckboxListTile(
+                        title: Text(atn.nome),
+                        value: isSelected,
+                        onChanged: (val) {
+                          if (val == true) {
+                            if (tempSelected.length >= 4) {
+                              globalMessengerKey.currentState?.showSnackBar(
+                                const SnackBar(content: Text("Você já selecionou o limite de 4 A.T.N.s.")),
+                              );
+                              return;
+                            }
+                            setModalState(() => tempSelected.add(atn.id));
+                          } else {
+                            setModalState(() => tempSelected.remove(atn.id));
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 16.0,
+                    right: 16.0,
+                    top: 16.0,
+                    bottom: 16.0,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                      onPressed: () {
+                        controller.atualizarAtnsResponsaveis(tempSelected);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Confirmar'),
+                    ),
+                  ),
+                )
+              ],
+            ));
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -123,52 +215,43 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 12),
             Builder(
               builder: (context) {
-                final selectedAtnId = controller.casoAtual.atnId;
-                final selectedAtnNome = controller.casoAtual.atnResponsavel;
-                final List<AtnModel> rawAtns = controller.atns;
-                final List<AtnModel> atnsExibicao = List.from(rawAtns);
+                final List<String> selectedAtnsIds = controller.casoAtual.atnsIds;
+                final List<AtnModel> atnsExibicao = controller.atns;
 
-                AtnModel? matchedAtn;
-                if (selectedAtnId != null && selectedAtnId.isNotEmpty) {
-                  matchedAtn = atnsExibicao.where((a) => a.id == selectedAtnId).firstOrNull;
-                }
-                if (matchedAtn == null && selectedAtnNome != null && selectedAtnNome.isNotEmpty) {
-                  matchedAtn = atnsExibicao.where((a) => a.nome == selectedAtnNome).firstOrNull;
-                }
-
-                if (matchedAtn == null && ((selectedAtnId != null && selectedAtnId.isNotEmpty) || (selectedAtnNome != null && selectedAtnNome.isNotEmpty))) {
-                  final String fallbackId = selectedAtnId ?? selectedAtnNome!;
-                  final String fallbackNome = selectedAtnNome ?? selectedAtnId!;
-                  matchedAtn = AtnModel(id: fallbackId, nome: fallbackNome, ativo: false);
-                  atnsExibicao.add(matchedAtn);
-                }
-
-                final String? dropdownValue = matchedAtn?.id;
-
-                return DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: "A.T.N. Responsável",
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    enabled: !readOnly,
-                  ),
-                  value: (dropdownValue != null && atnsExibicao.any((a) => a.id == dropdownValue))
-                      ? dropdownValue
-                      : null,
-                  items: atnsExibicao.map((atn) {
-                    final bool isAtivo = atn.ativo;
-                    final String labelText = isAtivo ? atn.nome : "${atn.nome} (Inativo)";
-                    return DropdownMenuItem<String>(
-                      value: atn.id,
-                      child: Text(labelText),
-                    );
-                  }).toList(),
-                  onChanged: readOnly
-                      ? null
-                      : (val) {
-                          final selectedObj = atnsExibicao.where((a) => a.id == val).firstOrNull;
-                          controller.atualizarAtnResponsavel(val, selectedObj?.nome);
-                        },
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("A.T.N.s Responsáveis", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 15)),
+                        if (!readOnly)
+                          TextButton.icon(
+                            onPressed: () => _abrirSeletorAtn(context, controller, selectedAtnsIds, atnsExibicao),
+                            icon: const Icon(Icons.add),
+                            label: const Text("Adicionar A.T.N"),
+                          )
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (selectedAtnsIds.isEmpty)
+                      const Text("Nenhum A.T.N selecionado", style: TextStyle(color: Colors.grey))
+                    else
+                      Wrap(
+                        spacing: 8,
+                        children: selectedAtnsIds.map((atnId) {
+                          final atn = atnsExibicao.firstWhere((a) => a.id == atnId, orElse: () => AtnModel(id: atnId, nome: "ATN Desconhecido", ativo: false));
+                          return Chip(
+                            label: Text(atn.nome),
+                            deleteIcon: readOnly ? null : const Icon(Icons.close, size: 18),
+                            onDeleted: readOnly ? null : () {
+                              final novosAtns = List<String>.from(selectedAtnsIds)..remove(atnId);
+                              controller.atualizarAtnsResponsaveis(novosAtns);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                  ],
                 );
               },
             ),
@@ -275,7 +358,60 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   const Divider(),
                   const SizedBox(height: 10),
                   _buildTextField("1. Houve Morte?", controller.quesito1Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("2. Qual a Causa?", controller.quesito2Ctrl, readOnly: readOnly, required: true),
+                  const SizedBox(height: 16),
+                  const Text("2. Qual a Causa?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.indigo)),
+                  const SizedBox(height: 8),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: controller.causasMorteCtrls.length,
+                    itemBuilder: (context, index) {
+                      final causaCtrl = controller.causasMorteCtrls[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.grey.shade300)
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("Causa #${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                                  if (!readOnly && controller.causasMorteCtrls.length > 1)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      onPressed: () => controller.removerCausaMorte(index),
+                                      tooltip: "Remover esta causa",
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              _buildTextField("Imediata", causaCtrl.imediataCtrl, readOnly: readOnly, required: true),
+                              _buildTextField("Devido a", causaCtrl.devidoACtrl, readOnly: readOnly, required: true),
+                              _buildTextField("Consequência", causaCtrl.consequenciaCtrl, readOnly: readOnly, required: true),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (!readOnly)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text("Adicionar Causa da Morte"),
+                        style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                        onPressed: () => controller.adicionarCausaMorte(),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
                   _buildTextField("3. Qual o Instrumento?", controller.quesito3Ctrl, readOnly: readOnly, required: true),
                   _buildTextField("4. Qual o Meio?", controller.quesito4Ctrl, readOnly: readOnly, required: true),
                 ],
@@ -444,4 +580,4 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
+

@@ -29,7 +29,7 @@ const List<BodyPartDefinition> kTrunkRightBodyPartsList = [
 ];
 
 final Map<int, String> kColorToIdTrunkRightMap = {
-  for (var part in kTrunkRightBodyPartsList) part.color.value: part.id,
+  for (var part in kTrunkRightBodyPartsList) part.color.toARGB32(): part.id,
 };
 
 final Map<String, BodyPartDefinition> kIdToDefinitionTrunkRightMap = {

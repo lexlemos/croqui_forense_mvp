@@ -27,7 +27,8 @@ class DeviceInfoService {
   /// @throws Exception Se ocorrer uma falha física de acesso de I/O ao chaveiro seguro do sistema
   /// operacional (ex: Keystore no Android ou Keychain no iOS) impossibilitando a leitura ou gravação.
   static Future<String> getDeviceId() async {
-    if (_cachedDeviceId != null) return _cachedDeviceId!;
+    final cached = _cachedDeviceId;
+    if (cached != null) return cached;
 
     String? stored = await _storage.read(key: _key);
     if (stored == null || stored.isEmpty) {

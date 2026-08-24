@@ -66,6 +66,7 @@ class CaseService {
     String nomeVitima = '',
     String destino = '',
     String requisitante = '',
+    List<String> atnsIds = const [],
   }) async {
     final novoCaso = Caso.novo(
       idUsuarioCriador: criador.id, 
@@ -77,6 +78,7 @@ class CaseService {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
+      atnsIds: atnsIds,
     );
     await _repository.insertCase(novoCaso);
     return novoCaso;
@@ -86,8 +88,8 @@ class CaseService {
     await _repository.insertCaseComEvidenciasLote(caso, evidencias);
   }
 
-  /// Retorna todos os [Caso]s (Laudos) gravados no repositório local.
-  Future<List<Caso>> listarCasos() async => await _repository.getAllCases();
+  /// Retorna todos os [Caso]s (Laudos) do usuário logado gravados no repositório local.
+  Future<List<Caso>> listarCasos(String usuarioId) async => await _repository.getAllCases(usuarioId);
 
   /// Localiza um [Caso] (Laudo) específico com base em seu identificador universal único ([uuid]).
   Future<Caso?> buscarCasoPorUuid(String uuid) async => _repository.getCaseByUuid(uuid);
@@ -202,6 +204,20 @@ class CaseService {
     await _repository.updateCase(casoAtualizado);
   }
 
+  /// Atualiza exclusivamente o caminho físico local do PDF gerado.
+  /// 
+  /// Utilizado pelo PdfReportService para registrar onde o arquivo PDF final foi salvo no disco.
+  /// Isso contorna a trava de 'rascunho' intencionalmente, visto que gerar/exportar
+  /// o PDF não altera as respostas periciais e, logo, não fere a segurança jurídica
+  /// de um caso finalizado.
+  Future<void> atualizarCaminhoPdf(String casoUuid, String pdfPath) async {
+    final casoExistente = await _repository.getCaseByUuid(casoUuid);
+    if (casoExistente == null) throw Exception('Caso não encontrado: $casoUuid');
+
+    final casoAtualizado = casoExistente.copyWith(pdfLocalPath: pdfPath);
+    await _repository.updateCase(casoAtualizado);
+  }
+
   /// Exporta o [Caso] (Laudo) em um arquivo JSON consolidado para auditoria externa.
   ///
   /// Realiza a conversão de todas as [Evidência Fotográfica]s cadastradas para codificação Base64.
@@ -306,7 +322,7 @@ class CaseService {
     final conclusao = dados['conclusao'] ?? {};
     return {
       '1_houve_morte': conclusao['quesito_1_morte'],
-      '2_qual_causa': conclusao['quesito_2_causa'],
+      '2_qual_causa': conclusao['causas_morte'] ?? conclusao['quesito_2_causa'],
       '3_qual_instrumento': conclusao['quesito_3_instrumento'],
       '4_qual_meio': conclusao['quesito_4_meio'],
     };

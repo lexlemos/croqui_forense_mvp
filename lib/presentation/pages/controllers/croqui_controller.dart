@@ -22,6 +22,7 @@ import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
+
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
@@ -38,6 +39,26 @@ import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart' as trun
 import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart' as trunk_left;
 import 'package:croqui_forense_mvp/core/constants/perineal_data.dart' as perineal;
 
+class CausaMorteControllers {
+  final TextEditingController imediataCtrl;
+  final TextEditingController devidoACtrl;
+  final TextEditingController consequenciaCtrl;
+
+  CausaMorteControllers({
+    String imediata = '',
+    String devidoA = '',
+    String consequencia = '',
+  })  : imediataCtrl = TextEditingController(text: imediata),
+        devidoACtrl = TextEditingController(text: devidoA),
+        consequenciaCtrl = TextEditingController(text: consequencia);
+
+  void dispose() {
+    imediataCtrl.dispose();
+    devidoACtrl.dispose();
+    consequenciaCtrl.dispose();
+  }
+}
+
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
@@ -53,7 +74,7 @@ class CroquiController extends ChangeNotifier {
   List<ExameSolicitadoModel> examesSolicitadosModel = [];
   List<AtnModel> atns = [];
   bool isLoading = false;
-  bool _isExporting = false;
+  final bool _isExporting = false;
   bool get isExporting => _isExporting;
 
   bool _isProcessing = false;
@@ -86,7 +107,7 @@ class CroquiController extends ChangeNotifier {
   late final TextEditingController discussaoCtrl;
   late final TextEditingController conclusaoCtrl;
   late final TextEditingController quesito1Ctrl;
-  late final TextEditingController quesito2Ctrl;
+  List<CausaMorteControllers> causasMorteCtrls = [];
   late final TextEditingController quesito3Ctrl;
   late final TextEditingController quesito4Ctrl;
 
@@ -130,9 +151,41 @@ class CroquiController extends ChangeNotifier {
     conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
 
     quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
-    quesito2Ctrl = TextEditingController(text: dados['conclusao']?['quesito_2_causa'] ?? '');
+    
+    if (dados['conclusao']?['causas_morte'] != null) {
+      final List<dynamic> causasList = dados['conclusao']!['causas_morte'];
+      causasMorteCtrls = causasList.map((e) {
+        final map = Map<String, dynamic>.from(e);
+        return CausaMorteControllers(
+          imediata: map['imediata'] ?? '',
+          devidoA: map['devido_a'] ?? '',
+          consequencia: map['consequencia'] ?? '',
+        );
+      }).toList();
+    } else {
+      // Fallback para o antigo formato
+      String causaAntiga = dados['conclusao']?['quesito_2_causa'] ?? '';
+      causasMorteCtrls = [
+        CausaMorteControllers(imediata: causaAntiga)
+      ];
+    }
+    
     quesito3Ctrl = TextEditingController(text: dados['conclusao']?['quesito_3_instrumento'] ?? '');
     quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
+  }
+
+  void adicionarCausaMorte() {
+    causasMorteCtrls.add(CausaMorteControllers());
+    notifyListeners();
+  }
+
+  void removerCausaMorte(int index) {
+    if (causasMorteCtrls.length > 1) {
+      causasMorteCtrls[index].dispose();
+      causasMorteCtrls.removeAt(index);
+      notifyListeners();
+      _scheduleAutoSave();
+    }
   }
 
   String _toDeterministicUuidV4(String namespace, String name) {
@@ -158,25 +211,13 @@ class CroquiController extends ChangeNotifier {
 
 
 
-  Future<void> atualizarAtnResponsavel(String? atnId, [String? atnNome]) async {
-    String? nome = atnNome;
-    String? id = atnId;
-
-    if (id != null && id.isNotEmpty) {
-      final match = atns.where((a) => a.id == id || a.nome == id).firstOrNull;
-      if (match != null) {
-        id = match.id;
-        nome = match.nome;
-      }
-    }
-
+  Future<void> atualizarAtnsResponsaveis(List<String> atnsIdsSelecionados) async {
     casoAtual = casoAtual.copyWith(
-      atnId: id,
-      atnResponsavel: nome ?? id,
+      atnsIds: atnsIdsSelecionados,
       atualizadoEm: DateTime.now(),
     );
 
-    debugPrint('[CroquiController] 🔄 ATN Atualizado na RAIZ do Caso: atn_id=${casoAtual.atnId}, atn_responsavel=${casoAtual.atnResponsavel}');
+    debugPrint('[CroquiController] 🔄 ATNs Atualizados na RAIZ do Caso: atns_ids=${casoAtual.atnsIds}');
     debugPrint('[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}');
 
     notifyListeners();
@@ -238,8 +279,9 @@ class CroquiController extends ChangeNotifier {
       final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
 
       String? finalPhotoPath = result['photoPath'];
-      if (finalPhotoPath != null) {
-        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+      if (finalPhotoPath != null && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
+        final String existingUuid = finalPhotoPath.split('/').last.split('\\').last.replaceAll('.jpg', '').replaceAll('.png', '');
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath), existingUuid);
         finalPhotoPath = compressedFile.path;
       }
 
@@ -332,8 +374,9 @@ class CroquiController extends ChangeNotifier {
       String? finalPhotoPath = result['photoPath'];
       String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
 
-      if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
-        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
+      if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
+        final String existingUuid = finalPhotoPath.split('/').last.split('\\').last.replaceAll('.jpg', '').replaceAll('.png', '');
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath), existingUuid);
         finalPhotoPath = compressedFile.path;
       }
 
@@ -478,8 +521,10 @@ class CroquiController extends ChangeNotifier {
       if (opcaoSelecionada == null) return;
 
       if (opcaoSelecionada == "PENDENTE") {
+        if (!context.mounted) return;
         await _processarDeixarPendente(context);
       } else if (opcaoSelecionada == "CONCLUIR") {
+        if (!context.mounted) return;
         await _processarConcluirLaudoAgora(context);
       }
     } finally {
@@ -671,6 +716,7 @@ class CroquiController extends ChangeNotifier {
       if (!context.mounted) return;
       globalMessengerKey.currentState?.hideCurrentSnackBar();
 
+      // ignore: deprecated_member_use
       await Share.shareXFiles(
         [XFile(tempPdfFile.path)],
         subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
@@ -809,8 +855,8 @@ class CroquiController extends ChangeNotifier {
       atualizadoEm: DateTime.now(),
     );
 
-    debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atn_id na RAIZ: ${casoAtual.atnId}, atn_responsavel: ${casoAtual.atnResponsavel}');
-    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN): ${jsonEncode(casoAtual.dadosLaudo)}');
+    debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}');
+    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo)}');
     notifyListeners();
     _scheduleAutoSave();
   }
@@ -885,7 +931,9 @@ class CroquiController extends ChangeNotifier {
     discussaoCtrl.dispose();
     conclusaoCtrl.dispose();
     quesito1Ctrl.dispose();
-    quesito2Ctrl.dispose();
+    for (var ctrl in causasMorteCtrls) {
+      ctrl.dispose();
+    }
     quesito3Ctrl.dispose();
     quesito4Ctrl.dispose();
     super.dispose();
@@ -903,21 +951,17 @@ class CroquiController extends ChangeNotifier {
     if (isReadOnly) return;
 
     final nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
-
     final Map<String, dynamic> novosDados = {};
-    final auditoriaExistente = Map<String, dynamic>.from(casoAtual.dadosLaudo['auditoria'] as Map? ?? {});
 
-    final selectedAtnNome = casoAtual.atnResponsavel ?? auditoriaExistente['atn_nome']?.toString();
-    String? selectedAtnId = auditoriaExistente['atn_id']?.toString();
-
-    if (selectedAtnNome != null && selectedAtnNome.isNotEmpty && selectedAtnId == null) {
-      final match = atns.where((a) => a.nome == selectedAtnNome).firstOrNull;
-      selectedAtnId = match?.id;
-    }
+    final nomesAtns = casoAtual.atnsIds.map((id) {
+      final match = atns.where((a) => a.id == id).firstOrNull;
+      return match?.nome ?? id;
+    }).join(", ");
 
     novosDados['auditoria'] = {
       'perito_responsavel': nomePerito,
       'data_finalizacao': DateTime.now().toIso8601String(),
+      'atns_nomes': nomesAtns,
     };
 
     novosDados['identificacao'] = {
@@ -935,7 +979,11 @@ class CroquiController extends ChangeNotifier {
     novosDados['conclusao'] = {
       'discussao': discussaoCtrl.text,
       'quesito_1_morte': quesito1Ctrl.text,
-      'quesito_2_causa': quesito2Ctrl.text,
+      'causas_morte': causasMorteCtrls.map((ctrl) => {
+        'imediata': ctrl.imediataCtrl.text,
+        'devido_a': ctrl.devidoACtrl.text,
+        'consequencia': ctrl.consequenciaCtrl.text,
+      }).toList(),
       'quesito_3_instrumento': quesito3Ctrl.text,
       'quesito_4_meio': quesito4Ctrl.text,
       'conclusao_texto': conclusaoCtrl.text,
@@ -954,7 +1002,13 @@ class CroquiController extends ChangeNotifier {
 
   bool validarCamposObrigatorios() {
     if (quesito1Ctrl.text.trim().isEmpty) return false;
-    if (quesito2Ctrl.text.trim().isEmpty) return false;
+    
+    for (var ctrl in causasMorteCtrls) {
+      if (ctrl.imediataCtrl.text.trim().isEmpty) return false;
+      if (ctrl.devidoACtrl.text.trim().isEmpty) return false;
+      if (ctrl.consequenciaCtrl.text.trim().isEmpty) return false;
+    }
+    
     if (quesito3Ctrl.text.trim().isEmpty) return false;
     if (quesito4Ctrl.text.trim().isEmpty) return false;
     return true;

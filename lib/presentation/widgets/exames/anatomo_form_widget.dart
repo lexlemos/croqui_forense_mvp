@@ -98,7 +98,7 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.indigo.shade200),
       ),
-      color: Colors.indigo.shade50.withOpacity(0.3),
+      color: Colors.indigo.shade50.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

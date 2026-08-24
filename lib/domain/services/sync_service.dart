@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:dio/dio.dart';
@@ -10,18 +11,20 @@ import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
+import 'package:croqui_forense_mvp/core/utils/sentry_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
+import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 
 /// Contrato de repositório local responsável pelas operações de leitura e atualização
 /// de integridade dos [Caso]s (Laudos) e seus respectivos [Achado]s durante o processo de sincronização.
 abstract interface class ISyncRepository {
-  /// Obtém todos os [Caso]s (Laudos) finalizados que ainda não foram sincronizados com o servidor central.
-  Future<List<Caso>> getCasosNaoSincronizados();
+  /// Obtém todos os [Caso]s (Laudos) finalizados do usuário que ainda não foram sincronizados com o servidor central.
+  Future<List<Caso>> getCasosNaoSincronizados(String usuarioId);
 
-  /// Obtém todos os [Caso]s em rascunho com `is_draft_synced = 0` pendentes de envio.
-  Future<List<Caso>> getRascunhosNaoSincronizados();
+  /// Obtém todos os [Caso]s em rascunho do usuário com `is_draft_synced = 0` pendentes de envio.
+  Future<List<Caso>> getRascunhosNaoSincronizados(String usuarioId);
 
   /// Recupera todas as lesões corporais ([Achado]s) associadas a um determinado [Caso] pelo seu identificador único.
   Future<List<Achado>> getAchadosPorCaso(String casoUuid);
@@ -90,20 +93,18 @@ class SyncUploadEvidenciaException implements Exception {
 class SyncService {
   final IRemoteDataSource _remoteDataSource;
   final ISyncRepository _repository;
-  final DomainSyncService? _domainSyncService;
   final AuthService? _authService;
 
   SyncService({
     required IRemoteDataSource remoteDataSource,
     required ISyncRepository repository,
-    DomainSyncService? domainSyncService,
     AuthService? authService,
   })  : _remoteDataSource = remoteDataSource,
         _repository = repository,
-        _domainSyncService = domainSyncService,
         _authService = authService;
 
   final Set<String> _uuidsEmTransito = {};
+  bool _isSyncing = false;
 
   /// Executa o fluxo completo de sincronização pericial do dispositivo com a central.
   ///
@@ -126,20 +127,14 @@ class SyncService {
   /// e então executa o upload em lote de cada [Evidência Fotográfica] associada. Ao fim do envio bem-sucedido
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
   Future<void> execute() async {
-    debugPrint('[SyncService] Iniciando sincronização...');
-
-    // Fase 0: Atualização periódica de referência dos A.T.N.s do backend (resiliente offline)
-    try {
-      await _domainSyncService?.syncAtns();
-    } on DioException catch (e) {
-      if (_isSessionExpiredError(e)) {
-        debugPrint('[SyncService] 🛑 Sessão expirada (401) ao sincronizar ATNs. Abortando ciclo de sincronização.');
-        rethrow;
-      }
-      debugPrint('[SyncService] ⚠️ Falha na atualização periódica de ATNs: $e');
-    } catch (e) {
-      debugPrint('[SyncService] ⚠️ Falha na atualização periódica de ATNs: $e');
+    if (_isSyncing) {
+      debugPrint('[SyncService] ⏭️ Sincronização já em andamento. Abortando duplo-clique.');
+      return;
     }
+    _isSyncing = true;
+    try {
+      debugPrint('[SyncService] Iniciando sincronização...');
+
 
     // Fase 0.05: Pull de Casos Remotos para evitar conflitos
     try {
@@ -154,81 +149,83 @@ class SyncService {
       debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
     }
 
-    // Fase 0.1: Push textual de rascunhos não sincronizados pendentes
-    final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados();
-    if (rascunhosPendentes.isNotEmpty) {
-      debugPrint('[SyncService] 🔄 Encontrados ${rascunhosPendentes.length} rascunho(s) pendente(s) de envio. Processando...');
-      for (final rascunho in rascunhosPendentes) {
-        if (_authService != null && !_authService.isLogged) {
-          debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de rascunhos prematuramente.');
-          return;
-        }
-        try {
-          await pushCasoRascunho(rascunho);
-        } on DioException catch (e) {
-          if (_isSessionExpiredError(e)) {
-            debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push de rascunho. Abortando ciclo de sincronização.');
-            return;
-          }
-        } catch (e) {
-          if (_isSessionExpiredError(e)) {
-            debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push de rascunho. Abortando ciclo de sincronização.');
-            return;
-          }
-        }
-      }
-    }
-
-    final List<Caso> casosPendentes = await _repository.getCasosNaoSincronizados();
-
-    if (casosPendentes.isEmpty) {
-      debugPrint('[SyncService] Nenhum caso finalizado pendente de sincronização.');
+    final usuarioId = _authService?.usuario?.id;
+    if (usuarioId == null || usuarioId.isEmpty) {
+      debugPrint('[SyncService] 🛑 Nenhum usuário logado. Abortando envio de casos pendentes.');
       return;
     }
 
-    debugPrint('[SyncService] ${casosPendentes.length} caso(s) finalizado(s) pendente(s).');
+    final casosFinalizados = await _repository.getCasosNaoSincronizados(usuarioId);
+    final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados(usuarioId);
+
+    final List<Caso> casosParaEnviar = [...casosFinalizados, ...rascunhosPendentes];
+
+    if (casosParaEnviar.isEmpty) {
+      debugPrint('[SyncService] Nenhum caso (finalizado ou rascunho) pendente de sincronização.');
+      return;
+    }
+
+    debugPrint('[SyncService] Preparando push de ${casosFinalizados.length} casos finalizados e ${rascunhosPendentes.length} rascunhos.');
 
     int totalFotosFalhas = 0;
     int totalCasosConflito = 0;
 
-    // Fila FIFO Segura: Processa os casos finalizados UM POR UM sequencialmente (evita sobrecarga de rede 3G/4G).
-    for (final caso in casosPendentes) {
-      if (_authService != null && !_authService.isLogged) {
-        debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de casos finalizados prematuramente.');
-        return;
-      }
-      try {
-        debugPrint('[SyncService] 📦 Processando sincronização do caso ${caso.uuid}...');
+    // Fila FIFO Segura: Processa os casos em BULK PUSH.
+    try {
+      debugPrint('[SyncService] 📦 Fazendo push textual (Bulk) de ${casosParaEnviar.length} casos...');
+      
+      // Fase 1: Push textual de metadados (JSON) de todos os casos num único array
+      final syncResult = await _pushTextual(casosParaEnviar);
+      final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
+      final salvosUuids = List<String>.from(syncResult['casos_salvos'] ?? []);
+      
+      totalCasosConflito += conflitosUuids.length;
 
-        // Fase 1: Push textual de metadados (JSON) para o caso específico
-        final syncResult = await _pushTextual([caso]);
-        final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
-        if (conflitosUuids.contains(caso.uuid)) {
-          debugPrint('[SyncService] ⚠️ Caso ${caso.uuid} em conflito no servidor central.');
-          totalCasosConflito++;
+      // Fase 2: Upload das evidências fotográficas dos casos salvos com sucesso
+      for (final caso in casosParaEnviar) {
+        if (_authService != null && !_authService.isLogged) {
+          debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de fotos prematuramente.');
+          return;
+        }
+
+        if (conflitosUuids.contains(caso.uuid) || !salvosUuids.contains(caso.uuid)) {
+          debugPrint('[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado. Pulando envio de fotos.');
           continue;
         }
 
-        // Fase 2: Upload das evidências fotográficas do caso
-        final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
-        final falhasNoCaso = await _processarCaso(caso, fotos);
-        totalFotosFalhas += falhasNoCaso;
-
-      } on DioException catch (e) {
-        if (_isSessionExpiredError(e)) {
-          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio do caso ${caso.uuid}. Abortando fila.');
-          return;
+        try {
+          await Sentry.captureMessage('Iniciando ciclo de upload de mídia para o caso salvo ${caso.uuid}', level: SentryLevel.info);
+          final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
+          final falhasNoCaso = await _processarCaso(caso, fotos);
+          totalFotosFalhas += falhasNoCaso;
+        } on DioException catch (e, stackTrace) {
+          if (_isSessionExpiredError(e)) {
+            debugPrint('[SyncService] 🛑 Sessão expirada no envio de fotos do caso ${caso.uuid}.');
+            return;
+          }
+          debugPrint('[SyncService] ⚠️ Falha de rede ao enviar fotos do caso ${caso.uuid}: $e');
+          SentryHelper.setSyncErrorTag(caso.uuid);
+          await Sentry.captureException(e, stackTrace: stackTrace);
+          totalFotosFalhas++;
+        } catch (e, stackTrace) {
+          debugPrint('[SyncService] ⚠️ Erro inesperado nas fotos do caso ${caso.uuid}: $e');
+          SentryHelper.setSyncErrorTag(caso.uuid);
+          await Sentry.captureException(e, stackTrace: stackTrace);
+          totalFotosFalhas++;
         }
-        debugPrint('[SyncService] ⚠️ Falha na rede ao enviar o caso ${caso.uuid}: $e');
-        totalFotosFalhas++;
-      } catch (e) {
-        if (_isSessionExpiredError(e)) {
-          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio do caso ${caso.uuid}. Abortando fila.');
-          return;
-        }
-        debugPrint('[SyncService] ⚠️ Erro inesperado no caso ${caso.uuid}: $e');
-        totalFotosFalhas++;
       }
+    } on DioException catch (e, stackTrace) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio (Bulk).');
+        return;
+      }
+      debugPrint('[SyncService] ⚠️ Falha na rede no Bulk Push: $e');
+      await Sentry.captureException(e, stackTrace: stackTrace);
+      totalFotosFalhas++; // Falhou tudo
+    } catch (e, stackTrace) {
+      debugPrint('[SyncService] ⚠️ Erro inesperado no Bulk Push: $e');
+      await Sentry.captureException(e, stackTrace: stackTrace);
+      totalFotosFalhas++;
     }
 
     debugPrint('[SyncService] Ciclo concluído.');
@@ -243,16 +240,25 @@ class SyncService {
       }
       throw Exception('Sincronização parcial: ${erros.join(" e ")}');
     }
+    } finally {
+      _isSyncing = false;
+    }
   }
+
+  VoidCallback? onPullCompleted;
 
   /// Baixa casos da base central e sincroniza localmente através de Upsert com resolução de conflito.
   Future<void> pullCasos() async {
     debugPrint('[SyncService] Iniciando Pull Synchronization...');
     try {
-      final casosRemotos = await _remoteDataSource.pullCasos();
+      final secureStorage = SecureKeyStorage();
+      final lastSync = await secureStorage.read(key: 'last_sync_timestamp');
+      
+      final casosRemotos = await _remoteDataSource.pullCasos(lastSyncTimestamp: lastSync);
       
       if (casosRemotos.isEmpty) {
         debugPrint('[SyncService] Nenhum caso recebido no pull.');
+        await secureStorage.save(key: 'last_sync_timestamp', value: DateTime.now().toUtc().toIso8601String());
         return;
       }
       
@@ -261,21 +267,24 @@ class SyncService {
       for (final casoJson in casosRemotos) {
         try {
           await _repository.upsertCasoTransaction(casoJson);
-        } catch (e) {
-          debugPrint('[SyncService] Erro ao sincronizar (upsert) o caso ${casoJson['uuid']}: $e');
+        } catch (e, stackTrace) {
+          debugPrint('[SyncService] ❌ Erro ao sincronizar (upsert) o caso ${casoJson['uuid']}: $e\n$stackTrace');
           // Continua para o próximo caso
         }
       }
+      
+      await secureStorage.save(key: 'last_sync_timestamp', value: DateTime.now().toUtc().toIso8601String());
       debugPrint('[SyncService] Pull Synchronization concluído com sucesso.');
-    } on DioException catch (e) {
+      onPullCompleted?.call();
+    } on DioException catch (e, stackTrace) {
       if (_isSessionExpiredError(e)) {
         debugPrint('[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.');
         rethrow;
       }
-      debugPrint('[SyncService] ⚠️ Falha na rede durante o Pull: $e');
+      debugPrint('[SyncService] ⚠️ Falha na rede durante o Pull: $e\n$stackTrace');
       rethrow;
-    } catch (e) {
-      debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e\n$stackTrace');
       rethrow;
     }
   }
@@ -292,6 +301,7 @@ class SyncService {
 
     try {
       debugPrint('[SyncService] 🚀 Disparando push silencioso de rascunho para o caso ${caso.uuid}...');
+      await Sentry.captureMessage('Iniciando ciclo de sincronização para o caso ${caso.uuid}', level: SentryLevel.info);
       
       final casoProcessado = await _sincronizarPdfCaso(caso);
       
@@ -308,12 +318,14 @@ class SyncService {
       await _remoteDataSource.pushTextual(payload);
       await _repository.marcarRascunhoComoSincronizado(caso.uuid);
       debugPrint('[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.');
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (_isSessionExpiredError(e)) {
         debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push silencioso do rascunho. Abortando.');
         rethrow;
       }
       debugPrint('[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e');
+      SentryHelper.setSyncErrorTag(caso.uuid);
+      await Sentry.captureException(e, stackTrace: stackTrace);
     } finally {
       _uuidsEmTransito.remove(caso.uuid);
     }
@@ -363,7 +375,7 @@ class SyncService {
         achadosSincronizados.add(achado);
         // Idempotência Local: Marcar a foto como sincronizada imediatamente após sucesso individual
         await _repository.marcarFotoComoSincronizada(achado);
-      } catch (e) {
+      } catch (e, stackTrace) {
         if (_isSessionExpiredError(e)) {
           debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.');
           rethrow;
@@ -371,6 +383,8 @@ class SyncService {
         // Captura timeouts de rede (como DioExceptionType.connectionTimeout) e erros de rede gerais
         erros.add(e);
         debugPrint('[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e');
+        SentryHelper.setSyncErrorTag(caso.uuid);
+        await Sentry.captureException(e, stackTrace: stackTrace);
       }
     }
 
@@ -418,8 +432,9 @@ class SyncService {
   /// Sincroniza o PDF fisicamente usando a nova rota multipart.
   /// Retorna um [Caso] atualizado contendo a `pdfUrl` gerada pelo backend.
   Future<Caso> _sincronizarPdfCaso(Caso caso) async {
-    if (caso.pdfLocalPath != null && caso.pdfLocalPath!.isNotEmpty) {
-      final pdfFile = File(caso.pdfLocalPath!);
+    final localPath = caso.pdfLocalPath;
+    if (localPath != null && localPath.isNotEmpty) {
+      final pdfFile = File(localPath);
       if (pdfFile.existsSync()) {
         try {
           debugPrint('[SyncService] 📄 Fazendo upload físico do Laudo PDF: ${caso.pdfLocalPath}');
@@ -427,9 +442,12 @@ class SyncService {
             casoUuid: caso.uuid,
             filePath: pdfFile.path,
           );
+          await Sentry.captureMessage('Upload do Laudo concluído com sucesso: ${caso.uuid}', level: SentryLevel.info);
           return caso.copyWith(pdfUrl: pdfUrl);
-        } catch (e) {
+        } catch (e, stackTrace) {
           debugPrint('[SyncService] ⚠️ Erro ao fazer upload do PDF para o caso ${caso.uuid}: $e');
+          SentryHelper.setSyncErrorTag(caso.uuid);
+          await Sentry.captureException(e, stackTrace: stackTrace);
           rethrow;
         }
       }
@@ -481,8 +499,7 @@ class SyncService {
       'nome_vitima': caso.nomeVitima,
       'destino': caso.destino,
       'requisitante': caso.requisitante,
-      'atn_id': caso.atnId,
-      'atn_responsavel': caso.atnResponsavel,
+      'atns_ids': caso.atnsIds,
       'pdf_local_path': caso.pdfLocalPath,
       'pdf_url': caso.pdfUrl,
       'diagramas': diagramasJson,

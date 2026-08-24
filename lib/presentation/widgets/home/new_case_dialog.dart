@@ -4,6 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 
 class NewCaseDialog extends StatefulWidget {
   const NewCaseDialog({super.key});
@@ -30,6 +34,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final _tanatoObservacaoController = TextEditingController();
 
   final List<Map<String, String>> _fotosIdentificacao = [];
+  final List<String> _selectedAtns = [];
+  List<AtnModel> _atnsCache = [];
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -60,8 +66,9 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
       if (photo == null) return;
 
+      final String fotoUuid = const Uuid().v4();
       final originalFile = File(photo.path);
-      final File compressedFile = await ImageHelper.compressImage(originalFile);
+      final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
 
       try {
         if (await originalFile.exists()) await originalFile.delete();
@@ -90,15 +97,89 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
   bool _validarPassoAtual() {
     if (_currentStep == 0) {
-      if (_reqController.text.trim().isEmpty) {
-        _formKey.currentState!.validate();
+      if (!_formKey.currentState!.validate()) {
         globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text("O número da requisição é obrigatório.")),
+          const SnackBar(content: Text("Preencha todos os campos obrigatórios.")),
         );
         return false;
       }
     }
     return true;
+  }
+
+  Future<void> _abrirSeletorAtn() async {
+    final atns = await context.read<AtnRepository>().getAtns();
+    if (!mounted) return;
+    setState(() {
+      _atnsCache = atns;
+    });
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        List filteredAtns = List.from(atns);
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Selecione A.T.N.s (Máximo 4)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar A.T.N...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final term = value.trim().toLowerCase();
+                      setModalState(() {
+                        if (term.isEmpty) {
+                          filteredAtns = List.from(atns);
+                        } else {
+                          filteredAtns = atns.where((a) => a.nome.toLowerCase().contains(term)).toList();
+                        }
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredAtns.length,
+                    itemBuilder: (ctx, index) {
+                      final atn = filteredAtns[index];
+                      final isSelected = _selectedAtns.contains(atn.id);
+                      return CheckboxListTile(
+                        title: Text(atn.nome),
+                        value: isSelected,
+                        onChanged: (val) {
+                          if (val == true) {
+                            if (_selectedAtns.length >= 4) {
+                              globalMessengerKey.currentState?.showSnackBar(
+                                const SnackBar(content: Text("Você já selecionou o limite de 4 A.T.N.s.")),
+                              );
+                              return;
+                            }
+                            setState(() => _selectedAtns.add(atn.id));
+                            setModalState(() {});
+                          } else {
+                            setState(() => _selectedAtns.remove(atn.id));
+                            setModalState(() {});
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _submit() {
@@ -125,6 +206,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'nome_vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
         'destino': _destinoController.text.trim(),
         'requisitante': _requisitanteController.text.trim(),
+        'atns_ids': _selectedAtns,
         'dados_laudo': dadosLaudo,
         'fotos_gerais': _fotosIdentificacao,
       });
@@ -258,6 +340,37 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               label: "Destino do Laudo", 
               icon: Icons.place,
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("A.T.N.s Responsáveis", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 15)),
+                TextButton.icon(
+                  onPressed: _abrirSeletorAtn,
+                  icon: const Icon(Icons.add),
+                  label: const Text("Adicionar A.T.N"),
+                )
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_selectedAtns.isEmpty)
+              const Text("Nenhum A.T.N selecionado", style: TextStyle(color: Colors.grey))
+            else
+              Wrap(
+                spacing: 8,
+                children: _selectedAtns.map((atnId) {
+                  final atnName = _atnsCache.firstWhere((a) => a.id == atnId, orElse: () => AtnModel(id: atnId, nome: "ATN Desconhecido", ativo: false)).nome;
+                  return Chip(
+                    label: Text(atnName),
+                    deleteIcon: const Icon(Icons.close, size: 18),
+                    onDeleted: () {
+                      setState(() {
+                        _selectedAtns.remove(atnId);
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
           ],
         ),
       );

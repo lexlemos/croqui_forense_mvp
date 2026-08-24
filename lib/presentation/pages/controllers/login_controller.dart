@@ -5,12 +5,17 @@ import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
+import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
+
 class LoginController {
   final loginController = TextEditingController();
   final senhaController = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
+  bool _isDisposed = false;
+
   void dispose() {
+    _isDisposed = true;
     loginController.dispose();
     senhaController.dispose();
   }
@@ -18,6 +23,9 @@ class LoginController {
   Future<void> carregarLoginSalvo(BuildContext context) async {
     final provider = Provider.of<AuthProvider>(context, listen: false);
     final salvo = await provider.getSavedLogin();
+    
+    if (_isDisposed) return;
+    
     if (salvo != null && salvo.isNotEmpty) {
       loginController.text = salvo;
     }
@@ -27,6 +35,8 @@ class LoginController {
     if (!formKey.currentState!.validate()) return;
 
     final provider = Provider.of<AuthProvider>(context, listen: false);
+    final syncService = Provider.of<SyncService>(context, listen: false);
+    final caseListProvider = Provider.of<CaseListProvider>(context, listen: false);
     final loginText = loginController.text.trim();
 
     try {
@@ -37,10 +47,10 @@ class LoginController {
       await provider.saveSavedLogin(loginText);
       
       try {
-        final syncService = Provider.of<SyncService>(context, listen: false);
         await syncService.pullCasos();
-      } catch (e) {
-        debugPrint('Falha silenciosa ao realizar pullCasos pós-login: $e');
+        await caseListProvider.carregarCasos();
+      } catch (e, stackTrace) {
+        debugPrint('Falha ao realizar pullCasos pós-login: $e\n$stackTrace');
       }
     } on AuthException catch (e) {
       _showSnack(e.message, isError: true);

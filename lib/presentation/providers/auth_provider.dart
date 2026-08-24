@@ -7,6 +7,8 @@ import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
+import 'package:croqui_forense_mvp/core/utils/sentry_helper.dart';
+import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthService _authService;
@@ -29,6 +31,7 @@ class AuthProvider extends ChangeNotifier {
     _authService.forceExpireSession();
     _usuario = null;
     _isLogged = false;
+    SentryHelper.clearUser();
     _limparMemoriaEController(context);
     notifyListeners();
     _redirecionarParaLogin(context);
@@ -62,6 +65,10 @@ class AuthProvider extends ChangeNotifier {
       await _authService.login(login, senha);
       _usuario = _authService.usuario;
       _isLogged = true;
+      if (_usuario != null) {
+        final deviceId = await DeviceInfoService.getDeviceId();
+        SentryHelper.setUser(userId: _usuario!.id, deviceId: deviceId);
+      }
       await _domainSyncService?.syncTiposAchados();
       await _domainSyncService?.syncAtns();
     } finally {
@@ -75,6 +82,7 @@ class AuthProvider extends ChangeNotifier {
     await _authService.logout();
     _usuario = null;
     _isLogged = false;
+    SentryHelper.clearUser();
     // ignore: use_build_context_synchronously
     _limparMemoriaEController(targetContext);
     notifyListeners();

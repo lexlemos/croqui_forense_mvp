@@ -24,7 +24,7 @@ const List<BodyPartDefinition> kLateralLeftPartsList = [
 ];
 
 final Map<int, String> kColorToIdLateralLeftMap = {
-  for (var part in kLateralLeftPartsList) part.color.value: part.id,
+  for (var part in kLateralLeftPartsList) part.color.toARGB32(): part.id,
 };
 
 final Map<String, BodyPartDefinition> kIdToDefinitionLateralLeftMap = {

@@ -100,6 +100,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'atn_responsavel', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
     await txn.execute(kCreateAtnsSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
@@ -114,6 +115,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'roles', 'TEXT');
+    await txn.execute('CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);');
   }
 
   Future<void> close() async {
@@ -300,6 +302,16 @@ class DatabaseHelper {
       case 15:
         debugPrint('[DatabaseHelper] Executando migração para a versão 15 (Campo pdf_url na tabela casos)...');
         await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
+        break;
+
+      case 16:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 16 (Campo atns_ids na tabela casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
+        break;
+
+      case 17:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 17 (Índice idx_casos_usuario_criador)...');
+        await txn.execute('CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);');
         break;
         
       default:

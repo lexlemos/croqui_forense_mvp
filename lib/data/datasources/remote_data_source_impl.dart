@@ -99,18 +99,19 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> pullCasos() async {
+  Future<List<Map<String, dynamic>>> pullCasos({String? lastSyncTimestamp}) async {
     try {
-      final response = await _apiClient.dio.get('croqui/sync/pull');
+      final queryParams = lastSyncTimestamp != null ? {'last_sync': lastSyncTimestamp} : null;
+      final response = await _apiClient.dio.get('croqui/sync/pull', queryParameters: queryParams);
       if (response.statusCode != 200 || response.data == null) {
         throw Exception('Resposta inesperada do servidor ao tentar puxar os casos.');
       }
       final data = response.data;
       if (data is Map && data.containsKey('casos')) {
         final list = data['casos'] as List<dynamic>;
-        return list.map((e) => e as Map<String, dynamic>).toList();
+        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       } else if (data is List) {
-        return data.map((e) => e as Map<String, dynamic>).toList();
+        return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
       return [];
     } on DioException catch (e) {
@@ -204,6 +205,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       final response = await _apiClient.dio.post(
         'croqui/sync/laudo-pdf',
         data: formData,
+        options: Options(contentType: 'multipart/form-data'),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -216,5 +218,10 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     } catch (e) {
       throw Exception('Erro inesperado no upload do PDF: $e');
     }
+  }
+
+  @override
+  void setBearerToken(String token) {
+    _apiClient.setBearerToken(token);
   }
 }

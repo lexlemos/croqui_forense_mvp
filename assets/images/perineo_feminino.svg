@@ -13,54 +13,8 @@
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
-  <defs
-     id="defs1">
-    <clipPath
-       clipPathUnits="userSpaceOnUse"
-       id="clipPath1">
-      <path
-         d="M 0,0 H 2698 V 3910 H 0 Z"
-         transform="matrix(3.7064493e-4,0,0,-2.5575448e-4,0,1)"
-         id="path1" />
-    </clipPath>
-    <clipPath
-       clipPathUnits="userSpaceOnUse"
-       id="clipPath2">
-      <path
-         style="fill:none;stroke-width:0.000230915"
-         d="m 0.21150495,0.62617437 0.51301218,0.003505 0.005079,-0.3163142 -0.54094846,-0.012267 0.0215871,0.3320861 z"
-         id="path3" />
-    </clipPath>
-  </defs>
-  <sodipodi:namedview
-     id="namedview1"
-     pagecolor="#ffffff"
-     bordercolor="#000000"
-     borderopacity="0.25"
-     inkscape:showpageshadow="2"
-     inkscape:pageopacity="0.0"
-     inkscape:pagecheckerboard="0"
-     inkscape:deskcolor="#d1d1d1"
-     showgrid="false"
-     inkscape:zoom="0.21891374"
-     inkscape:cx="1665.0394"
-     inkscape:cy="3254.7066"
-     inkscape:window-width="1920"
-     inkscape:window-height="1009"
-     inkscape:window-x="-8"
-     inkscape:window-y="-8"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="svg1">
-    <inkscape:page
-       x="0"
-       y="0"
-       inkscape:label="1"
-       id="page1"
-       width="3597.3333"
-       height="5213.3335"
-       margin="0"
-       bleed="0" />
-  </sodipodi:namedview>
+  
+  
   <g
      id="g1"
      inkscape:groupmode="layer"

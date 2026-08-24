@@ -37,6 +37,9 @@ class HomeController {
       final String requisitante = dadosRetornados['requisitante'] ?? '';
       final Map<String, dynamic> conteudoJson = dadosRetornados['dados_laudo'] ?? {};
       final List<dynamic> fotosGerais = dadosRetornados['fotos_gerais'] ?? [];
+      final List<String> atnsIds = dadosRetornados['atns_ids'] is List 
+          ? List<String>.from(dadosRetornados['atns_ids']) 
+          : [];
 
       if (context.mounted) {
         await _criarCaso(
@@ -50,6 +53,7 @@ class HomeController {
           destino: destino,
           requisitante: requisitante,
           fotosGerais: fotosGerais,
+          atnsIds: atnsIds,
         );
       }
     }
@@ -87,6 +91,7 @@ class HomeController {
     required String destino,
     required String requisitante,
     required List<dynamic> fotosGerais,
+    required List<String> atnsIds,
   }) async {
     try {
       final usuario = context.read<AuthProvider>().usuario;
@@ -102,6 +107,7 @@ class HomeController {
             destino: destino,
             requisitante: requisitante,
             fotosGerais: fotosGerais,
+            atnsIds: atnsIds,
           );
 
       if (!context.mounted) return;

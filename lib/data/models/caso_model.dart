@@ -1,12 +1,15 @@
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/data/models/auditoria_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 
 enum SortCriteria { numero, data }
 enum SortOrder { asc, desc }
 
 enum StatusCaso {
   rascunho,
+  // ignore: constant_identifier_names
   laudo_pendente,
   finalizado,
   sincronizado,
@@ -32,11 +35,11 @@ class Caso {
   final String nomeVitima;
   final String destino;
   final String requisitante;
-  final String? atnId;
-  final String? atnResponsavel;
+  final List<String> atnsIds;
   final String? pdfLocalPath;
   final String? pdfUrl;
   final bool isDraftSynced;
+  final List<EvidenciaMultimidia> evidenciasMultimidia;
 
   AuditoriaModel get auditoria {
     final map = dadosLaudo['auditoria'];
@@ -67,11 +70,11 @@ class Caso {
     required this.nomeVitima,
     required this.destino,
     required this.requisitante,
-    this.atnId,
-    this.atnResponsavel,
+    this.atnsIds = const [],
     this.pdfLocalPath,
     this.pdfUrl,
     this.isDraftSynced = false,
+    this.evidenciasMultimidia = const [],
   });
   
   Caso.novo({
@@ -85,11 +88,11 @@ class Caso {
     this.nomeVitima = '',
     this.destino = '',
     this.requisitante = '',
-    this.atnId,
-    this.atnResponsavel,
+    this.atnsIds = const [],
     this.pdfLocalPath,
     this.pdfUrl,
     this.isDraftSynced = false,
+    this.evidenciasMultimidia = const [],
   }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
        hashIntegridade = null,
@@ -103,7 +106,13 @@ class Caso {
     final Map<String, dynamic> dadosLaudoParsed = map['dados_laudo_json'] != null 
         ? (map['dados_laudo_json'] is Map
             ? Map<String, dynamic>.from(map['dados_laudo_json'] as Map)
-            : Map<String, dynamic>.from(jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {}))
+            : Map<String, dynamic>.from((() {
+                try {
+                  return jsonDecode(map['dados_laudo_json'].toString()) as Map? ?? {};
+                } catch (_) {
+                  return {};
+                }
+              })()))
         : <String, dynamic>{};
 
     // Limpa chaves legadas de ATN de dentro do auditoria no dados_laudo_json
@@ -114,8 +123,29 @@ class Caso {
       dadosLaudoParsed['auditoria'] = auditoriaMap;
     }
 
-    final String? atnIdRestaurado = map['atn_id']?.toString();
-    final String? atnNomeRestaurado = map['atn_responsavel']?.toString();
+    List<String> parsedAtns = [];
+    final rawAtns = map['atns_ids'];
+    if (rawAtns is List) {
+      parsedAtns = List<String>.from(rawAtns.map((e) => e.toString()));
+    } else if (rawAtns is String && rawAtns.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawAtns);
+        if (decoded is List) {
+          parsedAtns = List<String>.from(decoded.map((e) => e.toString()));
+        }
+      } catch (e) {
+        debugPrint('[Caso.fromMap] Erro ao decodificar atns_ids JSON string: $e');
+      }
+    }
+
+    List<EvidenciaMultimidia> parsedEvidencias = [];
+    final rawEvidencias = map['evidencias_multimidia'] ?? map['evidencias'];
+    if (rawEvidencias is List) {
+      parsedEvidencias = rawEvidencias
+          .whereType<Map>()
+          .map((x) => EvidenciaMultimidia.fromMap(Map<String, dynamic>.from(x)))
+          .toList();
+    }
 
     return Caso(
       uuid: map['uuid']?.toString() ?? '',
@@ -148,13 +178,13 @@ class Caso {
       nomeVitima: map['nome_vitima']?.toString() ?? '',
       destino: map['destino']?.toString() ?? '',
       requisitante: map['requisitante']?.toString() ?? '',
-      atnId: atnIdRestaurado,
-      atnResponsavel: atnNomeRestaurado,
+      atnsIds: parsedAtns,
       pdfLocalPath: map['pdf_local_path']?.toString(),
       pdfUrl: map['pdf_url']?.toString(),
       isDraftSynced: map['is_draft_synced'] is bool
           ? map['is_draft_synced'] as bool
           : (map['is_draft_synced'] as int? ?? 0) == 1,
+      evidenciasMultimidia: parsedEvidencias,
     );
   }
 
@@ -177,8 +207,7 @@ class Caso {
     String? nomeVitima,
     String? destino,
     String? requisitante,
-    String? atnId,
-    String? atnResponsavel,
+    List<String>? atnsIds,
     String? pdfLocalPath,
     String? pdfUrl,
     bool? isDraftSynced,
@@ -202,8 +231,7 @@ class Caso {
       nomeVitima: nomeVitima ?? this.nomeVitima,
       destino: destino ?? this.destino,
       requisitante: requisitante ?? this.requisitante,
-      atnId: atnId ?? this.atnId,
-      atnResponsavel: atnResponsavel ?? this.atnResponsavel,
+      atnsIds: atnsIds ?? this.atnsIds,
       pdfLocalPath: pdfLocalPath ?? this.pdfLocalPath,
       pdfUrl: pdfUrl ?? this.pdfUrl,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
@@ -230,8 +258,7 @@ class Caso {
       'nome_vitima': nomeVitima,
       'destino': destino,
       'requisitante': requisitante,
-      'atn_id': atnId,
-      'atn_responsavel': atnResponsavel,
+      'atns_ids': jsonEncode(atnsIds),
       'pdf_local_path': pdfLocalPath,
       'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced ? 1 : 0,
@@ -258,8 +285,7 @@ class Caso {
       'nome_vitima': nomeVitima,
       'destino': destino,
       'requisitante': requisitante,
-      'atn_id': atnId,
-      'atn_responsavel': atnResponsavel,
+      'atns_ids': atnsIds,
       'pdf_local_path': pdfLocalPath,
       'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced,

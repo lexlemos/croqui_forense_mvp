@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:path/path.dart' as p;
 
 class AchadoRepository {
   final DatabaseHelper _dbHelper;
@@ -29,6 +29,7 @@ class AchadoRepository {
           );
         }
         await _garantirEvidencia(txn, achado);
+        await _marcarCasoPendenteSync(txn, achado.casoUuid);
       });
     } catch (e) {
       throw Exception('Erro de persistência ao inserir achado: $e');
@@ -79,6 +80,7 @@ class AchadoRepository {
           throw Exception('Achado ${achado.uuid} não encontrado no banco ou laudo finalizado.');
         }
         await _garantirEvidencia(txn, achado);
+        await _marcarCasoPendenteSync(txn, achado.casoUuid);
       });
     } catch (e) {
       throw Exception('Erro de persistência ao atualizar achado: $e');
@@ -94,6 +96,7 @@ class AchadoRepository {
         where: 'achado_uuid = ?',
         whereArgs: [achado.uuid],
       );
+      await _marcarCasoPendenteSync(db, achado.casoUuid);
       return;
     }
 
@@ -104,8 +107,9 @@ class AchadoRepository {
     );
 
     if (rows.isEmpty) {
+      final derivedUuid = p.basenameWithoutExtension(photo);
       await db.insert('evidencias_multimidia', {
-        'uuid': const Uuid().v4(),
+        'uuid': derivedUuid,
         'caso_uuid': achado.casoUuid,
         'achado_uuid': achado.uuid,
         'tipo': 'ACHADO',
@@ -115,6 +119,7 @@ class AchadoRepository {
         'versao': 1,
         'criado_em': DateTime.now().toUtc().toIso8601String(),
       });
+      await _marcarCasoPendenteSync(db, achado.casoUuid);
     } else {
       final existing = rows.first;
       final existingPath = existing['caminho_arquivo_encriptado']?.toString();
@@ -132,6 +137,7 @@ class AchadoRepository {
           where: 'achado_uuid = ?',
           whereArgs: [achado.uuid],
         );
+        await _marcarCasoPendenteSync(db, achado.casoUuid);
       }
     }
   }
@@ -147,9 +153,25 @@ class AchadoRepository {
         "UPDATE achados SET removido = 1 WHERE uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
         [uuid],
       );
+      if (achado != null) {
+        await _marcarCasoPendenteSync(db, achado.casoUuid);
+      }
     } catch (e) {
       throw Exception('Erro de persistência ao remover achado: $e');
     }
+  }
+
+  Future<void> _marcarCasoPendenteSync(DatabaseExecutor db, String casoUuid) async {
+    await db.rawUpdate(
+      '''
+      UPDATE casos
+         SET is_draft_synced = 0,
+             atualizado_em   = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [DateTime.now().toUtc().toIso8601String(), casoUuid],
+    );
   }
 
   Future<List<Achado>> getAchadosPorCaso(String casoUuid) async {

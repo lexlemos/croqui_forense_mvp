@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
@@ -8,6 +10,7 @@ import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/dynamic_form/dynamic_form_builder.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -69,10 +72,17 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _isInterno = m?.isInterno ?? false;
 
     final existingDynamic = m?.dadosPreenchidos['dados_dinamicos_json'] ?? m?.dadosPreenchidos['dynamicFields'];
-    if (existingDynamic is Map<String, dynamic>) {
+    if (existingDynamic is Map) {
       _currentFormData = Map<String, dynamic>.from(existingDynamic);
-    } else if (existingDynamic is Map) {
-      _currentFormData = Map<String, dynamic>.from(existingDynamic);
+    } else if (existingDynamic is String && existingDynamic.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existingDynamic);
+        if (decoded is Map) {
+          _currentFormData = Map<String, dynamic>.from(decoded);
+        }
+      } catch (e) {
+        debugPrint('[InjuryFormModal] Erro ao decodificar dados_dinamicos_json: $e');
+      }
     }
 
     _loadTypes(initialTypeLabel: m?.type);
@@ -204,11 +214,12 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   
                 _buildSectionLabel("NATUREZA DA LESÃO"),
                 _buildTypeDropdown(),
-                if (_selectedType != null && _currentFormData.isNotEmpty) ...[
+                if (_selectedType != null) ...[
                   const SizedBox(height: 16),
                   _buildSectionLabel("DETALHES ESPECÍFICOS"),
                   DynamicFormBuilder(
-                    schema: _currentFormData,
+                    schema: _selectedType?.schemaFormulario ?? {},
+                    initialData: _currentFormData,
                     onChanged: (data) {
                       _currentFormData = data;
                     },
@@ -380,7 +391,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedParteCorpo,
+            initialValue: _selectedParteCorpo,
             decoration: const InputDecoration(
               labelText: "Parte do Corpo",
               border: OutlineInputBorder(),
@@ -398,7 +409,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<InjuryType>(
-            value: _selectedType,
+            initialValue: _selectedType,
             decoration: const InputDecoration(
               labelText: "Natureza da Lesão Interna",
               border: OutlineInputBorder(),
@@ -406,8 +417,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             ),
             items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
             onChanged: _selectedParteCorpo == null ? null : (v) => setState(() {
+              if (v?.id != _selectedType?.id) {
+                _currentFormData = {};
+              }
               _selectedType = v;
-              _currentFormData = Map<String, dynamic>.from(v?.schemaFormulario ?? {});
             }),
             validator: (v) => v == null ? 'Obrigatório' : null,
           ),
@@ -417,7 +430,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final tiposExternos = _availableTypes.where((t) => !t.isInterno).toList();
 
       return DropdownButtonFormField<InjuryType>(
-        value: _selectedType,
+        initialValue: _selectedType,
         decoration: const InputDecoration(
           labelText: "Natureza da Lesão",
           border: OutlineInputBorder(),
@@ -425,8 +438,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         ),
         items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
         onChanged: (v) => setState(() {
+          if (v?.id != _selectedType?.id) {
+            _currentFormData = {};
+          }
           _selectedType = v;
-          _currentFormData = Map<String, dynamic>.from(v?.schemaFormulario ?? {});
         }),
         validator: (v) => v == null ? 'Obrigatório' : null,
       );
@@ -482,7 +497,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300, cacheHeight: 300)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ImageResolver.buildImage(_currentPhotoPath, fit: BoxFit.cover),
+                  ),
                   Container(color: Colors.black26),
                   const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
                 ],
@@ -515,8 +533,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         preferredCameraDevice: CameraDevice.rear,
       );
       if (photo == null) return;
+      final String fotoUuid = const Uuid().v4();
       final originalFile = File(photo.path);
-      final File compressedFile = await ImageHelper.compressImage(originalFile);
+      final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
       
       try {
         if (await originalFile.exists()) await originalFile.delete();

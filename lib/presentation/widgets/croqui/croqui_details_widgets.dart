@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class AchadosSidebar extends StatelessWidget {
   final List<Achado> achados;
@@ -103,17 +103,33 @@ class _AchadoCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImageBadge(String? path) => Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 50, height: 50,
-            decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
-            child: path != null ? ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.file(File(path), fit: BoxFit.cover, cacheWidth: 100, cacheHeight: 100)) : const Icon(Icons.camera_alt, color: Colors.grey),
+  Widget _buildImageBadge(String? path) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
+          child: (path != null && path.trim().isNotEmpty)
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: ImageResolver.buildImage(path, fit: BoxFit.cover),
+                )
+              : const Icon(Icons.camera_alt, color: Colors.grey),
+        ),
+        Positioned(
+          top: -5,
+          left: -5,
+          child: CircleAvatar(
+            radius: 9,
+            backgroundColor: Colors.red,
+            child: Text(achado.numeroSequencial.toString(), style: const TextStyle(color: Colors.white, fontSize: 9)),
           ),
-          Positioned(top: -5, left: -5, child: CircleAvatar(radius: 9, backgroundColor: Colors.red, child: Text(achado.numeroSequencial.toString(), style: const TextStyle(color: Colors.white, fontSize: 9)))),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 
   Widget _buildInfoColumn(Map d, Color tagColor) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,

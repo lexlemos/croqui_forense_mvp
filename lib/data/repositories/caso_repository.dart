@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
@@ -25,16 +26,17 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       await db.transaction((txn) async {
+        final map = novoCaso.toMap()..['is_draft_synced'] = 0;
         final rowsAffected = await txn.update(
           tableCasos,
-          novoCaso.toMap(),
+          map,
           where: 'uuid = ?',
           whereArgs: [novoCaso.uuid],
         );
         if (rowsAffected == 0) {
           await txn.insert(
             tableCasos,
-            novoCaso.toMap(),
+            map,
             conflictAlgorithm: ConflictAlgorithm.ignore,
           );
         }
@@ -48,16 +50,17 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       await db.transaction((txn) async {
+        final map = novoCaso.toMap()..['is_draft_synced'] = 0;
         final rows = await txn.update(
           tableCasos,
-          novoCaso.toMap(),
+          map,
           where: 'uuid = ?',
           whereArgs: [novoCaso.uuid],
         );
         if (rows == 0) {
           await txn.insert(
             tableCasos,
-            novoCaso.toMap(),
+            map,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
@@ -119,7 +122,9 @@ class CasoRepository implements ISyncRepository {
         if (jsonCaso['achados'] is List) {
           final achadosList = jsonCaso['achados'] as List;
           for (final achadoJson in achadosList) {
-             final achadoBackend = Achado.fromMap(achadoJson as Map<String, dynamic>);
+             if (achadoJson is! Map) continue;
+             final aMap = Map<String, dynamic>.from(achadoJson);
+             final achadoBackend = Achado.fromMap(aMap);
              
              final localAchadoRow = await txn.query(
                tableAchados,
@@ -153,53 +158,103 @@ class CasoRepository implements ISyncRepository {
                } else {
                  await txn.update(tableAchados, mapAchadoSalvar, where: 'uuid = ?', whereArgs: [achadoBackend.uuid]);
                }
-             }
-          }
-        }
 
-        if (jsonCaso['evidencias_multimidia'] is List) {
-          final evidenciasList = jsonCaso['evidencias_multimidia'] as List;
-          for (final evJson in evidenciasList) {
-             final evBackend = EvidenciaMultimidia.fromMap(evJson as Map<String, dynamic>);
-             
-             final localEvRow = await txn.query(
-               tableEvidenciasMultimidia,
-               where: 'uuid = ?',
-               whereArgs: [evBackend.uuid],
-               limit: 1,
-             );
-
-             bool deveAtualizarEv = true;
-             
-             if (localEvRow.isNotEmpty) {
-               final localEvAtualizadoEmStr = localEvRow.first['atualizado_em']?.toString();
-               final localEvAtualizadoEm = localEvAtualizadoEmStr != null ? DateTime.tryParse(localEvAtualizadoEmStr) : null;
-               final backendEvAtualizadoEm = evBackend.atualizadoEm;
-               
-               if (localEvAtualizadoEm != null && backendEvAtualizadoEm != null) {
-                 if (!backendEvAtualizadoEm.isAfter(localEvAtualizadoEm)) {
-                   deveAtualizarEv = false;
+               if (achadoBackend.photoPath != null && achadoBackend.photoPath!.isNotEmpty) {
+                 final existingEv = await txn.query(
+                   tableEvidenciasMultimidia,
+                   where: 'achado_uuid = ?',
+                   whereArgs: [achadoBackend.uuid],
+                   limit: 1,
+                 );
+                 if (existingEv.isEmpty) {
+                   await txn.insert(
+                     tableEvidenciasMultimidia,
+                     {
+                       'uuid': const Uuid().v4(),
+                       'caso_uuid': casoBackend.uuid,
+                       'achado_uuid': achadoBackend.uuid,
+                       'tipo': 'ACHADO',
+                       'caminho_arquivo_encriptado': achadoBackend.photoPath,
+                       'foto_sincronizada': 1,
+                       'removido': achadoBackend.removido ? 1 : 0,
+                       'versao': achadoBackend.versao,
+                       'criado_em': achadoBackend.criadoEm.toUtc().toIso8601String(),
+                     },
+                     conflictAlgorithm: ConflictAlgorithm.replace,
+                   );
                  }
                }
              }
+          }
+        }
 
-             if (deveAtualizarEv) {
-               Map<String, dynamic> mapEvSalvar = evBackend.toMap();
-               if (evJson['removido'] == true) {
-                 mapEvSalvar['removido'] = 1;
-               }
-               
-               if (localEvRow.isEmpty) {
-                 await txn.insert(tableEvidenciasMultimidia, mapEvSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
-               } else {
-                 await txn.update(tableEvidenciasMultimidia, mapEvSalvar, where: 'uuid = ?', whereArgs: [evBackend.uuid]);
-               }
-             }
+        final List<dynamic> rawEvidenciasList = [];
+        if (jsonCaso['evidencias_multimidia'] is List) {
+          rawEvidenciasList.addAll(jsonCaso['evidencias_multimidia'] as List);
+        }
+        if (jsonCaso['evidencias'] is List) {
+          rawEvidenciasList.addAll(jsonCaso['evidencias'] as List);
+        }
+
+        if (jsonCaso['achados'] is List) {
+          final achadosList = jsonCaso['achados'] as List;
+          for (final achadoJson in achadosList) {
+            if (achadoJson is Map) {
+              final aMap = Map<String, dynamic>.from(achadoJson);
+              if (aMap['evidencias_multimidia'] is List) {
+                rawEvidenciasList.addAll(aMap['evidencias_multimidia'] as List);
+              }
+              if (aMap['evidencias'] is List) {
+                rawEvidenciasList.addAll(aMap['evidencias'] as List);
+              }
+            }
+          }
+        }
+
+        for (final evJson in rawEvidenciasList) {
+          if (evJson is! Map) continue;
+          final evMap = Map<String, dynamic>.from(evJson);
+          final evBackend = EvidenciaMultimidia.fromMap(evMap);
+          if (evBackend.uuid.isEmpty) continue;
+
+          final localEvRow = await txn.query(
+            tableEvidenciasMultimidia,
+            where: 'uuid = ?',
+            whereArgs: [evBackend.uuid],
+            limit: 1,
+          );
+
+          bool deveAtualizarEv = true;
+
+          if (localEvRow.isNotEmpty) {
+            final localEvAtualizadoEmStr = localEvRow.first['atualizado_em']?.toString();
+            final localEvAtualizadoEm = localEvAtualizadoEmStr != null ? DateTime.tryParse(localEvAtualizadoEmStr) : null;
+            final backendEvAtualizadoEm = evBackend.atualizadoEm;
+
+            if (localEvAtualizadoEm != null && backendEvAtualizadoEm != null) {
+              if (!backendEvAtualizadoEm.isAfter(localEvAtualizadoEm)) {
+                deveAtualizarEv = false;
+              }
+            }
+          }
+
+          if (deveAtualizarEv) {
+            Map<String, dynamic> mapEvSalvar = evBackend.toMap();
+            if (evJson['removido'] == true) {
+              mapEvSalvar['removido'] = 1;
+            }
+            mapEvSalvar['foto_sincronizada'] = 1;
+
+            if (localEvRow.isEmpty) {
+              await txn.insert(tableEvidenciasMultimidia, mapEvSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
+            } else {
+              await txn.update(tableEvidenciasMultimidia, mapEvSalvar, where: 'uuid = ?', whereArgs: [evBackend.uuid]);
+            }
           }
         }
       });
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction (caso uuid: ${jsonCaso['uuid']}): $e\n$stackTrace');
       throw Exception('Erro de persistência atômica no Upsert: $e');
     }
   }
@@ -207,9 +262,10 @@ class CasoRepository implements ISyncRepository {
   Future<void> updateCase(Caso caso) async {
     final db = await database;
     try {
+      final map = caso.toMap()..['is_draft_synced'] = 0;
       await db.update(
         tableCasos,
-        caso.toMap(),
+        map,
         where: "uuid = ? AND UPPER(status) != 'FINALIZADO'",
         whereArgs: [caso.uuid],
       );
@@ -221,9 +277,12 @@ class CasoRepository implements ISyncRepository {
   Future<void> reabrirCaso(Caso caso) async {
     final db = await database;
     try {
+      final map = caso.toMap()
+        ..['is_draft_synced'] = 0
+        ..['status'] = 'RASCUNHO';
       await db.update(
         tableCasos,
-        caso.toMap(),
+        map,
         where: 'uuid = ?',
         whereArgs: [caso.uuid],
       );
@@ -263,11 +322,13 @@ class CasoRepository implements ISyncRepository {
     return grouped;
   }
 
-  Future<List<Caso>> getAllCases() async {
+  Future<List<Caso>> getAllCases(String usuarioId) async {
+    if (usuarioId.isEmpty) return [];
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       tableCasos,
-      where: 'removido = 0',
+      where: 'id_usuario_criador = ? AND removido = 0',
+      whereArgs: [usuarioId],
       orderBy: 'atualizado_em DESC, criado_em_dispositivo DESC',
     );
     return List.generate(maps.length, (i) => Caso.fromMap(maps[i]));
@@ -286,22 +347,26 @@ class CasoRepository implements ISyncRepository {
   }
 
   @override
-  Future<List<Caso>> getCasosNaoSincronizados() async {
+  Future<List<Caso>> getCasosNaoSincronizados(String usuarioId) async {
+    if (usuarioId.isEmpty) return [];
     final db = await database;
     final maps = await db.query(
       tableCasos,
-      where: "status = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      where: "id_usuario_criador = ? AND status = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
     return maps.map(Caso.fromMap).toList();
   }
 
   @override
-  Future<List<Caso>> getRascunhosNaoSincronizados() async {
+  Future<List<Caso>> getRascunhosNaoSincronizados(String usuarioId) async {
+    if (usuarioId.isEmpty) return [];
     final db = await database;
     final maps = await db.query(
       tableCasos,
-      where: "status = 'RASCUNHO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      where: "id_usuario_criador = ? AND UPPER(status) != 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
     return maps.map(Caso.fromMap).toList();
@@ -353,7 +418,7 @@ class CasoRepository implements ISyncRepository {
           vistaAnatomica: '',
           localAnatomico: '',
         );
-        grouped[caseUuid]!.add(achadoVirtual);
+        (grouped[caseUuid] ??= []).add(achadoVirtual);
       }
     } catch (e) {
       debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (GERAL): $e');
@@ -393,11 +458,7 @@ class CasoRepository implements ISyncRepository {
         mutableRow.remove('_photo_path_override');
         mutableRow.remove('_evidencia_uuid');
 
-        if (!grouped.containsKey(casoUuid)) {
-          grouped[casoUuid] = [];
-        }
-
-        grouped[casoUuid]!.add(Achado.fromMap(mutableRow));
+        (grouped[casoUuid] ??= []).add(Achado.fromMap(mutableRow));
       }
     } catch (e) {
       debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (SQL): $e');
@@ -453,7 +514,7 @@ class CasoRepository implements ISyncRepository {
 
     // 2. Fotos vinculadas a lesões/achados (SQL)
     try {
-      final sqlAchados = '''
+      const sqlAchados = '''
         SELECT
           a.*,
           e.caminho_arquivo_encriptado AS _photo_path_override,
@@ -570,15 +631,33 @@ class CasoRepository implements ISyncRepository {
       evidencia.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    await _marcarCasoPendenteSync(db, evidencia.casoUuid);
   }
 
   Future<void> deleteEvidenciaGeral(String uuid) async {
     final db = await database;
+    final ev = await getEvidenciaByUuid(uuid);
     await db.update(
       tableEvidenciasMultimidia,
       {'removido': 1},
       where: 'uuid = ?',
       whereArgs: [uuid],
+    );
+    if (ev != null) {
+      await _marcarCasoPendenteSync(db, ev.casoUuid);
+    }
+  }
+
+  Future<void> _marcarCasoPendenteSync(DatabaseExecutor db, String casoUuid) async {
+    await db.rawUpdate(
+      '''
+      UPDATE $tableCasos
+         SET is_draft_synced = 0,
+             atualizado_em   = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [DateTime.now().toIso8601String(), casoUuid],
     );
   }
 
@@ -730,6 +809,7 @@ class CasoRepository implements ISyncRepository {
           }
         }
 
+        await _marcarCasoPendenteSync(txn, casoUuid);
         await batch.commit(noResult: true);
       });
       debugPrint('[CasoRepository] ✅ ${exames.length} exames salvos com sucesso para o caso $casoUuid');

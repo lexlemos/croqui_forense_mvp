@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class CaseCard extends StatelessWidget {
   final Caso caso;
@@ -16,28 +17,28 @@ class CaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
       StatusCaso.rascunho => (
-        const Color(0xFF00838F),
-        const Color(0xFFE0F7FA),
+        AppColors.statusDraftText,
+        AppColors.statusDraftBg,
         'RASCUNHO',
       ),
       StatusCaso.laudo_pendente => (
-        const Color(0xFFE65100),
-        const Color(0xFFFFF3E0),
+        AppColors.statusPendingText,
+        AppColors.statusPendingBg,
         'LAUDO PENDENTE',
       ),
       StatusCaso.finalizado => (
-        const Color(0xFF2E7D32),
-        const Color(0xFFE8F5E9),
+        AppColors.statusDoneText,
+        AppColors.statusDoneBg,
         'FINALIZADO',
       ),
       StatusCaso.sincronizado => (
-        const Color(0xFF2E7D32),
-        const Color(0xFFE8F5E9),
+        AppColors.statusDoneText,
+        AppColors.statusDoneBg,
         'FINALIZADO',
       ),
       StatusCaso.arquivado => (
-        const Color(0xFF616161),
-        const Color(0xFFF5F5F5),
+        AppColors.statusArchivedText,
+        AppColors.statusArchivedBg,
         'ARQUIVADO',
       ),
     };
@@ -179,7 +180,7 @@ class CaseCard extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF0F4F9),
+                        color: AppColors.buttonPastelBg,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(

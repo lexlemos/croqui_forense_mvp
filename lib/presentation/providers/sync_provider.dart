@@ -176,7 +176,7 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
               : () => context.read<SyncProvider>().startSync(),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.primary.withOpacity(0.55),
+            disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55),
             foregroundColor: Colors.white,
             disabledForegroundColor: Colors.white70,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

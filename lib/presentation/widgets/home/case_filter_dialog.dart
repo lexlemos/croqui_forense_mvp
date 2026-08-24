@@ -174,7 +174,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.grey[100],
+            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? AppColors.primary : Colors.transparent,
@@ -215,7 +215,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
       selected: isSelected,
       onSelected: (_) => _toggleStatus(status),
       checkmarkColor: color,
-      selectedColor: color.withOpacity(0.1),
+      selectedColor: color.withValues(alpha: 0.1),
       labelStyle: TextStyle(
         color: isSelected ? color : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

@@ -207,7 +207,7 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
 
             // 1. Histórico da Ocorrência
             DropdownButtonFormField<String>(
-              value: _opcoesHistorico.contains(_historicoOcorrencia)
+              initialValue: _opcoesHistorico.contains(_historicoOcorrencia)
                   ? _historicoOcorrencia
                   : null,
               decoration: const InputDecoration(
@@ -356,7 +356,7 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                           style: TextStyle(fontSize: 11),
                         ),
                         value: _quantificacaoDrogas,
-                        activeColor: Colors.purple.shade700,
+                        activeThumbColor: Colors.purple.shade700,
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly

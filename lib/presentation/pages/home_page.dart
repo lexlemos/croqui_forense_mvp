@@ -10,6 +10,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/home/home_action_bar.dar
 import 'package:croqui_forense_mvp/presentation/widgets/home/case_card.dart';
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/home_controller.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -93,7 +94,7 @@ class _HomePageState extends State<HomePage> {
 
             Expanded(
               child: Container(
-                color: const Color(0xFFF8F9FA),
+                color: AppColors.homeBackground,
                 child: _buildCasesGrid(context, currentCases),
               ),
             ),

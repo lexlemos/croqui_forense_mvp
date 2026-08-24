@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,10 +31,24 @@ import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/widgets/common/auth_wrapper.dart';
-import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';import 'package:sentry_flutter/sentry_flutter.dart';
+
+
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
+  await dotenv.load(fileName: ".env");
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    Sentry.captureException(details.exception, stackTrace: details.stack);
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    Sentry.captureException(error, stackTrace: stack);
+    return true;
+  };
 
   final dbFactory = DatabaseFactoryImpl();
   final keyStorage = SecureKeyStorage();
@@ -51,7 +66,75 @@ void main() async {
     debugPrint('[GC] ⚠️ Falha silenciosa na rotina de Garbage Collection: $e');
   }
 
-  runApp(const AppRoot());
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = dotenv.env['SENTRY_DSN'];
+      // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
+      // We recommend adjusting this value in production.
+      options.tracesSampleRate = 1.0;
+      // The sampling rate for profiling is relative to tracesSampleRate
+      // Setting to 1.0 will profile 100% of sampled transactions:
+      options.profilesSampleRate = 1.0;
+      
+      options.beforeSend = (event, hint) {
+        try {
+          final bool isConnectivityError = event.exceptions?.any((e) {
+            final type = e.type?.toLowerCase() ?? '';
+            return type.contains('socketexception') ||
+                   type.contains('handshakeexception') ||
+                   type.contains('timeoutexception');
+          }) ?? false;
+
+          if (isConnectivityError) {
+            return null; 
+          }
+
+          final cpfRegex = RegExp(r'\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b');
+          final laudoRegex = RegExp(r'"dados_laudo"\s*:\s*\{.*?\}', dotAll: true);
+
+          String maskData(String? input) {
+            if (input == null) return '';
+            var masked = input.replaceAll(cpfRegex, '[CPF_MASCARADO]');
+            masked = masked.replaceAll(laudoRegex, '"dados_laudo": "[DADOS_MASCARADOS]"');
+            return masked;
+          }
+
+          if (event.message != null) {
+            event.message!.formatted = maskData(event.message!.formatted);
+          }
+
+          event.exceptions?.forEach((e) {
+            e.value = maskData(e.value);
+            e.type = maskData(e.type);
+          });
+
+          event.breadcrumbs?.forEach((b) {
+            b.message = maskData(b.message);
+            if (b.data != null) {
+              final newData = <String, dynamic>{};
+              b.data!.forEach((key, value) {
+                if (value is String) {
+                  newData[key] = maskData(value);
+                } else {
+                  newData[key] = value;
+                }
+              });
+              b.data!.clear();
+              b.data!.addAll(newData);
+            }
+          });
+
+          return event;
+        } catch (e) {
+          debugPrint('Sentry beforeSend falhou ao mascarar dados: $e');
+          return null; 
+        }
+      };
+    },
+    appRunner: () => runApp(SentryWidget(child: const AppRoot())),
+  );
+  // TODO: Remove this line after sending the first sample event to sentry.
+  await Sentry.captureException(Exception('This is a sample exception.'));
 }
 
 class AppRoot extends StatelessWidget {
@@ -116,7 +199,6 @@ class AppRoot extends StatelessWidget {
           update: (_, remoteDS, casoRepo, domainSync, authService, __) => SyncService(
             remoteDataSource: remoteDS,
             repository: casoRepo,
-            domainSyncService: domainSync,
             authService: authService,
           ),
         ),
@@ -130,13 +212,18 @@ class AppRoot extends StatelessWidget {
           },
         ),
 
-        ChangeNotifierProxyProvider2<CaseService, SyncService, CaseListProvider>(
+        ChangeNotifierProxyProvider3<CaseService, SyncService, AuthService, CaseListProvider>(
           create: (ctx) => CaseListProvider(
             ctx.read<CaseService>(),
             syncService: ctx.read<SyncService>(),
+            authService: ctx.read<AuthService>(),
           ),
-          update: (_, caseService, syncService, previous) =>
-              previous!..updateServices(caseService: caseService, syncService: syncService),
+          update: (_, caseService, syncService, authService, previous) =>
+              previous!..updateServices(
+                caseService: caseService,
+                syncService: syncService,
+                authService: authService,
+              ),
         ),
 
         ChangeNotifierProxyProvider<UserService, UserManagementProvider>(

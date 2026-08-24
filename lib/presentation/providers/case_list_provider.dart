@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
 class CaseListProvider extends ChangeNotifier {
   CaseService _caseService;
   SyncService? _syncService;
+  AuthService? _authService;
 
   List<Caso> _todosCasos = [];
   List<Caso> _casosFiltrados = [];
@@ -24,6 +26,9 @@ class CaseListProvider extends ChangeNotifier {
     StatusCaso.sincronizado,
   };
 
+  bool _disposed = false;
+  bool get isDisposed => _disposed;
+
   List<Caso> get casos => _casosFiltrados;
 
   bool get isLoading => _isLoading;
@@ -33,16 +38,41 @@ class CaseListProvider extends ChangeNotifier {
   SortOrder get sortOrder => _sortOrder;
   List<StatusCaso> get statusFilter => List.unmodifiable(_statusFilter);
 
-  CaseListProvider(this._caseService, {SyncService? syncService})
-      : _syncService = syncService;
+  CaseListProvider(this._caseService, {SyncService? syncService, AuthService? authService})
+      : _syncService = syncService,
+        _authService = authService {
+    _syncService?.onPullCompleted = () => carregarCasos();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    if (_syncService?.onPullCompleted != null) {
+      _syncService?.onPullCompleted = null;
+    }
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
+  }
   
   void updateService(CaseService newService) {
     _caseService = newService;
   }
 
-  void updateServices({required CaseService caseService, SyncService? syncService}) {
+  void updateAuthService(AuthService authService) {
+    _authService = authService;
+  }
+
+  void updateServices({required CaseService caseService, SyncService? syncService, AuthService? authService}) {
     _caseService = caseService;
     _syncService = syncService;
+    _authService = authService;
+    _syncService?.onPullCompleted = () => carregarCasos();
   }
 
   Future<Caso> criarCaso({
@@ -56,6 +86,7 @@ class CaseListProvider extends ChangeNotifier {
     required String destino,
     required String requisitante,
     required List<dynamic> fotosGerais,
+    required List<String> atnsIds,
   }) async {
     final novoCaso = await _caseService.createNewCase(
       criador: criador,
@@ -67,6 +98,7 @@ class CaseListProvider extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
+      atnsIds: atnsIds,
     );
 
     final List<EvidenciaMultimidia> evidencias = [];
@@ -92,19 +124,29 @@ class CaseListProvider extends ChangeNotifier {
     return novoCaso;
   }
 
-  Future<void> carregarCasos() async {
-    if (_isLoading) return;
+  Future<void> carregarCasos([String? usuarioId]) async {
+    if (_isLoading || _disposed) return;
     _isLoading = true;
     _erro = null;
     notifyListeners();
 
     try {
-      _todosCasos = await _caseService.listarCasos();
+      final uid = usuarioId ?? _authService?.usuario?.id;
+      if (uid == null || uid.isEmpty) {
+        _todosCasos = [];
+        _aplicarFiltros();
+        return;
+      }
+      final result = await _caseService.listarCasos(uid);
+      if (_disposed) return;
+      _todosCasos = result;
       _aplicarFiltros(); 
     } catch (e) {
-      _erro = e.toString();
+      if (!_disposed) {
+        _erro = e.toString();
+      }
     } finally {
-      if (_isLoading) {
+      if (_isLoading && !_disposed) {
         _isLoading = false;
         notifyListeners();
       }

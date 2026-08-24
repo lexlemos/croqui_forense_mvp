@@ -81,6 +81,20 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(height: 12),
                           _buildProfileRow(
                             context,
+                            icon: Icons.medical_information,
+                            label: 'CRM',
+                            value: usuario?.crm ?? 'Não preenchido',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildProfileRow(
+                            context,
+                            icon: Icons.star_border,
+                            label: 'Classe',
+                            value: usuario?.classe ?? 'Não preenchida',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildProfileRow(
+                            context,
                             icon: Icons.security,
                             label: 'Perfil / Função',
                             value: (usuario?.hasRole('ADMIN') ?? false)

@@ -60,8 +60,8 @@ class PdfService {
       return null;
     });
 
-    final fontRegularBytes = await _cachedFontRegularFuture!;
-    final fontBoldBytes = await _cachedFontBoldFuture!;
+    final fontRegularBytes = (await _cachedFontRegularFuture) ?? Uint8List(0);
+    final fontBoldBytes = (await _cachedFontBoldFuture) ?? Uint8List(0);
     final logoPoliciaBytes = await _cachedLogoPoliciaFuture;
 
     final Map<String, String> svgStrings = await _carregarSvgs(achados, caso);
@@ -122,7 +122,8 @@ class PdfService {
 
     final fontRegular = pw.Font.ttf(payload.fontRegularBytes.buffer.asByteData());
     final fontBold = pw.Font.ttf(payload.fontBoldBytes.buffer.asByteData());
-    final logoPolicia = payload.logoPoliciaBytes != null ? pw.MemoryImage(payload.logoPoliciaBytes!) : null;
+    final logoPoliciaBytes = payload.logoPoliciaBytes;
+    final logoPolicia = logoPoliciaBytes != null ? pw.MemoryImage(logoPoliciaBytes) : null;
 
     final theme = pw.ThemeData.withFont(base: fontRegular, bold: fontBold);
 
@@ -180,10 +181,10 @@ class PdfService {
               ...service._buildSecaoFotos(anexosFotos),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("8. COMENTÁRIO MÉDICO FORENSE"),
-            PdfHelpers.buildParagrafoComRecuo((payload.caso.dadosLaudo['conclusao']?['discussao']?.toString().isNotEmpty == true) ? payload.caso.dadosLaudo['conclusao']!['discussao'] : "XXX"),
+            PdfHelpers.buildParagrafoComRecuo((payload.caso.dadosLaudo['conclusao']?['discussao']?.toString().isNotEmpty == true) ? (payload.caso.dadosLaudo['conclusao']?['discussao']?.toString() ?? "XXX") : "XXX"),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("9. CONCLUSÃO"),
-            PdfHelpers.buildParagrafoComRecuo((payload.caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString().isNotEmpty == true) ? payload.caso.dadosLaudo['conclusao']!['conclusao_texto'] : "XXX"),
+            PdfHelpers.buildParagrafoComRecuo((payload.caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString().isNotEmpty == true) ? (payload.caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString() ?? "XXX") : "XXX"),
             pw.SizedBox(height: 10),
             PdfHelpers.buildParagrafoComRecuo(PdfConstants.encerramentoPadrao),
             pw.SizedBox(height: 15),
@@ -209,8 +210,8 @@ class PdfService {
         PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", caso.requisitante.isNotEmpty ? caso.requisitante : 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Destino:", caso.destino.isNotEmpty ? caso.destino : 'XXX'),
         PdfHelpers.buildLinhaDetalhe("Nome da vítima:", caso.nomeVitima.isNotEmpty ? caso.nomeVitima : 'XXX', bold: true),
-        if (caso.atnResponsavel != null && caso.atnResponsavel!.isNotEmpty)
-          PdfHelpers.buildLinhaDetalhe("Técnico de Necrópsia:", caso.atnResponsavel!),
+        if (caso.atnsIds.isNotEmpty)
+          PdfHelpers.buildLinhaDetalhe("Técnico(s) de Necrópsia:", caso.dadosLaudo['auditoria']?['atns_nomes']?.toString() ?? caso.atnsIds.join(", ")),
         pw.SizedBox(height: 20),
         pw.Center(child: pw.Text("LAUDO CADAVÉRICO", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))),
       ],
@@ -272,7 +273,7 @@ class PdfService {
     List<Achado> achadosPendentes = List.from(achados);
     
     PdfConstants.mapeamentoAnatomico.forEach((grupoOrinal, chavesExatas) {
-      final tituloDaSecao = isInterno ? PdfConstants.titulosInternos[grupoOrinal]! : grupoOrinal;
+      final tituloDaSecao = isInterno ? (PdfConstants.titulosInternos[grupoOrinal] ?? grupoOrinal) : grupoOrinal;
       final textoVazio = isInterno ? "Sem alterações macroscópicas dignas de nota." : "Sem evidências de lesões macroscópicas de natureza traumática.";
       final textoComLesao = isInterno ? null : "Com evidências de lesões macroscópicas:"; 
       final achadosGrupo = achadosPendentes.where((a) {
@@ -295,8 +296,8 @@ class PdfService {
           final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
           
           final List<pw.Widget> columnChildren = [
-            pw.Bullet(
-              text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
+            pw.Text(
+              "${a.numeroSequencial}. ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
               style: const pw.TextStyle(fontSize: 10),
             ),
           ];
@@ -309,11 +310,10 @@ class PdfService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: campos.map((c) => pw.Text(
-                    "- ${c['label']}: ${c['valor']}",
+                    "${c['label']}: ${c['valor']}",
                     style: pw.TextStyle(
                       fontSize: 8.5,
                       fontStyle: pw.FontStyle.italic,
-                      color: PdfColors.grey700,
                     ),
                   )).toList(),
                 ),
@@ -343,8 +343,8 @@ class PdfService {
         final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
         
         final List<pw.Widget> columnChildren = [
-          pw.Bullet(
-            text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
+          pw.Text(
+            "${a.numeroSequencial}. ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
             style: const pw.TextStyle(fontSize: 10),
           ),
         ];
@@ -357,11 +357,10 @@ class PdfService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: campos.map((c) => pw.Text(
-                  "- ${c['label']}: ${c['valor']}",
+                  "${c['label']}: ${c['valor']}",
                   style: pw.TextStyle(
                     fontSize: 8.5,
                     fontStyle: pw.FontStyle.italic,
-                    color: PdfColors.grey700,
                   ),
                 )).toList(),
               ),
@@ -481,7 +480,7 @@ children: [
       if (d.materialSgFemoral) subs.add('Veia Femoral');
       if (d.materialSgCardiaca) subs.add('Cavidade Cardíaca');
       if (d.materialSgOutro?.isNotEmpty == true) subs.add('Outro sítio: ${d.materialSgOutro}');
-      final lacreSg = d.numeroLacreSg?.isNotEmpty == true ? d.numeroLacreSg! : 'Não informado';
+      final lacreSg = d.numeroLacreSg?.isNotEmpty == true ? (d.numeroLacreSg ?? 'Não informado') : 'Não informado';
       linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Lacre: $lacreSg'));
       if (d.quantificacaoDrogas) {
         linhas.add(_itemRecuadoSecundario('Solicita quantificacao de drogas / farmacos'));
@@ -489,19 +488,19 @@ children: [
     }
 
     if (d.materialUrina) {
-      final lacre = d.numeroLacreUr?.isNotEmpty == true ? d.numeroLacreUr! : 'Não informado';
+      final lacre = d.numeroLacreUr?.isNotEmpty == true ? (d.numeroLacreUr ?? 'Não informado') : 'Não informado';
       linhas.add(_itemRecuado('- Urina (UR) — Lacre: $lacre'));
     }
     if (d.materialHumorVitreo) {
-      final lacre = d.numeroLacreHv?.isNotEmpty == true ? d.numeroLacreHv! : 'Não informado';
+      final lacre = d.numeroLacreHv?.isNotEmpty == true ? (d.numeroLacreHv ?? 'Não informado') : 'Não informado';
       linhas.add(_itemRecuado('- Humor Vitreo (HV) — Lacre: $lacre'));
     }
     if (d.materialEstomago) {
-      final lacre = d.numeroLacreCe?.isNotEmpty == true ? d.numeroLacreCe! : 'Não informado';
+      final lacre = d.numeroLacreCe?.isNotEmpty == true ? (d.numeroLacreCe ?? 'Não informado') : 'Não informado';
       linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Lacre: $lacre'));
     }
     if (d.materialPulmao) {
-      final lacre = d.numeroLacrePm?.isNotEmpty == true ? d.numeroLacrePm! : 'Não informado';
+      final lacre = d.numeroLacrePm?.isNotEmpty == true ? (d.numeroLacrePm ?? 'Não informado') : 'Não informado';
       linhas.add(_itemRecuado('- Pulmao (PM) — Lacre: $lacre'));
     }
 
@@ -548,7 +547,7 @@ children: [
         if (a.pesquisaSemen) pesqs.add('Pesquisa de Semen');
         if (a.pesquisaDna)   pesqs.add('Pesquisa de DNA');
         final pesqStr = pesqs.isNotEmpty ? ' [${pesqs.join(' + ')}]' : '';
-        final lacre = a.numeroLacre?.isNotEmpty == true ? a.numeroLacre! : 'Não informado';
+        final lacre = a.numeroLacre?.isNotEmpty == true ? (a.numeroLacre ?? 'Não informado') : 'Não informado';
         linhas.add(_itemRecuado('- $desc$pesqStr — Lacre do Envelope: $lacre'));
       }
     }
@@ -556,7 +555,7 @@ children: [
     if (referencia.isNotEmpty) {
       linhas.add(_subTitulo('Amostra de Referencia:'));
       for (final a in referencia) {
-        final lacre = a.numeroLacre?.isNotEmpty == true ? a.numeroLacre! : 'Não informado';
+        final lacre = a.numeroLacre?.isNotEmpty == true ? (a.numeroLacre ?? 'Não informado') : 'Não informado';
         linhas.add(_itemRecuado('- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Lacre do Envelope: $lacre'));
       }
     }
@@ -573,7 +572,7 @@ children: [
       'SWAB_BUCAL_VITIMA': 'Swab Bucal da Vítima',
     };
     if (a.tipoAmostra == 'OUTRO') {
-      return a.descricaoOutro?.isNotEmpty == true ? a.descricaoOutro! : 'Amostra personalizada';
+      return a.descricaoOutro?.isNotEmpty == true ? (a.descricaoOutro ?? 'Amostra personalizada') : 'Amostra personalizada';
     }
     return nomes[a.tipoAmostra] ?? a.tipoAmostra;
   }
@@ -607,7 +606,7 @@ children: [
 
     for (final f in frascos) {
       final numStr = f.numeroFrasco.toString().padLeft(2, '0');
-      final lacre = f.numeroLacre?.isNotEmpty == true ? f.numeroLacre! : 'Não informado';
+      final lacre = f.numeroLacre?.isNotEmpty == true ? (f.numeroLacre ?? 'Não informado') : 'Não informado';
 
       // Cabeçalho do frasco: numeracao + lacre
       linhas.add(
@@ -677,18 +676,48 @@ children: [
 
   pw.Widget _buildDadosQuesitosOficial(Caso caso) {
     final q = caso.dadosLaudo['conclusao'] ?? {};
+    
+    List<pw.Widget> causasWidgets = [];
+    if (q['causas_morte'] != null && q['causas_morte'] is List) {
+      final causasList = q['causas_morte'] as List;
+      for (int i = 0; i < causasList.length; i++) {
+        final map = causasList[i] as Map;
+        final imediata = map['imediata']?.toString().isNotEmpty == true ? map['imediata'] : 'XXX';
+        final devidoA = map['devido_a']?.toString().isNotEmpty == true ? map['devido_a'] : 'XXX';
+        final consequencia = map['consequencia']?.toString().isNotEmpty == true ? map['consequencia'] : 'XXX';
+        
+        causasWidgets.add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(left: 10, top: 4),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                if (causasList.length > 1) 
+                  pw.Text("Causa #${i + 1}:", style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic)),
+                pw.Bullet(text: "Imediata: $imediata", style: const pw.TextStyle(fontSize: 10)),
+                pw.Bullet(text: "Devido a: $devidoA", style: const pw.TextStyle(fontSize: 10)),
+                pw.Bullet(text: "Consequência: $consequencia", style: const pw.TextStyle(fontSize: 10)),
+              ],
+            ),
+          )
+        );
+      }
+    } else {
+      causasWidgets.add(pw.Text("R: ${q['quesito_2_causa']?.toString().isNotEmpty == true ? q['quesito_2_causa'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)));
+    }
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text("I) Houve morte?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
         pw.Text("R: ${q['quesito_1_morte']?.toString().isNotEmpty == true ? q['quesito_1_morte'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
-        pw.SizedBox(height: 5),
+        pw.SizedBox(height: 8),
         pw.Text("II) Qual a causa?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-        pw.Text("R: ${q['quesito_2_causa']?.toString().isNotEmpty == true ? q['quesito_2_causa'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
-        pw.SizedBox(height: 5),
+        ...causasWidgets,
+        pw.SizedBox(height: 8),
         pw.Text("III) Qual o instrumento ou meio que a produziu?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
         pw.Text("R: ${q['quesito_3_instrumento']?.toString().isNotEmpty == true ? q['quesito_3_instrumento'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
-        pw.SizedBox(height: 5),
+        pw.SizedBox(height: 8),
         pw.Text("IV) Foi produzida por meio de veneno, fogo, explosivo, asfixia ou meio insidioso cruel?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
         pw.Text("R: ${q['quesito_4_meio']?.toString().isNotEmpty == true ? q['quesito_4_meio'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
       ]
@@ -877,7 +906,7 @@ children: [
           pw.SizedBox(height: 5),
           pw.Container(width: 318.0, height: 450.0, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)), child: pw.Stack(children: [
             pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.fill)),
-            ...porFolha[view]!.where((a) {
+            ...(porFolha[view] ?? []).where((a) {
               if (view == 'perineal') {
                 final String? bodyPartId = a.dadosPreenchidos['local_anatomico_id']?.toString();
                 if (bodyPartId == null) return false;

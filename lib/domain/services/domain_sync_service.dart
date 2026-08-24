@@ -28,31 +28,13 @@ class DomainSyncService {
   /// Sincroniza e atualiza localmente as definições e "Esquemas de Formulários Dinâmicos"
   /// para o mapeamento e tipificação dos achados periciais.
   Future<void> syncTiposAchados() async {
-    List<InjuryType> types = [];
-    Object? remoteError;
-    try {
-      final jsonList = await _remoteDataSource.getTiposAchados();
-      types = jsonList.map((e) => InjuryType.fromJson(e)).toList();
+    final jsonList = await _remoteDataSource.getTiposAchados();
+    final types = jsonList.map((e) => InjuryType.fromJson(e)).toList();
 
-      if (types.isNotEmpty) {
-        await _injuryTypeRepository.upsertAll(types);
-      }
-      debugPrint('[DomainSync] tipos_achados sincronizados: ${types.length}');
-    } catch (e) {
-      remoteError = e;
-      debugPrint('[DomainSync] Falha ao sincronizar tipos_achados: $e');
+    if (types.isNotEmpty) {
+      await _injuryTypeRepository.upsertAll(types);
     }
-
-    if (types.isEmpty || remoteError != null) {
-      final localTypes = await _injuryTypeRepository.getAllTypes();
-      if (localTypes.isEmpty) {
-        if (remoteError != null) {
-          throw Exception('Não foi possível sincronizar os achados com o servidor e a base local está vazia: $remoteError');
-        } else {
-          throw Exception('Nenhum tipo de achado foi retornado pelo servidor e a base local está vazia.');
-        }
-      }
-    }
+    debugPrint('[DomainSync] tipos_achados sincronizados: ${types.length}');
   }
 
   /// Sincroniza em lote a lista oficial de A.T.N.s do backend.
@@ -62,14 +44,11 @@ class DomainSyncService {
   Future<void> syncAtns() async {
     final repo = _atnRepository;
     if (repo == null) return;
-    try {
-      final jsonList = await _remoteDataSource.getAtns();
-      final atnsList = jsonList.map((e) => AtnModel.fromMap(e)).toList();
-      await repo.sincronizarAtns(atnsList);
-      debugPrint('[DomainSync] ATNs sincronizados com sucesso: ${atnsList.length}');
-    } catch (e) {
-      debugPrint('[DomainSync] ⚠️ Falha ao sincronizar ATNs (dispositivo offline ou erro remoto): $e');
-    }
+    
+    final jsonList = await _remoteDataSource.getAtns();
+    final atnsList = jsonList.map((e) => AtnModel.fromMap(e)).toList();
+    await repo.sincronizarAtns(atnsList);
+    debugPrint('[DomainSync] ATNs sincronizados com sucesso: ${atnsList.length}');
   }
 }
 
