@@ -195,18 +195,17 @@ class AppRoot extends StatelessWidget {
                 atnRepository: atnRepo,
               ),
         ),
-        ProxyProvider4<IRemoteDataSource, CasoRepository, DomainSyncService, AuthService, SyncService>(
-          update: (_, remoteDS, casoRepo, domainSync, authService, __) => SyncService(
+        ProxyProvider3<IRemoteDataSource, CasoRepository, AuthService, SyncService>(
+          update: (_, remoteDS, casoRepo, authService, __) => SyncService(
             remoteDataSource: remoteDS,
             repository: casoRepo,
             authService: authService,
           ),
         ),
-        ChangeNotifierProxyProvider3<AuthService, ApiClient, DomainSyncService, AuthProvider>(
+        ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
-          update: (_, authService, apiClient, domainSync, previous) {
+          update: (_, authService, apiClient, previous) {
             previous!.updateService(authService);
-            previous.updateDomainSyncService(domainSync);
             apiClient.onSessionExpired = () => previous.onSessionExpired();
             return previous;
           },

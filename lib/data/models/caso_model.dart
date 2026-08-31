@@ -39,6 +39,7 @@ class Caso {
   final String? pdfLocalPath;
   final String? pdfUrl;
   final bool isDraftSynced;
+  final bool syncError;
   final List<EvidenciaMultimidia> evidenciasMultimidia;
 
   AuditoriaModel get auditoria {
@@ -74,6 +75,7 @@ class Caso {
     this.pdfLocalPath,
     this.pdfUrl,
     this.isDraftSynced = false,
+    this.syncError = false,
     this.evidenciasMultimidia = const [],
   });
   
@@ -92,6 +94,7 @@ class Caso {
     this.pdfLocalPath,
     this.pdfUrl,
     this.isDraftSynced = false,
+    this.syncError = false,
     this.evidenciasMultimidia = const [],
   }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
@@ -184,6 +187,9 @@ class Caso {
       isDraftSynced: map['is_draft_synced'] is bool
           ? map['is_draft_synced'] as bool
           : (map['is_draft_synced'] as int? ?? 0) == 1,
+      syncError: map['sync_error'] is bool
+          ? map['sync_error'] as bool
+          : (map['sync_error'] as int? ?? 0) == 1,
       evidenciasMultimidia: parsedEvidencias,
     );
   }
@@ -211,6 +217,7 @@ class Caso {
     String? pdfLocalPath,
     String? pdfUrl,
     bool? isDraftSynced,
+    bool? syncError,
   }) {
     return Caso(
       uuid: uuid ?? this.uuid,
@@ -235,6 +242,7 @@ class Caso {
       pdfLocalPath: pdfLocalPath ?? this.pdfLocalPath,
       pdfUrl: pdfUrl ?? this.pdfUrl,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
+      syncError: syncError ?? this.syncError,
     );
   }
 
@@ -262,6 +270,7 @@ class Caso {
       'pdf_local_path': pdfLocalPath,
       'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced ? 1 : 0,
+      'sync_error': syncError ? 1 : 0,
     };
   }
 

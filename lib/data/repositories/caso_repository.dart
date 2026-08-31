@@ -563,6 +563,7 @@ class CasoRepository implements ISyncRepository {
       '''
       UPDATE $tableCasos
          SET is_draft_synced = 1,
+             sync_error      = 0,
              atualizado_em   = ?
        WHERE uuid     = ?
          AND removido = 0
@@ -578,6 +579,23 @@ class CasoRepository implements ISyncRepository {
       '''
       UPDATE $tableCasos
          SET is_draft_synced = 1,
+             sync_error      = 0,
+             atualizado_em   = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [DateTime.now().toIso8601String(), casoUuid],
+    );
+  }
+
+  @override
+  Future<void> marcarCasoComErroDeSincronizacao(String casoUuid) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE $tableCasos
+         SET sync_error      = 1,
+             is_draft_synced = 0,
              atualizado_em   = ?
        WHERE uuid     = ?
          AND removido = 0

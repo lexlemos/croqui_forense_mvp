@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +13,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/home/case_card.dart';
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/home_controller.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,7 +32,24 @@ class _HomePageState extends State<HomePage> {
     _controller.init(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CaseListProvider>().carregarCasos();
+      unawaited(_sincronizarCatalogosEmSegundoPlano());
     });
+  }
+
+  Future<void> _sincronizarCatalogosEmSegundoPlano() async {
+    final domainSyncService = context.read<DomainSyncService>();
+
+    try {
+      await domainSyncService.syncTiposAchados();
+    } catch (e, stackTrace) {
+      debugPrint('[HomePage] Falha ao sincronizar tipos de achados: $e\n$stackTrace');
+    }
+
+    try {
+      await domainSyncService.syncAtns();
+    } catch (e, stackTrace) {
+      debugPrint('[HomePage] Falha ao sincronizar catálogo de ATNs: $e\n$stackTrace');
+    }
   }
 
   @override

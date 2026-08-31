@@ -102,6 +102,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
+    await _addColumnIfNotExists(txn, 'casos', 'sync_error', 'INTEGER NOT NULL DEFAULT 0');
     await txn.execute(kCreateAtnsSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
     await DatabaseSeeder(txn).seedAtns();
@@ -312,6 +313,11 @@ class DatabaseHelper {
       case 17:
         debugPrint('[DatabaseHelper] Executando migração para a versão 17 (Índice idx_casos_usuario_criador)...');
         await txn.execute('CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);');
+        break;
+
+      case 18:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 18 (Flag sync_error em casos)...');
+        await _addColumnIfNotExists(txn, 'casos', 'sync_error', 'INTEGER NOT NULL DEFAULT 0');
         break;
         
       default:

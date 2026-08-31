@@ -12,7 +12,6 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 import 'package:croqui_forense_mvp/core/utils/sentry_helper.dart';
-import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
@@ -37,6 +36,9 @@ abstract interface class ISyncRepository {
 
   /// Atualiza o status local do [Caso] (Laudo) para marcado como sincronizado no banco de dados.
   Future<void> marcarCasoComoSincronizado(Caso caso);
+
+  /// Marca localmente a cadeia de custódia como comprometida após falha na evidência.
+  Future<void> marcarCasoComErroDeSincronizacao(String casoUuid);
 
   /// Atualiza a marcação local de um rascunho como sincronizado no SQLite (`is_draft_synced = 1`).
   Future<void> marcarRascunhoComoSincronizado(String casoUuid);
@@ -81,6 +83,24 @@ class SyncUploadEvidenciaException implements Exception {
   String toString() =>
       'SyncUploadEvidenciaException(caso: $casoUuid, achado: $achadoUuid, '
       'status: $statusCode): $message';
+}
+
+/// Indica que a evidência esperada não está disponível no armazenamento local.
+class EvidenceNotFoundException implements Exception {
+  final String casoUuid;
+  final String? achadoUuid;
+  final String? filePath;
+
+  const EvidenceNotFoundException({
+    required this.casoUuid,
+    this.achadoUuid,
+    this.filePath,
+  });
+
+  @override
+  String toString() =>
+      'EvidenceNotFoundException(caso: $casoUuid, achado: $achadoUuid, '
+      'arquivo: $filePath)';
 }
 
 // Função utilitária removida: _readAndEncodePdfBase64 (agora o PDF é enviado como arquivo físico)
@@ -258,23 +278,45 @@ class SyncService {
       
       if (casosRemotos.isEmpty) {
         debugPrint('[SyncService] Nenhum caso recebido no pull.');
-        await secureStorage.save(key: 'last_sync_timestamp', value: DateTime.now().toUtc().toIso8601String());
         return;
       }
       
       debugPrint('[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.');
+      String? lastSuccessfulSyncTimestamp;
       
       for (final casoJson in casosRemotos) {
         try {
           await _repository.upsertCasoTransaction(casoJson);
+          final atualizadoEm = casoJson['atualizado_em']?.toString();
+          if (atualizadoEm != null && atualizadoEm.isNotEmpty) {
+            lastSuccessfulSyncTimestamp = atualizadoEm;
+          }
         } catch (e, stackTrace) {
           debugPrint('[SyncService] ❌ Erro ao sincronizar (upsert) o caso ${casoJson['uuid']}: $e\n$stackTrace');
-          // Continua para o próximo caso
+          final casoUuid = casoJson['uuid']?.toString();
+          if (casoUuid != null && casoUuid.isNotEmpty) {
+            try {
+              await _repository.marcarCasoComErroDeSincronizacao(casoUuid);
+            } catch (markError, markStackTrace) {
+              debugPrint(
+                '[SyncService] ❌ Não foi possível registrar sync_error para '
+                '$casoUuid: $markError\n$markStackTrace',
+              );
+            }
+          }
+          // Continua para o próximo caso, preservando o sucesso parcial.
+          continue;
         }
       }
-      
-      await secureStorage.save(key: 'last_sync_timestamp', value: DateTime.now().toUtc().toIso8601String());
-      debugPrint('[SyncService] Pull Synchronization concluído com sucesso.');
+
+      if (lastSuccessfulSyncTimestamp != null) {
+        await secureStorage.save(
+          key: 'last_sync_timestamp',
+          value: lastSuccessfulSyncTimestamp,
+        );
+      }
+
+      debugPrint('[SyncService] Pull Synchronization concluído com sucesso parcial.');
       onPullCompleted?.call();
     } on DioException catch (e, stackTrace) {
       if (_isSessionExpiredError(e)) {
@@ -375,6 +417,15 @@ class SyncService {
         achadosSincronizados.add(achado);
         // Idempotência Local: Marcar a foto como sincronizada imediatamente após sucesso individual
         await _repository.marcarFotoComoSincronizada(achado);
+      } on EvidenceNotFoundException catch (e, stackTrace) {
+        debugPrint(
+          '[SyncService] 🛑 Evidência ausente no caso ${caso.uuid}; '
+          'upload do caso abortado: $e',
+        );
+        await _repository.marcarCasoComErroDeSincronizacao(caso.uuid);
+        SentryHelper.setSyncErrorTag(caso.uuid);
+        await Sentry.captureException(e, stackTrace: stackTrace);
+        return 1;
       } catch (e, stackTrace) {
         if (_isSessionExpiredError(e)) {
           debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.');
@@ -402,10 +453,22 @@ class SyncService {
 
   Future<void> _uploadEvidencia(Caso caso, Achado achado) async {
     final String? caminhoFoto = achado.photoPath;
-    if (caminhoFoto == null || caminhoFoto.isEmpty) return;
+    if (caminhoFoto == null || caminhoFoto.isEmpty) {
+      throw EvidenceNotFoundException(
+        casoUuid: caso.uuid,
+        achadoUuid: achado.uuid,
+        filePath: caminhoFoto,
+      );
+    }
 
     final File arquivoOriginal = File(caminhoFoto);
-    if (!arquivoOriginal.existsSync()) return;
+    if (!arquivoOriginal.existsSync()) {
+      throw EvidenceNotFoundException(
+        casoUuid: caso.uuid,
+        achadoUuid: achado.uuid,
+        filePath: caminhoFoto,
+      );
+    }
 
     final bytes = await arquivoOriginal.readAsBytes();
     final String hashOriginal = sha256.convert(bytes).toString();

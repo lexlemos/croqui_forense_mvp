@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
-import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -12,7 +11,6 @@ import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthService _authService;
-  DomainSyncService? _domainSyncService;
   Usuario? _usuario;
   bool _isLoading = false;
   bool _isLogged = false;
@@ -21,10 +19,6 @@ class AuthProvider extends ChangeNotifier {
 
   void updateService(AuthService newService) {
     _authService = newService;
-  }
-
-  void updateDomainSyncService(DomainSyncService service) {
-    _domainSyncService = service;
   }
 
   void onSessionExpired([BuildContext? context]) {
@@ -69,8 +63,6 @@ class AuthProvider extends ChangeNotifier {
         final deviceId = await DeviceInfoService.getDeviceId();
         SentryHelper.setUser(userId: _usuario!.id, deviceId: deviceId);
       }
-      await _domainSyncService?.syncTiposAchados();
-      await _domainSyncService?.syncAtns();
     } finally {
       _isLoading = false;
       notifyListeners();

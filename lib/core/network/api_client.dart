@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:flutter/foundation.dart';
@@ -158,6 +160,105 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 }
 
+class _ForensicSafeLogInterceptor extends Interceptor {
+  static const _sensitiveRouteSegments = <String>[
+    '/casos',
+    '/evidencias',
+    '/achados',
+  ];
+
+  bool _isSensitiveRoute(String path) =>
+      _sensitiveRouteSegments.any(path.contains);
+
+  int _payloadSizeInBytes(Object? payload) {
+    if (payload == null) return 0;
+    if (payload is List<int>) return payload.length;
+    if (payload is FormData) {
+      final fieldsSize = payload.fields.fold<int>(
+        0,
+        (total, field) => total + utf8.encode('${field.key}=${field.value}').length,
+      );
+      final filesSize = payload.files.fold<int>(
+        0,
+        (total, file) => total + utf8.encode(file.key).length + file.value.length,
+      );
+      return fieldsSize + filesSize;
+    }
+
+    try {
+      return utf8.encode(jsonEncode(payload)).length;
+    } catch (_) {
+      return utf8.encode(payload.toString()).length;
+    }
+  }
+
+  String _loggedPayload(String path, Object? payload) {
+    final size = _payloadSizeInBytes(payload);
+    if (_isSensitiveRoute(path)) {
+      return '[PAYLOAD FORENSE OMITIDO - TAMANHO: $size bytes]';
+    }
+
+    final payloadText = payload?.toString() ?? 'null';
+    final payloadTextLower = payloadText.toLowerCase();
+    if (payloadTextLower.contains('senha') ||
+        payloadTextLower.contains('password') ||
+        payloadTextLower.contains('access_token') ||
+        payloadTextLower.contains('refresh_token') ||
+        payloadTextLower.contains('hash_pin_offline')) {
+      return '[PAYLOAD SENSÍVEL OMITIDO]';
+    }
+
+    if (size > 5000) {
+      return '[PAYLOAD OMITIDO - TAMANHO: $size bytes]';
+    }
+
+    return payloadText;
+  }
+
+  @override
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) {
+    final path = options.uri.path;
+    debugPrint('[Dio] --> ${options.method} ${options.uri}');
+    debugPrint('[Dio] Request headers: ${options.headers}');
+    debugPrint('[Dio] Request body: ${_loggedPayload(path, options.data)}');
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(
+    Response<dynamic> response,
+    ResponseInterceptorHandler handler,
+  ) {
+    final path = response.requestOptions.uri.path;
+    debugPrint('[Dio] <-- ${response.statusCode} ${response.requestOptions.uri}');
+    debugPrint('[Dio] Response headers: ${response.headers}');
+    debugPrint('[Dio] Response body: ${_loggedPayload(path, response.data)}');
+    handler.next(response);
+  }
+
+  @override
+  void onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) {
+    final path = err.requestOptions.uri.path;
+    debugPrint(
+      '[Dio] xxx ${err.response?.statusCode ?? 'NETWORK'} ${err.requestOptions.uri}',
+    );
+    debugPrint('[Dio] Error request headers: ${err.requestOptions.headers}');
+    if (err.response != null) {
+      debugPrint('[Dio] Error response headers: ${err.response!.headers}');
+      debugPrint(
+        '[Dio] Error response body: ${_loggedPayload(path, err.response!.data)}',
+      );
+    }
+    handler.next(err);
+  }
+}
+
 class ApiClient {
   late final Dio dio;
   final KeyStorageInterface _keyStorage;
@@ -196,33 +297,7 @@ class ApiClient {
         onSessionExpired: () => onSessionExpired?.call(),
       ),
       if (kDebugMode)
-        LogInterceptor(
-          requestBody: true,
-          responseBody: true,
-          requestHeader: true,
-          responseHeader: false,
-          logPrint: (object) {
-            final logStr = object.toString();
-
-            if (logStr.length > 5000) {
-              debugPrint('[Dio] ⚠️ Payload gigante detectado (${logStr.length} chars). Omitido para evitar lag na UI.');
-              debugPrint('[Dio] Preview: ${logStr.substring(0, 250)}...');
-              return;
-            }
-
-            final logStrLower = logStr.toLowerCase();
-            if (logStrLower.contains('senha') ||
-                logStrLower.contains('password') ||
-                logStrLower.contains('authorization') ||
-                logStrLower.contains('access_token') ||
-                logStrLower.contains('refresh_token') ||
-                logStrLower.contains('hash_pin_offline')) {
-              debugPrint('[Dio] 🔒 Payload contendo dados sensíveis ocultado.');
-            } else {
-              debugPrint('[Dio] $logStr');
-            }
-          },
-        ),
+        _ForensicSafeLogInterceptor(),
     ]);
     dio.addSentry();
   }
