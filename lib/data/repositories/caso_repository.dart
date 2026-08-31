@@ -84,7 +84,7 @@ class CasoRepository implements ISyncRepository {
     try {
       await db.transaction((txn) async {
         final casoBackend = Caso.fromMap(jsonCaso);
-        
+
         final localRow = await txn.query(
           tableCasos,
           where: 'uuid = ?',
@@ -93,12 +93,12 @@ class CasoRepository implements ISyncRepository {
         );
 
         bool deveAtualizarCaso = true;
-        
+
         if (localRow.isNotEmpty) {
           final localAtualizadoEmStr = localRow.first['atualizado_em']?.toString();
           final localAtualizadoEm = localAtualizadoEmStr != null ? DateTime.tryParse(localAtualizadoEmStr) : null;
           final backendAtualizadoEm = casoBackend.atualizadoEm;
-          
+
           if (localAtualizadoEm != null && backendAtualizadoEm != null) {
             if (!backendAtualizadoEm.isAfter(localAtualizadoEm)) {
               deveAtualizarCaso = false;
@@ -106,85 +106,27 @@ class CasoRepository implements ISyncRepository {
           }
         }
 
+        final batch = txn.batch();
+
         if (deveAtualizarCaso) {
-          Map<String, dynamic> mapParaSalvar = casoBackend.toMap();
+          final mapParaSalvar = casoBackend.toMap();
           if (jsonCaso['removido'] == true) {
             mapParaSalvar['removido'] = 1;
           }
-          
+
           if (localRow.isEmpty) {
-            await txn.insert(tableCasos, mapParaSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
+            batch.insert(
+              tableCasos,
+              mapParaSalvar,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           } else {
-            await txn.update(tableCasos, mapParaSalvar, where: 'uuid = ?', whereArgs: [casoBackend.uuid]);
-          }
-        }
-
-        if (jsonCaso['achados'] is List) {
-          final achadosList = jsonCaso['achados'] as List;
-          for (final achadoJson in achadosList) {
-             if (achadoJson is! Map) continue;
-             final aMap = Map<String, dynamic>.from(achadoJson);
-             final achadoBackend = Achado.fromMap(aMap);
-             
-             final localAchadoRow = await txn.query(
-               tableAchados,
-               where: 'uuid = ?',
-               whereArgs: [achadoBackend.uuid],
-               limit: 1,
-             );
-
-             bool deveAtualizarAchado = true;
-             
-             if (localAchadoRow.isNotEmpty) {
-               final localAchadoAtualizadoEmStr = localAchadoRow.first['atualizado_em']?.toString();
-               final localAchadoAtualizadoEm = localAchadoAtualizadoEmStr != null ? DateTime.tryParse(localAchadoAtualizadoEmStr) : null;
-               final backendAchadoAtualizadoEm = achadoBackend.atualizadoEm;
-               
-               if (localAchadoAtualizadoEm != null && backendAchadoAtualizadoEm != null) {
-                 if (!backendAchadoAtualizadoEm.isAfter(localAchadoAtualizadoEm)) {
-                   deveAtualizarAchado = false;
-                 }
-               }
-             }
-
-             if (deveAtualizarAchado) {
-               Map<String, dynamic> mapAchadoSalvar = achadoBackend.toMap();
-               if (achadoJson['removido'] == true) {
-                 mapAchadoSalvar['removido'] = 1;
-               }
-               
-               if (localAchadoRow.isEmpty) {
-                 await txn.insert(tableAchados, mapAchadoSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
-               } else {
-                 await txn.update(tableAchados, mapAchadoSalvar, where: 'uuid = ?', whereArgs: [achadoBackend.uuid]);
-               }
-
-               if (achadoBackend.photoPath != null && achadoBackend.photoPath!.isNotEmpty) {
-                 final existingEv = await txn.query(
-                   tableEvidenciasMultimidia,
-                   where: 'achado_uuid = ?',
-                   whereArgs: [achadoBackend.uuid],
-                   limit: 1,
-                 );
-                 if (existingEv.isEmpty) {
-                   await txn.insert(
-                     tableEvidenciasMultimidia,
-                     {
-                       'uuid': const Uuid().v4(),
-                       'caso_uuid': casoBackend.uuid,
-                       'achado_uuid': achadoBackend.uuid,
-                       'tipo': 'ACHADO',
-                       'caminho_arquivo_encriptado': achadoBackend.photoPath,
-                       'foto_sincronizada': 1,
-                       'removido': achadoBackend.removido ? 1 : 0,
-                       'versao': achadoBackend.versao,
-                       'criado_em': achadoBackend.criadoEm.toUtc().toIso8601String(),
-                     },
-                     conflictAlgorithm: ConflictAlgorithm.replace,
-                   );
-                 }
-               }
-             }
+            batch.update(
+              tableCasos,
+              mapParaSalvar,
+              where: 'uuid = ?',
+              whereArgs: [casoBackend.uuid],
+            );
           }
         }
 
@@ -211,47 +153,79 @@ class CasoRepository implements ISyncRepository {
           }
         }
 
+        final achadosParaSalvar = <Map<String, dynamic>>[];
+        final evidenciasParaSalvar = <Map<String, dynamic>>[];
+        final achadosComEvidenciaExplicita = <String>{};
+
         for (final evJson in rawEvidenciasList) {
           if (evJson is! Map) continue;
           final evMap = Map<String, dynamic>.from(evJson);
           final evBackend = EvidenciaMultimidia.fromMap(evMap);
           if (evBackend.uuid.isEmpty) continue;
 
-          final localEvRow = await txn.query(
-            tableEvidenciasMultimidia,
-            where: 'uuid = ?',
-            whereArgs: [evBackend.uuid],
-            limit: 1,
-          );
-
-          bool deveAtualizarEv = true;
-
-          if (localEvRow.isNotEmpty) {
-            final localEvAtualizadoEmStr = localEvRow.first['atualizado_em']?.toString();
-            final localEvAtualizadoEm = localEvAtualizadoEmStr != null ? DateTime.tryParse(localEvAtualizadoEmStr) : null;
-            final backendEvAtualizadoEm = evBackend.atualizadoEm;
-
-            if (localEvAtualizadoEm != null && backendEvAtualizadoEm != null) {
-              if (!backendEvAtualizadoEm.isAfter(localEvAtualizadoEm)) {
-                deveAtualizarEv = false;
-              }
-            }
+          final mapEvSalvar = evBackend.toMap()..['foto_sincronizada'] = 1;
+          if (evJson['removido'] == true) {
+            mapEvSalvar['removido'] = 1;
           }
+          evidenciasParaSalvar.add(mapEvSalvar);
+          if (evBackend.achadoUuid != null && evBackend.achadoUuid!.isNotEmpty) {
+            achadosComEvidenciaExplicita.add(evBackend.achadoUuid!);
+          }
+        }
 
-          if (deveAtualizarEv) {
-            Map<String, dynamic> mapEvSalvar = evBackend.toMap();
-            if (evJson['removido'] == true) {
-              mapEvSalvar['removido'] = 1;
+        if (jsonCaso['achados'] is List) {
+          final achadosList = jsonCaso['achados'] as List;
+          for (final achadoJson in achadosList) {
+            if (achadoJson is! Map) continue;
+            final aMap = Map<String, dynamic>.from(achadoJson);
+            final achadoBackend = Achado.fromMap(aMap);
+            if (achadoBackend.uuid.isEmpty) continue;
+
+            final mapAchadoSalvar = achadoBackend.toMap();
+            if (achadoJson['removido'] == true) {
+              mapAchadoSalvar['removido'] = 1;
             }
-            mapEvSalvar['foto_sincronizada'] = 1;
+            achadosParaSalvar.add(mapAchadoSalvar);
 
-            if (localEvRow.isEmpty) {
-              await txn.insert(tableEvidenciasMultimidia, mapEvSalvar, conflictAlgorithm: ConflictAlgorithm.replace);
-            } else {
-              await txn.update(tableEvidenciasMultimidia, mapEvSalvar, where: 'uuid = ?', whereArgs: [evBackend.uuid]);
+            if (achadoBackend.photoPath != null &&
+                achadoBackend.photoPath!.isNotEmpty &&
+                !achadosComEvidenciaExplicita.contains(achadoBackend.uuid)) {
+              final evidenciaUuid = const Uuid().v5(
+                casoBackend.uuid,
+                'achado-evidencia-${achadoBackend.uuid}',
+              );
+              evidenciasParaSalvar.add({
+                'uuid': evidenciaUuid,
+                'caso_uuid': casoBackend.uuid,
+                'achado_uuid': achadoBackend.uuid,
+                'tipo': 'ACHADO',
+                'caminho_arquivo_encriptado': achadoBackend.photoPath,
+                'foto_sincronizada': 1,
+                'removido': achadoBackend.removido ? 1 : 0,
+                'versao': achadoBackend.versao,
+                'criado_em': achadoBackend.criadoEm.toUtc().toIso8601String(),
+              });
             }
           }
         }
+
+        for (final mapAchado in achadosParaSalvar) {
+          batch.insert(
+            tableAchados,
+            mapAchado,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        for (final mapEvidencia in evidenciasParaSalvar) {
+          batch.insert(
+            tableEvidenciasMultimidia,
+            mapEvidencia,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
+        await batch.commit(noResult: true);
       });
     } catch (e, stackTrace) {
       debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction (caso uuid: ${jsonCaso['uuid']}): $e\n$stackTrace');
@@ -848,45 +822,169 @@ class CasoRepository implements ISyncRepository {
         orderBy: 'criado_em ASC',
       );
 
-      final List<ExameSolicitadoModel> resultado = [];
+      if (examesMaps.isEmpty) return [];
 
-      for (final mapMestre in examesMaps) {
-        final String exameUuid = mapMestre['uuid']?.toString() ?? '';
-        final String tipo = (mapMestre['tipo_exame']?.toString() ?? '').toUpperCase().trim();
+      final exameUuids = examesMaps
+          .map((map) => map['uuid']?.toString())
+          .whereType<String>()
+          .where((uuid) => uuid.isNotEmpty)
+          .toSet()
+          .toList();
+      final detalhesQueries = <String>[];
+      final detalhesArgs = <Object>[];
 
+      final tiposPorUuid = <String, String>{
+        for (final map in examesMaps)
+          map['uuid']!.toString():
+              (map['tipo_exame']?.toString() ?? '').toUpperCase().trim(),
+      };
+      final toxicUuids = exameUuids
+          .where((uuid) => tiposPorUuid[uuid] == 'TOXICOLOGICO')
+          .toList();
+      final geneticaUuids = exameUuids
+          .where((uuid) => tiposPorUuid[uuid] == 'GENETICA')
+          .toList();
+      final anatomoUuids = exameUuids
+          .where((uuid) => tiposPorUuid[uuid] == 'ANATOMO')
+          .toList();
+
+      String placeholdersFor(List<String> uuids) =>
+          List.filled(uuids.length, '?').join(', ');
+
+      if (toxicUuids.isNotEmpty) {
+        detalhesQueries.add('''
+          SELECT
+            'TOXICOLOGICO' AS detalhe_tipo,
+            uuid, exame_uuid,
+            historico_ocorrencia, historico_outro,
+            material_sg_femoral, material_sg_cardiaca, material_sg_outro,
+            numero_lacre_sg, material_urina, numero_lacre_ur,
+            material_humor_vitreo, numero_lacre_hv,
+            material_estomago, numero_lacre_ce,
+            material_pulmao, numero_lacre_pm, quantificacao_drogas,
+            NULL AS tipo_amostra, NULL AS descricao_outro,
+            NULL AS pesquisa_semen, NULL AS pesquisa_dna,
+            NULL AS quantidade_swabs, NULL AS numero_lacre,
+            NULL AS numero_frasco, NULL AS coracao, NULL AS figado,
+            NULL AS baco, NULL AS encefalo,
+            NULL AS pulmao_d_lsd, NULL AS pulmao_d_lmd, NULL AS pulmao_d_lid,
+            NULL AS pulmao_e_lse, NULL AS pulmao_e_lie,
+            NULL AS rim_d, NULL AS rim_e,
+            NULL AS pele_regiao, NULL AS partes_moles_regiao,
+            NULL AS outras_regiao
+          FROM detalhes_toxicologico
+          WHERE exame_uuid IN (${placeholdersFor(toxicUuids)})
+        ''');
+        detalhesArgs.addAll(toxicUuids);
+      }
+
+      if (geneticaUuids.isNotEmpty) {
+        detalhesQueries.add('''
+          SELECT
+            'GENETICA' AS detalhe_tipo,
+            uuid, exame_uuid,
+            NULL AS historico_ocorrencia, NULL AS historico_outro,
+            NULL AS material_sg_femoral, NULL AS material_sg_cardiaca,
+            NULL AS material_sg_outro, NULL AS numero_lacre_sg,
+            NULL AS material_urina, NULL AS numero_lacre_ur,
+            NULL AS material_humor_vitreo, NULL AS numero_lacre_hv,
+            NULL AS material_estomago, NULL AS numero_lacre_ce,
+            NULL AS material_pulmao, NULL AS numero_lacre_pm,
+            NULL AS quantificacao_drogas,
+            tipo_amostra, descricao_outro, pesquisa_semen, pesquisa_dna,
+            quantidade_swabs, numero_lacre,
+            NULL AS numero_frasco, NULL AS coracao, NULL AS figado,
+            NULL AS baco, NULL AS encefalo,
+            NULL AS pulmao_d_lsd, NULL AS pulmao_d_lmd, NULL AS pulmao_d_lid,
+            NULL AS pulmao_e_lse, NULL AS pulmao_e_lie,
+            NULL AS rim_d, NULL AS rim_e,
+            NULL AS pele_regiao, NULL AS partes_moles_regiao,
+            NULL AS outras_regiao
+          FROM amostras_genetica
+          WHERE exame_uuid IN (${placeholdersFor(geneticaUuids)})
+        ''');
+        detalhesArgs.addAll(geneticaUuids);
+      }
+
+      if (anatomoUuids.isNotEmpty) {
+        detalhesQueries.add('''
+          SELECT
+            'ANATOMO' AS detalhe_tipo,
+            uuid, exame_uuid,
+            NULL AS historico_ocorrencia, NULL AS historico_outro,
+            NULL AS material_sg_femoral, NULL AS material_sg_cardiaca,
+            NULL AS material_sg_outro, NULL AS numero_lacre_sg,
+            NULL AS material_urina, NULL AS numero_lacre_ur,
+            NULL AS material_humor_vitreo, NULL AS numero_lacre_hv,
+            NULL AS material_estomago, NULL AS numero_lacre_ce,
+            NULL AS material_pulmao, NULL AS numero_lacre_pm,
+            NULL AS quantificacao_drogas,
+            NULL AS tipo_amostra, NULL AS descricao_outro,
+            NULL AS pesquisa_semen, NULL AS pesquisa_dna,
+            NULL AS quantidade_swabs, numero_lacre,
+            numero_frasco, coracao, figado, baco, encefalo,
+            pulmao_d_lsd, pulmao_d_lmd, pulmao_d_lid,
+            pulmao_e_lse, pulmao_e_lie, rim_d, rim_e,
+            pele_regiao, partes_moles_regiao, outras_regiao
+          FROM frascos_anatomo
+          WHERE exame_uuid IN (${placeholdersFor(anatomoUuids)})
+        ''');
+        detalhesArgs.addAll(anatomoUuids);
+      }
+
+      final detalhesRows = detalhesQueries.isEmpty
+          ? <Map<String, dynamic>>[]
+          : await db.rawQuery(
+              detalhesQueries.join(' UNION ALL '),
+              detalhesArgs,
+            );
+
+      final toxicByExame = <String, Map<String, dynamic>>{};
+      final geneticaByExame = <String, List<Map<String, dynamic>>>{};
+      final anatomoByExame = <String, List<Map<String, dynamic>>>{};
+
+      for (final row in detalhesRows) {
+        final exameUuid = row['exame_uuid']?.toString() ?? '';
+        switch (row['detalhe_tipo']) {
+          case 'TOXICOLOGICO':
+            toxicByExame.putIfAbsent(exameUuid, () => row);
+            break;
+          case 'GENETICA':
+            geneticaByExame.putIfAbsent(exameUuid, () => []).add(row);
+            break;
+          case 'ANATOMO':
+            anatomoByExame.putIfAbsent(exameUuid, () => []).add(row);
+            break;
+        }
+      }
+
+      return examesMaps.map((mapMestre) {
+        final exameUuid = mapMestre['uuid']?.toString() ?? '';
+        final tipo = tiposPorUuid[exameUuid] ?? '';
         dynamic detalhesObj;
 
         if (tipo == 'TOXICOLOGICO') {
-          final toxicMaps = await db.query(
-            'detalhes_toxicologico',
-            where: 'exame_uuid = ?',
-            whereArgs: [exameUuid],
-            limit: 1,
-          );
-          if (toxicMaps.isNotEmpty) {
-            detalhesObj = DetalhesToxicologicoModel.fromMap(toxicMaps.first);
+          final detalhe = toxicByExame[exameUuid];
+          if (detalhe != null) {
+            detalhesObj = DetalhesToxicologicoModel.fromMap(detalhe);
           }
         } else if (tipo == 'GENETICA') {
-          final genMaps = await db.query(
-            'amostras_genetica',
-            where: 'exame_uuid = ?',
-            whereArgs: [exameUuid],
-          );
-          detalhesObj = genMaps.map((m) => AmostraGeneticaModel.fromMap(m)).toList();
+          detalhesObj = (geneticaByExame[exameUuid] ?? [])
+              .map(AmostraGeneticaModel.fromMap)
+              .toList();
         } else if (tipo == 'ANATOMO') {
-          final anatomoMaps = await db.query(
-            'frascos_anatomo',
-            where: 'exame_uuid = ?',
-            whereArgs: [exameUuid],
-            orderBy: 'numero_frasco ASC',
-          );
-          detalhesObj = anatomoMaps.map((m) => FrascoAnatomoModel.fromMap(m)).toList();
+          final detalhes = anatomoByExame[exameUuid] ?? [];
+          detalhes.sort((a, b) =>
+              ((a['numero_frasco'] as num?) ?? 0)
+                  .compareTo((b['numero_frasco'] as num?) ?? 0));
+          detalhesObj = detalhes.map(FrascoAnatomoModel.fromMap).toList();
         }
 
-        resultado.add(ExameSolicitadoModel.fromMap(mapMestre, detalhes: detalhesObj));
-      }
-
-      return resultado;
+        return ExameSolicitadoModel.fromMap(
+          mapMestre,
+          detalhes: detalhesObj,
+        );
+      }).toList();
     } catch (e) {
       debugPrint('[CasoRepository] ❌ Erro ao obter exames para o caso $casoUuid: $e');
       return [];

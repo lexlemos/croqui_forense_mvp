@@ -55,13 +55,15 @@ void main() async {
 
   DatabaseHelper.init(dbFactory, keyStorage);
 
-  // Garbage Collection: expurga arquivos físicos e registros SQLite de laudos
-  // finalizados, sincronizados na nuvem e com mais de 30 dias.
+  // Garbage Collection: remove arquivos órfãos e expurga arquivos físicos e
+  // registros SQLite de laudos finalizados, sincronizados na nuvem e com mais de 30 dias.
   // O bloco try/catch garante que uma falha na limpeza nunca impeça o app de abrir.
   try {
-    await LocalStorageGcService(
+    final storageGcService = LocalStorageGcService(
       dbHelper: DatabaseHelper.instance,
-    ).executarLimpezaDeRotina();
+    );
+    await storageGcService.limparArquivosOrfaos();
+    await storageGcService.executarLimpezaDeRotina();
   } catch (e) {
     debugPrint('[GC] ⚠️ Falha silenciosa na rotina de Garbage Collection: $e');
   }

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
@@ -24,6 +26,83 @@ class LocalStorageGcService {
   }) : _dbHelper = dbHelper;
 
   Future<Database> get _db async => _dbHelper.database;
+
+  /// Remove arquivos dos diretórios locais que não possuem referência no SQLite.
+  ///
+  /// A varredura é limitada aos diretórios gerenciados pelo aplicativo e não toca
+  /// em caminhos externos ou URLs armazenados como referências remotas.
+  Future<int> limparArquivosOrfaos() async {
+    final db = await _db;
+    final docsDir = await getApplicationDocumentsDirectory();
+    final arquivosRegistrados = <String>{};
+
+    String normalizarCaminho(String caminho) {
+      if (caminho.startsWith('http://') || caminho.startsWith('https://')) {
+        return '';
+      }
+      if (caminho.startsWith('file://')) {
+        caminho = caminho.substring('file://'.length);
+      }
+      final caminhoAbsoluto = p.isAbsolute(caminho)
+          ? caminho
+          : p.join(docsDir.path, caminho);
+      final normalizado = p.normalize(caminhoAbsoluto);
+      return Platform.isWindows ? normalizado.toLowerCase() : normalizado;
+    }
+
+    final casos = await db.query(
+      tableCasos,
+      columns: ['pdf_local_path'],
+      where: 'pdf_local_path IS NOT NULL AND pdf_local_path != ?',
+      whereArgs: [''],
+    );
+    for (final caso in casos) {
+      final caminho = normalizarCaminho(caso['pdf_local_path']?.toString() ?? '');
+      if (caminho.isNotEmpty) arquivosRegistrados.add(caminho);
+    }
+
+    final evidencias = await db.query(
+      tableEvidenciasMultimidia,
+      columns: ['caminho_arquivo_encriptado'],
+      where: 'caminho_arquivo_encriptado IS NOT NULL AND caminho_arquivo_encriptado != ?',
+      whereArgs: [''],
+    );
+    for (final evidencia in evidencias) {
+      final caminho = normalizarCaminho(
+        evidencia['caminho_arquivo_encriptado']?.toString() ?? '',
+      );
+      if (caminho.isNotEmpty) arquivosRegistrados.add(caminho);
+    }
+
+    final diretoriosGerenciados = <Directory>[
+      Directory(p.join(docsDir.path, 'laudos')),
+      Directory(p.join(docsDir.path, 'evidencias')),
+    ];
+
+    int arquivosRemovidos = 0;
+    for (final diretorio in diretoriosGerenciados) {
+      if (!diretorio.existsSync()) continue;
+
+      for (final entity in diretorio.listSync(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+
+        final caminho = normalizarCaminho(entity.path);
+        if (caminho.isEmpty || arquivosRegistrados.contains(caminho)) continue;
+
+        try {
+          final file = File(entity.path);
+          file.deleteSync();
+          arquivosRemovidos++;
+          debugPrint('[GC] 🧹 Arquivo órfão removido: ${entity.path}');
+        } catch (e) {
+          debugPrint('[GC] ⚠️ Falha ao remover arquivo órfão ${entity.path}: $e');
+        }
+      }
+    }
+
+    debugPrint('[GC] Limpeza de arquivos órfãos concluída: $arquivosRemovidos removido(s).');
+    return arquivosRemovidos;
+  }
 
   /// Executa a rotina de limpeza de armazenamento local.
   ///

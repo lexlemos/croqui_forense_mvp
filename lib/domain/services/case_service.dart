@@ -22,7 +22,7 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
     if (file.existsSync()) {
       try {
         final base64Buffer = StringBuffer();
-        final base64Input = Base64Encoder().startChunkedConversion(
+        final base64Input = const Base64Encoder().startChunkedConversion(
           StringConversionSink.fromStringSink(base64Buffer),
         );
 
