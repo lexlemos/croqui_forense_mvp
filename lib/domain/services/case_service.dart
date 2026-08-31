@@ -21,8 +21,18 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
 
     if (file.existsSync()) {
       try {
-        List<int> imageBytes = await file.readAsBytes();
-        String base64String = base64Encode(imageBytes);
+        final base64Buffer = StringBuffer();
+        final base64Input = Base64Encoder().startChunkedConversion(
+          StringConversionSink.fromStringSink(base64Buffer),
+        );
+
+        await for (final chunk in file.openRead()) {
+          base64Input.add(chunk);
+        }
+
+        base64Input.close();
+
+        final String base64String = base64Buffer.toString();
         
         Map<String, dynamic> novoAnexo = Map.from(anexo);
         novoAnexo.remove('caminho_arquivo'); 

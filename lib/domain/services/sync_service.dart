@@ -196,8 +196,12 @@ class SyncService {
       
       // Fase 1: Push textual de metadados (JSON) de todos os casos num único array
       final syncResult = await _pushTextual(casosParaEnviar);
-      final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
-      final salvosUuids = List<String>.from(syncResult['casos_salvos'] ?? []);
+      final conflitosUuids = Set<String>.from(
+        syncResult['conflitos'] ?? const <String>[],
+      );
+      final salvosUuids = Set<String>.from(
+        syncResult['casos_salvos'] ?? const <String>[],
+      );
       
       totalCasosConflito += conflitosUuids.length;
 

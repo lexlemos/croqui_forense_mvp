@@ -81,13 +81,15 @@ class _CroquiViewerState extends State<CroquiViewer> {
       _rawMaskBytes = null;
     });
 
+    ui.Codec? codec;
     ui.Image? uiImage;
     try {
       final ByteData data = await rootBundle.load(currentLoadPath);
       final Uint8List bytes = data.buffer.asUint8List();
 
-      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final loadedCodec = await ui.instantiateImageCodec(bytes);
+      codec = loadedCodec;
+      final ui.FrameInfo frameInfo = await loadedCodec.getNextFrame();
       uiImage = frameInfo.image;
 
       final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -117,6 +119,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
       }
     } finally {
       // Garantia absoluta de liberação do recurso nativo C++
+      codec?.dispose();
       uiImage?.dispose();
     }
   }
