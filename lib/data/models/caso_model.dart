@@ -42,6 +42,21 @@ class Caso {
   final bool syncError;
   final List<EvidenciaMultimidia> evidenciasMultimidia;
 
+  final String? corpoEstado;
+  final String? corpoEstadoOutros;
+  final String? sexoBiologicoEstimado;
+  final String? dataObito;
+  final String? horaObito;
+  final String? tipoEstimativaHoraObito;
+  final dynamic causaMorte;
+  final bool? examesSolicitados;
+  final String? descricaoExames;
+  final bool? objetoRetirado;
+  final String? descricaoObjeto;
+  final String? dataNecropsia;
+  final String? horaNecropsia;
+  final String? numeroDeclaracaoObito;
+
   AuditoriaModel get auditoria {
     final map = dadosLaudo['auditoria'];
     if (map is Map<String, dynamic>) {
@@ -77,6 +92,20 @@ class Caso {
     this.isDraftSynced = false,
     this.syncError = false,
     this.evidenciasMultimidia = const [],
+    this.corpoEstado,
+    this.corpoEstadoOutros,
+    this.sexoBiologicoEstimado,
+    this.dataObito,
+    this.horaObito,
+    this.tipoEstimativaHoraObito,
+    this.causaMorte,
+    this.examesSolicitados,
+    this.descricaoExames,
+    this.objetoRetirado,
+    this.descricaoObjeto,
+    this.dataNecropsia,
+    this.horaNecropsia,
+    this.numeroDeclaracaoObito,
   });
   
   Caso.novo({
@@ -96,6 +125,20 @@ class Caso {
     this.isDraftSynced = false,
     this.syncError = false,
     this.evidenciasMultimidia = const [],
+    this.corpoEstado,
+    this.corpoEstadoOutros,
+    this.sexoBiologicoEstimado,
+    this.dataObito,
+    this.horaObito,
+    this.tipoEstimativaHoraObito,
+    this.causaMorte,
+    this.examesSolicitados,
+    this.descricaoExames,
+    this.objetoRetirado,
+    this.descricaoObjeto,
+    this.dataNecropsia,
+    this.horaNecropsia,
+    this.numeroDeclaracaoObito,
   }) : uuid = const Uuid().v4(), 
        status = StatusCaso.rascunho,
        hashIntegridade = null,
@@ -191,6 +234,38 @@ class Caso {
           ? map['sync_error'] as bool
           : (map['sync_error'] as int? ?? 0) == 1,
       evidenciasMultimidia: parsedEvidencias,
+      corpoEstado: map['corpo_estado']?.toString(),
+      corpoEstadoOutros: map['corpo_estado_outros']?.toString(),
+      sexoBiologicoEstimado: map['sexo_biologico_estimado']?.toString(),
+      dataObito: map['data_obito']?.toString(),
+      horaObito: map['hora_obito']?.toString(),
+      tipoEstimativaHoraObito: map['tipo_estimativa_hora_obito']?.toString(),
+      causaMorte: map['causa_morte'] != null
+          ? (() {
+              final val = map['causa_morte'];
+              if (val is Map || val is List) return val;
+              try {
+                final decoded = jsonDecode(val.toString());
+                if (decoded is Map || decoded is List) return decoded;
+              } catch (_) {}
+              return null;
+            })()
+          : null,
+      examesSolicitados: map['exames_solicitados'] != null
+          ? (map['exames_solicitados'] is bool
+              ? map['exames_solicitados'] as bool
+              : (map['exames_solicitados'] as int? ?? 0) == 1)
+          : null,
+      descricaoExames: map['descricao_exames']?.toString(),
+      objetoRetirado: map['objeto_retirado'] != null
+          ? (map['objeto_retirado'] is bool
+              ? map['objeto_retirado'] as bool
+              : (map['objeto_retirado'] as int? ?? 0) == 1)
+          : null,
+      descricaoObjeto: map['descricao_objeto']?.toString(),
+      dataNecropsia: map['data_necropsia']?.toString(),
+      horaNecropsia: map['hora_necropsia']?.toString(),
+      numeroDeclaracaoObito: map['numero_declaracao_obito']?.toString(),
     );
   }
 
@@ -218,6 +293,20 @@ class Caso {
     String? pdfUrl,
     bool? isDraftSynced,
     bool? syncError,
+    String? corpoEstado,
+    String? corpoEstadoOutros,
+    String? sexoBiologicoEstimado,
+    String? dataObito,
+    String? horaObito,
+    String? tipoEstimativaHoraObito,
+    dynamic causaMorte,
+    bool? examesSolicitados,
+    String? descricaoExames,
+    bool? objetoRetirado,
+    String? descricaoObjeto,
+    String? dataNecropsia,
+    String? horaNecropsia,
+    String? numeroDeclaracaoObito,
   }) {
     return Caso(
       uuid: uuid ?? this.uuid,
@@ -243,6 +332,20 @@ class Caso {
       pdfUrl: pdfUrl ?? this.pdfUrl,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
       syncError: syncError ?? this.syncError,
+      corpoEstado: corpoEstado ?? this.corpoEstado,
+      corpoEstadoOutros: corpoEstadoOutros ?? this.corpoEstadoOutros,
+      sexoBiologicoEstimado: sexoBiologicoEstimado ?? this.sexoBiologicoEstimado,
+      dataObito: dataObito ?? this.dataObito,
+      horaObito: horaObito ?? this.horaObito,
+      tipoEstimativaHoraObito: tipoEstimativaHoraObito ?? this.tipoEstimativaHoraObito,
+      causaMorte: causaMorte ?? this.causaMorte,
+      examesSolicitados: examesSolicitados ?? this.examesSolicitados,
+      descricaoExames: descricaoExames ?? this.descricaoExames,
+      objetoRetirado: objetoRetirado ?? this.objetoRetirado,
+      descricaoObjeto: descricaoObjeto ?? this.descricaoObjeto,
+      dataNecropsia: dataNecropsia ?? this.dataNecropsia,
+      horaNecropsia: horaNecropsia ?? this.horaNecropsia,
+      numeroDeclaracaoObito: numeroDeclaracaoObito ?? this.numeroDeclaracaoObito,
     );
   }
 
@@ -271,6 +374,20 @@ class Caso {
       'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced ? 1 : 0,
       'sync_error': syncError ? 1 : 0,
+      'corpo_estado': corpoEstado,
+      'corpo_estado_outros': corpoEstadoOutros,
+      'sexo_biologico_estimado': sexoBiologicoEstimado,
+      'data_obito': dataObito,
+      'hora_obito': horaObito,
+      'tipo_estimativa_hora_obito': tipoEstimativaHoraObito,
+      'causa_morte': causaMorte != null ? jsonEncode(causaMorte) : null,
+      'exames_solicitados': examesSolicitados == null ? null : (examesSolicitados! ? 1 : 0),
+      'descricao_exames': descricaoExames,
+      'objeto_retirado': objetoRetirado == null ? null : (objetoRetirado! ? 1 : 0),
+      'descricao_objeto': descricaoObjeto,
+      'data_necropsia': dataNecropsia,
+      'hora_necropsia': horaNecropsia,
+      'numero_declaracao_obito': numeroDeclaracaoObito,
     };
   }
 
@@ -298,6 +415,21 @@ class Caso {
       'pdf_local_path': pdfLocalPath,
       'pdf_url': pdfUrl,
       'is_draft_synced': isDraftSynced,
+      'corpo_estado': corpoEstado,
+      'corpo_estado_outros': corpoEstadoOutros,
+      'sexo_biologico_estimado': sexoBiologicoEstimado,
+      'data_obito': dataObito,
+      'hora_obito': horaObito,
+      'tipo_estimativa_hora_obito': tipoEstimativaHoraObito,
+      'causa_morte': causaMorte,
+      'exames_solicitados': examesSolicitados,
+      'descricao_exames': descricaoExames,
+      'objeto_retirado': objetoRetirado,
+      'descricao_objeto': descricaoObjeto,
+      'data_necropsia': dataNecropsia,
+      'hora_necropsia': horaNecropsia,
+      'numero_declaracao_obito': numeroDeclaracaoObito,
+      'perito_responsavel': idUsuarioCriador,
     };
   }
 }

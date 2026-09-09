@@ -111,6 +111,40 @@ class CroquiController extends ChangeNotifier {
   late final TextEditingController quesito3Ctrl;
   late final TextEditingController quesito4Ctrl;
 
+  late final TextEditingController numeroDeclaracaoObitoCtrl;
+  late final TextEditingController dataObitoCtrl;
+  late final TextEditingController horaObitoCtrl;
+  late final TextEditingController tipoEstimativaHoraObitoCtrl;
+  late final TextEditingController sexoBiologicoEstimadoCtrl;
+  late final TextEditingController corpoEstadoCtrl;
+  late final TextEditingController corpoEstadoOutrosCtrl;
+  List<TextEditingController> descricaoObjetoCtrls = [];
+  
+  bool objetoRetirado = false;
+
+  void adicionarObjeto() {
+    descricaoObjetoCtrls.add(TextEditingController());
+    notifyListeners();
+  }
+
+  void removerObjeto(int index) {
+    if (descricaoObjetoCtrls.length > 1) {
+      descricaoObjetoCtrls[index].dispose();
+      descricaoObjetoCtrls.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  void setObjetoRetirado(bool value) {
+    objetoRetirado = value;
+    notifyListeners();
+  }
+
+  void setCorpoEstado(String value) {
+    corpoEstadoCtrl.text = value;
+    notifyListeners();
+  }
+
   CroquiController(
     this.casoAtual,
     this._achadoService,
@@ -136,6 +170,24 @@ class CroquiController extends ChangeNotifier {
     reqDestinoCtrl = TextEditingController(text: caso.destino);
     nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
 
+    numeroDeclaracaoObitoCtrl = TextEditingController(text: caso.numeroDeclaracaoObito ?? '');
+    dataObitoCtrl = TextEditingController(text: caso.dataObito ?? '');
+    horaObitoCtrl = TextEditingController(text: caso.horaObito ?? '');
+    tipoEstimativaHoraObitoCtrl = TextEditingController(text: caso.tipoEstimativaHoraObito ?? '');
+    sexoBiologicoEstimadoCtrl = TextEditingController(text: caso.sexoBiologicoEstimado ?? '');
+    corpoEstadoCtrl = TextEditingController(text: caso.corpoEstado ?? '');
+    corpoEstadoOutrosCtrl = TextEditingController(text: caso.corpoEstadoOutros ?? '');
+    
+    final String descObjeto = caso.descricaoObjeto ?? '';
+    if (descObjeto.trim().isNotEmpty) {
+      final items = descObjeto.split('\n');
+      descricaoObjetoCtrls = items.map((e) => TextEditingController(text: e.trim())).toList();
+    } else {
+      descricaoObjetoCtrls = [TextEditingController()];
+    }
+    
+    objetoRetirado = caso.objetoRetirado ?? false;
+
     historicoCtrl = TextEditingController(
       text: dados['identificacao']?['historico'] ?? 
             "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
@@ -152,7 +204,17 @@ class CroquiController extends ChangeNotifier {
 
     quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
     
-    if (dados['conclusao']?['causas_morte'] != null) {
+    if (caso.causaMorte != null && caso.causaMorte is List) {
+      final List<dynamic> causasList = caso.causaMorte;
+      causasMorteCtrls = causasList.map((e) {
+        final map = Map<String, dynamic>.from(e);
+        return CausaMorteControllers(
+          imediata: map['imediata'] ?? '',
+          devidoA: map['devido_a'] ?? '',
+          consequencia: map['consequencia'] ?? '',
+        );
+      }).toList();
+    } else if (dados['conclusao']?['causas_morte'] != null) {
       final List<dynamic> causasList = dados['conclusao']!['causas_morte'];
       causasMorteCtrls = causasList.map((e) {
         final map = Map<String, dynamic>.from(e);
@@ -224,11 +286,53 @@ class CroquiController extends ChangeNotifier {
     _scheduleAutoSave();
   }
 
+  Future<void> _bumpRootVersion() async {
+    casoAtual = casoAtual.copyWith(
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    await _caseService.salvarRascunho(casoAtual);
+    notifyListeners();
+  }
+
   Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
     examesSolicitadosModel = exames;
     await _casoRepository.salvarExames(casoAtual.uuid, exames);
+    
+    // A MÁGICA DE VERSÃO FICA AQUI:
+    // Suja o caso matriz para o backend saber que o pacote de exames mudou
+    casoAtual = casoAtual.copyWith(
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    
     notifyListeners();
-    _scheduleAutoSave();
+    _scheduleAutoSave(); // Garante que o SQLite salve a versão nova antes do Sync
+  }
+
+  Future<void> salvarExamesSolicitados({
+    required String? anatomoLacre,
+    required String? toxicologicoLacre,
+    required String? geneticaLacre,
+    required String? outrosLacre,
+  }) async {
+    await _caseService.salvarExamesSolicitados(
+      casoUuid: casoAtual.uuid,
+      anatomoLacre: anatomoLacre,
+      toxicologicoLacre: toxicologicoLacre,
+      geneticaLacre: geneticaLacre,
+      outrosLacre: outrosLacre,
+    );
+    examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
+    
+    // Suja a raiz (OCC Bump)
+    casoAtual = casoAtual.copyWith(
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    
+    notifyListeners();
+    _scheduleAutoSave(); // Garante salvamento no SQLite local
   }
 
   List<Achado> getMarkersForView(String view) {
@@ -322,6 +426,7 @@ class CroquiController extends ChangeNotifier {
 
       try {
         await _achadoService.salvarAchado(achadoFinal);
+        await _bumpRootVersion();
         await _loadAchados();
         
         globalMessengerKey.currentState?.hideCurrentSnackBar();
@@ -407,6 +512,7 @@ class CroquiController extends ChangeNotifier {
 
       try {
         await _achadoService.atualizarAchado(achadoAtualizado);
+        await _bumpRootVersion();
         await _loadAchados();
         _snack("Achado atualizado!");
       } catch (e) {
@@ -422,6 +528,7 @@ class CroquiController extends ChangeNotifier {
     if (isReadOnly) return;
     try {
       await _achadoService.removerAchado(uuid);
+      await _bumpRootVersion();
       await _loadAchados();
       _snack("Achado removido.");
     } catch (e) {
@@ -659,6 +766,7 @@ class CroquiController extends ChangeNotifier {
         casoAtual = casoAtual.copyWith(
           status: StatusCaso.rascunho,
           atualizadoEm: DateTime.now(),
+          versao: casoAtual.versao + 1,
         );
       }
       await _loadAchados();
@@ -802,30 +910,17 @@ class CroquiController extends ChangeNotifier {
       caminhoArquivoEncriptado: path,
     );
     await _caseService.salvarEvidenciaGeral(ev);
+    await _bumpRootVersion();
     await _loadAchados();
   }
 
   Future<void> removerFotoGeral(String uuid) async {
     await _caseService.removerEvidenciaGeral(uuid);
+    await _bumpRootVersion();
     await _loadAchados();
   }
 
-  Future<void> salvarExamesSolicitados({
-    required String? anatomoLacre,
-    required String? toxicologicoLacre,
-    required String? geneticaLacre,
-    required String? outrosLacre,
-  }) async {
-    await _caseService.salvarExamesSolicitados(
-      casoUuid: casoAtual.uuid,
-      anatomoLacre: anatomoLacre,
-      toxicologicoLacre: toxicologicoLacre,
-      geneticaLacre: geneticaLacre,
-      outrosLacre: outrosLacre,
-    );
-    examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
-    notifyListeners();
-  }
+
 
   void atualizarCasoCamposEJson({
     required String numeroBo,
@@ -835,6 +930,18 @@ class CroquiController extends ChangeNotifier {
     required String destino,
     required String requisitante,
     required Map<String, dynamic> novosDadosLaudo,
+    String? numeroDeclaracaoObito,
+    String? dataObito,
+    String? horaObito,
+    String? tipoEstimativaHoraObito,
+    String? sexoBiologicoEstimado,
+    String? corpoEstado,
+    String? corpoEstadoOutros,
+    bool? objetoRetirado,
+    String? descricaoObjeto,
+    String? dataNecropsia,
+    String? horaNecropsia,
+    dynamic causaMorte,
   }) {
     final Map<String, dynamic> finalDadosLaudo = Map<String, dynamic>.from(novosDadosLaudo);
     if (finalDadosLaudo['auditoria'] is Map) {
@@ -853,6 +960,18 @@ class CroquiController extends ChangeNotifier {
       requisitante: requisitante,
       dadosLaudo: finalDadosLaudo,
       atualizadoEm: DateTime.now(),
+      numeroDeclaracaoObito: numeroDeclaracaoObito,
+      dataObito: dataObito,
+      horaObito: horaObito,
+      tipoEstimativaHoraObito: tipoEstimativaHoraObito,
+      sexoBiologicoEstimado: sexoBiologicoEstimado,
+      corpoEstado: corpoEstado,
+      corpoEstadoOutros: corpoEstadoOutros,
+      objetoRetirado: objetoRetirado,
+      descricaoObjeto: descricaoObjeto,
+      dataNecropsia: dataNecropsia,
+      horaNecropsia: horaNecropsia,
+      causaMorte: causaMorte,
     );
 
     debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}');
@@ -866,6 +985,7 @@ class CroquiController extends ChangeNotifier {
     if (index != -1) {
       final evAtualizada = evidenciasGerais[index].copyWith(descricao: descricao);
       await _caseService.salvarEvidenciaGeral(evAtualizada);
+      await _bumpRootVersion();
       await _loadAchados();
     }
   }
@@ -936,6 +1056,18 @@ class CroquiController extends ChangeNotifier {
     }
     quesito3Ctrl.dispose();
     quesito4Ctrl.dispose();
+    
+    numeroDeclaracaoObitoCtrl.dispose();
+    dataObitoCtrl.dispose();
+    horaObitoCtrl.dispose();
+    tipoEstimativaHoraObitoCtrl.dispose();
+    sexoBiologicoEstimadoCtrl.dispose();
+    corpoEstadoCtrl.dispose();
+    corpoEstadoOutrosCtrl.dispose();
+    for (var ctrl in descricaoObjetoCtrls) {
+      ctrl.dispose();
+    }
+
     super.dispose();
 
     // Dispara o flush DEPOIS do super.dispose() operando apenas
@@ -979,15 +1111,24 @@ class CroquiController extends ChangeNotifier {
     novosDados['conclusao'] = {
       'discussao': discussaoCtrl.text,
       'quesito_1_morte': quesito1Ctrl.text,
-      'causas_morte': causasMorteCtrls.map((ctrl) => {
-        'imediata': ctrl.imediataCtrl.text,
-        'devido_a': ctrl.devidoACtrl.text,
-        'consequencia': ctrl.consequenciaCtrl.text,
-      }).toList(),
       'quesito_3_instrumento': quesito3Ctrl.text,
       'quesito_4_meio': quesito4Ctrl.text,
       'conclusao_texto': conclusaoCtrl.text,
     };
+
+    final descObjetosList = descricaoObjetoCtrls.map((e) => e.text.trim()).where((e) => e.isNotEmpty).toList();
+    final String descricaoObjetoFinal = descObjetosList.join('\n');
+    final bool isObjetoRetirado = descObjetosList.isNotEmpty;
+
+    final now = DateTime.now();
+    final dataNecropsiaFinal = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final horaNecropsiaFinal = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
+    final causasMorteList = causasMorteCtrls.map((ctrl) => {
+      'imediata': ctrl.imediataCtrl.text,
+      'devido_a': ctrl.devidoACtrl.text,
+      'consequencia': ctrl.consequenciaCtrl.text,
+    }).toList();
 
     atualizarCasoCamposEJson(
       numeroBo: boCtrl.text,
@@ -997,6 +1138,18 @@ class CroquiController extends ChangeNotifier {
       destino: reqDestinoCtrl.text,
       requisitante: reqOrigemCtrl.text,
       novosDadosLaudo: novosDados,
+      numeroDeclaracaoObito: numeroDeclaracaoObitoCtrl.text,
+      dataObito: dataObitoCtrl.text,
+      horaObito: horaObitoCtrl.text,
+      tipoEstimativaHoraObito: tipoEstimativaHoraObitoCtrl.text,
+      sexoBiologicoEstimado: sexoBiologicoEstimadoCtrl.text,
+      corpoEstado: corpoEstadoCtrl.text,
+      corpoEstadoOutros: corpoEstadoOutrosCtrl.text,
+      objetoRetirado: isObjetoRetirado,
+      descricaoObjeto: descricaoObjetoFinal,
+      dataNecropsia: dataNecropsiaFinal,
+      horaNecropsia: horaNecropsiaFinal,
+      causaMorte: causasMorteList,
     );
   }
 

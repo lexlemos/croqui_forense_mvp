@@ -319,6 +319,24 @@ class DatabaseHelper {
         debugPrint('[DatabaseHelper] Executando migração para a versão 18 (Flag sync_error em casos)...');
         await _addColumnIfNotExists(txn, 'casos', 'sync_error', 'INTEGER NOT NULL DEFAULT 0');
         break;
+
+      case 19:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 19 (Campos Pericia Medico Legal)...');
+        await _addColumnIfNotExists(txn, 'casos', 'corpo_estado', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'corpo_estado_outros', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'sexo_biologico_estimado', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'data_obito', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'hora_obito', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'tipo_estimativa_hora_obito', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'causa_morte', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'exames_solicitados', 'INTEGER');
+        await _addColumnIfNotExists(txn, 'casos', 'descricao_exames', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'objeto_retirado', 'INTEGER');
+        await _addColumnIfNotExists(txn, 'casos', 'descricao_objeto', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'data_necropsia', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'hora_necropsia', 'TEXT');
+        await _addColumnIfNotExists(txn, 'casos', 'numero_declaracao_obito', 'TEXT');
+        break;
         
       default:
         debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');

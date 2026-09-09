@@ -9,8 +9,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 
 final String _kBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.15.88:8000/api/v1/';
-const Duration _kConnectTimeout = Duration(seconds: 8);
-const Duration _kDataTimeout = Duration(seconds: 8);
+const Duration _kConnectTimeout = Duration(seconds: 30);
+const Duration _kDataTimeout = Duration(seconds: 30);
 
 class SessionExpiredException implements Exception {
   @override
@@ -296,6 +296,8 @@ class ApiClient {
         () => _bearerTokenMemoria,
         onSessionExpired: () => onSessionExpired?.call(),
       ),
+      if (kDebugMode)
+        LogInterceptor(requestBody: true, responseHeader: true),
       if (kDebugMode)
         _ForensicSafeLogInterceptor(),
     ]);

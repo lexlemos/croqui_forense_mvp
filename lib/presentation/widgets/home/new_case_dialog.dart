@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 class NewCaseDialog extends StatefulWidget {
   const NewCaseDialog({super.key});
@@ -108,7 +109,21 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   }
 
   Future<void> _abrirSeletorAtn() async {
-    final atns = await context.read<AtnRepository>().getAtns();
+    late final List<AtnModel> atns;
+    try {
+      atns = await context.read<AtnRepository>().getAtns();
+    } on DatabaseCorruptedException catch (e) {
+      debugPrint('[NewCaseDialog] ❌ Catálogo local de ATNs indisponível: $e');
+      if (mounted) {
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Banco de dados local corrompido.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _atnsCache = atns;

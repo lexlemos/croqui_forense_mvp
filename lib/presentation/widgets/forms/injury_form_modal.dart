@@ -11,6 +11,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/dynamic_form/dynamic_for
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -45,6 +46,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   bool _isLoadingTypes = true;
   bool _isInterno = false;
   Map<String, dynamic> _currentFormData = {};
+  String? _databaseError;
 
   static const List<String> _sizeOptions = ['0.5', '1.0', '1.5', '2.0', '2.5', 'Outro'];
   String? _selectedSize;
@@ -81,6 +83,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           _currentFormData = Map<String, dynamic>.from(decoded);
         }
       } catch (e) {
+        _databaseError = 'Banco de dados local corrompido';
         debugPrint('[InjuryFormModal] Erro ao decodificar dados_dinamicos_json: $e');
       }
     }
@@ -140,7 +143,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       });
     } catch(e) {
       debugPrint("Erro ao carregar tipos de lesão: $e");
-      if (mounted) setState(() => _isLoadingTypes = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingTypes = false;
+          if (e is DatabaseCorruptedException) {
+            _databaseError = 'Banco de dados local corrompido';
+          }
+        });
+      }
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Falha ao carregar tipos de lesão: $e"), backgroundColor: Colors.red));
     }
   }
@@ -217,13 +227,19 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 if (_selectedType != null) ...[
                   const SizedBox(height: 16),
                   _buildSectionLabel("DETALHES ESPECÍFICOS"),
-                  DynamicFormBuilder(
-                    schema: _selectedType?.schemaFormulario ?? {},
-                    initialData: _currentFormData,
-                    onChanged: (data) {
-                      _currentFormData = data;
-                    },
-                  ),
+                  if (_databaseError != null)
+                    Text(
+                      _databaseError!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    )
+                  else
+                    DynamicFormBuilder(
+                      schema: _selectedType?.schemaFormulario ?? {},
+                      initialData: _currentFormData,
+                      onChanged: (data) {
+                        _currentFormData = data;
+                      },
+                    ),
                 ],
                 const SizedBox(height: 16),
   
@@ -373,6 +389,13 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   Widget _buildTypeDropdown() {
     if (_isLoadingTypes) {
       return const LinearProgressIndicator();
+    }
+
+    if (_databaseError != null && _availableTypes.isEmpty) {
+      return Text(
+        _databaseError!,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      );
     }
 
     if (_isInterno) {

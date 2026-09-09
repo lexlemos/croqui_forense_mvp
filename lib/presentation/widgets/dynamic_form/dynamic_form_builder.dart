@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 class DynamicFormBuilder extends StatefulWidget {
   final dynamic schema;
@@ -23,19 +24,43 @@ class DynamicFormBuilder extends StatefulWidget {
 class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
   final _formKey = GlobalKey<FormState>();
   late Map<String, dynamic> _formData;
+  final Map<String, ValueNotifier<dynamic>> _fieldNotifiers = {};
+  String? _parseError;
 
   @override
   void initState() {
     super.initState();
-    _formData = _parseMapData(widget.initialData);
+    try {
+      _formData = _parseMapData(widget.initialData);
+      _syncFieldNotifiers();
+    } on DatabaseCorruptedException catch (e) {
+      _formData = {};
+      _parseError = e.message;
+    }
   }
 
   @override
   void didUpdateWidget(covariant DynamicFormBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialData != widget.initialData || oldWidget.schema != widget.schema) {
-      _formData = _parseMapData(widget.initialData);
+      try {
+        _formData = _parseMapData(widget.initialData);
+        _parseError = null;
+        _syncFieldNotifiers();
+      } on DatabaseCorruptedException catch (e) {
+        _formData = {};
+        _parseError = e.message;
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    for (final notifier in _fieldNotifiers.values) {
+      notifier.dispose();
+    }
+    _fieldNotifiers.clear();
+    super.dispose();
   }
 
   Map<String, dynamic> _parseMapData(dynamic raw) {
@@ -44,15 +69,19 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        throw const FormatException('O JSON dos dados dinâmicos não é um objeto.');
       } catch (e) {
-        debugPrint('[DynamicFormBuilder] Erro ao decodificar JSON: $e');
+        throw DatabaseCorruptedException(
+          'Dados dinâmicos do formulário estão corrompidos.',
+          cause: e,
+        );
       }
-      return {};
     }
     if (raw is Map) {
       return Map<String, dynamic>.from(raw);
     }
-    return {};
+    if (raw is String && raw.trim().isEmpty) return {};
+    throw DatabaseCorruptedException('Formato inválido para os dados do formulário.');
   }
 
   List<Map<String, dynamic>> get _campos {
@@ -63,12 +92,15 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     if (schemaRaw == null) return [];
 
     dynamic parsed = schemaRaw;
+    if (parsed is String && parsed.trim().isEmpty) return [];
     if (parsed is String && parsed.trim().isNotEmpty) {
       try {
         parsed = jsonDecode(parsed);
       } catch (e) {
-        debugPrint('[DynamicFormBuilder] Erro ao decodificar schema: $e');
-        return [];
+        throw DatabaseCorruptedException(
+          'Schema do formulário está corrompido.',
+          cause: e,
+        );
       }
     }
 
@@ -102,24 +134,52 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
         }
       });
       if (extraidos.isNotEmpty) return extraidos;
+      return [];
     }
 
-    return [];
+    throw const DatabaseCorruptedException('Schema do formulário possui formato inválido.');
   }
 
-  bool _isVisible(Map<String, dynamic> campo) {
+  void _syncFieldNotifiers() {
+    final campos = _parseCampos(widget.schema);
+    final ids = <String>{};
+    for (final campo in campos) {
+      final id = _fieldId(campo);
+      if (id.isNotEmpty) ids.add(id);
+      final condicao = campo['condicao_visibilidade'];
+      if (condicao is Map) {
+        final dependeDe = condicao['depende_de']?.toString();
+        if (dependeDe != null && dependeDe.isNotEmpty) ids.add(dependeDe);
+      }
+    }
+
+    for (final id in ids) {
+      _fieldNotifiers.putIfAbsent(id, () => ValueNotifier<dynamic>(_formData[id]));
+      _fieldNotifiers[id]!.value = _formData[id];
+    }
+
+    final obsolete = _fieldNotifiers.keys.where((id) => !ids.contains(id)).toList();
+    for (final id in obsolete) {
+      _fieldNotifiers.remove(id)?.dispose();
+    }
+  }
+
+  String _fieldId(Map<String, dynamic> campo) =>
+      campo['id_campo']?.toString() ?? campo['id']?.toString() ?? campo['key']?.toString() ?? '';
+
+  bool _isVisible(Map<String, dynamic> campo, dynamic dependencyValue) {
     final condicao = campo['condicao_visibilidade'];
     if (condicao == null || condicao is! Map) return true;
     final dependeDe = condicao['depende_de']?.toString();
     final valorEsperado = condicao['valor_esperado']?.toString();
     if (dependeDe == null || valorEsperado == null) return true;
-    return _formData[dependeDe]?.toString() == valorEsperado;
+    return dependencyValue?.toString() == valorEsperado;
   }
 
   void _updateField(String id, dynamic value) {
-    setState(() {
-      _formData[id] = value;
-    });
+    _formData[id] = value;
+    final notifier = _fieldNotifiers[id];
+    if (notifier != null && notifier.value != value) notifier.value = value;
     widget.onChanged(Map<String, dynamic>.from(_formData));
   }
 
@@ -129,7 +189,10 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) return decoded.map((e) => e.toString()).toList();
-      } catch (_) {
+      } catch (e) {
+        if (raw.trimLeft().startsWith('[')) {
+          throw DatabaseCorruptedException('Opções do campo estão corrompidas.', cause: e);
+        }
         return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       }
     }
@@ -141,7 +204,13 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    final campos = _campos;
+    List<Map<String, dynamic>> campos;
+    try {
+      campos = _campos;
+    } on DatabaseCorruptedException catch (e) {
+      return _buildDatabaseCorruptedWarning(e.message);
+    }
+    if (_parseError != null) return _buildDatabaseCorruptedWarning(_parseError!);
     if (campos.isEmpty) return const SizedBox.shrink();
 
     return Form(
@@ -149,20 +218,53 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: campos
-            .where(_isVisible)
-            .map((campo) => Padding(
-                  key: ValueKey(campo['id_campo'] ?? campo['id'] ?? campo['label'] ?? UniqueKey().toString()),
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildField(campo),
-                ))
-            .toList(),
+        children: campos.map(_buildFieldContainerSafely).toList(),
       ),
     );
   }
 
+  Widget _buildDatabaseCorruptedWarning(String details) {
+    return InputDecorator(
+      decoration: const InputDecoration(border: OutlineInputBorder()),
+      child: Text(
+        'Banco de dados local corrompido.\n$details',
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
+    );
+  }
+
+  Widget _buildFieldContainer(Map<String, dynamic> campo) {
+    final id = _fieldId(campo);
+    final field = Padding(
+      key: ValueKey(id.isNotEmpty ? id : campo['label'] ?? UniqueKey()),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _buildField(campo),
+    );
+
+    final condicao = campo['condicao_visibilidade'];
+    final dependeDe = condicao is Map ? condicao['depende_de']?.toString() : null;
+    final dependencyNotifier = dependeDe == null ? null : _fieldNotifiers[dependeDe];
+    if (dependencyNotifier == null) return field;
+
+    return ValueListenableBuilder<dynamic>(
+      valueListenable: dependencyNotifier,
+      builder: (context, value, child) => _isVisible(campo, value)
+          ? child!
+          : const SizedBox.shrink(),
+      child: field,
+    );
+  }
+
+  Widget _buildFieldContainerSafely(Map<String, dynamic> campo) {
+    try {
+      return _buildFieldContainer(campo);
+    } on DatabaseCorruptedException catch (e) {
+      return _buildDatabaseCorruptedWarning(e.message);
+    }
+  }
+
   Widget _buildField(Map<String, dynamic> campo) {
-    final id = campo['id_campo']?.toString() ?? campo['id']?.toString() ?? campo['key']?.toString() ?? '';
+    final id = _fieldId(campo);
     final label = campo['label']?.toString() ?? campo['nome']?.toString() ?? id;
     final tipo = campo['tipo_input']?.toString() ?? campo['tipo']?.toString() ?? 'text';
     final obrigatorio = campo['obrigatorio'] == true || campo['required'] == true;

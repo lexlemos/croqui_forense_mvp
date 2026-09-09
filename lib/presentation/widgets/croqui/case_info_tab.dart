@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalization_flow.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
@@ -24,7 +25,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   final ImagePicker _picker = ImagePicker();
 
   late final CroquiController _croquiController;
-  late final AuthProvider _authProvider;
 
   bool _isSaving = false;
 
@@ -32,8 +32,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   void initState() {
     super.initState();
     _croquiController = context.read<CroquiController>();
-    _authProvider = context.read<AuthProvider>();
-
   }
 
   @override
@@ -42,7 +40,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   }
 
   void _sincronizarDadosNaMemoria() {
-    _croquiController.sincronizarDadosEmMemoria(_authProvider);
+    _croquiController.sincronizarDadosEmMemoria(Provider.of<AuthProvider>(context, listen: false));
   }
 
   Future<void> _tirarFoto() async {
@@ -195,23 +193,22 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             
             _buildTextField("Nº PIC", controller.picCtrl, readOnly: readOnly, isBold: true),
 
-            Row(
-              children: [
-                Expanded(child: _buildTextField("Número do Laudo / Requisição", controller.numeroLaudoCtrl, readOnly: true)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Boletim de Ocorrência", controller.boCtrl, readOnly: readOnly)),
-              ],
-            ),
-
-            _buildTextField("Vítima", controller.nomeVitimaCtrl, readOnly: readOnly),
+            _buildTextField("Número da Requisição / CD", controller.numeroLaudoCtrl, readOnly: true),
+            
+            _buildTextField("Boletim de Ocorrência", controller.boCtrl, readOnly: readOnly),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Requisitante (Delegado)", controller.reqOrigemCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Requisitante", controller.reqOrigemCtrl, readOnly: readOnly)),
                 const SizedBox(width: 16),
                 Expanded(child: _buildTextField("Destino", controller.reqDestinoCtrl, readOnly: readOnly)),
               ],
             ),
+
+            _buildTextField("Nome da Vítima", controller.nomeVitimaCtrl, readOnly: readOnly),
+            
+            _buildTextField("Número da Declaração de Óbito", controller.numeroDeclaracaoObitoCtrl, readOnly: readOnly),
+
             const SizedBox(height: 12),
             Builder(
               builder: (context) {
@@ -257,13 +254,69 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
             
             const SizedBox(height: 32),
-            const _SectionHeader(title: "1. Histórico", icon: Icons.history),
-            const SizedBox(height: 16),
-            _buildTextField("Histórico do Caso", controller.historicoCtrl, readOnly: readOnly, maxLines: null),
-
-            const SizedBox(height: 32),
             const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
             const SizedBox(height: 16),
+            
+            _buildTextField("Histórico do Caso", controller.historicoCtrl, readOnly: readOnly, maxLines: null),
+
+            Row(
+              children: [
+                Expanded(child: _buildTextField("Data do Óbito", controller.dataObitoCtrl, readOnly: readOnly)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTextField("Hora do Óbito", controller.horaObitoCtrl, readOnly: readOnly)),
+              ],
+            ),
+            
+            DropdownButtonFormField<String>(
+              value: ['Pericialmente Estimadas', 'Atestadas em documento médico'].contains(controller.tipoEstimativaHoraObitoCtrl.text) ? controller.tipoEstimativaHoraObitoCtrl.text : null,
+              decoration: const InputDecoration(labelText: 'Tipo de Estimativa (Hora)', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'Pericialmente Estimadas', child: Text('Pericialmente Estimadas')),
+                DropdownMenuItem(value: 'Atestadas em documento médico', child: Text('Atestadas em documento médico')),
+              ],
+              onChanged: readOnly ? null : (val) {
+                if (val != null) controller.tipoEstimativaHoraObitoCtrl.text = val;
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            DropdownButtonFormField<String>(
+              value: ['Masculino', 'Feminino', 'Indeterminado'].contains(controller.sexoBiologicoEstimadoCtrl.text) ? controller.sexoBiologicoEstimadoCtrl.text : null,
+              decoration: const InputDecoration(labelText: 'Sexo Biológico Estimado', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'Masculino', child: Text('Masculino')),
+                DropdownMenuItem(value: 'Feminino', child: Text('Feminino')),
+                DropdownMenuItem(value: 'Indeterminado', child: Text('Indeterminado')),
+              ],
+              onChanged: readOnly ? null : (val) {
+                if (val != null) controller.sexoBiologicoEstimadoCtrl.text = val;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<String>(
+              value: ['Fresco', 'Esqueletizado', 'Putrefato', 'Carbonizado', 'Mumificado', 'Fragmentado', 'Decapitado', 'Esquartejado'].contains(controller.corpoEstadoCtrl.text) ? controller.corpoEstadoCtrl.text : null,
+              decoration: const InputDecoration(labelText: 'Estado do Corpo', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'Fresco', child: Text('Fresco')),
+                DropdownMenuItem(value: 'Esqueletizado', child: Text('Esqueletizado')),
+                DropdownMenuItem(value: 'Putrefato', child: Text('Putrefato')),
+                DropdownMenuItem(value: 'Carbonizado', child: Text('Carbonizado')),
+                DropdownMenuItem(value: 'Mumificado', child: Text('Mumificado')),
+                DropdownMenuItem(value: 'Fragmentado', child: Text('Fragmentado')),
+                DropdownMenuItem(value: 'Decapitado', child: Text('Decapitado')),
+                DropdownMenuItem(value: 'Esquartejado', child: Text('Esquartejado')),
+              ],
+              onChanged: readOnly ? null : (val) {
+                if (val != null) {
+                  controller.corpoEstadoCtrl.text = val;
+                  // Chama um método no controller conforme instruído
+                  controller.setCorpoEstado(val); 
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+
             _buildTextField("Vestes", controller.vestesCtrl, readOnly: readOnly, maxLines: null),
             _buildTextField("Características de Identificação", controller.caracteristicasCtrl, readOnly: readOnly, maxLines: null),
             
@@ -325,12 +378,50 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
             
             const SizedBox(height: 32),
-            const _SectionHeader(title: "3. Discussão / Comentário Forense", icon: Icons.chat),
+            const Divider(),
+            const SizedBox(height: 16),
+            const _SectionHeader(title: "3. Balística / Objetos Retirados", icon: Icons.gps_fixed),
+            const SizedBox(height: 16),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: controller.descricaoObjetoCtrls.length,
+              itemBuilder: (context, index) {
+                final objCtrl = controller.descricaoObjetoCtrls[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildTextField("Objeto / Lacre #${index + 1}", objCtrl, readOnly: readOnly, maxLines: null)),
+                      if (!readOnly && controller.descricaoObjetoCtrls.length > 1)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () => controller.removerObjeto(index),
+                        )
+                    ],
+                  ),
+                );
+              },
+            ),
+            if (!readOnly)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text("Adicionar Objeto/Lacre"),
+                  style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                  onPressed: () => controller.adicionarObjeto(),
+                ),
+              ),
+
+            const SizedBox(height: 32),
+            const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
             _buildTextField("Comentário Médico Forense", controller.discussaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 24),
-            const _SectionHeader(title: "4. Conclusão", icon: Icons.assignment_turned_in),
+            const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
             _buildTextField("Conclusão Final", controller.conclusaoCtrl, readOnly: readOnly, maxLines: null),
             
@@ -440,7 +531,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     _sincronizarDadosNaMemoria();
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isSaving = true);
-                      await controller.finalizarCasoDireto(context);
+                      await handleCroquiFinalization(context, controller);
                       if (mounted) {
                         setState(() => _isSaving = false);
                       }

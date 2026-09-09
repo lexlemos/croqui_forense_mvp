@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 /// Repositório responsável pela persistência local da tabela de ATNs (Auxiliar Técnico de Necropsia).
 class AtnRepository {
@@ -23,7 +24,11 @@ class AtnRepository {
       return maps.map((m) => AtnModel.fromMap(m)).toList();
     } catch (e) {
       debugPrint('[AtnRepository] ❌ Erro ao buscar ATNs: $e');
-      return [];
+      if (e is DatabaseCorruptedException) rethrow;
+      throw DatabaseCorruptedException(
+        'Não foi possível ler o catálogo local de ATNs.',
+        cause: e,
+      );
     }
   }
 

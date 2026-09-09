@@ -11,7 +11,8 @@ class CaseListProvider extends ChangeNotifier {
   SyncService? _syncService;
   AuthService? _authService;
 
-  List<Caso> _todosCasos = [];
+  /// Fonte base mantida na ordem selecionada; buscas apenas filtram esta lista.
+  List<Caso> _casosOrdenados = [];
   List<Caso> _casosFiltrados = [];
   bool _isLoading = false;
   String? _erro;
@@ -133,13 +134,13 @@ class CaseListProvider extends ChangeNotifier {
     try {
       final uid = usuarioId ?? _authService?.usuario?.id;
       if (uid == null || uid.isEmpty) {
-        _todosCasos = [];
+        _casosOrdenados = [];
         _aplicarFiltros();
         return;
       }
       final result = await _caseService.listarCasos(uid);
       if (_disposed) return;
-      _todosCasos = result;
+      _casosOrdenados = _ordenarCasos(result);
       _aplicarFiltros(); 
     } catch (e) {
       if (!_disposed) {
@@ -167,12 +168,13 @@ class CaseListProvider extends ChangeNotifier {
     _sortCriteria = criterio;
     _sortOrder = ordem;
     _statusFilter = status;
+    _casosOrdenados = _ordenarCasos(_casosOrdenados);
     _aplicarFiltros();
     notifyListeners();
   }
 
   void _aplicarFiltros() {
-    List<Caso> temp = List.from(_todosCasos);
+    List<Caso> temp = List.from(_casosOrdenados);
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -183,7 +185,12 @@ class CaseListProvider extends ChangeNotifier {
       temp = temp.where((c) => _statusFilter.contains(c.status)).toList();
     }
 
-    temp.sort((a, b) {
+    _casosFiltrados = temp;
+  }
+
+  List<Caso> _ordenarCasos(Iterable<Caso> casos) {
+    final ordenados = List<Caso>.from(casos);
+    ordenados.sort((a, b) {
       int cmp = 0;
       if (_sortCriteria == SortCriteria.data) {
         cmp = a.criadoEmDispositivo.compareTo(b.criadoEmDispositivo);
@@ -192,13 +199,12 @@ class CaseListProvider extends ChangeNotifier {
       }
       return _sortOrder == SortOrder.asc ? cmp : -cmp;
     });
-
-    _casosFiltrados = temp;
+    return ordenados;
   }
 
   /// Limpa todos os dados da memória RAM no momento do logout.
   void clear() {
-    _todosCasos = [];
+    _casosOrdenados = [];
     _casosFiltrados = [];
     _searchQuery = '';
     _erro = null;

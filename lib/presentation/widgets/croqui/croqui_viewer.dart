@@ -94,6 +94,10 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
       final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
 
+      // O codec não é mais necessário depois que os bytes da imagem foram extraídos.
+      codec?.dispose();
+      codec = null;
+
       if (!mounted || widget.maskPath != currentLoadPath) return;
 
       if (rawBytes == null) {

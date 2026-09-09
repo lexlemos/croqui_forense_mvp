@@ -1,16 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   network_security_config.xml
-  Permite tráfego HTTP sem TLS (cleartext) apenas para o endereço do
-  emulador Android (10.0.2.2), que mapeia para o localhost da máquina host.
-
-  ATENÇÃO: Esta configuração é exclusiva para desenvolvimento/emulador.
-  Em produção o servidor DEVE usar HTTPS e este arquivo DEVE ser removido
-  ou restringido a domínios internos com certificado válido.
+  Permite tráfego HTTP sem TLS (cleartext) para o ambiente de desenvolvimento local.
 -->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <!-- Localhost do emulador Android -->
-        <domain includeSubdomains="false">10.0.2.2</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

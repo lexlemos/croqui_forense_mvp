@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 class InjuryType {
   final String id;
@@ -23,7 +24,9 @@ class InjuryType {
     if (schemaRaw is String && schemaRaw.isNotEmpty) {
       try {
         schema = Map<String, dynamic>.from(jsonDecode(schemaRaw) as Map);
-      } catch (_) {}
+      } catch (e) {
+        throw DatabaseCorruptedException('Schema de tipo de lesão corrompido.', cause: e);
+      }
     } else if (schemaRaw is Map) {
       schema = Map<String, dynamic>.from(schemaRaw);
     }
@@ -46,7 +49,9 @@ class InjuryType {
     } else if (schemaRaw is String && schemaRaw.isNotEmpty) {
       try {
         schema = Map<String, dynamic>.from(jsonDecode(schemaRaw) as Map);
-      } catch (_) {}
+      } catch (e) {
+        throw DatabaseCorruptedException('Schema de tipo de lesão corrompido.', cause: e);
+      }
     }
 
     return InjuryType(

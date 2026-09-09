@@ -1,13 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
+import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_generation_service.dart';
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -15,6 +23,9 @@ import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/exames_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller_result.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalization_flow.dart';
+import 'package:croqui_forense_mvp/core/utils/body_part_mapper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_widgets.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart' show BodyPartDefinition;
@@ -148,14 +159,16 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                         : "FINALIZAR EXAME",
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                  onPressed: controller.isProcessing ? null : () => controller.finalizarCasoDireto(innerContext),
+                  onPressed: controller.isProcessing
+                      ? null
+                      : () => handleCroquiFinalization(innerContext, controller),
                 ),
               ),
             if (controller.isReadOnly)
               PopupMenuButton<String>(
                 onSelected: (value) {
-                  if (value == 'edit') controller.reabrirCaso(context);
-                  if (value == 'export') controller.exportarCaso(context);
+                  if (value == 'edit') _reabrirCaso(context, controller);
+                  if (value == 'export') _exportarCaso(context, controller);
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                   if (controller.casoAtual.status != StatusCaso.sincronizado)
@@ -196,38 +209,47 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
         ),
         body: SafeArea(
           bottom: true,
-          child: Row(
+          child: Column(
             children: [
+
               Expanded(
-                child: Container(
-                  color: Colors.grey[100],
-                  child: TabBarView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      FrenteCostasTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                      LateraisTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                      TroncoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                      PerineoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                      RostosTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                      const ExamesTab(),
-                      const CaseInfoTab(),
-                    ],
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        color: Colors.grey[100],
+                        child: TabBarView(
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            FrenteCostasTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
+                            LateraisTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
+                            TroncoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
+                            PerineoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
+                            RostosTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
+                            const ExamesTab(),
+                            const CaseInfoTab(),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const VerticalDivider(width: 1),
+                    SizedBox(
+                      width: sidebarWidth,
+                      child: Consumer<CroquiController>(
+                        builder: (context, c, _) => AchadosSidebar(
+                          achados: c.achados,
+                          isReadOnly: c.isReadOnly,
+                          onEdit: (achado) => _showEditOrDetail(context, c, achado),
+                          onDelete: (uuid) async {
+                            await c.deleteAchado(context, uuid);
+                            
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const VerticalDivider(width: 1),
-              
-              SizedBox(
-                width: sidebarWidth,
-                child: Consumer<CroquiController>(
-                  builder: (context, c, _) => AchadosSidebar(
-                    achados: c.achados,
-                    isReadOnly: c.isReadOnly,
-                    onEdit: (achado) => _showEditOrDetail(context, c, achado),
-                    onDelete: (uuid) => c.deleteAchado(context, uuid),
-                  ),
-                ),
-              )
             ],
           ),
         ),
@@ -246,29 +268,69 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
         colorToIdMap: colors,
         idToDefMap: defs,
         markers: c.getMarkersForView(view),
-        onPartTap: (id, name, x, y) => c.addAchado(context, view, id, x, y),
+        onPartTap: (id, name, x, y) => _adicionarAchado(context, c, view, id, x, y),
       ),
     );
+  }
+
+  Future<void> _adicionarAchado(
+    BuildContext context,
+    CroquiController controller,
+    String view,
+    String partId,
+    double x,
+    double y,
+  ) async {
+    if (controller.isReadOnly) {
+      _showOperationResult(
+        context,
+        const CroquiOperationResult(
+          status: CroquiOperationStatus.readOnly,
+          message: 'Caso finalizado. Edição bloqueada.',
+        ),
+      );
+      return;
+    }
+
+    await controller.addAchado(context, view, partId, x, y);
+  }
+
+  Future<void> _reabrirCaso(BuildContext context, CroquiController controller) async {
+    await controller.reabrirCaso(context);
+    
+  }
+
+  Future<void> _exportarCaso(BuildContext context, CroquiController controller) async {
+    await controller.exportarCaso(context);
+  }
+
+  void _showOperationResult(BuildContext context, CroquiOperationResult result) {
+    if (result.message == null) return;
+    final color = switch (result.status) {
+      CroquiOperationStatus.success => Colors.green,
+      CroquiOperationStatus.readOnly => Colors.orange,
+      CroquiOperationStatus.error => Colors.red,
+    };
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(result.message!), backgroundColor: color));
   }
 }
 
 
-
-void _showEditOrDetail(BuildContext context, CroquiController controller, Achado achado) {
-    final parentContext = context;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AchadoDetailModal(
-        achado: achado,
-        onEdit: controller.isReadOnly
+Future<void> _showEditOrDetail(BuildContext context, CroquiController controller, Achado achado) async {
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AchadoDetailModal(
+      achado: achado,
+      onEdit: controller.isReadOnly
           ? null
-          : () {
+          : () async {
               Navigator.pop(dialogContext);
-              controller.editAchado(parentContext, achado);
+              await controller.editAchado(context, achado);
             },
-      ),
-    );
-  }
+    ),
+  );
+}
 
 

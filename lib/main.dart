@@ -24,6 +24,7 @@ import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_generation_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -203,6 +204,9 @@ class AppRoot extends StatelessWidget {
             repository: casoRepo,
             authService: authService,
           ),
+        ),
+        Provider<PdfGenerationService>(
+          create: (_) => PdfGenerationService(),
         ),
         ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
