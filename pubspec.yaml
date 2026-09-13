@@ -29,17 +29,16 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  sentry_flutter: ^9.26.0
   flutter:
     sdk: flutter
 
   sqflite_sqlcipher: ^3.4.0
   flutter_secure_storage: ^8.1.0
 
-  cupertino_icons: ^1.0.8
   uuid: ^4.5.2
   intl: ^0.20.2
   provider: ^6.1.5+1
-  convert: ^3.1.2
   flutter_svg: ^2.2.3
   image: ^4.7.2
   image_picker: ^1.2.1
@@ -54,8 +53,11 @@ dependencies:
   http_parser: ^4.0.2
   crypto: ^3.0.7
   pointycastle: ^3.9.1
+  sentry_dio: ^9.26.0
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
+  sentry_dart_plugin: ^3.4.0
   flutter_test:
     sdk: flutter
 
@@ -88,6 +90,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
+    - .env
     - assets/images/croqui-frente.svg
     - assets/images/croqui-frente-mask.png
     - assets/images/croqui-costas.svg
@@ -137,3 +140,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: true
+  project: flutter
+  org: necropsia-digital

@@ -4,10 +4,17 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart' as em;
+import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 
 import 'pdf_constants.dart';
@@ -25,9 +32,9 @@ import 'pdf_helpers.dart';
 /// "Validação Jurídica", contendo os "Metadados do Perito" e a assinatura de
 /// integridade para sua preservação legal.
 class PdfService {
-  static Future<pw.Font>? _cachedFontRegularFuture;
-  static Future<pw.Font>? _cachedFontBoldFuture;
-  static Future<pw.MemoryImage?>? _cachedLogoPoliciaFuture;
+  static Future<Uint8List>? _cachedFontRegularFuture;
+  static Future<Uint8List>? _cachedFontBoldFuture;
+  static Future<Uint8List?>? _cachedLogoPoliciaFuture;
 
   /// Compila e gera o documento de "Impressão Oficial" do Laudo Pericial Cadavérico ou
   /// de Lesão Corporal no formato PDF.
@@ -37,43 +44,96 @@ class PdfService {
   /// os esquemas anatômicos (croquis) e a resposta oficial aos quesitos formulados pela autoridade requisitante.
   /// Também inclui no "Documento Físico" a certificação eletrônica com "Metadados do Perito"
   /// para conferir autenticidade e "Validação Jurídica" na cadeia de custódia.
-  ///
-  /// Parâmetros obrigatórios:
-  /// - [caso] O Laudo do exame pericial contendo as informações cadastrais e administrativas.
-  /// - [achados] O conjunto de lesões, orifícios ou vestígios mapeados no croqui.
-  /// - [perito] O médico legista responsável pela emissão e encerramento do laudo.
-  /// - [schemas] Configurações de formulários dinâmicos utilizadas para mapear e formatar as características específicas das lesões.
-  ///
-  /// Retorna a representação em bytes do PDF compilado ([Uint8List]).
-  ///
-  /// @throws FileSystemException Caso ocorra falha de I/O por falta de permissão de escrita/leitura no disco ao recuperar fotografias (evidências físicas).
-  /// @throws FormatException Caso haja erro na conversão e renderização das imagens ou dos esquemas gráficos em SVG para o formato impresso.
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
     required Usuario perito,
     Map<String, dynamic>? schemas,
+    required List<ExameSolicitado> exames,
+    List<em.ExameSolicitadoModel>? examesModel,
+    required List<EvidenciaMultimidia> evidenciasGerais,
   }) async {
-    final pdf = pw.Document();
-
-    _cachedFontRegularFuture ??= rootBundle.load("assets/fonts/Roboto-Regular.ttf").then((data) => pw.Font.ttf(data));
-    _cachedFontBoldFuture ??= rootBundle.load("assets/fonts/Roboto-Bold.ttf").then((data) => pw.Font.ttf(data));
-    _cachedLogoPoliciaFuture ??= rootBundle.load('assets/images/logo/logo-policia-se.jpeg').then<pw.MemoryImage?>((data) => pw.MemoryImage(data.buffer.asUint8List())).catchError((e) {
+    _cachedFontRegularFuture ??= rootBundle.load("assets/fonts/Roboto-Regular.ttf").then((data) => data.buffer.asUint8List());
+    _cachedFontBoldFuture ??= rootBundle.load("assets/fonts/Roboto-Bold.ttf").then((data) => data.buffer.asUint8List());
+    _cachedLogoPoliciaFuture ??= rootBundle.load('assets/images/logo/logo-policia-se.jpeg').then<Uint8List?>((data) => data.buffer.asUint8List()).catchError((e) {
       debugPrint("Erro ao carregar logo: $e");
       return null;
     });
 
-    final fontRegular = await _cachedFontRegularFuture!;
-    final fontBold = await _cachedFontBoldFuture!;
-    final logoPolicia = await _cachedLogoPoliciaFuture;
+    final fontRegularBytes = (await _cachedFontRegularFuture) ?? Uint8List(0);
+    final fontBoldBytes = (await _cachedFontBoldFuture) ?? Uint8List(0);
+    final logoPoliciaBytes = await _cachedLogoPoliciaFuture;
+
+    final Map<String, String> svgStrings = await _carregarSvgs(achados, caso);
+
+    final payload = PdfIsolatePayload(
+      caso: caso,
+      achados: achados,
+      perito: perito,
+      schemas: schemas,
+      exames: exames,
+      examesModel: examesModel,
+      evidenciasGerais: evidenciasGerais,
+      fontRegularBytes: fontRegularBytes,
+      fontBoldBytes: fontBoldBytes,
+      logoPoliciaBytes: logoPoliciaBytes,
+      svgStrings: svgStrings,
+    );
+
+    return await compute(_gerarLaudoPdfIsolate, payload);
+  }
+
+  Future<Map<String, String>> _carregarSvgs(List<Achado> achados, Caso caso) async {
+    final Map<String, String> result = {};
+    final activeAchados = achados.where((a) => !a.removido).toList();
+    for (var a in activeAchados) {
+      String view = a.dadosPreenchidos['view'] ?? 'frente';
+      if (!result.containsKey(view)) {
+        String assetPath = 'assets/images/croqui-frente.svg';
+        if (view == 'costas' || view == 'back') assetPath = 'assets/images/croqui-costas.svg';
+        if (view == 'lateral_dir') assetPath = 'assets/images/face-lateral-direita.svg';
+        if (view == 'lateral_esq') assetPath = 'assets/images/face-lateral-esquerda.svg';
+        if (view == 'trunk_dir') assetPath = 'assets/images/tronco-direito-contorno.svg';
+        if (view == 'trunk_esq') assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
+        if (view == 'perineal') {
+          final dadosId = caso.dadosLaudo['identificacao'];
+          final String sexoNorm = (dadosId != null && dadosId['sexo'] != null)
+              ? dadosId['sexo'].toString().trim().toLowerCase()
+              : 'masculino';
+          assetPath = sexoNorm.startsWith('f')
+              ? 'assets/images/perineo_feminino.svg'
+              : 'assets/images/perineo_masculino.svg';
+        }
+        if (view == 'face_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
+        if (view == 'face_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
+
+        String svgRaw = await rootBundle.loadString(assetPath);
+        svgRaw = svgRaw
+            .replaceAll(RegExp(r'xmlns:inkscape="[^"]*"'), '')
+            .replaceAll(RegExp(r'xmlns:sodipodi="[^"]*"'), '');
+        result[view] = svgRaw;
+      }
+    }
+    return result;
+  }
+
+  static Future<Uint8List> _gerarLaudoPdfIsolate(PdfIsolatePayload payload) async {
+    final pdf = pw.Document();
+
+    final fontRegular = pw.Font.ttf(payload.fontRegularBytes.buffer.asByteData());
+    final fontBold = pw.Font.ttf(payload.fontBoldBytes.buffer.asByteData());
+    final logoPoliciaBytes = payload.logoPoliciaBytes;
+    final logoPolicia = logoPoliciaBytes != null ? pw.MemoryImage(logoPoliciaBytes) : null;
 
     final theme = pw.ThemeData.withFont(base: fontRegular, bold: fontBold);
 
-    final List<Achado> achadosExternos = achados.where((a) => !a.isInterno).toList();
-    final List<Achado> achadosInternos = achados.where((a) => a.isInterno).toList();
+    final List<Achado> achadosExternos = payload.achados.where((a) => !a.isInterno).toList();
+    final List<Achado> achadosInternos = payload.achados.where((a) => a.isInterno).toList();
 
-    List<Map<String, dynamic>> anexosFotos = await _prepararFotos(caso, achados);
-    final croquisWidgets = await _gerarMapasSVG(achados, caso);
+    final service = PdfService();
+
+    List<Map<String, dynamic>> anexosFotos = await service._prepararFotos(payload.caso, payload.achados, payload.evidenciasGerais);
+    final croquisWidgets = service._gerarMapasSVGSincrono(payload.achados, payload.caso, payload.svgStrings);
 
     final pageTheme = pw.PageTheme(
       pageFormat: PdfPageFormat.a4,
@@ -84,29 +144,29 @@ class PdfService {
     pdf.addPage(
       pw.MultiPage(
         pageTheme: pageTheme,
-        header: (context) => PdfHelpers.buildDynamicHeader(context, logoPolicia, caso.numeroLaudoExterno),
+        header: (context) => PdfHelpers.buildDynamicHeader(context, logoPolicia, payload.caso.numeroRequisicao.isNotEmpty ? payload.caso.numeroRequisicao : payload.caso.numeroLaudoExterno),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
         build: (context) {
           return [
             pw.SizedBox(height: 10),
-            _buildDadosIniciais(caso),
+            service._buildDadosIniciais(payload.caso),
             pw.SizedBox(height: 20),
-            _buildTextoAbertura(caso, perito),
+            service._buildTextoAbertura(payload.caso, payload.perito),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("1. HISTÓRICO"),
-            PdfHelpers.buildParagrafoComRecuo(caso.dadosLaudo['identificacao']?['historico'] ?? "XXX"),
+            PdfHelpers.buildParagrafoComRecuo(payload.caso.dadosLaudo['identificacao']?['historico'] ?? "XXX"),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("2. IDENTIFICAÇÃO"),
-            _buildIdentificacaoOficial(caso),
+            service._buildIdentificacaoOficial(payload.caso),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("3. EXAME EXTERNO"),
-            ..._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false, schemas: schemas, todosAchados: achados),
+            ...service._buildExameAgrupado(achadosExternos, anexosFotos, isInterno: false, schemas: payload.schemas, todosAchados: payload.achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("4. EXAME INTERNO (Cavidades)"),
-            ..._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true, schemas: schemas, todosAchados: achados),
+            ...service._buildExameAgrupado(achadosInternos, anexosFotos, isInterno: true, schemas: payload.schemas, todosAchados: payload.achados),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("5. EXAMES COMPLEMENTARES"),
-            _buildDadosComplementares(caso),
+            service._buildDadosComplementares(payload.exames, examesModel: payload.examesModel),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("6. RASCUNHOS E ESQUEMAS DE LESÃO"),
             if (croquisWidgets.isEmpty)
@@ -118,20 +178,20 @@ class PdfService {
             if (anexosFotos.isEmpty)
               PdfHelpers.buildParagrafoComRecuo("Sem fotografias anexadas.")
             else
-              ..._buildSecaoFotos(anexosFotos),
+              ...service._buildSecaoFotos(anexosFotos),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("8. COMENTÁRIO MÉDICO FORENSE"),
-            PdfHelpers.buildParagrafoComRecuo((caso.dadosLaudo['conclusao']?['discussao']?.toString().isNotEmpty == true) ? caso.dadosLaudo['conclusao']!['discussao'] : "XXX"),
+            PdfHelpers.buildParagrafoComRecuo((payload.caso.dadosLaudo['conclusao']?['discussao']?.toString().isNotEmpty == true) ? (payload.caso.dadosLaudo['conclusao']?['discussao']?.toString() ?? "XXX") : "XXX"),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("9. CONCLUSÃO"),
-            PdfHelpers.buildParagrafoComRecuo((caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString().isNotEmpty == true) ? caso.dadosLaudo['conclusao']!['conclusao_texto'] : "XXX"),
+            PdfHelpers.buildParagrafoComRecuo((payload.caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString().isNotEmpty == true) ? (payload.caso.dadosLaudo['conclusao']?['conclusao_texto']?.toString() ?? "XXX") : "XXX"),
             pw.SizedBox(height: 10),
             PdfHelpers.buildParagrafoComRecuo(PdfConstants.encerramentoPadrao),
             pw.SizedBox(height: 15),
             PdfHelpers.buildSectionTitle("10. RESPOSTA AOS QUESITOS"),
-            _buildDadosQuesitosOficial(caso),
+            service._buildDadosQuesitosOficial(payload.caso),
             pw.SizedBox(height: 40),
-            pw.Align(alignment: pw.Alignment.center, child: _buildEncerramento(caso, perito)),
+            pw.Align(alignment: pw.Alignment.center, child: service._buildEncerramento(payload.caso, payload.perito)),
           ];
         },
       ),
@@ -141,16 +201,17 @@ class PdfService {
   }
 
   pw.Widget _buildDadosIniciais(Caso caso) {
-    final cab = caso.dadosLaudo['cabecalho'] ?? {};
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        PdfHelpers.buildLinhaDetalhe("Laudo Pericial Cadavérico nº CD", caso.numeroLaudoExterno ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Boletim de Ocorrência (B.O.):", cab['bo'] ?? 'XXX'), 
-        PdfHelpers.buildLinhaDetalhe("PIC:", cab['pic'] ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", cab['requisitante'] ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Destino:", cab['destino'] ?? 'XXX'),
-        PdfHelpers.buildLinhaDetalhe("Nome da vítima:", cab['vitima'] ?? 'XXX', bold: true),
+        PdfHelpers.buildLinhaDetalhe("Laudo Pericial Cadavérico nº CD", caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? 'XXX')),
+        PdfHelpers.buildLinhaDetalhe("Boletim de Ocorrência (B.O.):", caso.numeroBo.isNotEmpty ? caso.numeroBo : 'XXX'), 
+        PdfHelpers.buildLinhaDetalhe("PIC:", caso.numeroPic.isNotEmpty ? caso.numeroPic : 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Requisitante: Delegado (a)", caso.requisitante.isNotEmpty ? caso.requisitante : 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Destino:", caso.destino.isNotEmpty ? caso.destino : 'XXX'),
+        PdfHelpers.buildLinhaDetalhe("Nome da vítima:", caso.nomeVitima.isNotEmpty ? caso.nomeVitima : 'XXX', bold: true),
+        if (caso.atnsIds.isNotEmpty)
+          PdfHelpers.buildLinhaDetalhe("Técnico(s) de Necrópsia:", caso.dadosLaudo['auditoria']?['atns_nomes']?.toString() ?? caso.atnsIds.join(", ")),
         pw.SizedBox(height: 20),
         pw.Center(child: pw.Text("LAUDO CADAVÉRICO", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))),
       ],
@@ -169,6 +230,7 @@ class PdfService {
 
   pw.Widget _buildIdentificacaoOficial(Caso caso) {
     final id = caso.dadosLaudo['identificacao'] ?? {};
+    final carac = caso.dadosLaudo['caracteristicas'] ?? {};
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -177,7 +239,7 @@ class PdfService {
         pw.SizedBox(height: 5),
         
         pw.Text("II) Características de identificação:", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-        PdfHelpers.buildParagrafoComRecuo(id['caracteristicas']?.toString().isNotEmpty == true ? id['caracteristicas'] : "Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos."),
+        PdfHelpers.buildParagrafoComRecuo("Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos."),
         pw.SizedBox(height: 5),
         
         pw.Text("III) Dados tanatológicos:", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
@@ -188,11 +250,11 @@ class PdfService {
             children: [
               pw.Text("A morte está evidenciada pela presença dos seguintes sinais tanatológicos:", style: const pw.TextStyle(fontSize: 10)),
               pw.SizedBox(height: 3),
-              PdfHelpers.buildItemComLabel("A) IMEDIATOS: ", id['tanato_imediato']?.toString().isNotEmpty == true ? id['tanato_imediato'] : 'XXX'),
+              PdfHelpers.buildItemComLabel("A) IMEDIATOS: ", carac['tanato_imediato']?.toString().isNotEmpty == true ? carac['tanato_imediato'] : 'XXX'),
               pw.SizedBox(height: 3),
-              PdfHelpers.buildItemComLabel("B) CONSECUTIVOS: ", id['tanato_consecutivo']?.toString().isNotEmpty == true ? id['tanato_consecutivo'] : 'XXX'),
+              PdfHelpers.buildItemComLabel("B) CONSECUTIVOS: ", carac['tanato_consecutivo']?.toString().isNotEmpty == true ? carac['tanato_consecutivo'] : 'XXX'),
               pw.SizedBox(height: 3),
-              PdfHelpers.buildItemComLabel("COMENTARIOS ADICIONAIS: ", id['tanato_observacao']?.toString().isNotEmpty == true ? id['tanato_observacao'] : 'XXX'),
+              PdfHelpers.buildItemComLabel("COMENTARIOS ADICIONAIS: ", carac['tanato_observacao']?.toString().isNotEmpty == true ? carac['tanato_observacao'] : 'XXX'),
             ]
           )
         )
@@ -211,7 +273,7 @@ class PdfService {
     List<Achado> achadosPendentes = List.from(achados);
     
     PdfConstants.mapeamentoAnatomico.forEach((grupoOrinal, chavesExatas) {
-      final tituloDaSecao = isInterno ? PdfConstants.titulosInternos[grupoOrinal]! : grupoOrinal;
+      final tituloDaSecao = isInterno ? (PdfConstants.titulosInternos[grupoOrinal] ?? grupoOrinal) : grupoOrinal;
       final textoVazio = isInterno ? "Sem alterações macroscópicas dignas de nota." : "Sem evidências de lesões macroscópicas de natureza traumática.";
       final textoComLesao = isInterno ? null : "Com evidências de lesões macroscópicas:"; 
       final achadosGrupo = achadosPendentes.where((a) {
@@ -234,8 +296,8 @@ class PdfService {
           final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
           
           final List<pw.Widget> columnChildren = [
-            pw.Bullet(
-              text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
+            pw.Text(
+              "${a.numeroSequencial}. ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']}: ${a.observacoesTexto ?? ''}$refFoto",
               style: const pw.TextStyle(fontSize: 10),
             ),
           ];
@@ -248,11 +310,10 @@ class PdfService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: campos.map((c) => pw.Text(
-                    "- ${c['label']}: ${c['valor']}",
+                    "${c['label']}: ${c['valor']}",
                     style: pw.TextStyle(
                       fontSize: 8.5,
                       fontStyle: pw.FontStyle.italic,
-                      color: PdfColors.grey700,
                     ),
                   )).toList(),
                 ),
@@ -282,8 +343,8 @@ class PdfService {
         final refFoto = foto != null ? " [VER REGISTRO FOTOGRÁFICO ${foto['numero']}]" : "";
         
         final List<pw.Widget> columnChildren = [
-          pw.Bullet(
-            text: "[${a.numeroSequencial}] ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
+          pw.Text(
+            "${a.numeroSequencial}. ${a.dadosPreenchidos['type_label']} em ${a.dadosPreenchidos['local_anatomico_nome']} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto",
             style: const pw.TextStyle(fontSize: 10),
           ),
         ];
@@ -296,11 +357,10 @@ class PdfService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: campos.map((c) => pw.Text(
-                  "- ${c['label']}: ${c['valor']}",
+                  "${c['label']}: ${c['valor']}",
                   style: pw.TextStyle(
                     fontSize: 8.5,
                     fontStyle: pw.FontStyle.italic,
-                    color: PdfColors.grey700,
                   ),
                 )).toList(),
               ),
@@ -323,33 +383,341 @@ class PdfService {
     return items;
   }
 
-  pw.Widget _buildDadosComplementares(Caso c) {
-    final ex = c.dadosLaudo['exames_complementares'] ?? {};
+  pw.Widget _buildDadosComplementares(
+    List<ExameSolicitado> exames, {
+    List<em.ExameSolicitadoModel>? examesModel,
+  }) {
+    // Se temos os modelos ricos (Fase 4), usamos a renderização detalhada.
+    if (examesModel != null && examesModel.isNotEmpty) {
+      return _buildDadosComplementaresRico(examesModel);
+    }
+
+    // Fallback legado: só lacres, para casos sem migração.
+    final anatomoEx  = exames.firstWhere((e) => e.tipoExame == 'ANATOMO',      orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final toxEx      = exames.firstWhere((e) => e.tipoExame == 'TOXICOLOGICO', orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final genEx      = exames.firstWhere((e) => e.tipoExame == 'GENETICA',     orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
+    final outrosEx   = exames.firstWhere((e) => e.tipoExame == 'OUTROS',       orElse: () => ExameSolicitado(uuid: '', casoUuid: '', tipoExame: '', numeroLacre: '', criadoEm: DateTime.now()));
     return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start, 
-      children: [
-        PdfHelpers.buildItemComLabel("Anátomo-Patológico: ", (ex['anatomo']?.toString().isNotEmpty == true) ? ex['anatomo'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Toxicológico: ", (ex['toxicologico']?.toString().isNotEmpty == true) ? ex['toxicologico'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Genética: ", (ex['genetica']?.toString().isNotEmpty == true) ? ex['genetica'] : 'XXX'), 
-        PdfHelpers.buildItemComLabel("Outros: ", (ex['outros']?.toString().isNotEmpty == true) ? ex['outros'] : 'XXX')
-      ]
+children: [
+        PdfHelpers.buildItemComLabel('Anátomo-Patológico (Nº do Lacre): ', anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Toxicológico (Nº do Lacre): ',        toxEx.uuid.isNotEmpty      ? toxEx.numeroLacre      : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Genética (Nº do Lacre): ',            genEx.uuid.isNotEmpty      ? genEx.numeroLacre      : 'NÃO SOLICITADO'),
+        PdfHelpers.buildItemComLabel('Outros (Nº do Lacre): ',              outrosEx.uuid.isNotEmpty   ? outrosEx.numeroLacre   : 'NÃO SOLICITADO'),
+      ],
     );
   }
 
+  // ─── Renderização rica (Fase 4) ───────────────────────────────────────────────────
+
+  pw.Widget _buildDadosComplementaresRico(List<em.ExameSolicitadoModel> exames) {
+    if (exames.isEmpty) {
+      return PdfHelpers.buildParagrafoComRecuo('Nenhum exame complementar solicitado.');
+    }
+
+    final List<pw.Widget> blocos = [];
+    int contador = 0;
+    final letras = ['A', 'B', 'C', 'D', 'E'];
+
+    for (final exame in exames) {
+      final tipo = exame.tipoExame.toUpperCase().trim();
+      final letra = contador < letras.length ? letras[contador] : '${contador + 1}';
+      contador++;
+
+      if (tipo == 'TOXICOLOGICO') {
+        blocos.add(_bloco5Toxicologico(exame, letra));
+      } else if (tipo == 'GENETICA') {
+        blocos.add(_bloco5Genetica(exame, letra));
+      } else if (tipo == 'ANATOMO') {
+        blocos.add(_bloco5Anatomo(exame, letra));
+      }
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: blocos);
+  }
+
+  // ─── Bloco: TOXICOLÓGICO ────────────────────────────────────────────────────────
+
+  pw.Widget _bloco5Toxicologico(em.ExameSolicitadoModel exame, String letra) {
+    final d = exame.detalhes is DetalhesToxicologicoModel
+        ? exame.detalhes as DetalhesToxicologicoModel
+        : null;
+
+    final List<pw.Widget> linhas = [];
+
+    // Título do bloco — estilo documento oficial: negrito, sem fundo colorido
+    linhas.add(
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Text(
+          '$letra) EXAME TOXICOLÓGICO',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+
+    if (d == null) {
+      linhas.add(_itemRecuado('Detalhes não disponíveis.'));
+      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+    }
+
+    // Histórico da ocorrência
+    final historico = d.historicoOcorrencia == 'Outro'
+        ? 'Outro: ${d.historicoOutro ?? 'não especificado'}'
+        : (d.historicoOcorrencia ?? 'Não informado');
+    linhas.add(_subTitulo('Histórico da Ocorrência:'));
+    linhas.add(_itemRecuado(historico));
+
+    // Materiais com lacres individuais
+    final bool temSg = d.materialSgFemoral || d.materialSgCardiaca || (d.materialSgOutro?.isNotEmpty == true);
+    final bool temAlgumMaterial = temSg || d.materialUrina || d.materialHumorVitreo || d.materialEstomago || d.materialPulmao;
+
+    if (temAlgumMaterial) {
+      linhas.add(_subTitulo('Materiais Biológicos Solicitados:'));
+    }
+
+    if (temSg) {
+      final subs = <String>[];
+      if (d.materialSgFemoral) subs.add('Veia Femoral');
+      if (d.materialSgCardiaca) subs.add('Cavidade Cardíaca');
+      if (d.materialSgOutro?.isNotEmpty == true) subs.add('Outro sítio: ${d.materialSgOutro}');
+      final lacreSg = d.numeroLacreSg?.isNotEmpty == true ? (d.numeroLacreSg ?? 'Não informado') : 'Não informado';
+      linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Lacre: $lacreSg'));
+      if (d.quantificacaoDrogas) {
+        linhas.add(_itemRecuadoSecundario('Solicita quantificacao de drogas / farmacos'));
+      }
+    }
+
+    if (d.materialUrina) {
+      final lacre = d.numeroLacreUr?.isNotEmpty == true ? (d.numeroLacreUr ?? 'Não informado') : 'Não informado';
+      linhas.add(_itemRecuado('- Urina (UR) — Lacre: $lacre'));
+    }
+    if (d.materialHumorVitreo) {
+      final lacre = d.numeroLacreHv?.isNotEmpty == true ? (d.numeroLacreHv ?? 'Não informado') : 'Não informado';
+      linhas.add(_itemRecuado('- Humor Vitreo (HV) — Lacre: $lacre'));
+    }
+    if (d.materialEstomago) {
+      final lacre = d.numeroLacreCe?.isNotEmpty == true ? (d.numeroLacreCe ?? 'Não informado') : 'Não informado';
+      linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Lacre: $lacre'));
+    }
+    if (d.materialPulmao) {
+      final lacre = d.numeroLacrePm?.isNotEmpty == true ? (d.numeroLacrePm ?? 'Não informado') : 'Não informado';
+      linhas.add(_itemRecuado('- Pulmao (PM) — Lacre: $lacre'));
+    }
+
+    if (!temAlgumMaterial) {
+      linhas.add(_itemRecuado('Nenhum material selecionado.'));
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+  }
+
+  // ─── Bloco: GENÉTICA E BIOLÓGICO ───────────────────────────────────────────────
+
+  pw.Widget _bloco5Genetica(em.ExameSolicitadoModel exame, String letra) {
+    final amostras = (exame.detalhes is List)
+        ? (exame.detalhes as List).whereType<AmostraGeneticaModel>().toList()
+        : <AmostraGeneticaModel>[];
+
+    final List<pw.Widget> linhas = [];
+
+    // Título do bloco
+    linhas.add(
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Text(
+          '$letra) EXAME GENÉTICO E BIOLÓGICO',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+
+    if (amostras.isEmpty) {
+      linhas.add(_itemRecuado('Nenhuma amostra registrada.'));
+      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+    }
+
+    final questionadas = amostras.where((a) => a.tipoAmostra != 'SWAB_BUCAL_VITIMA').toList();
+    final referencia   = amostras.where((a) => a.tipoAmostra == 'SWAB_BUCAL_VITIMA').toList();
+
+    if (questionadas.isNotEmpty) {
+      linhas.add(_subTitulo('Amostras Questionadas:'));
+      for (final a in questionadas) {
+        final desc = _descricaoAmostraGenetica(a);
+        final pesqs = <String>[];
+        if (a.pesquisaSemen) pesqs.add('Pesquisa de Semen');
+        if (a.pesquisaDna)   pesqs.add('Pesquisa de DNA');
+        final pesqStr = pesqs.isNotEmpty ? ' [${pesqs.join(' + ')}]' : '';
+        final lacre = a.numeroLacre?.isNotEmpty == true ? (a.numeroLacre ?? 'Não informado') : 'Não informado';
+        linhas.add(_itemRecuado('- $desc$pesqStr — Lacre do Envelope: $lacre'));
+      }
+    }
+
+    if (referencia.isNotEmpty) {
+      linhas.add(_subTitulo('Amostra de Referencia:'));
+      for (final a in referencia) {
+        final lacre = a.numeroLacre?.isNotEmpty == true ? (a.numeroLacre ?? 'Não informado') : 'Não informado';
+        linhas.add(_itemRecuado('- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Lacre do Envelope: $lacre'));
+      }
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+  }
+
+  String _descricaoAmostraGenetica(AmostraGeneticaModel a) {
+    const nomes = {
+      'SWAB_VAGINAL_1':    'SWAB VAGINAL - 1 (Pesquisa de sêmen e DNA)',
+      'SWAB_VAGINAL_2':    'SWAB VAGINAL - 2 (Pesquisa de sêmen e DNA)',
+      'SWAB_ANAL_1':       'SWAB ANAL - 1 (Pesquisa de sêmen e DNA)',
+      'SWAB_ANAL_2':       'SWAB ANAL - 2 (Pesquisa de sêmen e DNA)',
+      'SWAB_BUCAL_VITIMA': 'Swab Bucal da Vítima',
+    };
+    if (a.tipoAmostra == 'OUTRO') {
+      return a.descricaoOutro?.isNotEmpty == true ? (a.descricaoOutro ?? 'Amostra personalizada') : 'Amostra personalizada';
+    }
+    return nomes[a.tipoAmostra] ?? a.tipoAmostra;
+  }
+
+  // ─── Bloco: ANÁTOMO-PATOLÓGICO ────────────────────────────────────────────────
+
+  pw.Widget _bloco5Anatomo(em.ExameSolicitadoModel exame, String letra) {
+    final frascos = (exame.detalhes is List)
+        ? (exame.detalhes as List).whereType<FrascoAnatomoModel>().toList()
+        : <FrascoAnatomoModel>[];
+
+    frascos.sort((a, b) => a.numeroFrasco.compareTo(b.numeroFrasco));
+
+    final List<pw.Widget> linhas = [];
+
+    // Título do bloco
+    linhas.add(
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Text(
+          '$letra) EXAME ANÁTOMO-PATOLÓGICO (HISTOPATOLÓGICO)',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+        ),
+      ),
+    );
+
+    if (frascos.isEmpty) {
+      linhas.add(_itemRecuado('Nenhum frasco registrado.'));
+      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+    }
+
+    for (final f in frascos) {
+      final numStr = f.numeroFrasco.toString().padLeft(2, '0');
+      final lacre = f.numeroLacre?.isNotEmpty == true ? (f.numeroLacre ?? 'Não informado') : 'Não informado';
+
+      // Cabeçalho do frasco: numeracao + lacre
+      linhas.add(
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(left: 15, top: 6, bottom: 2),
+          child: pw.Text(
+            'Frasco $numStr — Lacre: $lacre',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5),
+          ),
+        ),
+      );
+
+      final orgaos = <String>[];
+      if (f.coracao)  orgaos.add('Coracao');
+      if (f.figado)   orgaos.add('Figado');
+      if (f.baco)     orgaos.add('Baco');
+      if (f.encefalo) orgaos.add('Encefalo');
+      if (f.rimD)     orgaos.add('Rim D.');
+      if (f.rimE)     orgaos.add('Rim E.');
+
+      final pulmoes = <String>[];
+      if (f.pulmaoDLsd) pulmoes.add('LSD');
+      if (f.pulmaoDLmd) pulmoes.add('LMD');
+      if (f.pulmaoDLid) pulmoes.add('LID');
+      if (f.pulmaoELse) pulmoes.add('LSE');
+      if (f.pulmaoELie) pulmoes.add('LIE');
+      if (pulmoes.isNotEmpty) orgaos.add('Pulmao (${pulmoes.join(', ')})');
+
+      if (orgaos.isNotEmpty) {
+        linhas.add(_itemRecuado('Orgaos: ${orgaos.join(' | ')}'));
+      }
+      if (f.peleRegiao?.isNotEmpty == true) {
+        linhas.add(_itemRecuado('Pele — Regiao: ${f.peleRegiao}'));
+      }
+      if (f.partesMolesRegiao?.isNotEmpty == true) {
+        linhas.add(_itemRecuado('Partes Moles — Regiao: ${f.partesMolesRegiao}'));
+      }
+      if (f.outrasRegiao?.isNotEmpty == true) {
+        linhas.add(_itemRecuado('Outras — Descricao: ${f.outrasRegiao}'));
+      }
+      if (orgaos.isEmpty && f.peleRegiao == null && f.partesMolesRegiao == null && f.outrasRegiao == null) {
+        linhas.add(_itemRecuado('(Frasco sem conteudo especificado)'));
+      }
+    }
+
+    return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: linhas);
+  }
+
+  // ─── Helpers internos ───────────────────────────────────────────────────────────
+
+  pw.Widget _subTitulo(String texto) => pw.Padding(
+    padding: const pw.EdgeInsets.only(left: 15, top: 5, bottom: 2),
+    child: pw.Text(texto, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5)),
+  );
+
+  pw.Widget _itemRecuado(String texto) => pw.Padding(
+    padding: const pw.EdgeInsets.only(left: 25, top: 2),
+    child: pw.Text(texto, style: const pw.TextStyle(fontSize: 9.5)),
+  );
+
+  /// Recuo secundário para sub-itens (ex: quantificacao abaixo de Sangue SG).
+  pw.Widget _itemRecuadoSecundario(String texto) => pw.Padding(
+    padding: const pw.EdgeInsets.only(left: 38, top: 1),
+    child: pw.Text(texto, style: const pw.TextStyle(fontSize: 9)),
+  );
+
+
   pw.Widget _buildDadosQuesitosOficial(Caso caso) {
     final q = caso.dadosLaudo['conclusao'] ?? {};
+    
+    List<pw.Widget> causasWidgets = [];
+    if (q['causas_morte'] != null && q['causas_morte'] is List) {
+      final causasList = q['causas_morte'] as List;
+      for (int i = 0; i < causasList.length; i++) {
+        final map = causasList[i] as Map;
+        final imediata = map['imediata']?.toString().isNotEmpty == true ? map['imediata'] : 'XXX';
+        final devidoA = map['devido_a']?.toString().isNotEmpty == true ? map['devido_a'] : 'XXX';
+        final consequencia = map['consequencia']?.toString().isNotEmpty == true ? map['consequencia'] : 'XXX';
+        
+        causasWidgets.add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(left: 10, top: 4),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                if (causasList.length > 1) 
+                  pw.Text("Causa #${i + 1}:", style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic)),
+                pw.Bullet(text: "Imediata: $imediata", style: const pw.TextStyle(fontSize: 10)),
+                pw.Bullet(text: "Devido a: $devidoA", style: const pw.TextStyle(fontSize: 10)),
+                pw.Bullet(text: "Consequência: $consequencia", style: const pw.TextStyle(fontSize: 10)),
+              ],
+            ),
+          )
+        );
+      }
+    } else {
+      causasWidgets.add(pw.Text("R: ${q['quesito_2_causa']?.toString().isNotEmpty == true ? q['quesito_2_causa'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)));
+    }
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text("I) Houve morte?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
         pw.Text("R: ${q['quesito_1_morte']?.toString().isNotEmpty == true ? q['quesito_1_morte'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
-        pw.SizedBox(height: 5),
+        pw.SizedBox(height: 8),
         pw.Text("II) Qual a causa?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-        pw.Text("R: ${q['quesito_2_causa']?.toString().isNotEmpty == true ? q['quesito_2_causa'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
-        pw.SizedBox(height: 5),
+        ...causasWidgets,
+        pw.SizedBox(height: 8),
         pw.Text("III) Qual o instrumento ou meio que a produziu?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
         pw.Text("R: ${q['quesito_3_instrumento']?.toString().isNotEmpty == true ? q['quesito_3_instrumento'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
-        pw.SizedBox(height: 5),
+        pw.SizedBox(height: 8),
         pw.Text("IV) Foi produzida por meio de veneno, fogo, explosivo, asfixia ou meio insidioso cruel?", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
         pw.Text("R: ${q['quesito_4_meio']?.toString().isNotEmpty == true ? q['quesito_4_meio'] : 'XXX'}", style: const pw.TextStyle(fontSize: 10)),
       ]
@@ -454,21 +822,45 @@ class PdfService {
   );
 }
   
-  Future<List<Map<String, dynamic>>> _prepararFotos(Caso caso, List<Achado> achados) async {
+  static final Uint8List _fallbackImageBytes = Uint8List.fromList([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+    0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+  ]);
+
+
+  Future<Uint8List> _comprimirBytesIterativamente(File file) async {
+    final rawBytes = await file.readAsBytes();
+    if (rawBytes.lengthInBytes < 500 * 1024) return rawBytes; // Já é pequeno (500KB)
+
+    final decoded = img.decodeImage(rawBytes);
+    if (decoded == null) return rawBytes;
+
+    if (decoded.width <= 1200 && decoded.height <= 1200) return rawBytes;
+
+    final resized = img.copyResize(decoded, width: 1200, maintainAspect: true);
+    final compressedBytes = img.encodeJpg(resized, quality: 70);
+    return Uint8List.fromList(compressedBytes);
+  }
+
+  Future<List<Map<String, dynamic>>> _prepararFotos(Caso caso, List<Achado> achados, List<EvidenciaMultimidia> evidenciasGerais) async {
     List<Map<String, dynamic>> anexos = [];
     int contador = 1;
 
-    final rawFotosGerais = caso.dadosLaudo['identificacao']?['fotos_gerais'];
-    final List<dynamic> fotosGerais = rawFotosGerais is List ? rawFotosGerais : const [];
-    
-    for (var fotoPath in fotosGerais) {
-      final file = File(fotoPath.toString());
-      if (file.existsSync()) {
-        final bytes = await file.readAsBytes();
+    for (var ev in evidenciasGerais) {
+      final path = ev.caminhoArquivoEncriptado ?? '';
+      if (path.isNotEmpty) {
+        final file = File(path);
+        final bool existe = file.existsSync();
+        final Uint8List bytes = existe ? await _comprimirBytesIterativamente(file) : _fallbackImageBytes;
+        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
         anexos.add({
           'numero': contador, 
           'bytes': bytes, 
-          'label': 'Fotografia $contador - Identificação Geral'
+          'label': 'Fotografia $contador$statusTag - Identificação Geral'
         });
         contador++;
       }
@@ -477,23 +869,23 @@ class PdfService {
     for (var a in achados) {
       final path = a.dadosPreenchidos['photo_path'];
       if (path != null && path.toString().isNotEmpty) {
-        final file = File(path);
-        if (file.existsSync()) {
-          final bytes = await file.readAsBytes();
-          anexos.add({
-            'numero': contador, 
-            'uuid': a.uuid, 
-            'bytes': bytes, 
-            'label': 'Fotografia $contador - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
-          });
-          contador++;
-        }
+        final file = File(path.toString());
+        final bool existe = file.existsSync();
+        final Uint8List bytes = existe ? await _comprimirBytesIterativamente(file) : _fallbackImageBytes;
+        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
+        anexos.add({
+          'numero': contador, 
+          'uuid': a.uuid, 
+          'bytes': bytes, 
+          'label': 'Fotografia $contador$statusTag - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})'
+        });
+        contador++;
       }
     }
     return anexos;
   }
 
-  Future<List<pw.Widget>> _gerarMapasSVG(List<Achado> achados, Caso caso) async {
+  List<pw.Widget> _gerarMapasSVGSincrono(List<Achado> achados, Caso caso, Map<String, String> svgStrings) {
     final activeAchados = achados.where((a) => !a.removido).toList();
     if (activeAchados.isEmpty) return [];
 
@@ -505,28 +897,8 @@ class PdfService {
     List<pw.Widget> widgets = [];
 
     for (var view in porFolha.keys) {
-      String assetPath = 'assets/images/croqui-frente.svg';
-      if (view == 'costas' || view == 'back') assetPath = 'assets/images/croqui-costas.svg';
-      if (view == 'lateral_dir') assetPath = 'assets/images/face-lateral-direita.svg';
-      if (view == 'lateral_esq') assetPath = 'assets/images/face-lateral-esquerda.svg';
-      if (view == 'trunk_dir') assetPath = 'assets/images/tronco-direito-contorno.svg';
-      if (view == 'trunk_esq') assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
-      if (view == 'perineal') {
-        final dadosId = caso.dadosLaudo['identificacao'];
-        final String sexoNorm = (dadosId != null && dadosId['sexo'] != null)
-            ? dadosId['sexo'].toString().trim().toLowerCase()
-            : 'masculino';
-        assetPath = sexoNorm.startsWith('f')
-            ? 'assets/images/perineo_feminino.svg'
-            : 'assets/images/perineo_masculino.svg';
-      }
-      if (view == 'face_dir') assetPath = 'assets/images/croqui-rosto-direito.svg';
-      if (view == 'face_esq') assetPath = 'assets/images/croqui-rosto-frente.svg';
-
-      String svgRaw = await rootBundle.loadString(assetPath);
-      svgRaw = svgRaw
-          .replaceAll(RegExp(r'xmlns:inkscape="[^"]*"'), '')
-          .replaceAll(RegExp(r'xmlns:sodipodi="[^"]*"'), '');
+      String svgRaw = svgStrings[view] ?? '';
+      if (svgRaw.isEmpty) continue;
 
       widgets.add(pw.Wrap(children: [
         pw.Container(margin: const pw.EdgeInsets.only(bottom: 20, left: 15), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
@@ -534,7 +906,7 @@ class PdfService {
           pw.SizedBox(height: 5),
           pw.Container(width: 318.0, height: 450.0, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300)), child: pw.Stack(children: [
             pw.Positioned.fill(child: pw.SvgImage(svg: svgRaw, fit: pw.BoxFit.fill)),
-            ...porFolha[view]!.where((a) {
+            ...(porFolha[view] ?? []).where((a) {
               if (view == 'perineal') {
                 final String? bodyPartId = a.dadosPreenchidos['local_anatomico_id']?.toString();
                 if (bodyPartId == null) return false;
@@ -577,4 +949,32 @@ class PdfService {
       )
     ])).toList();
   }
+}
+class PdfIsolatePayload {
+  final Caso caso;
+  final List<Achado> achados;
+  final Usuario perito;
+  final Map<String, dynamic>? schemas;
+  final List<ExameSolicitado> exames;
+  final List<em.ExameSolicitadoModel>? examesModel;
+  final List<EvidenciaMultimidia> evidenciasGerais;
+
+  final Uint8List fontRegularBytes;
+  final Uint8List fontBoldBytes;
+  final Uint8List? logoPoliciaBytes;
+  final Map<String, String> svgStrings;
+
+  PdfIsolatePayload({
+    required this.caso,
+    required this.achados,
+    required this.perito,
+    this.schemas,
+    required this.exames,
+    this.examesModel,
+    required this.evidenciasGerais,
+    required this.fontRegularBytes,
+    required this.fontBoldBytes,
+    this.logoPoliciaBytes,
+    required this.svgStrings,
+  });
 }

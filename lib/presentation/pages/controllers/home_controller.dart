@@ -28,11 +28,33 @@ class HomeController {
     );
 
     if (dadosRetornados != null) {
-      final String numero = dadosRetornados['numero_laudo'];
-      final Map<String, dynamic> conteudoJson = dadosRetornados['dados_laudo'];
+      final String numero = dadosRetornados['numero_laudo'] ?? '';
+      final String numeroPic = dadosRetornados['numero_pic'] ?? '';
+      final String numeroBo = dadosRetornados['numero_bo'] ?? '';
+      final String numeroRequisicao = dadosRetornados['numero_requisicao'] ?? '';
+      final String nomeVitima = dadosRetornados['nome_vitima'] ?? '';
+      final String destino = dadosRetornados['destino'] ?? '';
+      final String requisitante = dadosRetornados['requisitante'] ?? '';
+      final Map<String, dynamic> conteudoJson = dadosRetornados['dados_laudo'] ?? {};
+      final List<dynamic> fotosGerais = dadosRetornados['fotos_gerais'] ?? [];
+      final List<String> atnsIds = dadosRetornados['atns_ids'] is List 
+          ? List<String>.from(dadosRetornados['atns_ids']) 
+          : [];
 
       if (context.mounted) {
-        await _criarCaso(context, numero, conteudoJson);
+        await _criarCaso(
+          context: context,
+          numeroLaudo: numero,
+          dadosLaudo: conteudoJson,
+          numeroPic: numeroPic,
+          numeroBo: numeroBo,
+          numeroRequisicao: numeroRequisicao,
+          nomeVitima: nomeVitima,
+          destino: destino,
+          requisitante: requisitante,
+          fotosGerais: fotosGerais,
+          atnsIds: atnsIds,
+        );
       }
     }
   }
@@ -58,11 +80,19 @@ class HomeController {
     }
   }
 
-  Future<void> _criarCaso(
-    BuildContext context,
-    String numeroLaudo,
-    Map<String, dynamic> dadosLaudo,
-  ) async {
+  Future<void> _criarCaso({
+    required BuildContext context,
+    required String numeroLaudo,
+    required Map<String, dynamic> dadosLaudo,
+    required String numeroPic,
+    required String numeroBo,
+    required String numeroRequisicao,
+    required String nomeVitima,
+    required String destino,
+    required String requisitante,
+    required List<dynamic> fotosGerais,
+    required List<String> atnsIds,
+  }) async {
     try {
       final usuario = context.read<AuthProvider>().usuario;
       if (usuario == null) return;
@@ -70,6 +100,14 @@ class HomeController {
             criador: usuario,
             numeroLaudo: numeroLaudo,
             dadosIniciais: dadosLaudo,
+            numeroPic: numeroPic,
+            numeroBo: numeroBo,
+            numeroRequisicao: numeroRequisicao,
+            nomeVitima: nomeVitima,
+            destino: destino,
+            requisitante: requisitante,
+            fotosGerais: fotosGerais,
+            atnsIds: atnsIds,
           );
 
       if (!context.mounted) return;
@@ -80,6 +118,9 @@ class HomeController {
           builder: (context) => CroquiPage(caso: novoCaso),
         ),
       );
+
+      if (!context.mounted) return;
+      context.read<CaseListProvider>().carregarCasos();
 
     } catch (e) {
       globalMessengerKey.currentState?.showSnackBar(

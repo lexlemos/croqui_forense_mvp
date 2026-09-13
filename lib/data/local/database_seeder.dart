@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/security/security_helper.dart';
 
@@ -20,6 +21,15 @@ class DatabaseSeeder {
     await _seedPermissions();
     await _seedRolePermissions(); 
     await _seedDefaultUser();
+    await seedAtns();
+  }
+
+  Future<void> seedAtns() async {
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM atns'));
+    if (count != null && count > 0) return;
+
+    await db.insert('atns', {'id': 'atn-001', 'nome': 'ATN João'});
+    await db.insert('atns', {'id': 'atn-002', 'nome': 'ATN Maria'});
   }
   
   Future<void> _seedRoles() async {
@@ -30,7 +40,7 @@ class DatabaseSeeder {
       'id': roleAdminId, 'nome': 'ADMIN', 'descricao': 'Administrador do Sistema', 'e_padrao': 0
     });
     await db.insert('papeis', {
-      'id': roleLegistaId, 'nome': 'PERITO', 'descricao': 'Médico Perito', 'e_padrao': 1
+      'id': roleLegistaId, 'nome': 'PERITO_GERAL', 'descricao': 'Médico Perito', 'e_padrao': 1
     });
   }
 
@@ -67,13 +77,11 @@ class DatabaseSeeder {
       'id': adminUserId, 
       'matricula_funcional': 'ADMIN002',
       'nome_completo': 'Administrador Padrao',
-      'crm': '12347/SE',
-      'classe': '1',
       'papel_id': roleAdminId,
+      'roles': jsonEncode(['ADMIN']),
       'hash_pin_offline': hashedPin,
       'salt': salt,
       'ativo': 1,
-      'deve_alterar_pin': 1, 
       'criado_em': fixedDate,
     });
   }

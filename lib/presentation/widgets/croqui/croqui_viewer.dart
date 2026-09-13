@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/injury_pin.dart';
 
 typedef OnBodyPartSelected = void Function(
   String bodyPartId, 
@@ -80,16 +81,22 @@ class _CroquiViewerState extends State<CroquiViewer> {
       _rawMaskBytes = null;
     });
 
+    ui.Codec? codec;
     ui.Image? uiImage;
     try {
       final ByteData data = await rootBundle.load(currentLoadPath);
       final Uint8List bytes = data.buffer.asUint8List();
 
-      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final loadedCodec = await ui.instantiateImageCodec(bytes);
+      codec = loadedCodec;
+      final ui.FrameInfo frameInfo = await loadedCodec.getNextFrame();
       uiImage = frameInfo.image;
 
       final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+
+      // O codec não é mais necessário depois que os bytes da imagem foram extraídos.
+      codec?.dispose();
+      codec = null;
 
       if (!mounted || widget.maskPath != currentLoadPath) return;
 
@@ -116,6 +123,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
       }
     } finally {
       // Garantia absoluta de liberação do recurso nativo C++
+      codec?.dispose();
       uiImage?.dispose();
     }
   }
@@ -159,10 +167,15 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
   Widget _getSvgBackground() {
     _cachedSvg ??= RepaintBoundary(
-      child: SvgPicture.asset(
-        widget.svgPath,
-        fit: BoxFit.fill,
-      ),
+      child: widget.svgPath.toLowerCase().endsWith('.svg')
+          ? SvgPicture.asset(
+              widget.svgPath,
+              fit: BoxFit.fill,
+            )
+          : Image.asset(
+              widget.svgPath,
+              fit: BoxFit.fill,
+            ),
     );
     return _cachedSvg!;
   }
@@ -220,18 +233,16 @@ class _CroquiViewerState extends State<CroquiViewer> {
                     }).map((marker) {
                       double left = (marker.posX.isNaN ? 0.5 : marker.posX) * containerWidth;
                       double top = (marker.posY.isNaN ? 0.5 : marker.posY) * containerHeight;
-                      const double iconSize = 24.0;
+                      const double touchTargetSize = 44.0;
 
                       return Positioned(
-                        left: left - (iconSize / 2),
-                        top: top - iconSize,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: iconSize,
-                          shadows: [
-                            Shadow(blurRadius: 4, color: Colors.black54, offset: Offset(2, 2))
-                          ],
+                        left: left - (touchTargetSize / 2),
+                        top: top - (touchTargetSize / 2),
+                        child: InjuryPin(
+                          touchTargetSize: touchTargetSize,
+                          visualSize: 15.0, // Redução visual de ~37.5% (de 24px para 15px)
+                          color: marker.isInterno ? Colors.orange : Colors.red,
+                          label: marker.numeroSequencial > 0 ? marker.numeroSequencial.toString() : null,
                         ),
                       );
                     }),

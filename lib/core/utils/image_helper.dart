@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 
 class ImageHelper {
   
-  static Future<File> compressImage(File file) async {
+  static Future<File> compressImage(File file, String fotoUuid) async {
     final dir = await getApplicationDocumentsDirectory();
     
     final evidenciasDir = Directory(p.join(dir.path, 'evidencias'));
@@ -14,21 +14,35 @@ class ImageHelper {
       await evidenciasDir.create(recursive: true);
     }
 
-    final fileName = "evidencia_${DateTime.now().millisecondsSinceEpoch}.jpg";
-    final targetPath = p.join(evidenciasDir.path, fileName);
+    final fileName = "$fotoUuid.jpg";
+    String targetPath = p.join(evidenciasDir.path, fileName);
+
+    bool usedTemp = false;
+    if (file.absolute.path == targetPath) {
+      targetPath = p.join(evidenciasDir.path, 'temp_$fileName');
+      usedTemp = true;
+    }
 
     var result = await FlutterImageCompress.compressAndGetFile(
       file.absolute.path,
       targetPath,
-      quality: 80, 
-      minWidth: 1280, 
-      minHeight: 1280,
+      quality: 70, 
+      minWidth: 1200, 
+      minHeight: 1200,
       rotate: 0, 
       keepExif: true, 
     );
 
     if (result == null) {
       throw Exception("Falha ao comprimir imagem");
+    }
+
+    if (usedTemp) {
+      File tempFile = File(result.path);
+      String finalPath = p.join(evidenciasDir.path, fileName);
+      await tempFile.copy(finalPath);
+      await tempFile.delete();
+      return File(finalPath);
     }
 
     return File(result.path);

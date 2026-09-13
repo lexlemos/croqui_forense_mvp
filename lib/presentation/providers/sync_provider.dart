@@ -40,8 +40,11 @@ class SyncProvider extends ChangeNotifier {
 
   bool get isLoading => _state == SyncState.loading;
 
+  bool _isExecuting = false;
+
   Future<void> startSync() async {
-    if (isLoading) return;
+    if (_isExecuting) return;
+    _isExecuting = true;
 
     _setState(SyncState.loading, error: null);
 
@@ -57,6 +60,7 @@ class SyncProvider extends ChangeNotifier {
       // Mantém a mensagem de resultado visível na UI antes de resetar.
       await Future.delayed(_kFeedbackDuration);
       _setState(SyncState.idle, error: null);
+      _isExecuting = false;
     }
   }
 
@@ -66,6 +70,14 @@ class SyncProvider extends ChangeNotifier {
     
     _state = newState;
     _errorMessage = error;
+    notifyListeners();
+  }
+
+  /// Limpa o estado da sincronização durante o logout.
+  void clear() {
+    _state = SyncState.idle;
+    _errorMessage = null;
+    _isExecuting = false;
     notifyListeners();
   }
 }
@@ -164,7 +176,7 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
               : () => context.read<SyncProvider>().startSync(),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            disabledBackgroundColor: AppColors.primary.withOpacity(0.55),
+            disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55),
             foregroundColor: Colors.white,
             disabledForegroundColor: Colors.white70,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

@@ -14,11 +14,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   RemoteDataSourceImpl(this._apiClient);
 
   @override
-  Future<Map<String, dynamic>> login(String matricula, String pin) async {
+  Future<Map<String, dynamic>> login(String login, String senha) async {
     try {
       final response = await _apiClient.dio.post(
-        '/croqui/auth/login',
-        data: {'matricula': matricula, 'senha': pin},
+        'auth/login',
+        data: {'login': login, 'senha': senha},
       );
       if (response.statusCode != 200 || response.data == null) {
         throw const AuthException('Resposta inesperada do servidor.');
@@ -41,25 +41,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     }
   }
 
-  @override
-  Future<void> trocarPin(String usuarioId, String novoPin) async {
-    try {
-      await _apiClient.dio.put(
-        '/croqui/auth/$usuarioId/senha',
-        data: {'nova_senha': novoPin},
-      );
-    } on DioException catch (e) {
-      throw AuthException(
-        'Não foi possível alterar a senha no servidor. '
-        'Verifique sua conexão e tente novamente. (${e.type.name})',
-      );
-    }
-  }
 
   @override
   Future<List<Map<String, dynamic>>> getTiposAchados() async {
     try {
-      final response = await _apiClient.dio.get('/croqui/tipos-achados');
+      final response = await _apiClient.dio.get('croqui/tipos-achados');
       if (response.statusCode != 200 || response.data == null) {
         throw Exception('Resposta inesperada do servidor.');
       }
@@ -74,10 +60,27 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getAtns() async {
+    try {
+      final response = await _apiClient.dio.get('croqui/atns');
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception('Resposta inesperada do servidor.');
+      }
+      if (response.data is! List) {
+        throw Exception('Resposta inválida do servidor.');
+      }
+      final list = response.data as List<dynamic>;
+      return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      throw Exception('Falha ao buscar ATNs: ${e.message}');
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload) async {
     try {
       final response = await _apiClient.dio.post(
-        '/croqui/sync/push',
+        'croqui/sync/push',
         data: payload,
       );
       if (response.statusCode != 200) {
@@ -96,21 +99,38 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> pullCasos({String? lastSyncTimestamp}) async {
+    try {
+      final queryParams = lastSyncTimestamp != null ? {'last_sync': lastSyncTimestamp} : null;
+      final response = await _apiClient.dio.get('croqui/sync/pull', queryParameters: queryParams);
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception('Resposta inesperada do servidor ao tentar puxar os casos.');
+      }
+      final data = response.data;
+      if (data is Map && data.containsKey('casos')) {
+        final list = data['casos'] as List<dynamic>;
+        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      } else if (data is List) {
+        return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        throw const AuthException('Sessão expirada. Autentique-se novamente.');
+      }
+      throw Exception('Falha na rede ao sincronizar casos (pull): ${e.message}');
+    }
+  }
+
+  @override
   Future<void> uploadEvidencia({
     required String casoUuid,
-    required String achadoUuid,
+    required String? achadoUuid,
     required String evidenciaUuid,
     required String hash,
     required String filePath,
   }) async {
     try {
-      final bool isGeral = achadoUuid.startsWith('GERAL_');
-      final bool isEmpty = achadoUuid.isEmpty;
-      final RegExp uuidRegExp = RegExp(
-        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-      );
-      final bool isInvalidUuid = !uuidRegExp.hasMatch(achadoUuid);
-
       final Map<String, dynamic> formDataMap = {
         'uuid': evidenciaUuid,
         'caso_uuid': casoUuid,
@@ -118,6 +138,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         'hash_cifrado': hash,
         'salt_base64': '',
         'chave_cifrada_base64': '',
+        'tipo': achadoUuid == null ? 'GERAL' : 'ACHADO',
         'item_file': await MultipartFile.fromFile(
           filePath,
           filename: p.basename(filePath),
@@ -125,19 +146,18 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         ),
       };
 
-      if (!isGeral && !isEmpty && !isInvalidUuid) {
+      if (achadoUuid != null && achadoUuid.isNotEmpty) {
         formDataMap['achado_uuid'] = achadoUuid;
       }
 
       final formData = FormData.fromMap(formDataMap);
 
-      final evidencia = (uuid: evidenciaUuid, achado_uuid: !isGeral && !isEmpty && !isInvalidUuid ? achadoUuid : null);
       developer.log(
-        "[DEBUG FOTO] Despachando foto ${evidencia.uuid} do Achado ${evidencia.achado_uuid} vinculado ao Caso: $casoUuid",
+        "[DEBUG FOTO] Despachando foto $evidenciaUuid do Achado $achadoUuid vinculado ao Caso: $casoUuid",
       );
 
       final response = await _apiClient.dio.post(
-        '/croqui/sync/evidencias',
+        'croqui/sync/evidencias',
         data: formData,
       );
 
@@ -163,5 +183,45 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         achadoUuid: achadoUuid,
       );
     }
+  }
+
+  @override
+  Future<String> uploadLaudoPdf({
+    required String casoUuid,
+    required String filePath,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'caso_uuid': casoUuid,
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: p.basename(filePath),
+          contentType: MediaType('application', 'pdf'),
+        ),
+      });
+
+      developer.log("[DEBUG PDF] Fazendo upload do PDF para o Caso: $casoUuid");
+
+      final response = await _apiClient.dio.post(
+        'croqui/sync/laudo-pdf',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Backend retornou status inesperado no upload do PDF: ${response.statusCode}');
+      }
+
+      return response.data['pdf_url']?.toString() ?? '';
+    } on DioException catch (e) {
+      throw Exception('Falha de rede no upload do PDF: ${e.message}');
+    } catch (e) {
+      throw Exception('Erro inesperado no upload do PDF: $e');
+    }
+  }
+
+  @override
+  void setBearerToken(String token) {
+    _apiClient.setBearerToken(token);
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/login_controller.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,11 +13,15 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   late final LoginController _controller;
+  bool _obscureSenha = true;
 
   @override
   void initState() {
     super.initState();
     _controller = LoginController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.carregarLoginSalvo(context);
+    });
   }
 
   @override
@@ -67,34 +72,36 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 42),
                         
                         TextFormField(
-                          controller: _controller.matriculaController,
+                          controller: _controller.loginController,
+                          keyboardType: TextInputType.emailAddress,
                           decoration: const InputDecoration(
-                            labelText: 'Matrícula Funcional',
-                            prefixIcon: Icon(Icons.person_outline),
+                            labelText: 'E-mail ou Login',
+                            hintText: 'Digite seu e-mail ou login',
+                            prefixIcon: Icon(Icons.email_outlined),
                             border: OutlineInputBorder(),
                           ),
                           textInputAction: TextInputAction.next,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a matrícula.' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o e-mail ou login.' : null,
                         ),
                         
                         const SizedBox(height: 16),
   
                         TextFormField(
-                          controller: _controller.pinController,
-                          decoration: const InputDecoration(
-                            labelText: 'PIN de Acesso',
-                            prefixIcon: Icon(Icons.lock_outline),
-                            border: OutlineInputBorder(),
+                          controller: _controller.senhaController,
+                          obscureText: _obscureSenha,
+                          decoration: InputDecoration(
+                            labelText: 'Senha',
+                            hintText: 'Digite sua senha',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscureSenha ? Icons.visibility : Icons.visibility_off),
+                              onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
+                            ),
                           ),
-                          obscureText: true,
-                          keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: (_) => _controller.submitLogin(context),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'Informe o PIN.';
-                            if (v.length < 4) return 'PIN inválido.';
-                            return null;
-                          },
+                          validator: (v) => (v == null || v.isEmpty) ? 'Informe a senha.' : null,
                         ),
                         
                         const SizedBox(height: 32),
@@ -107,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: FilledButton(
                                 onPressed: isLoading ? null : () => _controller.submitLogin(context),
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1A237E),
+                                  backgroundColor: AppColors.loginButtonBg,
                                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),

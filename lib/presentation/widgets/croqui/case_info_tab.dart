@@ -1,13 +1,17 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalization_flow.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
+
 
 class CaseInfoTab extends StatefulWidget {
   const CaseInfoTab({super.key});
@@ -20,189 +24,158 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
-  late final TextEditingController _numeroLaudoCtrl; 
-  late final TextEditingController _boCtrl; 
-  late final TextEditingController _picCtrl;
-  
-  late final TextEditingController _reqOrigemCtrl;
-  late final TextEditingController _reqDestinoCtrl;
-  late final TextEditingController _nomeVitimaCtrl;
-
-  late final TextEditingController _historicoCtrl;
-
-  late final TextEditingController _vestesCtrl;
-  late final TextEditingController _caracteristicasCtrl;
-  late final TextEditingController _tanatoImediatoCtrl;
-  late final TextEditingController _tanatoConsecutivoCtrl;
-  late final TextEditingController _tanatoObservacaoCtrl;
-
-  late final TextEditingController _anatomoCtrl;
-  late final TextEditingController _toxicologicoCtrl;
-  late final TextEditingController _geneticaCtrl; 
-  late final TextEditingController _outrosExamesCtrl;
-
-  late final TextEditingController _discussaoCtrl;
-  late final TextEditingController _conclusaoCtrl;
-
-  late final TextEditingController _quesito1Ctrl;
-  late final TextEditingController _quesito2Ctrl;
-  late final TextEditingController _quesito3Ctrl;
-  late final TextEditingController _quesito4Ctrl;
-
   late final CroquiController _croquiController;
-  late final AuthProvider _authProvider;
 
-  List<String> _fotosIdentificacao = [];
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _croquiController = context.read<CroquiController>();
-    _authProvider = context.read<AuthProvider>();
-    final dados = _croquiController.casoAtual.dadosLaudo;
-
-    _fotosIdentificacao = List<String>.from(dados['identificacao']?['fotos_gerais'] ?? []);
-    
-    _numeroLaudoCtrl = TextEditingController(text: _croquiController.casoAtual.numeroLaudoExterno ?? '');
-    _boCtrl = TextEditingController(text: dados['cabecalho']?['bo'] ?? ''); 
-    _picCtrl = TextEditingController(text: dados['cabecalho']?['pic'] ?? '');
-    
-    _reqOrigemCtrl = TextEditingController(text: dados['cabecalho']?['requisitante'] ?? '');
-    _reqDestinoCtrl = TextEditingController(text: dados['cabecalho']?['destino'] ?? '');
-    _nomeVitimaCtrl = TextEditingController(text: dados['cabecalho']?['vitima'] ?? '');
-
-    _historicoCtrl = TextEditingController(
-      text: dados['identificacao']?['historico'] ?? 
-            "Consta em Boletim de Ocorrência de número XXX que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
-    );
-
-    _vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
-    _caracteristicasCtrl = TextEditingController(text: dados['identificacao']?['caracteristicas'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
-    
-    _tanatoImediatoCtrl = TextEditingController(text: dados['identificacao']?['tanato_imediato'] ?? 'XXX');
-    _tanatoConsecutivoCtrl = TextEditingController(text: dados['identificacao']?['tanato_consecutivo'] ?? 'XXX');
-    _tanatoObservacaoCtrl = TextEditingController(text: dados['identificacao']?['tanato_observacao'] ?? 'XXX');
-
-    _anatomoCtrl = TextEditingController(text: dados['exames_complementares']?['anatomo'] ?? '');
-    _toxicologicoCtrl = TextEditingController(text: dados['exames_complementares']?['toxicologico'] ?? '');
-    _geneticaCtrl = TextEditingController(text: dados['exames_complementares']?['genetica'] ?? '');
-    _outrosExamesCtrl = TextEditingController(text: dados['exames_complementares']?['outros'] ?? '');
-    
-    _discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
-    _conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
-
-    _quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
-    _quesito2Ctrl = TextEditingController(text: dados['conclusao']?['quesito_2_causa'] ?? '');
-    _quesito3Ctrl = TextEditingController(text: dados['conclusao']?['quesito_3_instrumento'] ?? '');
-    _quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
   }
 
   @override
   void dispose() {
-    _numeroLaudoCtrl.dispose();
-    _boCtrl.dispose();
-    _picCtrl.dispose(); 
-    _reqOrigemCtrl.dispose();
-    _reqDestinoCtrl.dispose();
-    _nomeVitimaCtrl.dispose();
-    _historicoCtrl.dispose();
-    _vestesCtrl.dispose();
-    _caracteristicasCtrl.dispose();
-    _tanatoImediatoCtrl.dispose();
-    _tanatoConsecutivoCtrl.dispose();
-    _tanatoObservacaoCtrl.dispose();
-    _anatomoCtrl.dispose();
-    _toxicologicoCtrl.dispose();
-    _geneticaCtrl.dispose();
-    _outrosExamesCtrl.dispose();
-    _discussaoCtrl.dispose();
-    _conclusaoCtrl.dispose();
-    _quesito1Ctrl.dispose();
-    _quesito2Ctrl.dispose();
-    _quesito3Ctrl.dispose();
-    _quesito4Ctrl.dispose();
     super.dispose();
   }
 
   void _sincronizarDadosNaMemoria() {
-    if (_croquiController.isReadOnly) return;
-
-    final nomePerito = _authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
-
-    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(_croquiController.casoAtual.dadosLaudo);
-
-    novosDados['cabecalho'] = {
-      ...(novosDados['cabecalho'] as Map<String, dynamic>? ?? {}),
-      'requisitante': _reqOrigemCtrl.text,
-      'destino': _reqDestinoCtrl.text,
-      'vitima': _nomeVitimaCtrl.text,
-      'requisicao': _numeroLaudoCtrl.text,
-      'bo': _boCtrl.text, 
-      'pic': _picCtrl.text, 
-    };
-
-    novosDados['identificacao'] = {
-      ...(novosDados['identificacao'] as Map<String, dynamic>? ?? {}),
-      'historico': _historicoCtrl.text,
-      'vestes': _vestesCtrl.text,
-      'caracteristicas': _caracteristicasCtrl.text,
-      'tanato_imediato': _tanatoImediatoCtrl.text,
-      'tanato_consecutivo': _tanatoConsecutivoCtrl.text,
-      'tanato_observacao': _tanatoObservacaoCtrl.text,
-      'fotos_gerais': _fotosIdentificacao,
-    };
-
-    novosDados['exames_complementares'] = {
-      'anatomo': _anatomoCtrl.text,
-      'toxicologico': _toxicologicoCtrl.text,
-      'genetica': _geneticaCtrl.text, 
-      'outros': _outrosExamesCtrl.text,
-    };
-
-    novosDados['conclusao'] = {
-      ...(novosDados['conclusao'] as Map<String, dynamic>? ?? {}),
-      'discussao': _discussaoCtrl.text,
-      'conclusao_texto': _conclusaoCtrl.text,
-      'quesito_1_morte': _quesito1Ctrl.text,
-      'quesito_2_causa': _quesito2Ctrl.text,
-      'quesito_3_instrumento': _quesito3Ctrl.text,
-      'quesito_4_meio': _quesito4Ctrl.text,
-    };
-
-    novosDados['auditoria'] = {
-      ...(novosDados['auditoria'] as Map<String, dynamic>? ?? {}),
-      'perito_responsavel': nomePerito,
-      'data_finalizacao': DateTime.now().toIso8601String(),
-    };
-
-    _croquiController.atualizarDadosLaudoMemoria(novosDados);
+    _croquiController.sincronizarDadosEmMemoria(Provider.of<AuthProvider>(context, listen: false));
   }
 
   Future<void> _tirarFoto() async {
     try {
-        final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        preferredCameraDevice: CameraDevice.rear,
+      );
       
       if (photo != null) {
-        final appDir = await getApplicationDocumentsDirectory();
-        final evidenciasDir = Directory('${appDir.path}/evidencias');
+        final String fotoUuid = const Uuid().v4();
+        final originalFile = File(photo.path);
+        final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
+        
+        try {
+          if (await originalFile.exists()) await originalFile.delete();
+        } catch (e) {
+          debugPrint('[CaseInfoTab] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+        }
 
-        await evidenciasDir.create(recursive: true);
-
-        final localPath = '${evidenciasDir.path}/${const Uuid().v4()}.jpg';
-
-        await File(photo.path).copy(localPath);
-        setState(() => _fotosIdentificacao.add(localPath));
-        _sincronizarDadosNaMemoria();
+        await _croquiController.adicionarFotoGeral(compressedFile.path);
       }
-    } catch(e){
-
-      debugPrint("Erro ao tirar foto: $e");
-        globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text("Erro ao acessar a câmera ou salvar a foto."), backgroundColor: Colors.red),
-        );
+    } on FileSystemException catch (e) {
+      debugPrint("Erro de sistema de arquivos ao salvar foto: $e");
+      final isDiskFull = e.osError?.errorCode == 28 || e.message.contains('No space left');
+      final mensagem = isDiskFull
+          ? "Armazenamento esgotado! Libere espaço no dispositivo para continuar salvando fotos."
+          : "Falha ao gravar arquivo de imagem no disco.";
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(mensagem), backgroundColor: Colors.red.shade800, duration: const Duration(seconds: 4)),
+      );
+    } catch (e) {
+      debugPrint("Erro ao acessar câmera ou permissão negada: $e");
+      globalMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+
+  Future<void> _abrirSeletorAtn(BuildContext context, CroquiController controller, List<String> currentSelected, List<AtnModel> atns) async {
+    final List<String> tempSelected = List.from(currentSelected);
+    await showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      builder: (ctx) {
+        List filteredAtns = List.from(atns);
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              bottom: true,
+              child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Selecione A.T.N.s (Máximo 4)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar A.T.N...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final term = value.trim().toLowerCase();
+                      setModalState(() {
+                        if (term.isEmpty) {
+                          filteredAtns = List.from(atns);
+                        } else {
+                          filteredAtns = atns.where((a) => a.nome.toLowerCase().contains(term)).toList();
+                        }
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredAtns.length,
+                    itemBuilder: (ctx, index) {
+                      final atn = filteredAtns[index];
+                      final isSelected = tempSelected.contains(atn.id);
+                      return CheckboxListTile(
+                        title: Text(atn.nome),
+                        value: isSelected,
+                        onChanged: (val) {
+                          if (val == true) {
+                            if (tempSelected.length >= 4) {
+                              globalMessengerKey.currentState?.showSnackBar(
+                                const SnackBar(content: Text("Você já selecionou o limite de 4 A.T.N.s.")),
+                              );
+                              return;
+                            }
+                            setModalState(() => tempSelected.add(atn.id));
+                          } else {
+                            setModalState(() => tempSelected.remove(atn.id));
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 16.0,
+                    right: 16.0,
+                    top: 16.0,
+                    bottom: 16.0,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                      onPressed: () {
+                        controller.atualizarAtnsResponsaveis(tempSelected);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Confirmar'),
+                    ),
+                  ),
+                )
+              ],
+            ));
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();
@@ -218,36 +191,134 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
             const SizedBox(height: 16),
             
-            _buildTextField("Número do Laudo / Requisição", _numeroLaudoCtrl, readOnly: true, isBold: true),
+            _buildTextField("Nº PIC", controller.picCtrl, readOnly: readOnly, isBold: true),
+
+            _buildTextField("Número da Requisição / CD", controller.numeroLaudoCtrl, readOnly: true),
+            
+            _buildTextField("Boletim de Ocorrência", controller.boCtrl, readOnly: readOnly),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Boletim de Ocorrência", _boCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Requisitante", controller.reqOrigemCtrl, readOnly: readOnly)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Nº PIC", _picCtrl, readOnly: readOnly)),
+                Expanded(child: _buildTextField("Destino", controller.reqDestinoCtrl, readOnly: readOnly)),
               ],
             ),
 
-            _buildTextField("Vítima", _nomeVitimaCtrl, readOnly: readOnly),
+            _buildTextField("Nome da Vítima", controller.nomeVitimaCtrl, readOnly: readOnly),
+            
+            _buildTextField("Número da Declaração de Óbito", controller.numeroDeclaracaoObitoCtrl, readOnly: readOnly),
 
-            Row(
-              children: [
-                Expanded(child: _buildTextField("Requisitante (Delegado)", _reqOrigemCtrl, readOnly: readOnly)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Destino", _reqDestinoCtrl, readOnly: readOnly)),
-              ],
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final List<String> selectedAtnsIds = controller.casoAtual.atnsIds;
+                final List<AtnModel> atnsExibicao = controller.atns;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("A.T.N.s Responsáveis", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 15)),
+                        if (!readOnly)
+                          TextButton.icon(
+                            onPressed: () => _abrirSeletorAtn(context, controller, selectedAtnsIds, atnsExibicao),
+                            icon: const Icon(Icons.add),
+                            label: const Text("Adicionar A.T.N"),
+                          )
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (selectedAtnsIds.isEmpty)
+                      const Text("Nenhum A.T.N selecionado", style: TextStyle(color: Colors.grey))
+                    else
+                      Wrap(
+                        spacing: 8,
+                        children: selectedAtnsIds.map((atnId) {
+                          final atn = atnsExibicao.firstWhere((a) => a.id == atnId, orElse: () => AtnModel(id: atnId, nome: "ATN Desconhecido", ativo: false));
+                          return Chip(
+                            label: Text(atn.nome),
+                            deleteIcon: readOnly ? null : const Icon(Icons.close, size: 18),
+                            onDeleted: readOnly ? null : () {
+                              final novosAtns = List<String>.from(selectedAtnsIds)..remove(atnId);
+                              controller.atualizarAtnsResponsaveis(novosAtns);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                );
+              },
             ),
             
             const SizedBox(height: 32),
-            const _SectionHeader(title: "1. Histórico", icon: Icons.history),
-            const SizedBox(height: 16),
-            _buildTextField("Histórico do Caso", _historicoCtrl, readOnly: readOnly, maxLines: null),
-
-            const SizedBox(height: 32),
             const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
             const SizedBox(height: 16),
-            _buildTextField("Vestes", _vestesCtrl, readOnly: readOnly, maxLines: null),
-            _buildTextField("Características de Identificação", _caracteristicasCtrl, readOnly: readOnly, maxLines: null),
+            
+            _buildTextField("Histórico do Caso", controller.historicoCtrl, readOnly: readOnly, maxLines: null),
+
+            Row(
+              children: [
+                Expanded(child: _buildTextField("Data do Óbito", controller.dataObitoCtrl, readOnly: readOnly)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTextField("Hora do Óbito", controller.horaObitoCtrl, readOnly: readOnly)),
+              ],
+            ),
+            
+            DropdownButtonFormField<String>(
+              value: ['Pericialmente Estimadas', 'Atestadas em documento médico'].contains(controller.tipoEstimativaHoraObitoCtrl.text) ? controller.tipoEstimativaHoraObitoCtrl.text : null,
+              decoration: const InputDecoration(labelText: 'Tipo de Estimativa (Hora)', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'Pericialmente Estimadas', child: Text('Pericialmente Estimadas')),
+                DropdownMenuItem(value: 'Atestadas em documento médico', child: Text('Atestadas em documento médico')),
+              ],
+              onChanged: readOnly ? null : (val) {
+                if (val != null) controller.tipoEstimativaHoraObitoCtrl.text = val;
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            DropdownButtonFormField<String>(
+              value: ['Masculino', 'Feminino', 'Indeterminado'].contains(controller.sexoBiologicoEstimadoCtrl.text) ? controller.sexoBiologicoEstimadoCtrl.text : null,
+              decoration: const InputDecoration(labelText: 'Sexo Biológico Estimado', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'Masculino', child: Text('Masculino')),
+                DropdownMenuItem(value: 'Feminino', child: Text('Feminino')),
+                DropdownMenuItem(value: 'Indeterminado', child: Text('Indeterminado')),
+              ],
+              onChanged: readOnly ? null : (val) {
+                if (val != null) controller.sexoBiologicoEstimadoCtrl.text = val;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<String>(
+              value: ['Fresco', 'Esqueletizado', 'Putrefato', 'Carbonizado', 'Mumificado', 'Fragmentado', 'Decapitado', 'Esquartejado'].contains(controller.corpoEstadoCtrl.text) ? controller.corpoEstadoCtrl.text : null,
+              decoration: const InputDecoration(labelText: 'Estado do Corpo', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'Fresco', child: Text('Fresco')),
+                DropdownMenuItem(value: 'Esqueletizado', child: Text('Esqueletizado')),
+                DropdownMenuItem(value: 'Putrefato', child: Text('Putrefato')),
+                DropdownMenuItem(value: 'Carbonizado', child: Text('Carbonizado')),
+                DropdownMenuItem(value: 'Mumificado', child: Text('Mumificado')),
+                DropdownMenuItem(value: 'Fragmentado', child: Text('Fragmentado')),
+                DropdownMenuItem(value: 'Decapitado', child: Text('Decapitado')),
+                DropdownMenuItem(value: 'Esquartejado', child: Text('Esquartejado')),
+              ],
+              onChanged: readOnly ? null : (val) {
+                if (val != null) {
+                  controller.corpoEstadoCtrl.text = val;
+                  // Chama um método no controller conforme instruído
+                  controller.setCorpoEstado(val); 
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+
+            _buildTextField("Vestes", controller.vestesCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Características de Identificação", controller.caracteristicasCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 16),
             Container(
@@ -263,9 +334,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   const SizedBox(height: 4),
                   const Text("A morte está evidenciada pela presença dos seguintes sinais:", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
                   const SizedBox(height: 12),
-                  _buildTextField("A) Imediatos", _tanatoImediatoCtrl, readOnly: readOnly, maxLines: null),
-                  _buildTextField("B) Consecutivos", _tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: null),
-                  _buildTextField("C) Comentários Adicionais", _tanatoObservacaoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("A) Imediatos", controller.tanatoImediatoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("B) Consecutivos", controller.tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField("C) Comentários Adicionais", controller.tanatoObservacaoCtrl, readOnly: readOnly, maxLines: null),
                 ],
               ),
             ),
@@ -281,40 +352,25 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 100,
+              height: 180,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _fotosIdentificacao.length,
+                itemCount: controller.evidenciasGerais.length,
                 itemBuilder: (context, index) {
+                  final ev = controller.evidenciasGerais[index];
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(_fotosIdentificacao[index]),
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                            cacheWidth: 200,
-                            cacheHeight: 200,
-                          ),
-                        ),
-                        if (!readOnly)
-                          Positioned(
-                            right: -6, top: -6,
-                            child: IconButton(
-                              padding: const EdgeInsets.all(12),
-                              constraints: const BoxConstraints(),
-                              icon: const Icon(Icons.remove_circle, color: Colors.red),
-                              onPressed: () {
-                                setState(() => _fotosIdentificacao.removeAt(index));
-                                _sincronizarDadosNaMemoria();
-                              },
-                            ),
-                          ),
-                      ],
+                    child: EvidenciaFotoCard(
+                      key: ValueKey(ev.uuid),
+                      path: ev.caminhoArquivoEncriptado ?? '',
+                      descricao: ev.descricao,
+                      readOnly: readOnly,
+                      onDescriptionChanged: (val) async {
+                        await controller.salvarDescricaoFotoGeral(ev.uuid, val.trim());
+                      },
+                      onDelete: () async {
+                        await controller.removerFotoGeral(ev.uuid);
+                      },
                     ),
                   );
                 },
@@ -322,22 +378,52 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
             
             const SizedBox(height: 32),
-            const _SectionHeader(title: "3. Exames Complementares", icon: Icons.science),
+            const Divider(),
             const SizedBox(height: 16),
-            _buildTextField("Anátomo-Patológico", _anatomoCtrl, readOnly: readOnly, hint: "Ex: Material coletado para análise..."),
-            _buildTextField("Toxicológico", _toxicologicoCtrl, readOnly: readOnly, hint: "Ex: Negativo / Aguardando laudo..."),
-            _buildTextField("Genética", _geneticaCtrl, readOnly: readOnly, hint: "Ex: Coleta de material biológico para DNA..."), 
-            _buildTextField("Outros Exames", _outrosExamesCtrl, readOnly: readOnly),
-            
+            const _SectionHeader(title: "3. Balística / Objetos Retirados", icon: Icons.gps_fixed),
+            const SizedBox(height: 16),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: controller.descricaoObjetoCtrls.length,
+              itemBuilder: (context, index) {
+                final objCtrl = controller.descricaoObjetoCtrls[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildTextField("Objeto / Lacre #${index + 1}", objCtrl, readOnly: readOnly, maxLines: null)),
+                      if (!readOnly && controller.descricaoObjetoCtrls.length > 1)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () => controller.removerObjeto(index),
+                        )
+                    ],
+                  ),
+                );
+              },
+            ),
+            if (!readOnly)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text("Adicionar Objeto/Lacre"),
+                  style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                  onPressed: () => controller.adicionarObjeto(),
+                ),
+              ),
+
             const SizedBox(height: 32),
             const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
-            _buildTextField("Comentário Médico Forense", _discussaoCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Comentário Médico Forense", controller.discussaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 24),
             const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
-            _buildTextField("Conclusão Final", _conclusaoCtrl, readOnly: readOnly, maxLines: null),
+            _buildTextField("Conclusão Final", controller.conclusaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 32),
             Container(
@@ -362,10 +448,63 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   ),
                   const Divider(),
                   const SizedBox(height: 10),
-                  _buildTextField("1. Houve Morte?", _quesito1Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("2. Qual a Causa?", _quesito2Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("3. Qual o Instrumento?", _quesito3Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("4. Qual o Meio?", _quesito4Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField("1. Houve Morte?", controller.quesito1Ctrl, readOnly: readOnly, required: true),
+                  const SizedBox(height: 16),
+                  const Text("2. Qual a Causa?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.indigo)),
+                  const SizedBox(height: 8),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: controller.causasMorteCtrls.length,
+                    itemBuilder: (context, index) {
+                      final causaCtrl = controller.causasMorteCtrls[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.grey.shade300)
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text("Causa #${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                                  if (!readOnly && controller.causasMorteCtrls.length > 1)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      onPressed: () => controller.removerCausaMorte(index),
+                                      tooltip: "Remover esta causa",
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              _buildTextField("Imediata", causaCtrl.imediataCtrl, readOnly: readOnly, required: true),
+                              _buildTextField("Devido a", causaCtrl.devidoACtrl, readOnly: readOnly, required: true),
+                              _buildTextField("Consequência", causaCtrl.consequenciaCtrl, readOnly: readOnly, required: true),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (!readOnly)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text("Adicionar Causa da Morte"),
+                        style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                        onPressed: () => controller.adicionarCausaMorte(),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  _buildTextField("3. Qual o Instrumento?", controller.quesito3Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField("4. Qual o Meio?", controller.quesito4Ctrl, readOnly: readOnly, required: true),
                 ],
               ),
             ),
@@ -380,7 +519,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   label: _isSaving
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Text(
-                          "SALVAR DADOS E FINALIZAR CASO",
+                          "SALVAR DADOS E FINALIZAR EXAME",
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                   style: ElevatedButton.styleFrom(
@@ -392,7 +531,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     _sincronizarDadosNaMemoria();
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isSaving = true);
-                      await controller.finalizarCasoDireto(context);
+                      await handleCroquiFinalization(context, controller);
                       if (mounted) {
                         setState(() => _isSaving = false);
                       }
@@ -458,7 +597,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 }
               ),
             ],
-            SizedBox(height: 40 + MediaQuery.of(context).viewPadding.bottom),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -500,7 +639,6 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         minLines: maxLines == null ? 3 : null,
         keyboardType: maxLines == null ? TextInputType.multiline : TextInputType.text,
         textCapitalization: TextCapitalization.sentences,
-        onChanged: (_) => _sincronizarDadosNaMemoria(),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(
@@ -533,3 +671,4 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+

@@ -9,7 +9,10 @@ import 'package:uuid/uuid.dart';
 /// compor de forma robusta e transparente a Cadeia de Custódia forense.
 class DeviceInfoService {
   static const String _key = 'device_unique_id';
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
 
   static String? _cachedDeviceId;
 
@@ -24,7 +27,8 @@ class DeviceInfoService {
   /// @throws Exception Se ocorrer uma falha física de acesso de I/O ao chaveiro seguro do sistema
   /// operacional (ex: Keystore no Android ou Keychain no iOS) impossibilitando a leitura ou gravação.
   static Future<String> getDeviceId() async {
-    if (_cachedDeviceId != null) return _cachedDeviceId!;
+    final cached = _cachedDeviceId;
+    if (cached != null) return cached;
 
     String? stored = await _storage.read(key: _key);
     if (stored == null || stored.isEmpty) {

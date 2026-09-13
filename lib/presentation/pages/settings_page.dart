@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
-import 'package:croqui_forense_mvp/presentation/pages/force_change_pin_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -50,24 +49,63 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   const Text(
-                    'Preferências do Aplicativo',
+                    'Dados do Perfil',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  
-                  ListTile(
-                    leading: const Icon(Icons.lock, color: Colors.indigo),
-                    title: const Text('Alterar PIN de Acesso'),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ForceChangePinPage(),
-                        ),
-                      );
-                    },
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    color: Colors.grey.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildProfileRow(
+                            context,
+                            icon: Icons.person,
+                            label: 'Nome Completo',
+                            value: usuario?.nomeCompleto ?? 'Não disponível',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildProfileRow(
+                            context,
+                            icon: Icons.badge,
+                            label: 'Matrícula Funcional',
+                            value: usuario?.matriculaFuncional ?? 'Não disponível',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildProfileRow(
+                            context,
+                            icon: Icons.medical_information,
+                            label: 'CRM',
+                            value: usuario?.crm ?? 'Não preenchido',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildProfileRow(
+                            context,
+                            icon: Icons.star_border,
+                            label: 'Classe',
+                            value: usuario?.classe ?? 'Não preenchida',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildProfileRow(
+                            context,
+                            icon: Icons.security,
+                            label: 'Perfil / Função',
+                            value: (usuario?.hasRole('ADMIN') ?? false)
+                                ? 'Administrador'
+                                : (usuario?.roles.isNotEmpty == true ? usuario!.roles.join(', ') : 'Médico Legista / Perito'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 16),
                   ListTile(
                     leading: const Icon(Icons.info_outline, color: Colors.indigo),
                     title: const Text('Sobre o App'),
@@ -111,6 +149,45 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.indigo.shade700),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 
 extension AchadoUiFormatter on Achado {
@@ -34,8 +35,20 @@ extension AchadoUiFormatter on Achado {
       });
     }
 
-    final dynamicFields = dadosPreenchidos['dynamicFields'];
-    if (dynamicFields is Map) {
+    final rawFields = dadosPreenchidos['dados_dinamicos_json'] ?? dadosPreenchidos['dynamicFields'];
+    Map<String, dynamic>? dynamicFields;
+    if (rawFields is Map) {
+      dynamicFields = Map<String, dynamic>.from(rawFields);
+    } else if (rawFields is String && rawFields.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawFields);
+        if (decoded is Map) {
+          dynamicFields = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+    }
+
+    if (dynamicFields != null) {
       final List<Map<String, dynamic>> schemaCampos = [];
       if (schemaBase != null) {
         final schemaCamposRaw = schemaBase['campos'];

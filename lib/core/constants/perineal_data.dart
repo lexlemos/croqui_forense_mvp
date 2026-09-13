@@ -24,7 +24,7 @@ const List<BodyPartDefinition> kPerinealBodyPartsList = [
 ];
 
 final Map<int, String> kColorToIdPerinealMap = {
-  for (var part in kPerinealBodyPartsList) part.color.value: part.id,
+  for (var part in kPerinealBodyPartsList) part.color.toARGB32(): part.id,
 };
 
 final Map<String, BodyPartDefinition> kIdToDefinitionPerinealMap = {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 
 class CaseCard extends StatelessWidget {
   final Caso caso;
@@ -12,155 +13,186 @@ class CaseCard extends StatelessWidget {
     required this.onTap,
   });
 
-  static const double _cardRadius = 12.0;
-  static const double _shadowBlur = 6.0;
-  static const Offset _shadowOffset = Offset(0, 3);
-  static const double _contentPadding = 10.0;
-  
-  static const double _tagFontSize = 9.0;
-  static const double _titleFontSize = 15.0;
-  static const double _subtitleFontSize = 10.0;
-  
-  static const double _iconContainerSize = 28.0;
-  static const double _iconSize = 14.0;
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
-    final (Color corStatus, Color bgStatus, String textoStatus) = switch (caso.status) {
-      StatusCaso.finalizado => (
-        Colors.green[700]!,
-        Colors.green.withOpacity(0.1),
-        'FINALIZADO'
-      ),
+    final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
       StatusCaso.rascunho => (
-        colorScheme.primary,
-        colorScheme.primary.withOpacity(0.1),
-        'RASCUNHO'
+        AppColors.statusDraftText,
+        AppColors.statusDraftBg,
+        'RASCUNHO',
+      ),
+      StatusCaso.laudo_pendente => (
+        AppColors.statusPendingText,
+        AppColors.statusPendingBg,
+        'LAUDO PENDENTE',
+      ),
+      StatusCaso.finalizado => (
+        AppColors.statusDoneText,
+        AppColors.statusDoneBg,
+        'FINALIZADO',
       ),
       StatusCaso.sincronizado => (
-        Colors.indigo,
-        Colors.indigo.withOpacity(0.1),
-        'SINCRONIZADO'
+        AppColors.statusDoneText,
+        AppColors.statusDoneBg,
+        'FINALIZADO',
       ),
       StatusCaso.arquivado => (
-        Colors.grey[700]!,
-        Colors.grey.withOpacity(0.1),
-        'ARQUIVADO'
+        AppColors.statusArchivedText,
+        AppColors.statusArchivedBg,
+        'ARQUIVADO',
       ),
     };
 
+    final mainTitle = (caso.numeroPic.isNotEmpty) 
+        ? 'N. PIC: ${caso.numeroPic}'
+        : 'N. PIC: Não informado';
+    
+    final laudoSub = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
+        ? 'Laudo: ${caso.numeroLaudoExterno}'
+        : 'Laudo: Pendente';
+
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: _shadowBlur,
-            offset: _shadowOffset,
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(_cardRadius),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned(
-                top: _contentPadding,
-                right: _contentPadding,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: bgStatus,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    textoStatus,
-                    style: textTheme.labelSmall?.copyWith(
-                      fontSize: _tagFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: corStatus,
-                    ),
-                  ),
-                ),
-              ),
-
-              Positioned(
-                top: _contentPadding,
-                left: _contentPadding,
-                child: Column(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Topo: Número do Laudo (Esquerda) + Status e Ícone da Nuvem (Direita)
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      caso.numeroLaudoExterno ?? '---',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontSize: _titleFontSize,
-                        color: colorScheme.onSurface, 
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            mainTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            laudoSub,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 1),
-                    Text(
-                      'Nº Laudo',
-                      style: textTheme.bodySmall?.copyWith(
-                        fontSize: _subtitleFontSize,
-                        color: colorScheme.onSurfaceVariant, 
-                        fontWeight: FontWeight.w500,
+                    const SizedBox(width: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Tooltip(
+                          message: caso.isDraftSynced
+                              ? 'Sincronizado na nuvem'
+                              : 'Sincronização pendente',
+                          child: Icon(
+                            caso.isDraftSynced
+                                ? Icons.cloud_done_rounded
+                                : Icons.cloud_upload_rounded,
+                            size: 18,
+                            color: caso.isDraftSynced
+                                ? Colors.teal.shade600
+                                : Colors.grey.shade400,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: statusColor,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // Meio: Espaço limpo (Spacer)
+                const Spacer(),
+
+                // Rodapé: Data (Esquerda) + Botão de Seta Pastel (Direita)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 13,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          DateFormat('dd/MM/yyyy').format(caso.criadoEmDispositivo),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: AppColors.buttonPastelBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16,
+                        color: Colors.indigo,
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              Positioned(
-                bottom: _contentPadding,
-                right: _contentPadding,
-                child: Container(
-                  width: _iconContainerSize,
-                  height: _iconContainerSize,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest, 
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.arrow_forward,
-                    size: _iconSize,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ),
-
-              Positioned(
-                bottom: _contentPadding,
-                left: _contentPadding,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_month, 
-                      size: _subtitleFontSize, 
-                      color: colorScheme.outline 
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      DateFormat('dd/MM/yy').format(caso.criadoEmDispositivo),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: _subtitleFontSize,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

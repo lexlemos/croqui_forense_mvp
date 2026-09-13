@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -10,9 +11,9 @@ import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
 bool _verificarPinEmBackground(Map<String, String> dados) {
-  final pin = dados['pin']!;
-  final hash = dados['hash']!;
-  final salt = dados['salt']!;
+  final pin = dados['pin'] ?? '';
+  final hash = dados['hash'] ?? '';
+  final salt = dados['salt'] ?? '';
   return SecurityHelper.verifyPin(pin, hash, salt);
 }
 
@@ -70,38 +71,77 @@ class AuthService {
   /// Tenta inicialmente realizar o login online no servidor central. Se a conexão falhar por motivos
   /// de conectividade, intercepta o erro e faz a validação offline usando credenciais locais.
   /// Se as credenciais estiverem incorretas ou inválidas (401/403), rejeita imediatamente.
-  Future<void> login(String matricula, String pin) async {
+  Future<void> login(String login, String senha) async {
     try {
       // Passo A: Tentar realizar a requisição de login na API
-      final responseData = await _remoteDataSource.login(matricula, pin);
+      final responseData = await _remoteDataSource.login(login, senha);
 
-      final perfil = responseData['usuario'] as Map<String, dynamic>;
-      final accessToken = responseData['access_token']?.toString();
+      final perfil = (responseData['user'] ?? responseData['usuario']) as Map<String, dynamic>? ?? responseData;
+      final accessToken = responseData['access_token']?.toString() ?? responseData['token']?.toString();
       final refreshToken = responseData['refresh_token']?.toString();
 
       if (accessToken == null) {
         throw const AuthException('Token ausente na resposta.');
       }
 
+      final userId = perfil['usuario_id']?.toString() ??
+          perfil['id']?.toString() ??
+          responseData['usuario_id']?.toString() ??
+          responseData['id']?.toString() ??
+          '';
+
+      final nomeCompleto = perfil['usuario_nome']?.toString() ??
+          perfil['nome_completo']?.toString() ??
+          perfil['nome']?.toString() ??
+          responseData['usuario_nome']?.toString() ??
+          '';
+
+      final matriculaFuncional = perfil['matricula_funcional']?.toString() ??
+          perfil['matricula']?.toString() ??
+          login;
+
+      if (userId.isEmpty) {
+        throw const AuthException('ID do usuário não fornecido pela API.');
+      }
+
       await _keyStorage.save(key: 'access_token', value: accessToken);
+      _remoteDataSource.setBearerToken(accessToken);
+
       if (refreshToken != null) {
         await _keyStorage.save(key: 'refresh_token', value: refreshToken);
       }
-      await _keyStorage.save(key: 'user_id', value: perfil['id']?.toString() ?? '');
+      await _keyStorage.save(key: 'user_id', value: userId);
+      await _keyStorage.save(key: 'last_user_id', value: userId);
 
-      final credenciais = _gerarCredenciaisEmBackground(pin);
+      final credenciais = _gerarCredenciaisEmBackground(senha);
+
+      final rawRoles = perfil['roles'] ?? perfil['role'] ?? responseData['roles'];
+      List<String> roles = [];
+      if (rawRoles is List) {
+        roles = rawRoles.map((e) => e.toString()).toList();
+      } else if (rawRoles is String && rawRoles.isNotEmpty) {
+        if (rawRoles.startsWith('[') && rawRoles.endsWith(']')) {
+          try {
+            final decoded = jsonDecode(rawRoles);
+            if (decoded is List) {
+              roles = decoded.map((e) => e.toString()).toList();
+            }
+          } catch (_) {
+            roles = [rawRoles];
+          }
+        } else {
+          roles = [rawRoles];
+        }
+      }
 
       final novoUsuario = Usuario(
-        id: perfil['id']?.toString() ?? '',
-        matriculaFuncional: matricula,
-        nomeCompleto: perfil['nome_completo']?.toString() ?? '',
-        crm: perfil['crm']?.toString() ?? '',
-        classe: perfil['classe']?.toString() ?? '',
-        papelId: perfil['papel_id']?.toString() ?? 'perito',
+        id: userId,
+        matriculaFuncional: matriculaFuncional,
+        nomeCompleto: nomeCompleto,
+        roles: roles,
         ativo: true,
-        hashPinOffline: credenciais['hash']!,
-        salt: credenciais['salt']!,
-        deveAlterarPin: perfil['deve_alterar_pin'] == true || perfil['deve_alterar_pin'] == 1,
+        hashPinOffline: credenciais['hash'] ?? '',
+        salt: credenciais['salt'] ?? '',
         criadoEm: DateTime.now(),
         deviceId: perfil['device_id']?.toString(),
       );
@@ -109,14 +149,19 @@ class AuthService {
       await _usuarioRepository.createUsuario(novoUsuario);
       _usuarioLogado = novoUsuario;
 
-      developer.log('[AUTH] Login online realizado com sucesso', name: 'AuthService');
+      developer.log('[AUTH] Login online realizado com sucesso (ID: $userId)', name: 'AuthService');
 
     } catch (e) {
       // Passo B: Se for uma exceção de conectividade, tentar local fallback
       if (_isConnectivityError(e)) {
-        final localUsuario = await _usuarioRepository.getUsuarioByMatricula(matricula);
+        final localUsuario = await _usuarioRepository.getUsuarioByMatricula(login);
         if (localUsuario == null) {
           throw const AuthException('Dispositivo offline e sem dados locais armazenados para este usuário.');
+        }
+
+        final String? lastUserId = await _keyStorage.read(key: 'last_user_id');
+        if (lastUserId == null || localUsuario.id != lastUserId) {
+          throw const AuthException('O login offline só é permitido para o último usuário autenticado neste dispositivo.');
         }
 
         if (localUsuario.ativo == false) {
@@ -128,13 +173,13 @@ class AuthService {
         }
 
         final bool isPinValido = await compute(_verificarPinEmBackground, {
-          'pin': pin,
-          'hash': localUsuario.hashPinOffline!,
-          'salt': localUsuario.salt!,
+          'pin': senha,
+          'hash': localUsuario.hashPinOffline ?? '',
+          'salt': localUsuario.salt ?? '',
         });
 
         if (!isPinValido) {
-          throw const AuthException('PIN incorreto');
+          throw const AuthException('Senha ou PIN incorreto');
         }
 
         _usuarioLogado = localUsuario;
@@ -199,27 +244,15 @@ class AuthService {
     }
   }
 
-  /// Efetua a troca obrigatória de PIN (senha offline) do [Perito].
-  ///
-  /// Envia o novo PIN cifrado para atualização no servidor central e, após confirmação remota,
-  /// calcula a derivação da credencial (hash e salt) em segundo plano para persistir a nova chave
-  /// de validação local no banco de dados do dispositivo.
-  ///
-  /// @throws [AuthException] se ocorrer falha de conectividade com a rede ou se a alteração for
-  /// rejeitada pelas políticas de segurança do servidor.
-  Future<void> trocarPinObrigatorio(Usuario usuario, String novoPin) async {
-    await _remoteDataSource.trocarPin(usuario.id, novoPin);
 
-    final resultado = await compute(_gerarCredenciaisEmBackground, novoPin);
 
-    await _usuarioRepository.updatePin(
-      usuario.id,
-      resultado['hash']!,
-      resultado['salt']!,
-    );
 
-    if (_usuarioLogado != null && _usuarioLogado!.id == usuario.id) {
-      _usuarioLogado = _usuarioLogado!.copyWith(deveAlterarPin: false);
-    }
+  Future<void> saveSavedLogin(String login) async {
+    await _keyStorage.save(key: 'saved_login', value: login);
+  }
+
+  Future<String?> getSavedLogin() async {
+    return await _keyStorage.read(key: 'saved_login');
   }
 }
+

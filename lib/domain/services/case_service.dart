@@ -6,6 +6,8 @@ import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 
 Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> params) async {
   final Map<String, dynamic> dadosBase = params['dados_json'];
@@ -19,8 +21,18 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
 
     if (file.existsSync()) {
       try {
-        List<int> imageBytes = await file.readAsBytes();
-        String base64String = base64Encode(imageBytes);
+        final base64Buffer = StringBuffer();
+        final base64Input = const Base64Encoder().startChunkedConversion(
+          StringConversionSink.fromStringSink(base64Buffer),
+        );
+
+        await for (final chunk in file.openRead()) {
+          base64Input.add(chunk);
+        }
+
+        base64Input.close();
+
+        final String base64String = base64Buffer.toString();
         
         Map<String, dynamic> novoAnexo = Map.from(anexo);
         novoAnexo.remove('caminho_arquivo'); 
@@ -54,14 +66,40 @@ class CaseService {
   /// Vincula o laudo ao [Perito] criador através de seu identificador funcional.
   ///
   /// @throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
-  Future<Caso> createNewCase({required Usuario criador, required String numeroLaudo, Map<String, dynamic> dadosIniciais = const {}}) async {
-    final novoCaso = Caso.novo(idUsuarioCriador: criador.id, numeroLaudoExterno: numeroLaudo, proveniencia: 'APP_TABLET', dadosLaudo: dadosIniciais);
+  Future<Caso> createNewCase({
+    required Usuario criador, 
+    required String numeroLaudo, 
+    Map<String, dynamic> dadosIniciais = const {},
+    String numeroPic = '',
+    String numeroBo = '',
+    String numeroRequisicao = '',
+    String nomeVitima = '',
+    String destino = '',
+    String requisitante = '',
+    List<String> atnsIds = const [],
+  }) async {
+    final novoCaso = Caso.novo(
+      idUsuarioCriador: criador.id, 
+      numeroLaudoExterno: numeroLaudo, 
+      dadosLaudo: dadosIniciais,
+      numeroPic: numeroPic,
+      numeroBo: numeroBo,
+      numeroRequisicao: numeroRequisicao,
+      nomeVitima: nomeVitima,
+      destino: destino,
+      requisitante: requisitante,
+      atnsIds: atnsIds,
+    );
     await _repository.insertCase(novoCaso);
     return novoCaso;
   }
 
-  /// Retorna todos os [Caso]s (Laudos) gravados no repositório local.
-  Future<List<Caso>> listarCasos() async => await _repository.getAllCases();
+  Future<void> salvarCasoComEvidenciasLote(Caso caso, List<EvidenciaMultimidia> evidencias) async {
+    await _repository.insertCaseComEvidenciasLote(caso, evidencias);
+  }
+
+  /// Retorna todos os [Caso]s (Laudos) do usuário logado gravados no repositório local.
+  Future<List<Caso>> listarCasos(String usuarioId) async => await _repository.getAllCases(usuarioId);
 
   /// Localiza um [Caso] (Laudo) específico com base em seu identificador universal único ([uuid]).
   Future<Caso?> buscarCasoPorUuid(String uuid) async => _repository.getCaseByUuid(uuid);
@@ -88,6 +126,54 @@ class CaseService {
     await _repository.updateCase(casoFinalizado);
   }
 
+  // Métodos de delegação para fotos gerais e exames solicitados
+
+  Future<List<EvidenciaMultimidia>> getEvidenciasGerais(String casoUuid) =>
+      _repository.getEvidenciasGerais(casoUuid);
+
+  Future<void> salvarEvidenciaGeral(EvidenciaMultimidia ev) async {
+    final caso = await _repository.getCaseByUuid(ev.casoUuid);
+    if (caso != null && caso.status == StatusCaso.finalizado) {
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+    await _repository.insertEvidenciaGeral(ev);
+  }
+
+  Future<void> removerEvidenciaGeral(String uuid) async {
+    // Resolve o caso pai antes de deletar para aplicar a trava de imutabilidade
+    final ev = await _repository.getEvidenciaByUuid(uuid);
+    if (ev != null) {
+      final caso = await _repository.getCaseByUuid(ev.casoUuid);
+      if (caso != null && caso.status == StatusCaso.finalizado) {
+        throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+      }
+    }
+    await _repository.deleteEvidenciaGeral(uuid);
+  }
+
+  Future<List<ExameSolicitado>> getExamesSolicitados(String casoUuid) =>
+      _repository.getExamesSolicitados(casoUuid);
+
+  Future<void> salvarExamesSolicitados({
+    required String casoUuid,
+    required String? anatomoLacre,
+    required String? toxicologicoLacre,
+    required String? geneticaLacre,
+    required String? outrosLacre,
+  }) async {
+    final caso = await _repository.getCaseByUuid(casoUuid);
+    if (caso != null && caso.status == StatusCaso.finalizado) {
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+    await _repository.salvarExamesSolicitados(
+      casoUuid: casoUuid,
+      anatomoLacre: anatomoLacre,
+      toxicologicoLacre: toxicologicoLacre,
+      geneticaLacre: geneticaLacre,
+      outrosLacre: outrosLacre,
+    );
+  }
+
   /// Reabre um [Caso] (Laudo) finalizado, restaurando seu status para rascunho.
   ///
   /// Limpa as assinaturas de integridade e incrementa a versão do documento, permitindo
@@ -104,7 +190,7 @@ class CaseService {
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now(),
     );
-    await _repository.updateCase(casoReaberto);
+    await _repository.reabrirCaso(casoReaberto);
   }
 
   /// Persiste as atualizações em modo rascunho de um [Caso] (Laudo).
@@ -112,7 +198,33 @@ class CaseService {
   /// @throws [Exception] caso o laudo já tenha sido finalizado (bloqueado para edição) e
   /// o perito tente salvar alterações sem antes realizar a reabertura formal.
   Future<void> salvarRascunho(Caso caso) async {
-    final casoAtualizado = caso.copyWith(atualizadoEm: DateTime.now());
+    final casoExistente = await _repository.getCaseByUuid(caso.uuid);
+    if (casoExistente != null && casoExistente.status == StatusCaso.finalizado) {
+      if (caso.status != StatusCaso.finalizado) {
+        throw Exception("Segurança Jurídica: Para alterar um laudo finalizado, utilize a reabertura formal.");
+      }
+      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+    }
+
+    final casoAtualizado = caso.copyWith(
+      atualizadoEm: DateTime.now(),
+      isDraftSynced: false,
+    );
+    debugPrint('[CaseService] 💾 salvarRascunho - dados_laudo_json: ${jsonEncode(casoAtualizado.dadosLaudo)}');
+    await _repository.updateCase(casoAtualizado);
+  }
+
+  /// Atualiza exclusivamente o caminho físico local do PDF gerado.
+  /// 
+  /// Utilizado pelo PdfReportService para registrar onde o arquivo PDF final foi salvo no disco.
+  /// Isso contorna a trava de 'rascunho' intencionalmente, visto que gerar/exportar
+  /// o PDF não altera as respostas periciais e, logo, não fere a segurança jurídica
+  /// de um caso finalizado.
+  Future<void> atualizarCaminhoPdf(String casoUuid, String pdfPath) async {
+    final casoExistente = await _repository.getCaseByUuid(casoUuid);
+    if (casoExistente == null) throw Exception('Caso não encontrado: $casoUuid');
+
+    final casoAtualizado = casoExistente.copyWith(pdfLocalPath: pdfPath);
     await _repository.updateCase(casoAtualizado);
   }
 
@@ -220,7 +332,7 @@ class CaseService {
     final conclusao = dados['conclusao'] ?? {};
     return {
       '1_houve_morte': conclusao['quesito_1_morte'],
-      '2_qual_causa': conclusao['quesito_2_causa'],
+      '2_qual_causa': conclusao['causas_morte'] ?? conclusao['quesito_2_causa'],
       '3_qual_instrumento': conclusao['quesito_3_instrumento'],
       '4_qual_meio': conclusao['quesito_4_meio'],
     };

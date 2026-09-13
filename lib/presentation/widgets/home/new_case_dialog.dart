@@ -1,9 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 class NewCaseDialog extends StatefulWidget {
   const NewCaseDialog({super.key});
@@ -29,7 +34,9 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final _tanatoConsecutivoController = TextEditingController();
   final _tanatoObservacaoController = TextEditingController();
 
-  final List<String> _fotosIdentificacao = [];
+  final List<Map<String, String>> _fotosIdentificacao = [];
+  final List<String> _selectedAtns = [];
+  List<AtnModel> _atnsCache = [];
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -52,24 +59,34 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 50,
-        maxWidth: 800,
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
         preferredCameraDevice: CameraDevice.rear,
       );
 
       if (photo == null) return;
 
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String fileName = 'id_${const Uuid().v4()}.jpg';
-      final String localPath = '${appDir.path}/$fileName';
+      final String fotoUuid = const Uuid().v4();
+      final originalFile = File(photo.path);
+      final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
 
-      await File(photo.path).copy(localPath);
+      try {
+        if (await originalFile.exists()) await originalFile.delete();
+      } catch (e) {
+        debugPrint('[NewCaseDialog] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+      }
 
-      setState(() => _fotosIdentificacao.add(localPath));
+      if (!mounted) return;
+      setState(() => _fotosIdentificacao.add({'path': compressedFile.path, 'descricao': ''}));
     } catch (e) {
+      debugPrint("Erro ao acessar câmera ou permissão negada: $e");
       if (mounted) {
         globalMessengerKey.currentState?.showSnackBar(
-          SnackBar(content: Text('Erro ao capturar foto: $e')),
+          const SnackBar(
+            content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -81,10 +98,9 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
   bool _validarPassoAtual() {
     if (_currentStep == 0) {
-      if (_reqController.text.trim().isEmpty) {
-        _formKey.currentState!.validate();
+      if (!_formKey.currentState!.validate()) {
         globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text("O número da requisição é obrigatório.")),
+          const SnackBar(content: Text("Preencha todos os campos obrigatórios.")),
         );
         return false;
       }
@@ -92,24 +108,106 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     return true;
   }
 
+  Future<void> _abrirSeletorAtn() async {
+    late final List<AtnModel> atns;
+    try {
+      atns = await context.read<AtnRepository>().getAtns();
+    } on DatabaseCorruptedException catch (e) {
+      debugPrint('[NewCaseDialog] ❌ Catálogo local de ATNs indisponível: $e');
+      if (mounted) {
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Banco de dados local corrompido.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _atnsCache = atns;
+    });
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        List filteredAtns = List.from(atns);
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Selecione A.T.N.s (Máximo 4)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar A.T.N...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final term = value.trim().toLowerCase();
+                      setModalState(() {
+                        if (term.isEmpty) {
+                          filteredAtns = List.from(atns);
+                        } else {
+                          filteredAtns = atns.where((a) => a.nome.toLowerCase().contains(term)).toList();
+                        }
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredAtns.length,
+                    itemBuilder: (ctx, index) {
+                      final atn = filteredAtns[index];
+                      final isSelected = _selectedAtns.contains(atn.id);
+                      return CheckboxListTile(
+                        title: Text(atn.nome),
+                        value: isSelected,
+                        onChanged: (val) {
+                          if (val == true) {
+                            if (_selectedAtns.length >= 4) {
+                              globalMessengerKey.currentState?.showSnackBar(
+                                const SnackBar(content: Text("Você já selecionou o limite de 4 A.T.N.s.")),
+                              );
+                              return;
+                            }
+                            setState(() => _selectedAtns.add(atn.id));
+                            setModalState(() {});
+                          } else {
+                            setState(() => _selectedAtns.remove(atn.id));
+                            setModalState(() {});
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final dadosLaudo = {
-        'cabecalho': {
-          'requisicao': _reqController.text.trim(),
-          'bo': _boController.text.trim(), 
-          'pic': _picController.text.trim(),
-          'requisitante': _requisitanteController.text.trim(),
-          'destino': _destinoController.text.trim(),
-          'vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
-        },
         'identificacao': {
           'vestes': _vestesController.text.trim(),
-          'caracteristicas': _caracteristicasController.text.trim(),
+          'historico': "Consta em Boletim de Ocorrência de número ${_boController.text.trim()} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX.",
+        },
+        'caracteristicas': {
           'tanato_imediato': _tanatoImediatoController.text.trim(),
           'tanato_consecutivo': _tanatoConsecutivoController.text.trim(),
           'tanato_observacao': _tanatoObservacaoController.text.trim(),
-          'fotos_gerais': _fotosIdentificacao, 
         },
         'conclusao': null,
         'auditoria': null,
@@ -117,7 +215,15 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
       Navigator.pop(context, {
         'numero_laudo': _reqController.text.trim(),
+        'numero_pic': _picController.text.trim(),
+        'numero_bo': _boController.text.trim(),
+        'numero_requisicao': _reqController.text.trim(),
+        'nome_vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
+        'destino': _destinoController.text.trim(),
+        'requisitante': _requisitanteController.text.trim(),
+        'atns_ids': _selectedAtns,
         'dados_laudo': dadosLaudo,
+        'fotos_gerais': _fotosIdentificacao,
       });
     }
   }
@@ -249,6 +355,37 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               label: "Destino do Laudo", 
               icon: Icons.place,
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("A.T.N.s Responsáveis", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 15)),
+                TextButton.icon(
+                  onPressed: _abrirSeletorAtn,
+                  icon: const Icon(Icons.add),
+                  label: const Text("Adicionar A.T.N"),
+                )
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_selectedAtns.isEmpty)
+              const Text("Nenhum A.T.N selecionado", style: TextStyle(color: Colors.grey))
+            else
+              Wrap(
+                spacing: 8,
+                children: _selectedAtns.map((atnId) {
+                  final atnName = _atnsCache.firstWhere((a) => a.id == atnId, orElse: () => AtnModel(id: atnId, nome: "ATN Desconhecido", ativo: false)).nome;
+                  return Chip(
+                    label: Text(atnName),
+                    deleteIcon: const Icon(Icons.close, size: 18),
+                    onDeleted: () {
+                      setState(() {
+                        _selectedAtns.remove(atnId);
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
           ],
         ),
       );
@@ -304,41 +441,28 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               )
             else
               SizedBox(
-                height: 110,
+                height: 180,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _fotosIdentificacao.length,
                   itemBuilder: (context, index) {
-                    return Stack(
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(right: 8, top: 8),
-                          width: 100, height: 100,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(File(_fotosIdentificacao[index]), fit: BoxFit.cover, cacheWidth: 200, cacheHeight: 200),
-                          ),
-                        ),
-                        Positioned(
-                          top: -6, right: -6,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _removerFoto(index),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                child: const Icon(Icons.close, color: Colors.white, size: 16),
-                              ),
-                            ),
-                          ),
-                        )
-                      ],
+                    final foto = _fotosIdentificacao[index];
+                    final path = foto['path'] ?? '';
+                    final descricao = foto['descricao'];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: EvidenciaFotoCard(
+                        key: ValueKey(path),
+                        path: path,
+                        descricao: descricao,
+                        readOnly: false,
+                        onDescriptionChanged: (val) {
+                          setState(() {
+                            _fotosIdentificacao[index]['descricao'] = val;
+                          });
+                        },
+                        onDelete: () => _removerFoto(index),
+                      ),
                     );
                   },
                 ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -7,15 +9,22 @@ import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
+
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
@@ -23,27 +32,227 @@ import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;
 import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart' as face_left;
 import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart' as lat_right;
+import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart' as lat_left;
 import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart' as trunk_right;
 import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart' as trunk_left;
 import 'package:croqui_forense_mvp/core/constants/perineal_data.dart' as perineal;
+
+class CausaMorteControllers {
+  final TextEditingController imediataCtrl;
+  final TextEditingController devidoACtrl;
+  final TextEditingController consequenciaCtrl;
+
+  CausaMorteControllers({
+    String imediata = '',
+    String devidoA = '',
+    String consequencia = '',
+  })  : imediataCtrl = TextEditingController(text: imediata),
+        devidoACtrl = TextEditingController(text: devidoA),
+        consequenciaCtrl = TextEditingController(text: consequencia);
+
+  void dispose() {
+    imediataCtrl.dispose();
+    devidoACtrl.dispose();
+    consequenciaCtrl.dispose();
+  }
+}
 
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
   final InjuryTypeRepository _injuryTypeRepository;
   final AchadoRepository _achadoRepository;
+  final CasoRepository _casoRepository;
+  final AtnRepository _atnRepository;
 
   Caso casoAtual;
   List<Achado> achados = [];
+  List<EvidenciaMultimidia> evidenciasGerais = [];
+  List<ExameSolicitado> examesSolicitados = [];
+  List<ExameSolicitadoModel> examesSolicitadosModel = [];
+  List<AtnModel> atns = [];
   bool isLoading = false;
-  bool _isExporting = false;
+  final bool _isExporting = false;
   bool get isExporting => _isExporting;
 
-  bool get isReadOnly => casoAtual.status == StatusCaso.finalizado;
+  bool _isProcessing = false;
+  bool get isProcessing => _isProcessing;
 
-  CroquiController(this.casoAtual, this._achadoService, this._caseService, this._injuryTypeRepository, this._achadoRepository) {
-    _loadAchados();
+  bool _isDisposed = false;
+
+  Timer? _autoSaveTimer;
+  bool _isAutoSavePending = false;
+
+  final bool? _isReadOnlyInput;
+  bool get isReadOnly =>
+      (_isReadOnlyInput == true) ||
+      casoAtual.status == StatusCaso.finalizado ||
+      casoAtual.status == StatusCaso.sincronizado;
+
+  // Form text controllers
+  late final TextEditingController numeroLaudoCtrl;
+  late final TextEditingController boCtrl;
+  late final TextEditingController picCtrl;
+  late final TextEditingController reqOrigemCtrl;
+  late final TextEditingController reqDestinoCtrl;
+  late final TextEditingController nomeVitimaCtrl;
+  late final TextEditingController historicoCtrl;
+  late final TextEditingController vestesCtrl;
+  late final TextEditingController caracteristicasCtrl;
+  late final TextEditingController tanatoImediatoCtrl;
+  late final TextEditingController tanatoConsecutivoCtrl;
+  late final TextEditingController tanatoObservacaoCtrl;
+  late final TextEditingController discussaoCtrl;
+  late final TextEditingController conclusaoCtrl;
+  late final TextEditingController quesito1Ctrl;
+  List<CausaMorteControllers> causasMorteCtrls = [];
+  late final TextEditingController quesito3Ctrl;
+  late final TextEditingController quesito4Ctrl;
+
+  late final TextEditingController numeroDeclaracaoObitoCtrl;
+  late final TextEditingController dataObitoCtrl;
+  late final TextEditingController horaObitoCtrl;
+  late final TextEditingController tipoEstimativaHoraObitoCtrl;
+  late final TextEditingController sexoBiologicoEstimadoCtrl;
+  late final TextEditingController corpoEstadoCtrl;
+  late final TextEditingController corpoEstadoOutrosCtrl;
+  List<TextEditingController> descricaoObjetoCtrls = [];
+  
+  bool objetoRetirado = false;
+
+  void adicionarObjeto() {
+    descricaoObjetoCtrls.add(TextEditingController());
+    notifyListeners();
+  }
+
+  void removerObjeto(int index) {
+    if (descricaoObjetoCtrls.length > 1) {
+      descricaoObjetoCtrls[index].dispose();
+      descricaoObjetoCtrls.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  void setObjetoRetirado(bool value) {
+    objetoRetirado = value;
+    notifyListeners();
+  }
+
+  void setCorpoEstado(String value) {
+    corpoEstadoCtrl.text = value;
+    notifyListeners();
+  }
+
+  CroquiController(
+    this.casoAtual,
+    this._achadoService,
+    this._caseService,
+    this._injuryTypeRepository,
+    this._achadoRepository,
+    this._casoRepository,
+    this._atnRepository, {
+    bool? isReadOnly,
+  }) : _isReadOnlyInput = isReadOnly {
+    scheduleMicrotask(() => _loadAchados());
+    _initControllers();
+  }
+
+  void _initControllers() {
+    final caso = casoAtual;
+    final dados = caso.dadosLaudo;
+
+    numeroLaudoCtrl = TextEditingController(text: caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? ''));
+    boCtrl = TextEditingController(text: caso.numeroBo);
+    picCtrl = TextEditingController(text: caso.numeroPic);
+    reqOrigemCtrl = TextEditingController(text: caso.requisitante);
+    reqDestinoCtrl = TextEditingController(text: caso.destino);
+    nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
+
+    numeroDeclaracaoObitoCtrl = TextEditingController(text: caso.numeroDeclaracaoObito ?? '');
+    dataObitoCtrl = TextEditingController(text: caso.dataObito ?? '');
+    horaObitoCtrl = TextEditingController(text: caso.horaObito ?? '');
+    tipoEstimativaHoraObitoCtrl = TextEditingController(text: caso.tipoEstimativaHoraObito ?? '');
+    sexoBiologicoEstimadoCtrl = TextEditingController(text: caso.sexoBiologicoEstimado ?? '');
+    corpoEstadoCtrl = TextEditingController(text: caso.corpoEstado ?? '');
+    corpoEstadoOutrosCtrl = TextEditingController(text: caso.corpoEstadoOutros ?? '');
+    
+    final String descObjeto = caso.descricaoObjeto ?? '';
+    if (descObjeto.trim().isNotEmpty) {
+      final items = descObjeto.split('\n');
+      descricaoObjetoCtrls = items.map((e) => TextEditingController(text: e.trim())).toList();
+    } else {
+      descricaoObjetoCtrls = [TextEditingController()];
+    }
+    
+    objetoRetirado = caso.objetoRetirado ?? false;
+
+    historicoCtrl = TextEditingController(
+      text: dados['identificacao']?['historico'] ?? 
+            "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+    );
+
+    vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
+    caracteristicasCtrl = TextEditingController(text: dados['caracteristicas']?['identificacao'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
+    tanatoImediatoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_imediato'] ?? 'XXX');
+    tanatoConsecutivoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_consecutivo'] ?? 'XXX');
+    tanatoObservacaoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_observacao'] ?? 'XXX');
+
+    discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
+    conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
+
+    quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
+    
+    if (caso.causaMorte != null) {
+      final List<dynamic> causasList = caso.causaMorte!;
+      causasMorteCtrls = causasList.map((e) {
+        final map = Map<String, dynamic>.from(e);
+        return CausaMorteControllers(
+          imediata: map['imediata'] ?? '',
+          devidoA: map['devido_a'] ?? '',
+          consequencia: map['consequencia'] ?? '',
+        );
+      }).toList();
+    } else if (dados['conclusao']?['causas_morte'] != null) {
+      final List<dynamic> causasList = dados['conclusao']!['causas_morte'];
+      causasMorteCtrls = causasList.map((e) {
+        final map = Map<String, dynamic>.from(e);
+        return CausaMorteControllers(
+          imediata: map['imediata'] ?? '',
+          devidoA: map['devido_a'] ?? '',
+          consequencia: map['consequencia'] ?? '',
+        );
+      }).toList();
+    } else {
+      // Fallback para o antigo formato
+      String causaAntiga = dados['conclusao']?['quesito_2_causa'] ?? '';
+      causasMorteCtrls = [
+        CausaMorteControllers(imediata: causaAntiga)
+      ];
+    }
+    
+    quesito3Ctrl = TextEditingController(text: dados['conclusao']?['quesito_3_instrumento'] ?? '');
+    quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
+  }
+
+  void adicionarCausaMorte() {
+    causasMorteCtrls.add(CausaMorteControllers());
+    notifyListeners();
+  }
+
+  void removerCausaMorte(int index) {
+    if (causasMorteCtrls.length > 1) {
+      causasMorteCtrls[index].dispose();
+      causasMorteCtrls.removeAt(index);
+      notifyListeners();
+      _scheduleAutoSave();
+    }
+  }
+
+  String _toDeterministicUuidV4(String namespace, String name) {
+    final String uuidV5 = const Uuid().v5(namespace, name);
+    return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
   }
 
   Future<void> _loadAchados() async {
@@ -52,14 +261,82 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
+      evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
+      examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
+      examesSolicitadosModel = await _casoRepository.getExamesPorCaso(casoAtual.uuid);
+      atns = await _atnRepository.getAtns();
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
+
+
+  Future<void> atualizarAtnsResponsaveis(List<String> atnsIdsSelecionados) async {
+    casoAtual = casoAtual.copyWith(
+      atnsIds: atnsIdsSelecionados,
+      atualizadoEm: DateTime.now(),
+    );
+
+    debugPrint('[CroquiController] 🔄 ATNs Atualizados na RAIZ do Caso: atns_ids=${casoAtual.atnsIds}');
+    debugPrint('[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}');
+
+    notifyListeners();
+    _scheduleAutoSave();
+  }
+
+  Future<void> _bumpRootVersion() async {
+    casoAtual = casoAtual.copyWith(
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    await _caseService.salvarRascunho(casoAtual);
+    notifyListeners();
+  }
+
+  Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
+    examesSolicitadosModel = exames;
+    await _casoRepository.salvarExames(casoAtual.uuid, exames);
+    
+    // A MÁGICA DE VERSÃO FICA AQUI:
+    // Suja o caso matriz para o backend saber que o pacote de exames mudou
+    casoAtual = casoAtual.copyWith(
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    
+    notifyListeners();
+    _scheduleAutoSave(); // Garante que o SQLite salve a versão nova antes do Sync
+  }
+
+  Future<void> salvarExamesSolicitados({
+    required String? anatomoLacre,
+    required String? toxicologicoLacre,
+    required String? geneticaLacre,
+    required String? outrosLacre,
+  }) async {
+    await _caseService.salvarExamesSolicitados(
+      casoUuid: casoAtual.uuid,
+      anatomoLacre: anatomoLacre,
+      toxicologicoLacre: toxicologicoLacre,
+      geneticaLacre: geneticaLacre,
+      outrosLacre: outrosLacre,
+    );
+    examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
+    
+    // Suja a raiz (OCC Bump)
+    casoAtual = casoAtual.copyWith(
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    
+    notifyListeners();
+    _scheduleAutoSave(); // Garante salvamento no SQLite local
+  }
+
   List<Achado> getMarkersForView(String view) {
-  return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
+    return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
   }
 
   Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
@@ -67,155 +344,183 @@ class CroquiController extends ChangeNotifier {
       _snack("Caso finalizado. Edição bloqueada.");
       return;
     }
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
 
     try {
-      await _caseService.salvarRascunho(casoAtual);
-    } catch (e) {
-      debugPrint("Erro ao garantir salvamento do caso: $e");
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
-      return;
-    }
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+      } catch (e) {
+        debugPrint("Erro ao garantir salvamento do caso: $e");
+        globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
+        return;
+      }
 
-    final String realPartName = _resolveBodyPartName(viewType, partId);
+      final String realPartName = _resolveBodyPartName(viewType, partId);
 
-    if (!context.mounted) return;
+      if (!context.mounted) return;
 
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => InjuryFormModal(
-        bodyPartName: realPartName,
-        injuryTypeRepository: _injuryTypeRepository,
-        achadoRepository: _achadoRepository,
+      final result = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => InjuryFormModal(
+          bodyPartName: realPartName,
+          injuryTypeRepository: _injuryTypeRepository,
+          achadoRepository: _achadoRepository,
+          casoUuid: casoAtual.uuid,
+        ),
+      );
+
+      if (result == null) return;
+
+      final String size = result['size']?.toString() ?? '';
+      final String depth = result['depth']?.toString() ?? '';
+      final String description = result['description']?.toString() ?? '';
+      final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
+      final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
+      final bool isInterno = result['isInterno'] ?? false;
+      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
+
+      String? finalPhotoPath = result['photoPath'];
+      if (finalPhotoPath != null && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
+        final String existingUuid = finalPhotoPath.split('/').last.split('\\').last.replaceAll('.jpg', '').replaceAll('.png', '');
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath), existingUuid);
+        finalPhotoPath = compressedFile.path;
+      }
+
+      final Map<String, dynamic> dadosExtras = {
+        'view': viewType,
+        'local_anatomico_id': partId,
+        'local_anatomico_nome': realPartName,
+        'type_label': tipoLesaoNome,
+        'size': size,
+        'depth': depth,
+        'photo_path': finalPhotoPath,
+        'is_interno': isInterno,
+        if (result['dados_dinamicos_json'] is Map) 'dados_dinamicos_json': result['dados_dinamicos_json'],
+      };
+
+      final String diagramaCasoUuid = _toDeterministicUuidV4(casoAtual.uuid, viewType);
+
+      final achadoFinal = Achado(
+        uuid: const Uuid().v4(),
         casoUuid: casoAtual.uuid,
-      ),
-    );
+        diagramaCasoUuid: diagramaCasoUuid,
+        diagramaNome: DiagramTemplates.templateIdParaView(viewType),
+        tipoAchadoId: tipoLesaoId,
+        achadoRelacionadoUuid: achadoRelacionadoUuid,
+        numeroSequencial: achados.length + 1,
+        posX: x,
+        posY: y,
+        isInterno: isInterno,
+        dadosPreenchidos: dadosExtras,
+        observacoesTexto: description,
+        removido: false,
+        versao: 1,
+        criadoEm: DateTime.now(),
+        tamanho: size,
+        vistaAnatomica: viewType,
+        localAnatomico: realPartName,
+      );
 
-    if (result == null) return;
-
-    final String size = result['size']?.toString() ?? '';
-    final String depth = result['depth']?.toString() ?? '';
-    final String description = result['description']?.toString() ?? '';
-    final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
-    final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
-    final bool isInterno = result['isInterno'] ?? false;
-    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
-
-    String? finalPhotoPath = result['photoPath'];
-    if (finalPhotoPath != null) {
-      final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
-      finalPhotoPath = compressedFile.path;
-    }
-
-    final Map<String, dynamic> dadosExtras = {
-      'view': viewType,
-      'local_anatomico_id': partId,
-      'local_anatomico_nome': realPartName,
-      'type_label': tipoLesaoNome,
-      'size': size,
-      'depth': depth,
-      'photo_path': finalPhotoPath,
-      'is_interno': isInterno,
-      if (result['dynamicFields'] is Map) 'dynamicFields': result['dynamicFields'],
-    };
-
-    final achadoFinal = Achado(
-      uuid: const Uuid().v4(),
-      casoUuid: casoAtual.uuid,
-      diagramaNome: DiagramTemplates.templateIdParaView(viewType),
-      tipoAchadoId: tipoLesaoId,
-      achadoRelacionadoUuid: achadoRelacionadoUuid,
-      numeroSequencial: achados.length + 1,
-      posX: x,
-      posY: y,
-      isInterno: isInterno,
-      dadosPreenchidos: dadosExtras,
-      observacoesTexto: description,
-      removido: false,
-      versao: 1,
-      criadoEm: DateTime.now(),
-      proveniencia: 'APP_TABLET',
-    );
-
-    try {
-      await _achadoService.salvarAchado(achadoFinal);
-      await _loadAchados();
-      
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
-      
-    } catch (e) {
-      debugPrint("Erro real ao salvar achado: $e");
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
+      try {
+        await _achadoService.salvarAchado(achadoFinal);
+        await _bumpRootVersion();
+        await _loadAchados();
+        
+        globalMessengerKey.currentState?.hideCurrentSnackBar();
+        globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
+        
+      } catch (e) {
+        debugPrint("Erro real ao salvar achado: $e");
+        globalMessengerKey.currentState?.hideCurrentSnackBar();
+        globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
     }
   }
 
   Future<void> editAchado(BuildContext context, Achado achado) async {
     if (isReadOnly) return;
-
-    final dados = achado.dadosPreenchidos;
-    final String localNome = dados['local_anatomico_nome'] ?? 
-                             _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
-
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => InjuryFormModal(
-        bodyPartName: localNome,
-        injuryTypeRepository: _injuryTypeRepository,
-        achadoRepository: _achadoRepository,
-        casoUuid: casoAtual.uuid,
-        achadoToEdit: achado,
-      ),
-    );
-
-    if (result == null) return;
-
-    final String size = result['size']?.toString() ?? '';
-    final String depth = result['depth']?.toString() ?? '';
-    final String description = result['description']?.toString() ?? '';
-    final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
-    final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
-    final bool isInterno = result['isInterno'] ?? achado.isInterno;
-    final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
-
-    String? finalPhotoPath = result['photoPath'];
-    String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
-
-    if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath) {
-      final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath));
-      finalPhotoPath = compressedFile.path;
-    }
-
-    if (!context.mounted) return;
-
-    final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
-    novosDados['type_label'] = tipoLesaoNome;
-    novosDados['size'] = size;
-    novosDados['depth'] = depth;
-    novosDados['photo_path'] = finalPhotoPath;
-    novosDados['is_interno'] = isInterno;
-    if (result['dynamicFields'] is Map) {
-      novosDados['dynamicFields'] = result['dynamicFields'];
-    }
-
-    final achadoAtualizado = achado.copyWith(
-      tipoAchadoId: tipoLesaoId,
-      achadoRelacionadoUuid: achadoRelacionadoUuid,
-      isInterno: isInterno,
-      dadosPreenchidos: novosDados,
-      observacoesTexto: description,
-      versao: achado.versao + 1,
-      atualizadoEm: DateTime.now(),
-    );
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
 
     try {
-      await _achadoService.atualizarAchado(achadoAtualizado);
-      await _loadAchados();
-      _snack("Achado atualizado!");
-    } catch (e) {
-      _snack("Erro ao atualizar: $e", color: Colors.red);
+      final dados = achado.dadosPreenchidos;
+      final String localNome = dados['local_anatomico_nome'] ?? 
+                               _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
+
+      final result = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => InjuryFormModal(
+          bodyPartName: localNome,
+          injuryTypeRepository: _injuryTypeRepository,
+          achadoRepository: _achadoRepository,
+          casoUuid: casoAtual.uuid,
+          achadoToEdit: achado,
+        ),
+      );
+
+      if (result == null) return;
+
+      final String size = result['size']?.toString() ?? '';
+      final String depth = result['depth']?.toString() ?? '';
+      final String description = result['description']?.toString() ?? '';
+      final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
+      final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
+      final bool isInterno = result['isInterno'] ?? achado.isInterno;
+      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
+
+      String? finalPhotoPath = result['photoPath'];
+      String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
+
+      if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
+        final String existingUuid = finalPhotoPath.split('/').last.split('\\').last.replaceAll('.jpg', '').replaceAll('.png', '');
+        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath), existingUuid);
+        finalPhotoPath = compressedFile.path;
+      }
+
+      if (!context.mounted) return;
+
+      final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
+      novosDados['type_label'] = tipoLesaoNome;
+      novosDados['size'] = size;
+      novosDados['depth'] = depth;
+      novosDados['photo_path'] = finalPhotoPath;
+      novosDados['is_interno'] = isInterno;
+      if (result['dados_dinamicos_json'] is Map) {
+        novosDados['dados_dinamicos_json'] = result['dados_dinamicos_json'];
+      }
+
+      final achadoAtualizado = achado.copyWith(
+        tipoAchadoId: tipoLesaoId,
+        achadoRelacionadoUuid: achadoRelacionadoUuid,
+        isInterno: isInterno,
+        dadosPreenchidos: novosDados,
+        observacoesTexto: description,
+        versao: achado.versao + 1,
+        atualizadoEm: DateTime.now(),
+        tamanho: size,
+        vistaAnatomica: achado.vistaAnatomica,
+        localAnatomico: localNome,
+      );
+
+      try {
+        await _achadoService.atualizarAchado(achadoAtualizado);
+        await _bumpRootVersion();
+        await _loadAchados();
+        _snack("Achado atualizado!");
+      } catch (e) {
+        _snack("Erro ao atualizar: $e", color: Colors.red);
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
     }
   }
 
@@ -223,6 +528,7 @@ class CroquiController extends ChangeNotifier {
     if (isReadOnly) return;
     try {
       await _achadoService.removerAchado(uuid);
+      await _bumpRootVersion();
       await _loadAchados();
       _snack("Achado removido.");
     } catch (e) {
@@ -237,50 +543,243 @@ class CroquiController extends ChangeNotifier {
       atualizadoEm: DateTime.now(),
     );
     notifyListeners();
+    _scheduleAutoSave();
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Finalizar Laudo?"),
-        content: const Text("O caso será marcado como concluído e não poderá ser mais editado."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("FINALIZAR")
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+
+      // 1. Sincronizar dados em memória (rascunho)
+      sincronizarDadosEmMemoria(auth);
+
+      // 2. Validação obrigatória
+      if (!validarCamposObrigatorios()) {
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text("Por favor, responda todos os quesitos obrigatórios."),
+            backgroundColor: Colors.orange,
           ),
-        ],
+        );
+
+        try {
+          DefaultTabController.of(context).animateTo(6);
+        } catch (_) {}
+        return;
+      }
+
+      final statusAtual = casoAtual.status;
+
+      // Cenário A: Se o status for RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
+      if (statusAtual == StatusCaso.rascunho) {
+        final confirmExame = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Finalizar Exame Físico?"),
+            content: const Text(
+              "A etapa de exame corporal será concluída. Você poderá optar por concluir o laudo agora ou manter pendente para finalizar o texto depois.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Voltar"),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Sim, prosseguir"),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmExame != true) return;
+      }
+
+      // Cenário B: Se for LAUDO_PENDENTE, pula o Modal 1 e vai DIRETAMENTE ao Modal 2
+      if (!context.mounted) return;
+      final opcaoSelecionada = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Conclusão do Laudo"),
+          content: const Text(
+            "Deseja concluir o laudo pericial definitivamente agora (com geração automática do PDF e assinatura) ou deixar pendente?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, "PENDENTE"),
+              child: const Text("Deixar Pendente"),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              icon: const Icon(Icons.check_circle),
+              label: const Text("Concluir Laudo Agora"),
+              onPressed: () => Navigator.pop(ctx, "CONCLUIR"),
+            ),
+          ],
+        ),
+      );
+
+      if (opcaoSelecionada == null) return;
+
+      if (opcaoSelecionada == "PENDENTE") {
+        if (!context.mounted) return;
+        await _processarDeixarPendente(context);
+      } else if (opcaoSelecionada == "CONCLUIR") {
+        if (!context.mounted) return;
+        await _processarConcluirLaudoAgora(context);
+      }
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _processarDeixarPendente(BuildContext context) async {
+    try {
+      final now = DateTime.now();
+      final casoAtualizado = casoAtual.copyWith(
+        status: StatusCaso.laudo_pendente,
+        atualizadoEm: now,
+        isDraftSynced: false,
+        versao: casoAtual.versao + 1,
+      );
+
+      await _caseService.salvarRascunho(casoAtualizado);
+      casoAtual = casoAtualizado;
+      notifyListeners();
+
+      _snack("Exame finalizado. Laudo mantido em andamento.", color: Colors.orange[800]);
+
+      if (context.mounted) {
+        final syncService = Provider.of<SyncService>(context, listen: false);
+        syncService.pushCasoRascunho(casoAtual).catchError((e) {
+          debugPrint('[CroquiController] Erro no push em background: $e');
+        });
+      }
+    } catch (e) {
+      _snack("Erro ao salvar status pendente: $e", color: Colors.red);
+    }
+  }
+
+  Future<void> _processarConcluirLaudoAgora(BuildContext context) async {
+    // 1. Exibe indicador de carregamento bloqueante
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Expanded(
+                child: Text("Gerando laudo PDF e finalizando caso..."),
+              ),
+            ],
+          ),
+        ),
       ),
     );
 
-    if (confirm != true) return;
-
     try {
-      await _caseService.finalizarCaso(casoAtual.uuid, casoAtual.dadosLaudo);
-      await _reloadCaso();
-      _snack("Caso finalizado!", color: Colors.green);
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final usuarioLogado = auth.usuario;
+
+      if (usuarioLogado == null) {
+        throw Exception("Usuário não autenticado.");
+      }
+
+      await _caseService.salvarRascunho(casoAtual);
+
+      final pdfReportService = PdfReportService();
+
+      // 2. Geração automática do PDF em background
+      final pdfBytes = await pdfReportService.gerarLaudoPdf(
+        caso: casoAtual,
+        achados: achados,
+        perito: usuarioLogado,
+        exames: examesSolicitados,
+        examesModel: examesSolicitadosModel,
+        evidenciasGerais: evidenciasGerais,
+      );
+
+      // 3. Gravação física do PDF e atualização do pdfLocalPath
+      final pdfFilePath = await pdfReportService.salvarPdfNoDispositivo(
+        caso: casoAtual,
+        pdfBytes: pdfBytes,
+        caseService: _caseService,
+      );
+
+      // 4. Mudar status para FINALIZADO e gravar pdfLocalPath
+      final now = DateTime.now();
+      final casoFinalizado = casoAtual.copyWith(
+        status: StatusCaso.finalizado,
+        pdfLocalPath: pdfFilePath,
+        finalizadoEm: now,
+        atualizadoEm: now,
+        isDraftSynced: false,
+        versao: casoAtual.versao + 1,
+      );
+
+      // 5. Salva no SQLite
+      await _caseService.salvarRascunho(casoFinalizado);
+      casoAtual = casoFinalizado;
+      notifyListeners();
+
+      // Dispara o push via SyncService (que usará pdfLocalPath para codificar em Base64 no Isolate)
+      if (context.mounted) {
+        final syncService = Provider.of<SyncService>(context, listen: false);
+        syncService.pushCasoRascunho(casoFinalizado).catchError((e) {
+          debugPrint('[CroquiController] Erro no push do caso finalizado: $e');
+        });
+
+        // 6. Fecha o loading
+        Navigator.pop(context);
+        _snack("Laudo concluído com sucesso e PDF gerado!", color: Colors.green);
+
+        // Fecha a tela do croqui retornando para a biblioteca
+        Navigator.pop(context);
+      }
     } catch (e) {
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao finalizar: $e"), backgroundColor: Colors.red));
+      debugPrint("Erro ao concluir laudo programaticamente: $e");
+      if (context.mounted) {
+        Navigator.pop(context); // Fecha dialog de loading em erro
+      }
+      _snack("Erro ao concluir laudo: ${e.toString()}", color: Colors.red);
     }
   }
 
   Future<void> reabrirCaso(BuildContext context) async {
     try {
       await _caseService.reabrirCaso(casoAtual.uuid);
-      await _reloadCaso();
+      final casoAtualizado = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
+      if (casoAtualizado != null) {
+        casoAtual = casoAtualizado;
+      } else {
+        casoAtual = casoAtual.copyWith(
+          status: StatusCaso.rascunho,
+          atualizadoEm: DateTime.now(),
+          versao: casoAtual.versao + 1,
+        );
+      }
+      await _loadAchados();
+      notifyListeners();
       _snack("Edição habilitada.");
     } catch (e) {
       globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao reabrir"), backgroundColor: Colors.red));
+      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao reabrir: $e"), backgroundColor: Colors.red));
     }
   }
   Future<void> exportarCaso(BuildContext context) async {
-    if (_isExporting) return;
-    _isExporting = true;
+    if (_isProcessing) return;
+    _isProcessing = true;
     notifyListeners();
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -288,13 +787,14 @@ class CroquiController extends ChangeNotifier {
 
     if (usuarioLogado == null) {
       globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
-      _isExporting = false;
+      _isProcessing = false;
       notifyListeners();
       return;
     }
 
     _snack("Gerando laudo PDF oficial...");
 
+    File? tempPdfFile;
     try {
       if (!isReadOnly) {
         await _caseService.salvarRascunho(casoAtual);
@@ -310,20 +810,24 @@ class CroquiController extends ChangeNotifier {
         achados: achados,
         perito: usuarioLogado,
         schemas: schemas,
+        exames: examesSolicitados,
+        examesModel: examesSolicitadosModel,
+        evidenciasGerais: evidenciasGerais,
       );
 
       final tempDir = await getTemporaryDirectory();
       final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
-      final File pdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
+      tempPdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
       
-      await pdfFile.writeAsBytes(pdfBytes, flush: true);
+      await tempPdfFile.writeAsBytes(pdfBytes, flush: true);
 
       if (!context.mounted) return;
       globalMessengerKey.currentState?.hideCurrentSnackBar();
 
+      // ignore: deprecated_member_use
       await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        subject: 'Laudo Pericial PDF - ' + casoAtual.numeroLaudoExterno.toString(),
+        [XFile(tempPdfFile.path)],
+        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
       );
 
     } catch (e) {
@@ -331,14 +835,15 @@ class CroquiController extends ChangeNotifier {
       globalMessengerKey.currentState?.hideCurrentSnackBar();
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
     } finally {
-      _isExporting = false;
+      if (tempPdfFile != null && tempPdfFile.existsSync()) {
+        try {
+          await tempPdfFile.delete();
+          debugPrint('[CroquiController] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}');
+        } catch (_) {}
+      }
+      _isProcessing = false;
       notifyListeners();
     }
-  }
-  Future<void> _reloadCaso() async {
-    final caso = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
-    if (caso != null) casoAtual = caso;
-    notifyListeners();
   }
 
   String get sexoDoExaminado {
@@ -380,11 +885,7 @@ class CroquiController extends ChangeNotifier {
     atualizarDadosLaudoMemoria(novosDados);
     
     if (!isReadOnly) {
-      try {
-        await _caseService.salvarRascunho(casoAtual);
-      } catch (e) {
-        debugPrint("Erro ao salvar rascunho após alterar sexo: $e");
-      }
+      _scheduleAutoSave();
     }
   }
 
@@ -401,6 +902,280 @@ class CroquiController extends ChangeNotifier {
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 
+
+  Future<void> adicionarFotoGeral(String path) async {
+    final ev = EvidenciaMultimidia.novo(
+      casoUuid: casoAtual.uuid,
+      tipo: 'GERAL',
+      caminhoArquivoEncriptado: path,
+    );
+    await _caseService.salvarEvidenciaGeral(ev);
+    await _bumpRootVersion();
+    await _loadAchados();
+  }
+
+  Future<void> removerFotoGeral(String uuid) async {
+    await _caseService.removerEvidenciaGeral(uuid);
+    await _bumpRootVersion();
+    await _loadAchados();
+  }
+
+
+
+  void atualizarCasoCamposEJson({
+    required String numeroBo,
+    required String numeroPic,
+    required String numeroRequisicao,
+    required String nomeVitima,
+    required String destino,
+    required String requisitante,
+    required Map<String, dynamic> novosDadosLaudo,
+    String? numeroDeclaracaoObito,
+    String? dataObito,
+    String? horaObito,
+    String? tipoEstimativaHoraObito,
+    String? sexoBiologicoEstimado,
+    String? corpoEstado,
+    String? corpoEstadoOutros,
+    bool? objetoRetirado,
+    String? descricaoObjeto,
+    String? dataNecropsia,
+    String? horaNecropsia,
+    dynamic causaMorte,
+  }) {
+    final Map<String, dynamic> finalDadosLaudo = Map<String, dynamic>.from(novosDadosLaudo);
+    if (finalDadosLaudo['auditoria'] is Map) {
+      final auditoriaMap = Map<String, dynamic>.from(finalDadosLaudo['auditoria'] as Map);
+      auditoriaMap.remove('atn_id');
+      auditoriaMap.remove('atn_nome');
+      finalDadosLaudo['auditoria'] = auditoriaMap;
+    }
+
+    casoAtual = casoAtual.copyWith(
+      numeroBo: numeroBo,
+      numeroPic: numeroPic,
+      numeroRequisicao: numeroRequisicao,
+      nomeVitima: nomeVitima,
+      destino: destino,
+      requisitante: requisitante,
+      dadosLaudo: finalDadosLaudo,
+      numeroDeclaracaoObito: numeroDeclaracaoObito,
+      dataObito: dataObito,
+      horaObito: horaObito,
+      tipoEstimativaHoraObito: tipoEstimativaHoraObito,
+      sexoBiologicoEstimado: sexoBiologicoEstimado,
+      corpoEstado: corpoEstado,
+      corpoEstadoOutros: corpoEstadoOutros,
+      objetoRetirado: objetoRetirado,
+      descricaoObjeto: descricaoObjeto,
+      dataNecropsia: dataNecropsia,
+      horaNecropsia: horaNecropsia,
+      causaMorte: causaMorte,
+      /// Atualiza os metadados clínicos do laudo e prepara para o AutoSave.
+      /// O incremento da propriedade [versao] e a padronização via [toUtc] 
+      /// são requisitos inegociáveis da arquitetura Offline-First para 
+      /// garantir integridade no motor de concorrência (OCC) do repositório.
+      atualizadoEm: DateTime.now().toUtc(),
+      versao: casoAtual.versao + 1,
+    );
+
+    debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}');
+    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo)}');
+    notifyListeners();
+    _scheduleAutoSave();
+  }
+
+  Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
+    final index = evidenciasGerais.indexWhere((e) => e.uuid == uuid);
+    if (index != -1) {
+      final evAtualizada = evidenciasGerais[index].copyWith(descricao: descricao);
+      await _caseService.salvarEvidenciaGeral(evAtualizada);
+      await _bumpRootVersion();
+      await _loadAchados();
+    }
+  }
+
+  void _scheduleAutoSave() {
+    if (isReadOnly) return;
+    _isAutoSavePending = true;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 3), () async {
+      if (_isDisposed) return;
+      if (_isAutoSavePending && !isReadOnly) {
+        _isAutoSavePending = false;
+        try {
+          await _caseService.salvarRascunho(casoAtual);
+          debugPrint('[CroquiController] 💾 Auto-save resiliente gravado no SQLite.');
+        } catch (e) {
+          debugPrint('[CroquiController] ⚠️ Erro no auto-save resiliente: $e');
+        }
+      }
+    });
+  }
+
+  Future<void> flushAutoSave() async {
+    _autoSaveTimer?.cancel();
+    if (_isAutoSavePending && !isReadOnly) {
+      _isAutoSavePending = false;
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+        debugPrint('[CroquiController] 💾 Flush imediato de rascunho gravado no SQLite.');
+      } catch (e) {
+        debugPrint('[CroquiController] ⚠️ Erro ao forçar flush de rascunho: $e');
+      }
+    } else if (!isReadOnly) {
+      try {
+        await _caseService.salvarRascunho(casoAtual);
+      } catch (e) {
+        /// Intercepta falhas de persistência em background (AutoSave).
+        /// Essencial para monitorar gargalos de I/O no SQLite ou quebras de 
+        /// concorrência que impediriam a recuperação do rascunho offline.
+        debugPrint('[AutoSave] FALHA CRÍTICA ao salvar rascunho local: $e');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _autoSaveTimer?.cancel();
+
+    // Copia o estado necessário ANTES de liberar os controllers
+    // para evitar use-after-free na escrita assíncrona pós-dispose.
+    final casoParaFlush = casoAtual;
+    final deveFlush = _isAutoSavePending && !isReadOnly;
+
+    // Libera todos os recursos síncronos imediatamente
+    numeroLaudoCtrl.dispose();
+    boCtrl.dispose();
+    picCtrl.dispose();
+    reqOrigemCtrl.dispose();
+    reqDestinoCtrl.dispose();
+    nomeVitimaCtrl.dispose();
+    historicoCtrl.dispose();
+    vestesCtrl.dispose();
+    caracteristicasCtrl.dispose();
+    tanatoImediatoCtrl.dispose();
+    tanatoConsecutivoCtrl.dispose();
+    tanatoObservacaoCtrl.dispose();
+    discussaoCtrl.dispose();
+    conclusaoCtrl.dispose();
+    quesito1Ctrl.dispose();
+    for (var ctrl in causasMorteCtrls) {
+      ctrl.dispose();
+    }
+    quesito3Ctrl.dispose();
+    quesito4Ctrl.dispose();
+    
+    numeroDeclaracaoObitoCtrl.dispose();
+    dataObitoCtrl.dispose();
+    horaObitoCtrl.dispose();
+    tipoEstimativaHoraObitoCtrl.dispose();
+    sexoBiologicoEstimadoCtrl.dispose();
+    corpoEstadoCtrl.dispose();
+    corpoEstadoOutrosCtrl.dispose();
+    for (var ctrl in descricaoObjetoCtrls) {
+      ctrl.dispose();
+    }
+
+    super.dispose();
+
+    // Dispara o flush DEPOIS do super.dispose() operando apenas
+    // sobre a cópia local — nunca sobre membros já liberados.
+    if (deveFlush) {
+      _caseService.salvarRascunho(casoParaFlush).catchError(
+        (e) => debugPrint('[CroquiController] ⚠️ Erro no flush pós-dispose: $e'),
+      );
+    }
+  }
+
+  void sincronizarDadosEmMemoria(AuthProvider authProvider) {
+    if (isReadOnly) return;
+
+    final nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
+    final Map<String, dynamic> novosDados = {};
+
+    final nomesAtns = casoAtual.atnsIds.map((id) {
+      final match = atns.where((a) => a.id == id).firstOrNull;
+      return match?.nome ?? id;
+    }).join(", ");
+
+    novosDados['auditoria'] = {
+      'perito_responsavel': nomePerito,
+      'data_finalizacao': DateTime.now().toIso8601String(),
+      'atns_nomes': nomesAtns,
+    };
+
+    novosDados['identificacao'] = {
+      'vestes': vestesCtrl.text,
+      'historico': historicoCtrl.text,
+    };
+
+    novosDados['caracteristicas'] = {
+      'identificacao': caracteristicasCtrl.text,
+      'tanato_imediato': tanatoImediatoCtrl.text,
+      'tanato_observacao': tanatoObservacaoCtrl.text,
+      'tanato_consecutivo': tanatoConsecutivoCtrl.text,
+    };
+
+    novosDados['conclusao'] = {
+      'discussao': discussaoCtrl.text,
+      'quesito_1_morte': quesito1Ctrl.text,
+      'quesito_3_instrumento': quesito3Ctrl.text,
+      'quesito_4_meio': quesito4Ctrl.text,
+      'conclusao_texto': conclusaoCtrl.text,
+    };
+
+    final descObjetosList = descricaoObjetoCtrls.map((e) => e.text.trim()).where((e) => e.isNotEmpty).toList();
+    final String descricaoObjetoFinal = descObjetosList.join('\n');
+    final bool isObjetoRetirado = descObjetosList.isNotEmpty;
+
+    final now = DateTime.now();
+    final dataNecropsiaFinal = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final horaNecropsiaFinal = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
+    final causasMorteList = causasMorteCtrls.map((ctrl) => {
+      'imediata': ctrl.imediataCtrl.text,
+      'devido_a': ctrl.devidoACtrl.text,
+      'consequencia': ctrl.consequenciaCtrl.text,
+    }).toList();
+
+    atualizarCasoCamposEJson(
+      numeroBo: boCtrl.text,
+      numeroPic: picCtrl.text,
+      numeroRequisicao: numeroLaudoCtrl.text,
+      nomeVitima: nomeVitimaCtrl.text,
+      destino: reqDestinoCtrl.text,
+      requisitante: reqOrigemCtrl.text,
+      novosDadosLaudo: novosDados,
+      numeroDeclaracaoObito: numeroDeclaracaoObitoCtrl.text,
+      dataObito: dataObitoCtrl.text,
+      horaObito: horaObitoCtrl.text,
+      tipoEstimativaHoraObito: tipoEstimativaHoraObitoCtrl.text,
+      sexoBiologicoEstimado: sexoBiologicoEstimadoCtrl.text,
+      corpoEstado: corpoEstadoCtrl.text,
+      corpoEstadoOutros: corpoEstadoOutrosCtrl.text,
+      objetoRetirado: isObjetoRetirado,
+      descricaoObjeto: descricaoObjetoFinal,
+      dataNecropsia: dataNecropsiaFinal,
+      horaNecropsia: horaNecropsiaFinal,
+      causaMorte: causasMorteList,
+    );
+  }
+
+  bool validarCamposObrigatorios() {
+    if (quesito1Ctrl.text.trim().isEmpty) return false;
+    
+    for (var ctrl in causasMorteCtrls) {
+      if (ctrl.imediataCtrl.text.trim().isEmpty) return false;
+      if (ctrl.devidoACtrl.text.trim().isEmpty) return false;
+      if (ctrl.consequenciaCtrl.text.trim().isEmpty) return false;
+    }
+    
+    if (quesito3Ctrl.text.trim().isEmpty) return false;
+    if (quesito4Ctrl.text.trim().isEmpty) return false;
+    return true;
+  }
 
   void _snack(String msg, {Color? color}) {
     final messenger = globalMessengerKey.currentState;

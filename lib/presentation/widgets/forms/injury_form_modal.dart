@@ -1,14 +1,17 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/forms/dynamic_form_widget.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/dynamic_form/dynamic_form_builder.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
+import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -32,7 +35,6 @@ class InjuryFormModal extends StatefulWidget {
 
 class _InjuryFormModalState extends State<InjuryFormModal> {
   final _formKey = GlobalKey<FormState>();
-  final _dynamicFormKey = GlobalKey<DynamicFormWidgetState>();
 
   late final TextEditingController _customSizeController;
   late final TextEditingController _depthController;
@@ -43,8 +45,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   String? _selectedParteCorpo;
   bool _isLoadingTypes = true;
   bool _isInterno = false;
-  Map<String, dynamic> _dynamicData = {};
-  List<Achado> _entradasDisponiveis = [];
+  Map<String, dynamic> _currentFormData = {};
+  String? _databaseError;
 
   static const List<String> _sizeOptions = ['0.5', '1.0', '1.5', '2.0', '2.5', 'Outro'];
   String? _selectedSize;
@@ -71,9 +73,19 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _currentPhotoPath = m?.photoPath;
     _isInterno = m?.isInterno ?? false;
 
-    final existingDynamic = m?.dadosPreenchidos['dynamicFields'];
-    if (existingDynamic is Map<String, dynamic>) {
-      _dynamicData = Map<String, dynamic>.from(existingDynamic);
+    final existingDynamic = m?.dadosPreenchidos['dados_dinamicos_json'] ?? m?.dadosPreenchidos['dynamicFields'];
+    if (existingDynamic is Map) {
+      _currentFormData = Map<String, dynamic>.from(existingDynamic);
+    } else if (existingDynamic is String && existingDynamic.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existingDynamic);
+        if (decoded is Map) {
+          _currentFormData = Map<String, dynamic>.from(decoded);
+        }
+      } catch (e) {
+        _databaseError = 'Banco de dados local corrompido';
+        debugPrint('[InjuryFormModal] Erro ao decodificar dados_dinamicos_json: $e');
+      }
     }
 
     _loadTypes(initialTypeLabel: m?.type);
@@ -95,10 +107,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   }
 
   Future<void> _loadEntradas() async {
-    try {
-      final entradas = await widget.achadoRepository.getAchadosDeEntradaPorCaso(widget.casoUuid);
-      if (mounted) setState(() => _entradasDisponiveis = entradas);
-    } catch (_) {}
+    // Mantido para não quebrar referências futuras caso precisem (mas sem usar a variável de estado)
   }
 
   Future<void> _loadTypes({String? initialTypeLabel}) async {
@@ -128,13 +137,20 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
           final autoRelKey = _findAutoRelacionamentoKey();
           if (autoRelKey != null && widget.achadoToEdit?.achadoRelacionadoUuid != null) {
-            _dynamicData[autoRelKey] = widget.achadoToEdit!.achadoRelacionadoUuid;
+            _currentFormData[autoRelKey] = widget.achadoToEdit!.achadoRelacionadoUuid;
           }
         }
       });
     } catch(e) {
       debugPrint("Erro ao carregar tipos de lesão: $e");
-      if (mounted) setState(() => _isLoadingTypes = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingTypes = false;
+          if (e is DatabaseCorruptedException) {
+            _databaseError = 'Banco de dados local corrompido';
+          }
+        });
+      }
       globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Falha ao carregar tipos de lesão: $e"), backgroundColor: Colors.red));
     }
   }
@@ -154,17 +170,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     if (!mounted) return;
 
     final mainValid = _formKey.currentState?.validate() ?? false;
-    final dynamicValid = _dynamicFormKey.currentState?.validate() ?? true;
 
-    if (mainValid && dynamicValid) {
-      final dynamicFields = Map<String, dynamic>.from(
-        _dynamicFormKey.currentState?.formData ?? _dynamicData,
-      );
+    if (mainValid) {
+      final dadosDinamicos = Map<String, dynamic>.from(_currentFormData);
 
       String? achadoRelacionadoUuid;
       final autoRelKey = _findAutoRelacionamentoKey();
-      if (autoRelKey != null && dynamicFields.containsKey(autoRelKey)) {
-        achadoRelacionadoUuid = dynamicFields.remove(autoRelKey)?.toString();
+      if (autoRelKey != null && dadosDinamicos.containsKey(autoRelKey)) {
+        achadoRelacionadoUuid = dadosDinamicos.remove(autoRelKey)?.toString();
       }
 
       final data = {
@@ -175,7 +188,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'description': _obsController.text.trim(),
         'photoPath': _currentPhotoPath,
         'isInterno': _isInterno,
-        'dynamicFields': dynamicFields,
+        'dados_dinamicos_json': dadosDinamicos,
         'achadoRelacionadoUuid': achadoRelacionadoUuid,
       };
       Navigator.pop(context, data);
@@ -211,16 +224,22 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   
                 _buildSectionLabel("NATUREZA DA LESÃO"),
                 _buildTypeDropdown(),
-                if (_selectedType != null && _selectedType!.schemaFormulario.isNotEmpty) ...[
+                if (_selectedType != null) ...[
                   const SizedBox(height: 16),
                   _buildSectionLabel("DETALHES ESPECÍFICOS"),
-                  DynamicFormWidget(
-                    key: _dynamicFormKey,
-                    schema: _selectedType!.schemaFormulario,
-                    initialData: _dynamicData,
-                    entradasDisponiveis: _entradasDisponiveis,
-                    onChanged: (data) => _dynamicData = data,
-                  ),
+                  if (_databaseError != null)
+                    Text(
+                      _databaseError!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    )
+                  else
+                    DynamicFormBuilder(
+                      schema: _selectedType?.schemaFormulario ?? {},
+                      initialData: _currentFormData,
+                      onChanged: (data) {
+                        _currentFormData = data;
+                      },
+                    ),
                 ],
                 const SizedBox(height: 16),
   
@@ -372,6 +391,13 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       return const LinearProgressIndicator();
     }
 
+    if (_databaseError != null && _availableTypes.isEmpty) {
+      return Text(
+        _databaseError!,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      );
+    }
+
     if (_isInterno) {
       final partesDeCorpo = _availableTypes
           .where((t) => t.isInterno)
@@ -388,7 +414,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedParteCorpo,
+            initialValue: _selectedParteCorpo,
             decoration: const InputDecoration(
               labelText: "Parte do Corpo",
               border: OutlineInputBorder(),
@@ -399,20 +425,26 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               setState(() {
                 _selectedParteCorpo = v;
                 _selectedType = null;
+                _currentFormData = {};
               });
             },
             validator: (v) => v == null ? 'Obrigatório' : null,
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<InjuryType>(
-            value: _selectedType,
+            initialValue: _selectedType,
             decoration: const InputDecoration(
               labelText: "Natureza da Lesão Interna",
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
             items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() => _selectedType = v),
+            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() {
+              if (v?.id != _selectedType?.id) {
+                _currentFormData = {};
+              }
+              _selectedType = v;
+            }),
             validator: (v) => v == null ? 'Obrigatório' : null,
           ),
         ],
@@ -421,14 +453,19 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final tiposExternos = _availableTypes.where((t) => !t.isInterno).toList();
 
       return DropdownButtonFormField<InjuryType>(
-        value: _selectedType,
+        initialValue: _selectedType,
         decoration: const InputDecoration(
           labelText: "Natureza da Lesão",
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 12),
         ),
         items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-        onChanged: (v) => setState(() => _selectedType = v),
+        onChanged: (v) => setState(() {
+          if (v?.id != _selectedType?.id) {
+            _currentFormData = {};
+          }
+          _selectedType = v;
+        }),
         validator: (v) => v == null ? 'Obrigatório' : null,
       );
     }
@@ -483,7 +520,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_currentPhotoPath!), fit: BoxFit.cover, cacheWidth: 300, cacheHeight: 300)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ImageResolver.buildImage(_currentPhotoPath, fit: BoxFit.cover),
+                  ),
                   Container(color: Colors.black26),
                   const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
                 ],
@@ -508,19 +548,34 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   Future<void> _takePhoto() async {
     try {
-      final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 50, preferredCameraDevice: CameraDevice.rear);
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        preferredCameraDevice: CameraDevice.rear,
+      );
       if (photo == null) return;
-      final appDir = await getApplicationDocumentsDirectory();
-      final localPath = '${appDir.path}/evidencias/${const Uuid().v4()}.jpg';
-      await Directory('${appDir.path}/evidencias').create(recursive: true);
-      await File(photo.path).copy(localPath);
+      final String fotoUuid = const Uuid().v4();
+      final originalFile = File(photo.path);
+      final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
+      
+      try {
+        if (await originalFile.exists()) await originalFile.delete();
+      } catch (e) {
+        debugPrint('[InjuryFormModal] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+      }
+
       if (!mounted) return;
-      setState(() => _currentPhotoPath = localPath);
+      setState(() => _currentPhotoPath = compressedFile.path);
     } catch (e) {
-      debugPrint("Erro câmera: $e");
-      if(mounted){
+      debugPrint("Erro ao acessar câmera ou permissão negada: $e");
+      if (mounted) {
         globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text("Erro ao acessar câmera. Tente novamente."), backgroundColor: Colors.red)
+          const SnackBar(
+            content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

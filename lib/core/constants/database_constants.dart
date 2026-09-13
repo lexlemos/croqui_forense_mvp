@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 2;
+const int kDatabaseVersion = 19;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -10,6 +10,15 @@ const String tableCasos = 'casos';
 const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
+const String tableAtns = 'atns';
+
+const String kCreateAtnsSql = '''
+CREATE TABLE IF NOT EXISTS atns (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    ativo INTEGER DEFAULT 1
+);
+''';
 
 const String _kCreatePapeis = '''
 CREATE TABLE papeis (
@@ -33,7 +42,8 @@ const String _kCreateUsuarios = '''
 CREATE TABLE usuarios (
     id TEXT PRIMARY KEY,
     matricula_funcional TEXT NOT NULL UNIQUE,
-    papel_id TEXT NOT NULL,
+    papel_id TEXT,
+    roles TEXT,
     nome_completo TEXT NOT NULL,
     crm TEXT,
     classe TEXT,
@@ -44,8 +54,7 @@ CREATE TABLE usuarios (
     atualizado_em TEXT,
     versao INTEGER DEFAULT 1,
     device_id TEXT,
-    salt TEXT,
-    FOREIGN KEY (papel_id) REFERENCES papeis(id) ON DELETE RESTRICT
+    salt TEXT
 );
 ''';
 
@@ -85,10 +94,36 @@ CREATE TABLE casos (
     dados_laudo_json TEXT,
     versao INTEGER DEFAULT 1,
     criado_em_dispositivo TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-    -- criado_em_rede_confiavel FOI EXCLUÍDA
     atualizado_em TEXT,
+    finalizado_em TEXT,
     device_id TEXT,
-    proveniencia TEXT,
+    numero_pic TEXT,
+    numero_bo TEXT,
+    numero_requisicao TEXT,
+    nome_vitima TEXT,
+    destino TEXT,
+    requisitante TEXT,
+    atn_responsavel TEXT,
+    atn_id TEXT,
+    atns_ids TEXT,
+    pdf_local_path TEXT,
+    pdf_url TEXT,
+    is_draft_synced INTEGER DEFAULT 0,
+    sync_error INTEGER NOT NULL DEFAULT 0,
+    corpo_estado TEXT,
+    corpo_estado_outros TEXT,
+    sexo_biologico_estimado TEXT,
+    data_obito TEXT,
+    hora_obito TEXT,
+    tipo_estimativa_hora_obito TEXT,
+    causa_morte TEXT,
+    exames_solicitados INTEGER,
+    descricao_exames TEXT,
+    objeto_retirado INTEGER,
+    descricao_objeto TEXT,
+    data_necropsia TEXT,
+    hora_necropsia TEXT,
+    numero_declaracao_obito TEXT,
     FOREIGN KEY (id_usuario_criador) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 ''';
@@ -97,14 +132,14 @@ const String _kCreateAchados = '''
 CREATE TABLE achados (
     uuid TEXT PRIMARY KEY,
     caso_uuid TEXT NOT NULL,
+    diagrama_caso_uuid TEXT NOT NULL DEFAULT '',
     tipo_achado_id TEXT NOT NULL,
-    achado_relacionado_uuid TEXT, -- NOVA COLUNA: Auto-relacionamento (Ex: Tiro Entrada/Saída)
-    diagrama_nome TEXT,           -- NOVA COLUNA: Texto simples (ex: 'frente', 'costas')
+    achado_relacionado_uuid TEXT,
+    diagrama_nome TEXT,
     numero_sequencial INTEGER,
     pos_x REAL,
     pos_y REAL,
     is_interno INTEGER DEFAULT 0,
-    -- esta_pendente FOI EXCLUÍDA
     dados_preenchidos_json TEXT,
     observacoes_texto TEXT,
     removido INTEGER DEFAULT 0,
@@ -112,7 +147,9 @@ CREATE TABLE achados (
     criado_em TEXT,
     atualizado_em TEXT,
     device_id TEXT,
-    proveniencia TEXT,
+    tamanho TEXT,
+    vista_anatomica TEXT,
+    local_anatomico TEXT,
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
     FOREIGN KEY (achado_relacionado_uuid) REFERENCES achados(uuid) ON DELETE SET NULL,
     FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT
@@ -122,23 +159,97 @@ CREATE TABLE achados (
 const String _kCreateEvidencias = '''
 CREATE TABLE evidencias_multimidia (
     uuid TEXT PRIMARY KEY,
-    achado_uuid TEXT NOT NULL,
+    caso_uuid TEXT NOT NULL,
+    achado_uuid TEXT,
     substituida_por TEXT,
-    tipo TEXT DEFAULT 'FOTO',
+    tipo TEXT DEFAULT 'ACHADO',
     caminho_arquivo_encriptado TEXT,
     hash_arquivo TEXT,
-    hmac_arquivo TEXT,
-    salt_base64 TEXT,
-    chave_cifrada_base64 TEXT,
-    hash_exif TEXT,
     foto_sincronizada INTEGER NOT NULL DEFAULT 0,
     removido INTEGER DEFAULT 0,
     versao INTEGER DEFAULT 1,
     criado_em TEXT,
     atualizado_em TEXT,
-    device_id TEXT,
+    descricao TEXT,
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
     FOREIGN KEY (achado_uuid) REFERENCES achados(uuid) ON DELETE CASCADE,
     FOREIGN KEY (substituida_por) REFERENCES evidencias_multimidia(uuid) ON DELETE SET NULL
+);
+''';
+
+const String tableDetalhesToxicologico = 'detalhes_toxicologico';
+const String tableAmostrasGenetica = 'amostras_genetica';
+const String tableFrascosAnatomo = 'frascos_anatomo';
+
+const String kCreateExamesSolicitadosSql = '''
+CREATE TABLE IF NOT EXISTS exames_solicitados (
+    uuid TEXT PRIMARY KEY,
+    caso_uuid TEXT NOT NULL,
+    tipo_exame TEXT NOT NULL,
+    numero_lacre TEXT,
+    criado_em TEXT NOT NULL,
+    FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE
+);
+''';
+
+const String kCreateDetalhesToxicologicoSql = '''
+CREATE TABLE IF NOT EXISTS detalhes_toxicologico (
+    uuid TEXT PRIMARY KEY,
+    exame_uuid TEXT NOT NULL,
+    historico_ocorrencia TEXT,
+    historico_outro TEXT,
+    material_sg_femoral INTEGER DEFAULT 0,
+    material_sg_cardiaca INTEGER DEFAULT 0,
+    material_sg_outro TEXT,
+    numero_lacre_sg TEXT,
+    material_urina INTEGER DEFAULT 0,
+    numero_lacre_ur TEXT,
+    material_humor_vitreo INTEGER DEFAULT 0,
+    numero_lacre_hv TEXT,
+    material_estomago INTEGER DEFAULT 0,
+    numero_lacre_ce TEXT,
+    material_pulmao INTEGER DEFAULT 0,
+    numero_lacre_pm TEXT,
+    quantificacao_drogas INTEGER DEFAULT 0,
+    FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
+);
+''';
+
+const String kCreateAmostrasGeneticaSql = '''
+CREATE TABLE IF NOT EXISTS amostras_genetica (
+    uuid TEXT PRIMARY KEY,
+    exame_uuid TEXT NOT NULL,
+    tipo_amostra TEXT NOT NULL,
+    descricao_outro TEXT,
+    pesquisa_semen INTEGER DEFAULT 0,
+    pesquisa_dna INTEGER DEFAULT 0,
+    quantidade_swabs INTEGER DEFAULT 1,
+    numero_lacre TEXT,
+    FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
+);
+''';
+
+const String kCreateFrascosAnatomoSql = '''
+CREATE TABLE IF NOT EXISTS frascos_anatomo (
+    uuid TEXT PRIMARY KEY,
+    exame_uuid TEXT NOT NULL,
+    numero_frasco INTEGER NOT NULL,
+    numero_lacre TEXT,
+    coracao INTEGER DEFAULT 0,
+    figado INTEGER DEFAULT 0,
+    baco INTEGER DEFAULT 0,
+    encefalo INTEGER DEFAULT 0,
+    pulmao_d_lsd INTEGER DEFAULT 0,
+    pulmao_d_lmd INTEGER DEFAULT 0,
+    pulmao_d_lid INTEGER DEFAULT 0,
+    pulmao_e_lse INTEGER DEFAULT 0,
+    pulmao_e_lie INTEGER DEFAULT 0,
+    rim_d INTEGER DEFAULT 0,
+    rim_e INTEGER DEFAULT 0,
+    pele_regiao TEXT,
+    partes_moles_regiao TEXT,
+    outras_regiao TEXT,
+    FOREIGN KEY (exame_uuid) REFERENCES exames_solicitados(uuid) ON DELETE CASCADE
 );
 ''';
 
@@ -161,14 +272,20 @@ CREATE TABLE log_auditoria (
 const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);',
   'CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);',
+  'CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);',
   'CREATE INDEX idx_achados_caso ON achados (caso_uuid);',
   'CREATE INDEX idx_achados_tipo ON achados (tipo_achado_id);',
   'CREATE INDEX idx_achados_relacionado ON achados (achado_relacionado_uuid);',
   'CREATE INDEX idx_evidencias_achado ON evidencias_multimidia (achado_uuid);',
+  'CREATE INDEX idx_evidencias_caso ON evidencias_multimidia (caso_uuid);',
   'CREATE INDEX idx_evidencias_substituta ON evidencias_multimidia (substituida_por);',
   'CREATE INDEX idx_log_caso ON log_auditoria (caso_uuid);',
   'CREATE INDEX idx_log_usuario ON log_auditoria (id_usuario);',
   'CREATE INDEX idx_casos_status ON casos (status);',
+  'CREATE INDEX idx_exames_caso ON exames_solicitados (caso_uuid);',
+  'CREATE INDEX idx_detalhes_toxicologico_exame ON detalhes_toxicologico (exame_uuid);',
+  'CREATE INDEX idx_amostras_genetica_exame ON amostras_genetica (exame_uuid);',
+  'CREATE INDEX idx_frascos_anatomo_exame ON frascos_anatomo (exame_uuid);',
 ];
 
 const Map<String, String> kTableScripts = {
@@ -181,6 +298,11 @@ const Map<String, String> kTableScripts = {
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,
   tableLogAuditoria: _kCreateLogAuditoria,
+  'exames_solicitados': kCreateExamesSolicitadosSql,
+  tableDetalhesToxicologico: kCreateDetalhesToxicologicoSql,
+  tableAmostrasGenetica: kCreateAmostrasGeneticaSql,
+  tableFrascosAnatomo: kCreateFrascosAnatomoSql,
+  tableAtns: kCreateAtnsSql,
 };
 
 final List<String> kFullDatabaseCreationScripts = [

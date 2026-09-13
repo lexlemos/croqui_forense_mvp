@@ -117,7 +117,8 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _buildFilterChip('Em Andamento', StatusCaso.rascunho, Colors.orange),
+                _buildFilterChip('Em Andamento', StatusCaso.rascunho, Colors.cyan),
+                _buildFilterChip('Laudo Pendente', StatusCaso.laudo_pendente, Colors.orange),
                 _buildFilterChip('Finalizado', StatusCaso.finalizado, Colors.green),
                 _buildFilterChip('Arquivado', StatusCaso.arquivado, Colors.grey),
               ],
@@ -133,7 +134,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                     setState(() {
                       _criteria = SortCriteria.data;
                       _order = SortOrder.desc;
-                      _selectedStatuses = {StatusCaso.rascunho, StatusCaso.finalizado}; 
+                      _selectedStatuses = {StatusCaso.rascunho, StatusCaso.laudo_pendente, StatusCaso.finalizado}; 
                     });
                   },
                   child: const Text('Limpar'),
@@ -173,7 +174,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.grey[100],
+            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? AppColors.primary : Colors.transparent,
@@ -214,7 +215,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
       selected: isSelected,
       onSelected: (_) => _toggleStatus(status),
       checkmarkColor: color,
-      selectedColor: color.withOpacity(0.1),
+      selectedColor: color.withValues(alpha: 0.1),
       labelStyle: TextStyle(
         color: isSelected ? color : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

@@ -40,7 +40,7 @@ const List<BodyPartDefinition> kBackBodyPartsList = [
 ];
 
 final Map<int, String> kColorToIdBackMap = {
-  for (var part in kBackBodyPartsList) part.color.value: part.id,
+  for (var part in kBackBodyPartsList) part.color.toARGB32(): part.id,
 };
 
 final Map<String, BodyPartDefinition> kIdToDefinitionBackMap = {

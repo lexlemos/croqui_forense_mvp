@@ -5,9 +5,7 @@ import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/home_page.dart';
 import 'package:croqui_forense_mvp/presentation/pages/settings_page.dart';
-import 'package:croqui_forense_mvp/presentation/pages/user_management_page.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
-import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class AppHeader extends StatelessWidget {
   final Usuario? usuario;
@@ -30,7 +28,7 @@ class AppHeader extends StatelessWidget {
     return partes.first.substring(0, 2).toUpperCase();
   }
 
-  bool get _isAdmin => usuario?.papelId == DatabaseSeeder.roleAdminId;
+  bool get _isAdmin => usuario?.hasRole('ADMIN') ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +43,7 @@ class AppHeader extends StatelessWidget {
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Color(0xFFF0F0F0)),
+                  side: const BorderSide(color: AppColors.headerBorder),
                 ),
                 elevation: 10,
               ),
@@ -58,10 +56,10 @@ class AppHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE1E1E1)),
+                  border: Border.all(color: AppColors.headerIconBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -79,17 +77,7 @@ class AppHeader extends StatelessWidget {
                     isActive: isHome,
                   ),
                 ];
-                if (_isAdmin) {
-                  menuItems.add(const PopupMenuDivider(height: 1));
-                  menuItems.add(
-                    _buildMenuItem(
-                      value: 'users',
-                      icon: Icons.manage_accounts_outlined,
-                      text: 'Gestão de Usuários',
-                      isActive: title == 'Gestão de Usuários',
-                    ),
-                  );
-                }
+
                 menuItems.addAll([
                   const PopupMenuDivider(height: 1),
                   _buildMenuItem(
@@ -173,9 +161,9 @@ class AppHeader extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
+                color: AppColors.avatarBg,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE0E0E0)),
+                border: Border.all(color: AppColors.avatarBorder),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -234,12 +222,7 @@ class AppHeader extends StatelessWidget {
           );
         }
         break;
-      case 'users':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UserManagementPage()),
-        );
-        break;
+
       case 'settings':
         if (title != 'Configurações') {
           Navigator.push(
@@ -250,7 +233,7 @@ class AppHeader extends StatelessWidget {
         break;
       case 'logout':
         final authProvider = context.read<AuthProvider>();
-        await authProvider.logout();
+        await authProvider.logout(context);
         break;
     }
   }

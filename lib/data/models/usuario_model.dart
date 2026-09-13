@@ -1,40 +1,47 @@
+import 'dart:convert';
+
 class Usuario {
   final String id;
   final String matriculaFuncional;
   final String nomeCompleto;
-  final String crm;
-  final String classe;
-  final String papelId;
+  final List<String> roles;
   final bool ativo;
   final String? hashPinOffline;
-  final bool deveAlterarPin;
   final String? salt;
   final DateTime criadoEm;
   final String? deviceId;
+  final String? crm;
+  final String? classe;
 
   Usuario({
     required this.id,
     required this.matriculaFuncional,
     required this.nomeCompleto,
-    required this.papelId,
+    required this.roles,
     required this.ativo,
     required this.hashPinOffline,
-    required this.deveAlterarPin,
     required this.criadoEm,
-    required this.crm,
-    required this.classe,
     this.salt,
     this.deviceId,
+    this.crm,
+    this.classe,
   });
+
+  bool hasRole(String roleName) {
+    return roles.any((role) => role.toUpperCase() == roleName.toUpperCase());
+  }
+
+  factory Usuario.fromJson(Map<String, dynamic> json) => Usuario.fromMap(json);
+
+  Map<String, dynamic> toJson() => toMap();
 
   Usuario copyWith({
     String? id,
     String? matriculaFuncional,
     String? nomeCompleto,
-    String? papelId,
+    List<String>? roles,
     bool? ativo,
     String? hashPinOffline,
-    bool? deveAlterarPin,
     String? salt,
     DateTime? criadoEm,
     String? deviceId,
@@ -45,32 +52,49 @@ class Usuario {
       id: id ?? this.id,
       matriculaFuncional: matriculaFuncional ?? this.matriculaFuncional,
       nomeCompleto: nomeCompleto ?? this.nomeCompleto,
-      crm: crm ?? this.crm,
-      classe: classe ?? this.classe,
-      papelId: papelId ?? this.papelId,
+      roles: roles ?? this.roles,
       ativo: ativo ?? this.ativo,
       hashPinOffline: hashPinOffline ?? this.hashPinOffline,
-      deveAlterarPin: deveAlterarPin ?? this.deveAlterarPin,
       salt: salt ?? this.salt,
       criadoEm: criadoEm ?? this.criadoEm,
       deviceId: deviceId ?? this.deviceId,
+      crm: crm ?? this.crm,
+      classe: classe ?? this.classe,
     );
   }
 
   factory Usuario.fromMap(Map<String, dynamic> map) {
+    List<String> parsedRoles = [];
+    final rawRoles = map['roles'] ?? map['role'];
+    if (rawRoles is List) {
+      parsedRoles = rawRoles.map((e) => e.toString()).toList();
+    } else if (rawRoles is String && rawRoles.isNotEmpty) {
+      if (rawRoles.startsWith('[') && rawRoles.endsWith(']')) {
+        try {
+          final decoded = jsonDecode(rawRoles);
+          if (decoded is List) {
+            parsedRoles = decoded.map((e) => e.toString()).toList();
+          }
+        } catch (_) {
+          parsedRoles = [rawRoles];
+        }
+      } else {
+        parsedRoles = [rawRoles];
+      }
+    }
+
     return Usuario(
-      id: map['id']?.toString() ?? '',
-      matriculaFuncional: map['matricula_funcional']?.toString() ?? '',
-      nomeCompleto: map['nome_completo']?.toString() ?? '',
-      crm: map['crm']?.toString() ?? '',
-      classe: map['classe']?.toString() ?? '',
-      papelId: map['papel_id']?.toString() ?? '',
+      id: map['id']?.toString() ?? map['usuario_id']?.toString() ?? '',
+      matriculaFuncional: map['matricula_funcional']?.toString() ?? map['matricula']?.toString() ?? '',
+      nomeCompleto: map['nome_completo']?.toString() ?? map['usuario_nome']?.toString() ?? map['nome']?.toString() ?? '',
+      roles: parsedRoles,
       hashPinOffline: map['hash_pin_offline']?.toString(),
       salt: map['salt']?.toString(),
-      ativo: (map['ativo'] as int? ?? 0) == 1,
-      deveAlterarPin: (map['deve_alterar_pin'] as int? ?? 0) == 1,
+      ativo: (map['ativo'] as int? ?? 0) == 1 || map['ativo'] == true,
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
       deviceId: map['device_id']?.toString(),
+      crm: map['crm']?.toString(),
+      classe: map['classe']?.toString(),
     );
   }
 
@@ -79,15 +103,14 @@ class Usuario {
       'id': id,
       'matricula_funcional': matriculaFuncional,
       'nome_completo': nomeCompleto,
-      'papel_id': papelId,
-      'crm': crm,
-      'classe': classe,
+      'roles': jsonEncode(roles),
       'hash_pin_offline': hashPinOffline,
-      'deve_alterar_pin': deveAlterarPin ? 1 : 0,
       'ativo': ativo ? 1 : 0,
       'criado_em': criadoEm.toIso8601String(),
       'salt': salt,
       'device_id': deviceId,
+      'crm': crm,
+      'classe': classe,
     };
   }
 }

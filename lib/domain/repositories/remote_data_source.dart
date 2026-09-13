@@ -13,13 +13,8 @@ abstract interface class IRemoteDataSource {
   ///
   /// @throws [AuthException] caso as credenciais (matrícula/PIN) sejam
   /// inválidas ou haja falha na conectividade.
-  Future<Map<String, dynamic>> login(String matricula, String pin);
+  Future<Map<String, dynamic>> login(String login, String senha);
 
-  /// Atualiza a credencial de acesso local (PIN) do Perito no servidor central.
-  ///
-  /// @throws [AuthException] caso a operação seja rejeitada pelo backend
-  /// ou ocorra timeout de rede.
-  Future<void> trocarPin(String usuarioId, String novoPin);
 
   /// Sincroniza os esquemas de formulários dinâmicos e templates anatômicos
   /// atualizados e aprovados pela central para uso nos Laudos Periciais.
@@ -28,12 +23,20 @@ abstract interface class IRemoteDataSource {
   /// a comunicação com a API falhe.
   Future<List<Map<String, dynamic>>> getTiposAchados();
 
+  /// Obtém a lista oficial de Auxiliares Técnicos de Necropsia (A.T.N.s) cadastrados no backend.
+  Future<List<Map<String, dynamic>>> getAtns();
+
   /// Transmite a carga textual dos Laudos Periciais finalizados e seus 
   /// respectivos Achados (lesões) para consolidação na base de dados central.
   ///
   /// @throws [SyncPushTextualException] em caso de rejeição do payload
   /// pelo servidor central ou perda abrupta de conectividade.
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload);
+
+  /// Sincroniza (Puxa) os casos da base central para o aplicativo,
+  /// permitindo o uso em múltiplos tablets e restaurando o trabalho
+  /// (inclui Lápides / Registros Removidos).
+  Future<List<Map<String, dynamic>>> pullCasos({String? lastSyncTimestamp});
 
   /// Transmite uma Evidência Fotográfica associada a uma lesão, 
   /// garantindo a Cadeia de Custódia.
@@ -45,9 +48,19 @@ abstract interface class IRemoteDataSource {
   /// houver divergência de hash na recepção ou o arquivo físico falhar.
   Future<void> uploadEvidencia({
     required String casoUuid,
-    required String achadoUuid,
+    required String? achadoUuid,
     required String evidenciaUuid,
     required String hash,
     required String filePath,
   });
+
+  /// Faz o upload do PDF físico do Laudo para o servidor via multipart/form-data.
+  /// Retorna a URL (pdfUrl) de onde o arquivo foi armazenado.
+  Future<String> uploadLaudoPdf({
+    required String casoUuid,
+    required String filePath,
+  });
+
+  /// Configura o token Bearer de forma síncrona na memória do cliente HTTP.
+  void setBearerToken(String token);
 }

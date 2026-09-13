@@ -3,28 +3,55 @@ import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
+import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+
+import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 
 class LoginController {
-  final matriculaController = TextEditingController();
-  final pinController = TextEditingController();
+  final loginController = TextEditingController();
+  final senhaController = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
+  bool _isDisposed = false;
+
   void dispose() {
-    matriculaController.dispose();
-    pinController.dispose();
+    _isDisposed = true;
+    loginController.dispose();
+    senhaController.dispose();
+  }
+
+  Future<void> carregarLoginSalvo(BuildContext context) async {
+    final provider = Provider.of<AuthProvider>(context, listen: false);
+    final salvo = await provider.getSavedLogin();
+    
+    if (_isDisposed) return;
+    
+    if (salvo != null && salvo.isNotEmpty) {
+      loginController.text = salvo;
+    }
   }
 
   Future<void> submitLogin(BuildContext context) async {
     if (!formKey.currentState!.validate()) return;
 
     final provider = Provider.of<AuthProvider>(context, listen: false);
+    final syncService = Provider.of<SyncService>(context, listen: false);
+    final caseListProvider = Provider.of<CaseListProvider>(context, listen: false);
+    final loginText = loginController.text.trim();
 
     try {
       await provider.login(
-        matriculaController.text.trim(),
-        pinController.text.trim(),
+        loginText,
+        senhaController.text,
       );
-
+      await provider.saveSavedLogin(loginText);
+      
+      try {
+        await syncService.pullCasos();
+        await caseListProvider.carregarCasos();
+      } catch (e, stackTrace) {
+        debugPrint('Falha ao realizar pullCasos pós-login: $e\n$stackTrace');
+      }
     } on AuthException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {

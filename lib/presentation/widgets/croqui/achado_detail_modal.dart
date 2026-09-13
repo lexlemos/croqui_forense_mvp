@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class AchadoDetailModal extends StatelessWidget {
   final Achado achado;
@@ -36,7 +36,7 @@ class AchadoDetailModal extends StatelessWidget {
               _buildTechnicalInfo(d),
               _buildDynamicFields(d['dynamicFields'] is Map ? Map<String, dynamic>.from(d['dynamicFields']) : null),
               if (achado.observacoesTexto?.isNotEmpty == true) _buildObservations(achado.observacoesTexto!),
-              if (photoPath != null && File(photoPath).existsSync()) _buildPhoto(photoPath),
+              if (photoPath != null && photoPath.trim().isNotEmpty) _buildPhoto(photoPath),
               _buildFooter(context),
             ],
           ),
@@ -98,20 +98,26 @@ class AchadoDetailModal extends StatelessWidget {
         ),
       );
 
-  Widget _buildPhoto(String path) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("REGISTRO FOTOGRÁFICO:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(File(path), fit: BoxFit.cover, width: double.infinity, cacheWidth: 800, cacheHeight: 600),
+  Widget _buildPhoto(String path) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("REGISTRO FOTOGRÁFICO:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: double.infinity,
+              height: 250,
+              child: ImageResolver.buildImage(path, fit: BoxFit.cover),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildFooter(BuildContext context) => Padding(
         padding: const EdgeInsets.all(16),

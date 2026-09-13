@@ -1,20 +1,29 @@
 import 'dart:io';
 
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
+import 'package:dio/dio.dart';
+import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
+import 'package:croqui_forense_mvp/core/utils/sentry_helper.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
+import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
+import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 
 /// Contrato de repositório local responsável pelas operações de leitura e atualização
 /// de integridade dos [Caso]s (Laudos) e seus respectivos [Achado]s durante o processo de sincronização.
 abstract interface class ISyncRepository {
-  /// Obtém todos os [Caso]s (Laudos) finalizados ou rascunhos que ainda não foram sincronizados com o servidor central.
-  Future<List<Caso>> getCasosNaoSincronizados();
+  /// Obtém todos os [Caso]s (Laudos) finalizados do usuário que ainda não foram sincronizados com o servidor central.
+  Future<List<Caso>> getCasosNaoSincronizados(String usuarioId);
+
+  /// Obtém todos os [Caso]s em rascunho do usuário com `is_draft_synced = 0` pendentes de envio.
+  Future<List<Caso>> getRascunhosNaoSincronizados(String usuarioId);
 
   /// Recupera todas as lesões corporais ([Achado]s) associadas a um determinado [Caso] pelo seu identificador único.
   Future<List<Achado>> getAchadosPorCaso(String casoUuid);
@@ -28,11 +37,20 @@ abstract interface class ISyncRepository {
   /// Atualiza o status local do [Caso] (Laudo) para marcado como sincronizado no banco de dados.
   Future<void> marcarCasoComoSincronizado(Caso caso);
 
+  /// Marca localmente a cadeia de custódia como comprometida após falha na evidência.
+  Future<void> marcarCasoComErroDeSincronizacao(String casoUuid);
+
+  /// Atualiza a marcação local de um rascunho como sincronizado no SQLite (`is_draft_synced = 1`).
+  Future<void> marcarRascunhoComoSincronizado(String casoUuid);
+
   /// Atualiza o status local da [Evidência Fotográfica] de um [Achado] para marcado como sincronizada.
   Future<void> marcarFotoComoSincronizada(Achado achado);
 
   /// Recupera as lesões com fotos pendentes de sincronização para um caso específico.
   Future<List<Achado>> getEvidenciasPendentesPorCaso(String casoUuid);
+
+  /// Motor de Upsert (Sincronização Pull). Resolve conflitos e insere/atualiza casos, achados e evidências.
+  Future<void> upsertCasoTransaction(Map<String, dynamic> jsonCaso);
 }
 
 /// Exceção lançada quando o push dos dados textuais de sincronização dos laudos é rejeitado pelo servidor central.
@@ -51,13 +69,13 @@ class SyncPushTextualException implements Exception {
 class SyncUploadEvidenciaException implements Exception {
   final String message;
   final String casoUuid;
-  final String achadoUuid;
+  final String? achadoUuid;
   final int? statusCode;
 
   const SyncUploadEvidenciaException(
     this.message, {
     required this.casoUuid,
-    required this.achadoUuid,
+    this.achadoUuid,
     this.statusCode,
   });
 
@@ -67,6 +85,26 @@ class SyncUploadEvidenciaException implements Exception {
       'status: $statusCode): $message';
 }
 
+/// Indica que a evidência esperada não está disponível no armazenamento local.
+class EvidenceNotFoundException implements Exception {
+  final String casoUuid;
+  final String? achadoUuid;
+  final String? filePath;
+
+  const EvidenceNotFoundException({
+    required this.casoUuid,
+    this.achadoUuid,
+    this.filePath,
+  });
+
+  @override
+  String toString() =>
+      'EvidenceNotFoundException(caso: $casoUuid, achado: $achadoUuid, '
+      'arquivo: $filePath)';
+}
+
+// Função utilitária removida: _readAndEncodePdfBase64 (agora o PDF é enviado como arquivo físico)
+
 /// Serviço de domínio encarregado da [Sincronização] e conformidade dos dados periciais do IML.
 ///
 /// Ele garante que a [Cadeia de Custódia] dos [Caso]s (Laudos) e suas respectivas [Evidência Fotográfica]s
@@ -75,49 +113,143 @@ class SyncUploadEvidenciaException implements Exception {
 class SyncService {
   final IRemoteDataSource _remoteDataSource;
   final ISyncRepository _repository;
+  final AuthService? _authService;
 
   SyncService({
     required IRemoteDataSource remoteDataSource,
     required ISyncRepository repository,
+    AuthService? authService,
   })  : _remoteDataSource = remoteDataSource,
-        _repository = repository;
+        _repository = repository,
+        _authService = authService;
+
+  final Set<String> _uuidsEmTransito = {};
+  bool _isSyncing = false;
 
   /// Executa o fluxo completo de sincronização pericial do dispositivo com a central.
   ///
-  /// Busca todos os laudos locais pendentes de envio, faz o push textual agregado de toda a carga de dados,
+  /// Busca todos os laudos locais e rascunhos pendentes de envio, faz o push textual agregado de toda a carga de dados,
   /// e então executa o upload em lote de cada [Evidência Fotográfica] associada. Ao fim do envio bem-sucedido
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
-  ///
-  /// @throws [SyncPushTextualException] se o envio inicial dos dados dos laudos falhar ou for recusado no servidor.
-  /// @throws [SyncUploadEvidenciaException] se o upload de alguma evidência fotográfica falhar durante a transmissão.
-  Future<void> execute() async {
-    debugPrint('[SyncService] Iniciando sincronização...');
-
-    final List<Caso> casosPendentes =
-        await _repository.getCasosNaoSincronizados();
-
-    if (casosPendentes.isEmpty) return;
-
-    debugPrint('[SyncService] ${casosPendentes.length} caso(s) pendente(s).');
-
-    // Fase 1: Push textual de metadados (JSON)
-    final syncResult = await _pushTextual(casosPendentes);
-    
-    // Extrai a lista de UUIDs com conflitos do backend
-    final conflitosUuids = List<String>.from(syncResult['conflitos'] ?? []);
-    int totalFotosFalhas = 0;
-    int totalCasosConflito = conflitosUuids.length;
-
-    // Fase 2: Upload individual das evidências fotográficas (idempotência local)
-    for (final caso in casosPendentes) {
-      if (conflitosUuids.contains(caso.uuid)) {
-        debugPrint('[SyncService] Caso ${caso.uuid} está em conflito no servidor central. Ignorando upload de evidências.');
-        continue;
+  bool _isSessionExpiredError(Object error) {
+    if (error is DioException) {
+      if (error.response?.statusCode == 401 || error.response?.statusCode == 403 || error.error is SessionExpiredException) {
+        return true;
       }
+    }
+    if (error is SessionExpiredException) return true;
+    return false;
+  }
 
-      final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
-      final falhasNoCaso = await _processarCaso(caso, fotos);
-      totalFotosFalhas += falhasNoCaso;
+  /// Executa o fluxo completo de sincronização pericial do dispositivo com a central.
+  ///
+  /// Busca todos os laudos locais e rascunhos pendentes de envio, faz o push textual agregado de toda a carga de dados,
+  /// e então executa o upload em lote de cada [Evidência Fotográfica] associada. Ao fim do envio bem-sucedido
+  /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
+  Future<void> execute() async {
+    if (_isSyncing) {
+      debugPrint('[SyncService] ⏭️ Sincronização já em andamento. Abortando duplo-clique.');
+      return;
+    }
+    _isSyncing = true;
+    try {
+      debugPrint('[SyncService] Iniciando sincronização...');
+
+
+    // Fase 0.05: Pull de Casos Remotos para evitar conflitos
+    try {
+      await pullCasos();
+    } on DioException catch (e) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401) no pull de casos. Abortando ciclo.');
+        rethrow;
+      }
+      debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
+    } catch (e) {
+      debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
+    }
+
+    final usuarioId = _authService?.usuario?.id;
+    if (usuarioId == null || usuarioId.isEmpty) {
+      debugPrint('[SyncService] 🛑 Nenhum usuário logado. Abortando envio de casos pendentes.');
+      return;
+    }
+
+    final casosFinalizados = await _repository.getCasosNaoSincronizados(usuarioId);
+    final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados(usuarioId);
+
+    final List<Caso> casosParaEnviar = [...casosFinalizados, ...rascunhosPendentes];
+
+    if (casosParaEnviar.isEmpty) {
+      debugPrint('[SyncService] Nenhum caso (finalizado ou rascunho) pendente de sincronização.');
+      return;
+    }
+
+    debugPrint('[SyncService] Preparando push de ${casosFinalizados.length} casos finalizados e ${rascunhosPendentes.length} rascunhos.');
+
+    int totalFotosFalhas = 0;
+    int totalCasosConflito = 0;
+
+    // Fila FIFO Segura: Processa os casos em BULK PUSH.
+    try {
+      debugPrint('[SyncService] 📦 Fazendo push textual (Bulk) de ${casosParaEnviar.length} casos...');
+      
+      // Fase 1: Push textual de metadados (JSON) de todos os casos num único array
+      final syncResult = await _pushTextual(casosParaEnviar);
+      final conflitosUuids = Set<String>.from(
+        syncResult['conflitos'] ?? const <String>[],
+      );
+      final salvosUuids = Set<String>.from(
+        syncResult['casos_salvos'] ?? const <String>[],
+      );
+      
+      totalCasosConflito += conflitosUuids.length;
+
+      // Fase 2: Upload das evidências fotográficas dos casos salvos com sucesso
+      for (final caso in casosParaEnviar) {
+        if (_authService != null && !_authService.isLogged) {
+          debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de fotos prematuramente.');
+          return;
+        }
+
+        if (conflitosUuids.contains(caso.uuid) || !salvosUuids.contains(caso.uuid)) {
+          debugPrint('[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado. Pulando envio de fotos.');
+          continue;
+        }
+
+        try {
+          await Sentry.captureMessage('Iniciando ciclo de upload de mídia para o caso salvo ${caso.uuid}', level: SentryLevel.info);
+          final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
+          final falhasNoCaso = await _processarCaso(caso, fotos);
+          totalFotosFalhas += falhasNoCaso;
+        } on DioException catch (e, stackTrace) {
+          if (_isSessionExpiredError(e)) {
+            debugPrint('[SyncService] 🛑 Sessão expirada no envio de fotos do caso ${caso.uuid}.');
+            return;
+          }
+          debugPrint('[SyncService] ⚠️ Falha de rede ao enviar fotos do caso ${caso.uuid}: $e');
+          SentryHelper.setSyncErrorTag(caso.uuid);
+          await Sentry.captureException(e, stackTrace: stackTrace);
+          totalFotosFalhas++;
+        } catch (e, stackTrace) {
+          debugPrint('[SyncService] ⚠️ Erro inesperado nas fotos do caso ${caso.uuid}: $e');
+          SentryHelper.setSyncErrorTag(caso.uuid);
+          await Sentry.captureException(e, stackTrace: stackTrace);
+          totalFotosFalhas++;
+        }
+      }
+    } on DioException catch (e, stackTrace) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio (Bulk).');
+        return;
+      }
+      debugPrint('[SyncService] ⚠️ Falha na rede no Bulk Push: $e');
+      await Sentry.captureException(e, stackTrace: stackTrace);
+      totalFotosFalhas++; // Falhou tudo
+    } catch (e, stackTrace) {
+      debugPrint('[SyncService] ⚠️ Erro inesperado no Bulk Push: $e');
+      await Sentry.captureException(e, stackTrace: stackTrace);
+      totalFotosFalhas++;
     }
 
     debugPrint('[SyncService] Ciclo concluído.');
@@ -128,9 +260,120 @@ class SyncService {
         erros.add('$totalCasosConflito caso(s) em conflito no servidor central.');
       }
       if (totalFotosFalhas > 0) {
-        erros.add('falha ao enviar $totalFotosFalhas fotos.');
+        erros.add('falha ao enviar $totalFotosFalhas item(ns).');
       }
       throw Exception('Sincronização parcial: ${erros.join(" e ")}');
+    }
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
+  VoidCallback? onPullCompleted;
+
+  /// Baixa casos da base central e sincroniza localmente através de Upsert com resolução de conflito.
+  Future<void> pullCasos() async {
+    debugPrint('[SyncService] Iniciando Pull Synchronization...');
+    try {
+      final secureStorage = SecureKeyStorage();
+      final lastSync = await secureStorage.read(key: 'last_sync_timestamp');
+      
+      final casosRemotos = await _remoteDataSource.pullCasos(lastSyncTimestamp: lastSync);
+      
+      if (casosRemotos.isEmpty) {
+        debugPrint('[SyncService] Nenhum caso recebido no pull.');
+        return;
+      }
+      
+      debugPrint('[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.');
+      String? lastSuccessfulSyncTimestamp;
+      
+      for (final casoJson in casosRemotos) {
+        try {
+          await _repository.upsertCasoTransaction(casoJson);
+          final atualizadoEm = casoJson['atualizado_em']?.toString();
+          if (atualizadoEm != null && atualizadoEm.isNotEmpty) {
+            lastSuccessfulSyncTimestamp = atualizadoEm;
+          }
+        } catch (e, stackTrace) {
+          debugPrint('[SyncService] ❌ Erro ao sincronizar (upsert) o caso ${casoJson['uuid']}: $e\n$stackTrace');
+          final casoUuid = casoJson['uuid']?.toString();
+          if (casoUuid != null && casoUuid.isNotEmpty) {
+            try {
+              await _repository.marcarCasoComErroDeSincronizacao(casoUuid);
+            } catch (markError, markStackTrace) {
+              debugPrint(
+                '[SyncService] ❌ Não foi possível registrar sync_error para '
+                '$casoUuid: $markError\n$markStackTrace',
+              );
+            }
+          }
+          // Continua para o próximo caso, preservando o sucesso parcial.
+          continue;
+        }
+      }
+
+      if (lastSuccessfulSyncTimestamp != null) {
+        await secureStorage.save(
+          key: 'last_sync_timestamp',
+          value: lastSuccessfulSyncTimestamp,
+        );
+      }
+
+      debugPrint('[SyncService] Pull Synchronization concluído com sucesso parcial.');
+      onPullCompleted?.call();
+    } on DioException catch (e, stackTrace) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.');
+        rethrow;
+      }
+      debugPrint('[SyncService] ⚠️ Falha na rede durante o Pull: $e\n$stackTrace');
+      rethrow;
+    } catch (e, stackTrace) {
+      debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e\n$stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Dispara a sincronização silenciosa de um novo rascunho de caso para rastreamento no backend.
+  /// Não bloqueia a interface. Caso falhe por queda de rede, a marcação `is_draft_synced = 0` no SQLite
+  /// garante o reenvio automático assim que a conectividade retornar.
+  Future<void> pushCasoRascunho(Caso caso) async {
+    if (_uuidsEmTransito.contains(caso.uuid)) {
+      debugPrint('[SyncService] ⏭️ Caso ${caso.uuid} já em trânsito. Ignorando push duplicado.');
+      return;
+    }
+    _uuidsEmTransito.add(caso.uuid);
+
+    try {
+      debugPrint('[SyncService] 🚀 Disparando push silencioso de rascunho para o caso ${caso.uuid}...');
+      await Sentry.captureMessage('Iniciando ciclo de sincronização para o caso ${caso.uuid}', level: SentryLevel.info);
+      
+      final casoProcessado = await _sincronizarPdfCaso(caso);
+      
+      final achados = await _repository.getAchadosPorCaso(casoProcessado.uuid);
+      final casoJson = await _casoParaJson(casoProcessado, achados);
+      final deviceId = await DeviceInfoService.getDeviceId();
+
+      final payload = {
+        'device_id': deviceId,
+        'timestamp_sincronizacao': DateTime.now().toUtc().toIso8601String(),
+        'casos': [casoJson],
+      };
+
+      await _remoteDataSource.pushTextual(payload);
+      await _repository.marcarRascunhoComoSincronizado(caso.uuid);
+      debugPrint('[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.');
+    } catch (e, stackTrace) {
+      if (_isSessionExpiredError(e)) {
+        debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push silencioso do rascunho. Abortando.');
+        rethrow;
+      }
+      debugPrint('[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e');
+      SentryHelper.setSyncErrorTag(caso.uuid);
+      await Sentry.captureException(e, stackTrace: stackTrace);
+    } finally {
+      _uuidsEmTransito.remove(caso.uuid);
     }
   }
 
@@ -141,8 +384,9 @@ class SyncService {
 
     final List<Map<String, dynamic>> casosJson = [];
     for (final caso in casos) {
-      final achados = achadosPorCaso[caso.uuid] ?? [];
-      casosJson.add(_casoParaJson(caso, achados));
+      final casoProcessado = await _sincronizarPdfCaso(caso);
+      final achados = achadosPorCaso[casoProcessado.uuid] ?? [];
+      casosJson.add(await _casoParaJson(casoProcessado, achados));
     }
 
     final deviceId = await DeviceInfoService.getDeviceId();
@@ -167,16 +411,35 @@ class SyncService {
     final List<Object> erros = [];
 
     for (final achado in achadosComFotos) {
+      if (_authService != null && !_authService.isLogged) {
+        debugPrint('[SyncService] 🛑 Sessão nula. Abortando upload de fotos prematuramente.');
+        throw SessionExpiredException();
+      }
       try {
         // Envio individual (loop) via multipart/form-data
         await _uploadEvidencia(caso, achado);
         achadosSincronizados.add(achado);
         // Idempotência Local: Marcar a foto como sincronizada imediatamente após sucesso individual
         await _repository.marcarFotoComoSincronizada(achado);
-      } catch (e) {
+      } on EvidenceNotFoundException catch (e, stackTrace) {
+        debugPrint(
+          '[SyncService] 🛑 Evidência ausente no caso ${caso.uuid}; '
+          'upload do caso abortado: $e',
+        );
+        await _repository.marcarCasoComErroDeSincronizacao(caso.uuid);
+        SentryHelper.setSyncErrorTag(caso.uuid);
+        await Sentry.captureException(e, stackTrace: stackTrace);
+        return 1;
+      } catch (e, stackTrace) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.');
+          rethrow;
+        }
         // Captura timeouts de rede (como DioExceptionType.connectionTimeout) e erros de rede gerais
         erros.add(e);
         debugPrint('[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e');
+        SentryHelper.setSyncErrorTag(caso.uuid);
+        await Sentry.captureException(e, stackTrace: stackTrace);
       }
     }
 
@@ -194,10 +457,22 @@ class SyncService {
 
   Future<void> _uploadEvidencia(Caso caso, Achado achado) async {
     final String? caminhoFoto = achado.photoPath;
-    if (caminhoFoto == null || caminhoFoto.isEmpty) return;
+    if (caminhoFoto == null || caminhoFoto.isEmpty) {
+      throw EvidenceNotFoundException(
+        casoUuid: caso.uuid,
+        achadoUuid: achado.uuid,
+        filePath: caminhoFoto,
+      );
+    }
 
     final File arquivoOriginal = File(caminhoFoto);
-    if (!arquivoOriginal.existsSync()) return;
+    if (!arquivoOriginal.existsSync()) {
+      throw EvidenceNotFoundException(
+        casoUuid: caso.uuid,
+        achadoUuid: achado.uuid,
+        filePath: caminhoFoto,
+      );
+    }
 
     final bytes = await arquivoOriginal.readAsBytes();
     final String hashOriginal = sha256.convert(bytes).toString();
@@ -206,9 +481,11 @@ class SyncService {
     final String evidenciaUuid =
         achado.dadosPreenchidos['_evidencia_uuid']?.toString() ?? achado.uuid;
 
+    final bool isFotoGeral = achado.tipoAchadoId == 'FOTO_GERAL' || achado.diagramaNome == 'GERAL';
+
     await _remoteDataSource.uploadEvidencia(
       casoUuid: caso.uuid,
-      achadoUuid: achado.uuid,
+      achadoUuid: isFotoGeral ? null : achado.uuid,
       evidenciaUuid: evidenciaUuid,
       hash: hashOriginal,
       filePath: arquivoOriginal.path,
@@ -219,32 +496,57 @@ class SyncService {
     await _repository.marcarCasoComoSincronizado(caso);
   }
 
+  /// Sincroniza o PDF fisicamente usando a nova rota multipart.
+  /// Retorna um [Caso] atualizado contendo a `pdfUrl` gerada pelo backend.
+  Future<Caso> _sincronizarPdfCaso(Caso caso) async {
+    final localPath = caso.pdfLocalPath;
+    if (localPath != null && localPath.isNotEmpty) {
+      final pdfFile = File(localPath);
+      if (pdfFile.existsSync()) {
+        try {
+          debugPrint('[SyncService] 📄 Fazendo upload físico do Laudo PDF: ${caso.pdfLocalPath}');
+          final pdfUrl = await _remoteDataSource.uploadLaudoPdf(
+            casoUuid: caso.uuid,
+            filePath: pdfFile.path,
+          );
+          await Sentry.captureMessage('Upload do Laudo concluído com sucesso: ${caso.uuid}', level: SentryLevel.info);
+          return caso.copyWith(pdfUrl: pdfUrl);
+        } catch (e, stackTrace) {
+          debugPrint('[SyncService] ⚠️ Erro ao fazer upload do PDF para o caso ${caso.uuid}: $e');
+          SentryHelper.setSyncErrorTag(caso.uuid);
+          await Sentry.captureException(e, stackTrace: stackTrace);
+          rethrow;
+        }
+      }
+    }
+    return caso;
+  }
+
   String _toDeterministicUuidV4(String namespace, String name) {
     final String uuidV5 = const Uuid().v5(namespace, name);
     return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
   }
 
-  Map<String, dynamic> _casoParaJson(Caso caso, List<Achado> achados) {
+  Future<Map<String, dynamic>> _casoParaJson(Caso caso, List<Achado> achados) async {
     final uniqueDiagramNames = achados.map((a) => a.diagramaNome).toSet();
 
     final List<Map<String, dynamic>> diagramasJson = [];
     for (final diagName in uniqueDiagramNames) {
-      final String templateId = DiagramTemplates.templateIdParaView(diagName);
-      final String templateUuid = _toDeterministicUuidV4('6ba7b811-9dad-11d1-80b4-00c04fd430c8', templateId);
       final String diagramaUuid = _toDeterministicUuidV4(caso.uuid, diagName);
 
       diagramasJson.add({
         'uuid': diagramaUuid,
         'caso_uuid': caso.uuid,
-        'template_id': templateUuid,
+        'nome_diagrama': diagName,
         'versao': 1,
         'removido': false,
-        'device_id': caso.deviceId,
-        'proveniencia': caso.proveniencia ?? 'APP_TABLET',
         'criado_em': caso.criadoEmDispositivo.toUtc().toIso8601String(),
         'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
       });
     }
+
+    // Remoção da leitura em Base64 do PDF.
+    // A propriedade pdfUrl já estará preenchida no caso se o upload físico ocorreu com sucesso antes dessa serialização.
 
     return {
       'uuid': caso.uuid,
@@ -255,34 +557,42 @@ class SyncService {
       'numero_laudo_externo': caso.numeroLaudoExterno,
       'dados_laudo_json': caso.dadosLaudo,
       'device_id': caso.deviceId,
-      'proveniencia': caso.proveniencia,
       'criado_em_dispositivo': caso.criadoEmDispositivo.toUtc().toIso8601String(),
-      'criado_em_rede_confiavel': caso.criadoEmRedeConfiavel?.toUtc().toIso8601String(),
       'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
+      'finalizado_em': caso.finalizadoEm?.toUtc().toIso8601String(),
+      'numero_pic': caso.numeroPic,
+      'numero_bo': caso.numeroBo,
+      'numero_requisicao': caso.numeroRequisicao,
+      'nome_vitima': caso.nomeVitima,
+      'destino': caso.destino,
+      'requisitante': caso.requisitante,
+      'atns_ids': caso.atnsIds,
+      'pdf_local_path': caso.pdfLocalPath,
+      'pdf_url': caso.pdfUrl,
+      // ── Campos clínicos/forenses (15 novos campos na raiz do payload) ──
+      'corpo_estado': caso.corpoEstado,
+      'corpo_estado_outros': caso.corpoEstadoOutros,
+      'sexo_biologico_estimado': caso.sexoBiologicoEstimado,
+      'data_obito': caso.dataObito,
+      'hora_obito': caso.horaObito,
+      'tipo_estimativa_hora_obito': caso.tipoEstimativaHoraObito,
+      // causaMorte é Map/List nativo — Dio/json.encode serializa corretamente
+      'causa_morte': caso.causaMorte,
+      // booleanos enviados como true/false nativos (não 0/1)
+      'tem_exames_solicitados': caso.examesSolicitados, // renomeado para evitar colisão com array de exames
+      'descricao_exames': caso.descricaoExames,
+      'objeto_retirado': caso.objetoRetirado,
+      'descricao_objeto': caso.descricaoObjeto,
+      'data_necropsia': caso.dataNecropsia,
+      'hora_necropsia': caso.horaNecropsia,
+      'numero_declaracao_obito': caso.numeroDeclaracaoObito,
+      // ─────────────────────────────────────────────────────────────────
       'diagramas': diagramasJson,
       'achados': achados.map(_achadoParaJson).toList(),
     };
   }
 
   Map<String, dynamic> _achadoParaJson(Achado achado) {
-    final String diagramaCasoUuid = _toDeterministicUuidV4(achado.casoUuid, achado.diagramaNome);
-
-    return {
-      'uuid': achado.uuid,
-      'diagrama_caso_uuid': diagramaCasoUuid, // Chave obrigatória apontando para o diagrama correspondente
-      'tipo_achado_id': achado.tipoAchadoId,
-      'versao': achado.versao,
-      'removido': achado.removido,
-      'numero_sequencial': achado.numeroSequencial,
-      'pos_x': achado.posX.toDouble(),
-      'pos_y': achado.posY.toDouble(),
-      'esta_pendente': false,
-      'dados_preenchidos_json': achado.dadosPreenchidos,
-      'observacoes_texto': achado.observacoesTexto,
-      'device_id': achado.deviceId,
-      'proveniencia': achado.proveniencia ?? 'APP_TABLET',
-      'criado_em': achado.criadoEm.toUtc().toIso8601String(),
-      'atualizado_em': (achado.atualizadoEm ?? achado.criadoEm).toUtc().toIso8601String(),
-    };
+    return achado.toSyncMap();
   }
 }
