@@ -1,0 +1,30 @@
+name: Flutter Quality Gate
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Instalar Dependências
+        run: flutter pub get
+        
+      - name: Verificar Formatação
+        run: dart format --output=none --set-exit-if-changed .
+        
+      - name: Análise Estática (Linter)
+        run: flutter analyze
+
+      # Deixamos o comando de teste comentado para o futuro
+      # - name: Rodar Testes
+      #   run: flutter test
