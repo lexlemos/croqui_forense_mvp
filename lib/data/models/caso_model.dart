@@ -3,25 +3,30 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:croqui_forense_mvp/data/models/auditoria_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
+import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 
 enum SortCriteria { numero, data }
 enum SortOrder { asc, desc }
 
 enum StatusCaso {
   rascunho,
-  // ignore: constant_identifier_names
   laudo_pendente,
   finalizado,
   sincronizado,
   arquivado
 }
 
+/// Entidade central do domínio de Necrópsia Digital, representando um Laudo Pericial completo.
+///
+/// Agrupa metadados do defunto, ocorrência (PIC/BO), hierarquia de [Achado]s, 
+/// cadeia de custódia da [AuditoriaModel] e a estrutura de [EvidenciaMultimidia].
 class Caso {
   final String uuid;
   final String idUsuarioCriador; 
   final String? numeroLaudoExterno;
   final StatusCaso status;
-  final Map<String, dynamic> dadosLaudo; 
+  final DadosLaudoModel dadosLaudo; 
   final String? hashIntegridade;
   final bool removido;
   final int versao;
@@ -51,7 +56,7 @@ class Caso {
   /// Armazena a estrutura hierárquica das causas da morte.
   /// Tipado estritamente como Lista para garantir a integridade da árvore 
   /// de dados no ciclo de persistência bidirecional (SQLite ↔ API REST).
-  final List<dynamic>? causaMorte;
+  final List<CausaMorteModel>? causaMorte;
   final bool? examesSolicitados;
   final String? descricaoExames;
   final bool? objetoRetirado;
@@ -61,13 +66,7 @@ class Caso {
   final String? numeroDeclaracaoObito;
 
   AuditoriaModel get auditoria {
-    final map = dadosLaudo['auditoria'];
-    if (map is Map<String, dynamic>) {
-      return AuditoriaModel.fromJson(map);
-    } else if (map is Map) {
-      return AuditoriaModel.fromJson(Map<String, dynamic>.from(map));
-    }
-    return AuditoriaModel();
+    return dadosLaudo.auditoria;
   }
 
   Caso({
@@ -115,7 +114,7 @@ class Caso {
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
     this.deviceId,
-    this.dadosLaudo = const {},
+    DadosLaudoModel? dadosLaudo,
     this.numeroPic = '',
     this.numeroBo = '',
     this.numeroRequisicao = '',
@@ -147,6 +146,7 @@ class Caso {
        hashIntegridade = null,
        removido = false,
        versao = 1,
+       dadosLaudo = dadosLaudo ?? DadosLaudoModel.novo(),
        criadoEmDispositivo = DateTime.now(),
        atualizadoEm = DateTime.now(),
        finalizadoEm = null;
@@ -164,13 +164,14 @@ class Caso {
               })()))
         : <String, dynamic>{};
 
-    // Limpa chaves legadas de ATN de dentro do auditoria no dados_laudo_json
     if (dadosLaudoParsed['auditoria'] is Map) {
       final auditoriaMap = Map<String, dynamic>.from(dadosLaudoParsed['auditoria'] as Map);
       auditoriaMap.remove('atn_id');
       auditoriaMap.remove('atn_nome');
       dadosLaudoParsed['auditoria'] = auditoriaMap;
     }
+
+    final DadosLaudoModel modelDadosLaudo = DadosLaudoModel.fromMap(dadosLaudoParsed);
 
     List<String> parsedAtns = [];
     final rawAtns = map['atns_ids'];
@@ -204,7 +205,7 @@ class Caso {
         (e) => e.name.toUpperCase() == (map['status']?.toString() ?? '').toUpperCase(),
         orElse: () => StatusCaso.rascunho,
       ),
-      dadosLaudo: dadosLaudoParsed,
+      dadosLaudo: modelDadosLaudo,
       
       hashIntegridade: map['hash_integridade']?.toString(),
       removido: map['removido'] is bool 
@@ -251,20 +252,23 @@ class Caso {
         final raw = map['causa_morte'];
         if (raw == null) return null;
         
-        if (raw is Map || raw is List) return raw;
-        
-        if (raw is String && raw.isNotEmpty) {
+        List<dynamic> listRaw = [];
+        if (raw is List) {
+          listRaw = raw;
+        } else if (raw is String && raw.isNotEmpty) {
           try {
             final decoded = jsonDecode(raw);
-            if (decoded is Map || decoded is List) return decoded;
+            if (decoded is List) listRaw = decoded;
           } catch (e) {
             debugPrint('[CasoModel] Parse error em causa_morte: $e');
           }
         }
-        return null;
+        
+        if (listRaw.isEmpty) return null;
+        return listRaw.whereType<Map>().map((x) => CausaMorteModel.fromMap(Map<String, dynamic>.from(x))).toList();
       })(),
-      // Lê 'tem_exames_solicitados' (backend) com fallback para 'exames_solicitados' (SQLite)
       examesSolicitados: (() {
+        // Lê 'tem_exames_solicitados' (backend) com fallback para 'exames_solicitados' (SQLite)
         final raw = map['tem_exames_solicitados'] ?? map['exames_solicitados'];
         if (raw == null) return null;
         return raw == true || raw == 1;
@@ -285,7 +289,7 @@ class Caso {
     String? idUsuarioCriador,
     String? numeroLaudoExterno,
     StatusCaso? status,
-    Map<String, dynamic>? dadosLaudo,
+    DadosLaudoModel? dadosLaudo,
     String? hashIntegridade,
     bool? removido,
     int? versao,
@@ -310,7 +314,7 @@ class Caso {
     String? dataObito,
     String? horaObito,
     String? tipoEstimativaHoraObito,
-    List<dynamic>? causaMorte,
+    List<CausaMorteModel>? causaMorte,
     bool? examesSolicitados,
     String? descricaoExames,
     bool? objetoRetirado,
@@ -366,7 +370,7 @@ class Caso {
       'id_usuario_criador': idUsuarioCriador,
       'numero_laudo_externo': numeroLaudoExterno,
       'status': status.name.toUpperCase(),
-      'dados_laudo_json': jsonEncode(dadosLaudo),
+      'dados_laudo_json': jsonEncode(dadosLaudo.toMap()),
       'hash_integridade': hashIntegridade,
       'removido': removido ? 1 : 0,
       'versao': versao,
@@ -391,7 +395,7 @@ class Caso {
       'data_obito': dataObito,
       'hora_obito': horaObito,
       'tipo_estimativa_hora_obito': tipoEstimativaHoraObito,
-      'causa_morte': causaMorte != null ? jsonEncode(causaMorte) : null,
+      'causa_morte': causaMorte != null ? jsonEncode(causaMorte!.map((e) => e.toMap()).toList()) : null,
       'exames_solicitados': examesSolicitados == null ? null : (examesSolicitados! ? 1 : 0),
       'descricao_exames': descricaoExames,
       'objeto_retirado': objetoRetirado == null ? null : (objetoRetirado! ? 1 : 0),
@@ -408,7 +412,7 @@ class Caso {
       'id_usuario_criador': idUsuarioCriador,
       'numero_laudo_externo': numeroLaudoExterno,
       'status': status.name.toUpperCase(),
-      'dados_laudo_json': dadosLaudo,
+      'dados_laudo_json': dadosLaudo.toMap(),
       'hash_integridade': hashIntegridade,
       'removido': removido,
       'versao': versao,
@@ -432,7 +436,7 @@ class Caso {
       'data_obito': dataObito,
       'hora_obito': horaObito,
       'tipo_estimativa_hora_obito': tipoEstimativaHoraObito,
-      'causa_morte': causaMorte,
+      'causa_morte': causaMorte?.map((e) => e.toMap()).toList(),
       /// Alinhado com o DTO [CasoSyncDTO] do backend FastAPI para evitar colisão 
       /// estrutural com o array de objetos de exames.
       'tem_exames_solicitados': examesSolicitados,

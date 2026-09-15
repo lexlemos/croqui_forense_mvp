@@ -7,6 +7,7 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 
 Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> params) async {
@@ -81,7 +82,7 @@ class CaseService {
     final novoCaso = Caso.novo(
       idUsuarioCriador: criador.id, 
       numeroLaudoExterno: numeroLaudo, 
-      dadosLaudo: dadosIniciais,
+      dadosLaudo: DadosLaudoModel.fromMap(dadosIniciais),
       numeroPic: numeroPic,
       numeroBo: numeroBo,
       numeroRequisicao: numeroRequisicao,
@@ -114,12 +115,12 @@ class CaseService {
     final casoAtual = await _repository.getCaseByUuid(casoUuid);
     if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
 
-    final Map<String, dynamic> dadosAtualizados = Map<String, dynamic>.from(casoAtual.dadosLaudo);
+    final Map<String, dynamic> dadosAtualizados = casoAtual.dadosLaudo.toMap();
     dadosAtualizados.addAll(dadosConclusao);
 
     final casoFinalizado = casoAtual.copyWith(
       status: StatusCaso.finalizado,
-      dadosLaudo: dadosAtualizados,
+      dadosLaudo: DadosLaudoModel.fromMap(dadosAtualizados),
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now(),
     );
@@ -270,17 +271,17 @@ class CaseService {
       'documento': {'titulo': 'Laudo Pericial Cadavérico', 'versao_schema': '2.0'},
       '1_cabecalho': _buildCabecalho(caso, nomeCriador),
       '2_descritivo_lesoes': _buildListaAchados(achados),
-      '3_exames_complementares': _buildExamesComplementares(caso.dadosLaudo),
-      '4_analise_medico_legal': _buildAnaliseMedicoLegal(caso.dadosLaudo),
-      '5_respostas_quesitos': _buildRespostasQuesitos(caso.dadosLaudo),
-      '6_anexos_fotograficos': _buildGaleriaFotos(caso.dadosLaudo, achados),
+      '3_exames_complementares': _buildExamesComplementares(caso.dadosLaudo.toMap()),
+      '4_analise_medico_legal': _buildAnaliseMedicoLegal(caso.dadosLaudo.toMap()),
+      '5_respostas_quesitos': _buildRespostasQuesitos(caso.dadosLaudo.toMap()),
+      '6_anexos_fotograficos': _buildGaleriaFotos(caso.dadosLaudo.toMap(), achados),
       '7_auditoria_exportacao': _buildAuditoria(nomeExportador)
     };
   }
 
   Map<String, dynamic> _buildCabecalho(Caso caso, String nomeCriador) {
-    final cabecalho = caso.dadosLaudo['cabecalho'] ?? {};
-    final identificacao = caso.dadosLaudo['identificacao'] ?? {};
+    final cabecalho = caso.dadosLaudo.cabecalho.toMap();
+    final identificacao = caso.dadosLaudo.identificacao.toMap();
     
     return {
       'meta_info': {

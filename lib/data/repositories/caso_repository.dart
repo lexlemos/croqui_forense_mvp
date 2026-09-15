@@ -16,6 +16,11 @@ import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dar
 import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
+/// Repositório central de domínio pericial responsável pela persistência atômica no SQLite (SQLCipher).
+///
+/// Implementa a interface [ISyncRepository] para garantir que todas as transações
+/// mantenham a integridade da Cadeia de Custódia. Suporta exclusão lógica (tombstones),
+/// isolamento de dados por usuário e reconciliação Offline-First utilizando Optimistic Concurrency Control (OCC).
 class CasoRepository implements ISyncRepository {
   final DatabaseHelper _dbHelper;
 
@@ -23,6 +28,11 @@ class CasoRepository implements ISyncRepository {
 
   Future<Database> get database async => _dbHelper.database;
 
+  /// Insere um novo laudo pericial (Caso) no banco local garantindo estado inicial.
+  ///
+  /// Transação atômica. Se o `uuid` já existir, ele sobrescreve os dados base 
+  /// e define `is_draft_synced` como 0, forçando re-sincronização no próximo loop.
+  /// Throws [Exception] em caso de falha de persistência atômica.
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
     try {
@@ -284,7 +294,6 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final placeholders = List.filled(casoUuids.length, '?').join(',');
 
-    // 1. Fotos gerais do caso (SQL na tabela evidencias_multimidia)
     try {
       final List<Map<String, dynamic>> generalEvidences = await db.query(
         tableEvidenciasMultimidia,
@@ -324,7 +333,6 @@ class CasoRepository implements ISyncRepository {
       debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (GERAL): $e');
     }
 
-    // 2. Fotos de lesões (SQL na tabela evidencias_multimidia)
     try {
       final sqlAchados = '''
         SELECT
@@ -372,7 +380,6 @@ class CasoRepository implements ISyncRepository {
     final List<Achado> pending = [];
     final db = await database;
 
-    // 1. Fotos gerais do caso (SQL na tabela evidencias_multimidia)
     try {
       final List<Map<String, dynamic>> generalEvidences = await db.query(
         tableEvidenciasMultimidia,
@@ -412,7 +419,6 @@ class CasoRepository implements ISyncRepository {
       debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (GERAL): $e');
     }
 
-    // 2. Fotos vinculadas a lesões/achados (SQL)
     try {
       const sqlAchados = '''
         SELECT
@@ -518,7 +524,6 @@ class CasoRepository implements ISyncRepository {
     }
   }
 
-  // Novos Métodos para Evidências Gerais e Exames Solicitados
 
   Future<EvidenciaMultimidia?> getEvidenciaByUuid(String uuid) async {
     final db = await database;
@@ -656,7 +661,6 @@ class CasoRepository implements ISyncRepository {
 
   /// Persiste a lista de exames solicitados e suas filhas polimórficas de forma atômica e performática.
   Future<void> salvarExames(String casoUuid, List<ExameSolicitadoModel> exames) async {
-    // Guard de imutabilidade: bloqueia escrita se o laudo já estiver finalizado
     final casoAtual = await getCaseByUuid(casoUuid);
     if (casoAtual != null && casoAtual.status == StatusCaso.finalizado) {
       throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
@@ -667,14 +671,12 @@ class CasoRepository implements ISyncRepository {
       await db.transaction((txn) async {
         final batch = txn.batch();
 
-        // 1. Deleta exames anteriores (ON DELETE CASCADE limpa as filhas automaticamente)
         batch.delete(
           'exames_solicitados',
           where: 'caso_uuid = ?',
           whereArgs: [casoUuid],
         );
 
-        // 2. Insere a tabela mestra e as dependências relacionais nas filhas
         for (final exame in exames) {
           batch.insert('exames_solicitados', exame.toMap());
 

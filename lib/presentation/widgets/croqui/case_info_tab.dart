@@ -549,9 +549,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             if (readOnly) ...[
               Builder(
                 builder: (context) {
-                  final auditoria = controller.casoAtual.dadosLaudo['auditoria'];
-                  final nomePerito = auditoria?['perito_responsavel'] ?? "Perito não identificado";
-                  final dataIso = auditoria?['data_finalizacao'];
+                  final auditoria = controller.casoAtual.dadosLaudo.auditoria;
+                  final nomePerito = auditoria.peritoResponsavel ?? "Perito não identificado";
+                  final dataIso = auditoria.dataFinalizacao;
                   
                   String dataFormatada = "Data não registrada";
                   if (dataIso != null) {

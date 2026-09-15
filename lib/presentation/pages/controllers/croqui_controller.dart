@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
@@ -189,51 +190,39 @@ class CroquiController extends ChangeNotifier {
     objetoRetirado = caso.objetoRetirado ?? false;
 
     historicoCtrl = TextEditingController(
-      text: dados['identificacao']?['historico'] ?? 
+      text: dados.identificacao.historico.isNotEmpty ? dados.identificacao.historico : 
             "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
     );
 
-    vestesCtrl = TextEditingController(text: dados['identificacao']?['vestes'] ?? 'Despido no momento da necrópsia.');
-    caracteristicasCtrl = TextEditingController(text: dados['caracteristicas']?['identificacao'] ?? 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
-    tanatoImediatoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_imediato'] ?? 'XXX');
-    tanatoConsecutivoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_consecutivo'] ?? 'XXX');
-    tanatoObservacaoCtrl = TextEditingController(text: dados['caracteristicas']?['tanato_observacao'] ?? 'XXX');
+    vestesCtrl = TextEditingController(text: dados.identificacao.vestes.isNotEmpty ? dados.identificacao.vestes : 'Despido no momento da necrópsia.');
+    caracteristicasCtrl = TextEditingController(text: dados.caracteristicas.identificacao.isNotEmpty ? dados.caracteristicas.identificacao : 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
+    tanatoImediatoCtrl = TextEditingController(text: dados.caracteristicas.tanatoImediato.isNotEmpty ? dados.caracteristicas.tanatoImediato : 'XXX');
+    tanatoConsecutivoCtrl = TextEditingController(text: dados.caracteristicas.tanatoConsecutivo.isNotEmpty ? dados.caracteristicas.tanatoConsecutivo : 'XXX');
+    tanatoObservacaoCtrl = TextEditingController(text: dados.caracteristicas.tanatoObservacao.isNotEmpty ? dados.caracteristicas.tanatoObservacao : 'XXX');
 
-    discussaoCtrl = TextEditingController(text: dados['conclusao']?['discussao'] ?? '');
-    conclusaoCtrl = TextEditingController(text: dados['conclusao']?['conclusao_texto'] ?? '');
+    discussaoCtrl = TextEditingController(text: dados.conclusao.discussao);
+    conclusaoCtrl = TextEditingController(text: dados.conclusao.conclusaoTexto);
 
-    quesito1Ctrl = TextEditingController(text: dados['conclusao']?['quesito_1_morte'] ?? '');
+    quesito1Ctrl = TextEditingController(text: dados.conclusao.quesito1Morte);
     
-    if (caso.causaMorte != null) {
-      final List<dynamic> causasList = caso.causaMorte!;
-      causasMorteCtrls = causasList.map((e) {
-        final map = Map<String, dynamic>.from(e);
+    if (caso.causaMorte != null && caso.causaMorte!.isNotEmpty) {
+      causasMorteCtrls = caso.causaMorte!.map((cm) {
         return CausaMorteControllers(
-          imediata: map['imediata'] ?? '',
-          devidoA: map['devido_a'] ?? '',
-          consequencia: map['consequencia'] ?? '',
-        );
-      }).toList();
-    } else if (dados['conclusao']?['causas_morte'] != null) {
-      final List<dynamic> causasList = dados['conclusao']!['causas_morte'];
-      causasMorteCtrls = causasList.map((e) {
-        final map = Map<String, dynamic>.from(e);
-        return CausaMorteControllers(
-          imediata: map['imediata'] ?? '',
-          devidoA: map['devido_a'] ?? '',
-          consequencia: map['consequencia'] ?? '',
+          imediata: cm.imediata,
+          devidoA: cm.devidoA,
+          consequencia: cm.consequencia,
         );
       }).toList();
     } else {
       // Fallback para o antigo formato
-      String causaAntiga = dados['conclusao']?['quesito_2_causa'] ?? '';
+      String causaAntiga = dados.conclusao.quesito2Causa;
       causasMorteCtrls = [
         CausaMorteControllers(imediata: causaAntiga)
       ];
     }
     
-    quesito3Ctrl = TextEditingController(text: dados['conclusao']?['quesito_3_instrumento'] ?? '');
-    quesito4Ctrl = TextEditingController(text: dados['conclusao']?['quesito_4_meio'] ?? '');
+    quesito3Ctrl = TextEditingController(text: dados.conclusao.quesito3Instrumento);
+    quesito4Ctrl = TextEditingController(text: dados.conclusao.quesito4Meio);
   }
 
   void adicionarCausaMorte() {
@@ -555,7 +544,7 @@ class CroquiController extends ChangeNotifier {
   }
 
 
-  void atualizarDadosLaudoMemoria(Map<String, dynamic> novosDados) {
+  void atualizarDadosLaudoMemoria(DadosLaudoModel novosDados) {
     casoAtual = casoAtual.copyWith(
       dadosLaudo: novosDados,
       atualizadoEm: DateTime.now(),
@@ -886,12 +875,11 @@ class CroquiController extends ChangeNotifier {
   }
 
   String get sexoDoExaminado {
-    final dadosId = casoAtual.dadosLaudo['identificacao'];
-    if (dadosId != null && dadosId['sexo'] != null) {
-      final s = dadosId['sexo'].toString().trim().toLowerCase();
+    final s = casoAtual.dadosLaudo.identificacao.sexo.trim().toLowerCase();
+    if (s.isNotEmpty) {
       return s.startsWith('f') ? 'Feminino' : 'Masculino';
     }
-    final caracteristicas = dadosId?['caracteristicas']?.toString().toLowerCase() ?? '';
+    final caracteristicas = casoAtual.dadosLaudo.caracteristicas.identificacao.toLowerCase();
     if (caracteristicas.contains('feminino') || caracteristicas.contains('mulher')) {
       return 'Feminino';
     }
@@ -902,25 +890,20 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> alterarSexoExaminado(BuildContext context, String novoSexo) async {
-    final novosDados = Map<String, dynamic>.from(casoAtual.dadosLaudo);
-    final Map<String, dynamic> ident = novosDados['identificacao'] != null
-        ? Map<String, dynamic>.from(novosDados['identificacao'] as Map)
-        : {};
-    novosDados['identificacao'] = {
-      ...ident,
-      'sexo': novoSexo,
-    };
+    IdentificacaoModel novaId = casoAtual.dadosLaudo.identificacao.copyWith(sexo: novoSexo);
+    CaracteristicasModel novaCarac = casoAtual.dadosLaudo.caracteristicas;
     
-     final caracteristicas = novosDados['identificacao']['caracteristicas']?.toString() ?? '';
+    String caracteristicas = novaCarac.identificacao;
     if (caracteristicas.isEmpty || caracteristicas.toLowerCase().contains('sexo xxx')) {
-      novosDados['identificacao']['caracteristicas'] = 
-        'Cadáver do sexo ${novoSexo.toLowerCase()}, raça XXX, estado nutricional XXX, e idade aparente de XX anos.';
+      caracteristicas = 'Cadáver do sexo ${novoSexo.toLowerCase()}, raça XXX, estado nutricional XXX, e idade aparente de XX anos.';
     } else if (novoSexo == 'Feminino') {
-      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll(RegExp(r'sexo masculino', caseSensitive: false), 'sexo feminino');
+      caracteristicas = caracteristicas.replaceAll(RegExp(r'sexo masculino', caseSensitive: false), 'sexo feminino');
     } else if (novoSexo == 'Masculino') {
-      novosDados['identificacao']['caracteristicas'] = caracteristicas.replaceAll(RegExp(r'sexo feminino', caseSensitive: false), 'sexo masculino');
+      caracteristicas = caracteristicas.replaceAll(RegExp(r'sexo feminino', caseSensitive: false), 'sexo masculino');
     }
-
+    novaCarac = novaCarac.copyWith(identificacao: caracteristicas);
+    
+    final novosDados = casoAtual.dadosLaudo.copyWith(identificacao: novaId, caracteristicas: novaCarac);
     atualizarDadosLaudoMemoria(novosDados);
     
     if (!isReadOnly) {
@@ -961,14 +944,14 @@ class CroquiController extends ChangeNotifier {
 
 
 
-  void atualizarCasoCamposEJson({
-    required String numeroBo,
-    required String numeroPic,
-    required String numeroRequisicao,
-    required String nomeVitima,
-    required String destino,
-    required String requisitante,
-    required Map<String, dynamic> novosDadosLaudo,
+  void salvarDadosGerais({
+    String numeroBo = '',
+    String numeroPic = '',
+    String numeroRequisicao = '',
+    String nomeVitima = '',
+    String destino = '',
+    String requisitante = '',
+    required DadosLaudoModel novosDadosLaudo,
     String? numeroDeclaracaoObito,
     String? dataObito,
     String? horaObito,
@@ -982,14 +965,6 @@ class CroquiController extends ChangeNotifier {
     String? horaNecropsia,
     dynamic causaMorte,
   }) {
-    final Map<String, dynamic> finalDadosLaudo = Map<String, dynamic>.from(novosDadosLaudo);
-    if (finalDadosLaudo['auditoria'] is Map) {
-      final auditoriaMap = Map<String, dynamic>.from(finalDadosLaudo['auditoria'] as Map);
-      auditoriaMap.remove('atn_id');
-      auditoriaMap.remove('atn_nome');
-      finalDadosLaudo['auditoria'] = auditoriaMap;
-    }
-
     casoAtual = casoAtual.copyWith(
       numeroBo: numeroBo,
       numeroPic: numeroPic,
@@ -997,7 +972,7 @@ class CroquiController extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
-      dadosLaudo: finalDadosLaudo,
+      dadosLaudo: novosDadosLaudo,
       numeroDeclaracaoObito: numeroDeclaracaoObito,
       dataObito: dataObito,
       horaObito: horaObito,
@@ -1179,14 +1154,14 @@ class CroquiController extends ChangeNotifier {
       'consequencia': ctrl.consequenciaCtrl.text,
     }).toList();
 
-    atualizarCasoCamposEJson(
+    salvarDadosGerais(
       numeroBo: boCtrl.text,
       numeroPic: picCtrl.text,
       numeroRequisicao: numeroLaudoCtrl.text,
       nomeVitima: nomeVitimaCtrl.text,
       destino: reqDestinoCtrl.text,
       requisitante: reqOrigemCtrl.text,
-      novosDadosLaudo: novosDados,
+      novosDadosLaudo: DadosLaudoModel.fromMap(novosDados),
       numeroDeclaracaoObito: numeroDeclaracaoObitoCtrl.text,
       dataObito: dataObitoCtrl.text,
       horaObito: horaObitoCtrl.text,

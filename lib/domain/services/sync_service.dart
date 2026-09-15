@@ -106,7 +106,6 @@ class EvidenceNotFoundException implements Exception {
       'arquivo: $filePath)';
 }
 
-// Função utilitária removida: _readAndEncodePdfBase64 (agora o PDF é enviado como arquivo físico)
 
 /// Serviço de domínio encarregado da [Sincronização] e conformidade dos dados periciais do IML.
 ///
@@ -159,7 +158,6 @@ class SyncService {
       debugPrint('[SyncService] Iniciando sincronização...');
 
 
-    // Fase 0.05: Pull de Casos Remotos para evitar conflitos
     try {
       await pullCasos();
     } on DioException catch (e) {
@@ -193,11 +191,9 @@ class SyncService {
     int totalFotosFalhas = 0;
     int totalCasosConflito = 0;
 
-    // Fila FIFO Segura: Processa os casos em BULK PUSH.
     try {
       debugPrint('[SyncService] 📦 Fazendo push textual (Bulk) de ${casosParaEnviar.length} casos...');
       
-      // Fase 1: Push textual de metadados (JSON) de todos os casos num único array
       final syncResult = await _pushTextual(casosParaEnviar);
       final conflitosUuids = Set<String>.from(
         syncResult['conflitos'] ?? const <String>[],
@@ -208,7 +204,6 @@ class SyncService {
       
       totalCasosConflito += conflitosUuids.length;
 
-      // Fase 2: Upload das evidências fotográficas dos casos salvos com sucesso
       for (final caso in casosParaEnviar) {
         if (_authService != null && !_authService.isLogged) {
           debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de fotos prematuramente.');
@@ -421,10 +416,8 @@ class SyncService {
         throw SessionExpiredException();
       }
       try {
-        // Envio individual (loop) via multipart/form-data
         await _uploadEvidencia(caso, achado);
         achadosSincronizados.add(achado);
-        // Idempotência Local: Marcar a foto como sincronizada imediatamente após sucesso individual
         await _repository.marcarFotoComoSincronizada(achado);
       } on EvidenceNotFoundException catch (e, stackTrace) {
         debugPrint(
@@ -440,7 +433,6 @@ class SyncService {
           debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.');
           rethrow;
         }
-        // Captura timeouts de rede (como DioExceptionType.connectionTimeout) e erros de rede gerais
         erros.add(e);
         debugPrint('[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e');
         SentryHelper.setSyncErrorTag(caso.uuid);
@@ -449,7 +441,6 @@ class SyncService {
     }
 
     if (erros.isEmpty) {
-      // Sincronização atômica: Só confirma o caso se JSON (Fase 1) e todas as fotos (Fase 2) subiram
       await _confirmarCaso(caso);
       return 0;
     } else {
@@ -482,7 +473,6 @@ class SyncService {
     final bytes = await arquivoOriginal.readAsBytes();
     final String hashOriginal = sha256.convert(bytes).toString();
 
-    // Extração do uuid da evidência
     final String evidenciaUuid =
         achado.dadosPreenchidos['_evidencia_uuid']?.toString() ?? achado.uuid;
 
@@ -550,8 +540,6 @@ class SyncService {
       });
     }
 
-    // Remoção da leitura em Base64 do PDF.
-    // A propriedade pdfUrl já estará preenchida no caso se o upload físico ocorreu com sucesso antes dessa serialização.
 
     return {
       'uuid': caso.uuid,
@@ -574,16 +562,13 @@ class SyncService {
       'atns_ids': caso.atnsIds,
       'pdf_local_path': caso.pdfLocalPath,
       'pdf_url': caso.pdfUrl,
-      // ── Campos clínicos/forenses (15 novos campos na raiz do payload) ──
       'corpo_estado': caso.corpoEstado,
       'corpo_estado_outros': caso.corpoEstadoOutros,
       'sexo_biologico_estimado': caso.sexoBiologicoEstimado,
       'data_obito': caso.dataObito,
       'hora_obito': caso.horaObito,
       'tipo_estimativa_hora_obito': caso.tipoEstimativaHoraObito,
-      // causaMorte é Map/List nativo — Dio/json.encode serializa corretamente
       'causa_morte': caso.causaMorte,
-      // booleanos enviados como true/false nativos (não 0/1)
       'tem_exames_solicitados': caso.examesSolicitados, // renomeado para evitar colisão com array de exames
       'descricao_exames': caso.descricaoExames,
       'objeto_retirado': caso.objetoRetirado,
@@ -591,7 +576,6 @@ class SyncService {
       'data_necropsia': caso.dataNecropsia,
       'hora_necropsia': caso.horaNecropsia,
       'numero_declaracao_obito': caso.numeroDeclaracaoObito,
-      // ─────────────────────────────────────────────────────────────────
       'diagramas': diagramasJson,
       'achados': achados.map(_achadoParaJson).toList(),
     };
