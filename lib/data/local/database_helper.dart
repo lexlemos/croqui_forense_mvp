@@ -346,6 +346,11 @@ class DatabaseHelper {
         await _addColumnIfNotExists(txn, 'achados', 'comentario_adicional', 'TEXT');
         break;
         
+      case 21:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 21 (Trava processual e status de exames)...');
+        await _addColumnIfNotExists(txn, 'exames_solicitados', 'status', "TEXT DEFAULT 'aguardando'");
+        break;
+        
       default:
         debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');
     }

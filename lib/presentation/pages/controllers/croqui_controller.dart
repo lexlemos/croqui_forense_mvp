@@ -587,6 +587,27 @@ class CroquiController extends ChangeNotifier {
         try {
           DefaultTabController.of(context).animateTo(6);
         } catch (_) {}
+        _isProcessing = false;
+        notifyListeners();
+        return;
+      }
+
+      /// Trava Processual: Exames Complementares Pendentes
+      /// Justificativa Jurídica: Garante a conformidade legal do laudo pericial ao impedir a 
+      /// finalização processual e submissão (mudança de status para FINALIZADO) enquanto 
+      /// houver requisições de exames de laboratório aguardando resultados, mantendo a integridade material.
+      final bool temExamePendente = examesSolicitadosModel.any((e) => e.status == 'aguardando') || 
+                                    examesSolicitados.any((e) => e.status == 'aguardando');
+      if (temExamePendente) {
+        debugPrint('[CroquiController] Abortando finalização: exames complementares pendentes detectados.');
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text("O laudo não pode ser finalizado com exames complementares pendentes"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        _isProcessing = false;
+        notifyListeners();
         return;
       }
 

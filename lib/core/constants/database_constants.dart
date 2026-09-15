@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 20;
+const int kDatabaseVersion = 21;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -192,6 +192,7 @@ CREATE TABLE IF NOT EXISTS exames_solicitados (
     tipo_exame TEXT NOT NULL,
     numero_lacre TEXT,
     criado_em TEXT NOT NULL,
+    status TEXT DEFAULT 'aguardando',
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE
 );
 ''';

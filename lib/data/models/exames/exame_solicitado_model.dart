@@ -8,6 +8,7 @@ class ExameSolicitadoModel {
   final String tipoExame; // 'TOXICOLOGICO', 'GENETICA', 'ANATOMO'
   final String? numeroLacre;
   final DateTime criadoEm;
+  final String status;
 
   /// Objeto filho em memória para gerenciar detalhes específicos na UI.
   /// NÃO é serializado no [toMap].
@@ -19,6 +20,7 @@ class ExameSolicitadoModel {
     required this.tipoExame,
     this.numeroLacre,
     required this.criadoEm,
+    this.status = 'aguardando',
     this.detalhes,
   });
 
@@ -26,6 +28,7 @@ class ExameSolicitadoModel {
     required this.casoUuid,
     required this.tipoExame,
     this.numeroLacre,
+    this.status = 'aguardando',
     this.detalhes,
   })  : uuid = const Uuid().v4(),
         criadoEm = DateTime.now();
@@ -37,6 +40,7 @@ class ExameSolicitadoModel {
       tipoExame: map['tipo_exame']?.toString() ?? '',
       numeroLacre: map['numero_lacre']?.toString(),
       criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      status: map['status']?.toString() ?? 'aguardando',
       detalhes: detalhes,
     );
   }
@@ -48,6 +52,7 @@ class ExameSolicitadoModel {
       'tipo_exame': tipoExame,
       'numero_lacre': numeroLacre,
       'criado_em': criadoEm.toIso8601String(),
+      'status': status,
     };
   }
 
@@ -57,6 +62,7 @@ class ExameSolicitadoModel {
     String? tipoExame,
     String? numeroLacre,
     DateTime? criadoEm,
+    String? status,
     dynamic detalhes,
   }) {
     return ExameSolicitadoModel(
@@ -65,6 +71,7 @@ class ExameSolicitadoModel {
       tipoExame: tipoExame ?? this.tipoExame,
       numeroLacre: numeroLacre ?? this.numeroLacre,
       criadoEm: criadoEm ?? this.criadoEm,
+      status: status ?? this.status,
       detalhes: detalhes ?? this.detalhes,
     );
   }
