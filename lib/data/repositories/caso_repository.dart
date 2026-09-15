@@ -916,4 +916,47 @@ class CasoRepository implements ISyncRepository {
       return [];
     }
   }
+
+  /// Executa a exclusão de casos locais para evitar o esgotamento do armazenamento (SQLite).
+  ///
+  /// Regra de Retenção Forense:
+  /// - Apenas casos com status 'FINALIZADO' são removidos.
+  /// - O caso deve ter sido atualizado há mais de 30 dias.
+  /// - Casos em RASCUNHO ou LAUDO_PENDENTE são blindados e jamais excluídos por esta rotina.
+  /// - A exclusão em cascata das tabelas filhas (Achados, Evidências, Exames) é feita explicitamente
+  ///   para garantir a limpeza estrutural sem depender exclusivamente de chaves estrangeiras SQLite.
+  Future<void> expurgarCasosAntigos() async {
+    final db = await database;
+    try {
+      final dataLimite = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+      
+      final casosParaExcluir = await db.query(
+        tableCasos,
+        columns: ['uuid'],
+        where: "status = 'FINALIZADO' AND atualizado_em < ?",
+        whereArgs: [dataLimite],
+      );
+
+      if (casosParaExcluir.isEmpty) {
+        debugPrint('[CasoRepository] Nenhum caso antigo para expurgar.');
+        return;
+      }
+
+      final uuids = casosParaExcluir.map((e) => e['uuid'] as String).toList();
+      final placeholders = List.filled(uuids.length, '?').join(',');
+
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        batch.delete(tableEvidenciasMultimidia, where: 'caso_uuid IN ($placeholders)', whereArgs: uuids);
+        batch.delete(tableAchados, where: 'caso_uuid IN ($placeholders)', whereArgs: uuids);
+        batch.delete('exames_solicitados', where: 'caso_uuid IN ($placeholders)', whereArgs: uuids);
+        batch.delete(tableCasos, where: 'uuid IN ($placeholders)', whereArgs: uuids);
+        await batch.commit(noResult: true);
+      });
+
+      debugPrint('[CasoRepository] Expurgados ${uuids.length} casos finalizados mais antigos que 30 dias e suas dependências.');
+    } catch (e, stackTrace) {
+      debugPrint('[CasoRepository] ❌ Falha na transação de expurgo de casos antigos: $e\\n$stackTrace');
+    }
+  }
 }

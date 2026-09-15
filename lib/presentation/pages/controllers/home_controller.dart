@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
@@ -14,6 +15,15 @@ class HomeController {
   void init(BuildContext context) {
     searchController.addListener(() {
       context.read<CaseListProvider>().setSearchQuery(searchController.text);
+    });
+
+    Future.microtask(() async {
+      try {
+        final casoRepo = context.read<CasoRepository>();
+        await casoRepo.expurgarCasosAntigos();
+      } catch (e, stackTrace) {
+        debugPrint('[HomeController] ❌ Erro ao disparar expurgo em background: $e\\n$stackTrace');
+      }
     });
   }
 
