@@ -8,6 +8,7 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/parsed_sync_payload.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
@@ -79,11 +80,11 @@ class CasoRepository implements ISyncRepository {
 
   /// Motor de Upsert (Sincronização Pull). Resolve conflitos verificando o [atualizado_em] e lida com Tombstones.
   @override
-  Future<void> upsertCasoTransaction(Map<String, dynamic> jsonCaso) async {
+  Future<void> upsertCasoTransaction(ParsedSyncPayload payload) async {
     final db = await database;
     try {
       await db.transaction((txn) async {
-        final casoBackend = Caso.fromMap(jsonCaso);
+        final casoBackend = payload.caso;
 
         final localRow = await txn.query(
           tableCasos,
@@ -117,9 +118,6 @@ class CasoRepository implements ISyncRepository {
 
         if (deveAtualizarCaso) {
           final mapParaSalvar = casoBackend.toMap();
-          if (jsonCaso['removido'] == true) {
-            mapParaSalvar['removido'] = 1;
-          }
 
           if (localRow.isEmpty) {
             batch.insert(
@@ -137,137 +135,18 @@ class CasoRepository implements ISyncRepository {
           }
         }
 
-        final List<dynamic> rawEvidenciasList = [];
-        if (jsonCaso['evidencias_multimidia'] is List) {
-          rawEvidenciasList.addAll(jsonCaso['evidencias_multimidia'] as List);
-        }
-        if (jsonCaso['evidencias'] is List) {
-          rawEvidenciasList.addAll(jsonCaso['evidencias'] as List);
-        }
-
-        if (jsonCaso['achados'] is List) {
-          final achadosList = jsonCaso['achados'] as List;
-          for (final achadoJson in achadosList) {
-            if (achadoJson is Map) {
-              final aMap = Map<String, dynamic>.from(achadoJson);
-              if (aMap['evidencias_multimidia'] is List) {
-                rawEvidenciasList.addAll(aMap['evidencias_multimidia'] as List);
-              }
-              if (aMap['evidencias'] is List) {
-                rawEvidenciasList.addAll(aMap['evidencias'] as List);
-              }
-            }
-          }
-        }
-
-        final achadosParaSalvar = <Map<String, dynamic>>[];
-        final evidenciasParaSalvar = <Map<String, dynamic>>[];
-        final achadosComEvidenciaExplicita = <String>{};
-
-        for (final evJson in rawEvidenciasList) {
-          if (evJson is! Map) continue;
-          final evMap = Map<String, dynamic>.from(evJson);
-          final evBackend = EvidenciaMultimidia.fromMap(evMap);
-          if (evBackend.uuid.isEmpty) continue;
-
-          final mapEvSalvar = evBackend.toMap()..['foto_sincronizada'] = 1;
-          if (evJson['removido'] == true) {
-            mapEvSalvar['removido'] = 1;
-          }
-          evidenciasParaSalvar.add(mapEvSalvar);
-          if (evBackend.achadoUuid != null && evBackend.achadoUuid!.isNotEmpty) {
-            achadosComEvidenciaExplicita.add(evBackend.achadoUuid!);
-          }
-        }
-
-        if (jsonCaso['achados'] is List) {
-          final achadosList = jsonCaso['achados'] as List;
-          for (final achadoJson in achadosList) {
-            if (achadoJson is! Map) continue;
-            final aMap = Map<String, dynamic>.from(achadoJson);
-
-            // ── Injeção de campos mobile-only que o backend não reenvia ──────
-            // caso_uuid: garante FK com a tabela casos
-            if (aMap['caso_uuid'] == null || aMap['caso_uuid'].toString().isEmpty) {
-              aMap['caso_uuid'] = casoBackend.uuid;
-            }
-            // diagrama_nome: tenta extrair de vista_anatomica ou dados_preenchidos_json['view']
-            if (aMap['diagrama_nome'] == null || aMap['diagrama_nome'].toString().isEmpty) {
-              final vistaRaw = aMap['vista_anatomica']?.toString();
-              if (vistaRaw != null && vistaRaw.isNotEmpty) {
-                aMap['diagrama_nome'] = vistaRaw;
-              } else {
-                // fallback: tenta extrair de dentro de dados_preenchidos_json
-                try {
-                  final dpRaw = aMap['dados_preenchidos_json'];
-                  final dpMap = dpRaw is Map
-                      ? dpRaw
-                      : (dpRaw is String ? jsonDecode(dpRaw) as Map? : null);
-                  final viewVal = dpMap?['view']?.toString();
-                  aMap['diagrama_nome'] = (viewVal != null && viewVal.isNotEmpty)
-                      ? viewVal
-                      : 'GERAL';
-                } catch (_) {
-                  final tipo = aMap['tipo_achado_id']?.toString() ?? '';
-                  
-                  /// Intercepta a ausência de metadados visuais em achados periciais específicos.
-                  /// Emite alerta caso uma lesão real seja renderizada acidentalmente no canvas geral.
-                  if (tipo.isNotEmpty && tipo != 'FOTO_GERAL') {
-                    debugPrint('[CasoRepository] ALERTA UI: Achado ${aMap['uuid']} órfão de diagrama. Aplicando fallback genérico.');
-                  }
-                  aMap['diagrama_nome'] = 'GERAL';
-                }
-              }
-            }
-            // diagrama_caso_uuid: campo mobile puro — usa o uuid do caso pai
-            if (aMap['diagrama_caso_uuid'] == null || aMap['diagrama_caso_uuid'].toString().isEmpty) {
-              aMap['diagrama_caso_uuid'] = casoBackend.uuid;
-            }
-            // ────────────────────────────────────────────────────────────────
-
-            final achadoBackend = Achado.fromMap(aMap);
-            if (achadoBackend.uuid.isEmpty) continue;
-
-            final mapAchadoSalvar = achadoBackend.toMap();
-            if (achadoJson['removido'] == true) {
-              mapAchadoSalvar['removido'] = 1;
-            }
-            achadosParaSalvar.add(mapAchadoSalvar);
-
-            if (achadoBackend.photoPath != null &&
-                achadoBackend.photoPath!.isNotEmpty &&
-                !achadosComEvidenciaExplicita.contains(achadoBackend.uuid)) {
-              final evidenciaUuid = const Uuid().v5(
-                casoBackend.uuid,
-                'achado-evidencia-${achadoBackend.uuid}',
-              );
-              evidenciasParaSalvar.add({
-                'uuid': evidenciaUuid,
-                'caso_uuid': casoBackend.uuid,
-                'achado_uuid': achadoBackend.uuid,
-                'tipo': 'ACHADO',
-                'caminho_arquivo_encriptado': achadoBackend.photoPath,
-                'foto_sincronizada': 1,
-                'removido': achadoBackend.removido ? 1 : 0,
-                'versao': achadoBackend.versao,
-                'criado_em': achadoBackend.criadoEm.toUtc().toIso8601String(),
-              });
-            }
-          }
-        }
-
-        for (final mapAchado in achadosParaSalvar) {
+        for (final achado in payload.achados) {
           batch.insert(
             tableAchados,
-            mapAchado,
+            achado.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
 
-        for (final mapEvidencia in evidenciasParaSalvar) {
+        for (final evidencia in payload.evidencias) {
           batch.insert(
             tableEvidenciasMultimidia,
-            mapEvidencia,
+            evidencia.toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
@@ -275,7 +154,7 @@ class CasoRepository implements ISyncRepository {
         await batch.commit(noResult: true);
       });
     } catch (e, stackTrace) {
-      debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction (caso uuid: ${jsonCaso['uuid']}): $e\n$stackTrace');
+      debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction (caso uuid: ${payload.caso.uuid}): $e\n$stackTrace');
       throw Exception('Erro de persistência atômica no Upsert: $e');
     }
   }

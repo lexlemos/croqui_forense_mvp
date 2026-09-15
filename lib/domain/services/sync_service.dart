@@ -7,9 +7,12 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:dio/dio.dart';
+import 'dart:convert';
 import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
+import 'package:croqui_forense_mvp/data/models/parsed_sync_payload.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 import 'package:croqui_forense_mvp/core/utils/sentry_helper.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
@@ -50,7 +53,7 @@ abstract interface class ISyncRepository {
   Future<List<Achado>> getEvidenciasPendentesPorCaso(String casoUuid);
 
   /// Motor de Upsert (Sincronização Pull). Resolve conflitos e insere/atualiza casos, achados e evidências.
-  Future<void> upsertCasoTransaction(Map<String, dynamic> jsonCaso);
+  Future<void> upsertCasoTransaction(ParsedSyncPayload payload);
 }
 
 /// Exceção lançada quando o push dos dados textuais de sincronização dos laudos é rejeitado pelo servidor central.
@@ -287,28 +290,30 @@ class SyncService {
       
       debugPrint('[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.');
       String? lastSuccessfulSyncTimestamp;
+      /// A conversão da carga massiva de JSON para entidades de domínio ocorre em uma Background Isolate
+      /// para garantir que a Main Thread não sofra bloqueios (UI Jank).
+      final payloads = await compute(_parseCasosEmBackground, casosRemotos);
       
-      for (final casoJson in casosRemotos) {
+      for (final payload in payloads) {
         try {
-          await _repository.upsertCasoTransaction(casoJson);
-          final atualizadoEm = casoJson['atualizado_em']?.toString();
+          await _repository.upsertCasoTransaction(payload);
+          final atualizadoEm = payload.rawJson['atualizado_em']?.toString();
           if (atualizadoEm != null && atualizadoEm.isNotEmpty) {
             lastSuccessfulSyncTimestamp = atualizadoEm;
           }
         } catch (e, stackTrace) {
-          debugPrint('[SyncService] ❌ Erro ao sincronizar (upsert) o caso ${casoJson['uuid']}: $e\n$stackTrace');
-          final casoUuid = casoJson['uuid']?.toString();
-          if (casoUuid != null && casoUuid.isNotEmpty) {
+          debugPrint('[SyncService] Erro ao sincronizar (upsert) o caso ${payload.caso.uuid}: $e\n$stackTrace');
+          final casoUuid = payload.caso.uuid;
+          if (casoUuid.isNotEmpty) {
             try {
               await _repository.marcarCasoComErroDeSincronizacao(casoUuid);
             } catch (markError, markStackTrace) {
               debugPrint(
-                '[SyncService] ❌ Não foi possível registrar sync_error para '
+                '[SyncService] Não foi possível registrar sync_error para '
                 '$casoUuid: $markError\n$markStackTrace',
               );
             }
           }
-          // Continua para o próximo caso, preservando o sucesso parcial.
           continue;
         }
       }
@@ -595,4 +600,141 @@ class SyncService {
   Map<String, dynamic> _achadoParaJson(Achado achado) {
     return achado.toSyncMap();
   }
+}
+
+/// Função pura e estática executada em uma Isolate secundária (Background Thread).
+/// 
+/// Otimiza a ingestão massiva de dados do servidor central (GET /pull), transferindo o parsing
+/// e a alocação de memória (jsonDecode, factory instantiations) para fora da Main Thread,
+/// evitando cenários severos de 'UI Jank' ou travamentos durante a sincronização Offline-First.
+List<ParsedSyncPayload> _parseCasosEmBackground(List<Map<String, Object?>> payload) {
+  final result = <ParsedSyncPayload>[];
+  
+  for (final jsonCaso in payload) {
+    try {
+      final casoBackend = Caso.fromMap(jsonCaso);
+      final atualizadoEm = jsonCaso['atualizado_em']?.toString();
+
+      final List<dynamic> rawEvidenciasList = [];
+      if (jsonCaso['evidencias_multimidia'] is List) {
+        rawEvidenciasList.addAll(jsonCaso['evidencias_multimidia'] as List);
+      }
+      if (jsonCaso['evidencias'] is List) {
+        rawEvidenciasList.addAll(jsonCaso['evidencias'] as List);
+      }
+
+      if (jsonCaso['achados'] is List) {
+        final achadosList = jsonCaso['achados'] as List;
+        for (final achadoJson in achadosList) {
+          if (achadoJson is Map) {
+            final aMap = Map<String, dynamic>.from(achadoJson);
+            if (aMap['evidencias_multimidia'] is List) {
+              rawEvidenciasList.addAll(aMap['evidencias_multimidia'] as List);
+            }
+            if (aMap['evidencias'] is List) {
+              rawEvidenciasList.addAll(aMap['evidencias'] as List);
+            }
+          }
+        }
+      }
+
+      final evidencias = <EvidenciaMultimidia>[];
+      final achadosComEvidenciaExplicita = <String>{};
+
+      for (final evJson in rawEvidenciasList) {
+        if (evJson is! Map) continue;
+        final evMap = Map<String, dynamic>.from(evJson);
+        final evBackend = EvidenciaMultimidia.fromMap(evMap);
+        if (evBackend.uuid.isEmpty) continue;
+
+        final bool isRemovido = evJson['removido'] == true || evJson['removido'] == 1;
+        evidencias.add(evBackend.copyWith(
+          fotoSincronizada: true, 
+          removido: isRemovido || evBackend.removido
+        ));
+        
+        if (evBackend.achadoUuid != null && evBackend.achadoUuid!.isNotEmpty) {
+          achadosComEvidenciaExplicita.add(evBackend.achadoUuid!);
+        }
+      }
+
+      final achados = <Achado>[];
+      if (jsonCaso['achados'] is List) {
+        final achadosList = jsonCaso['achados'] as List;
+        for (final achadoJson in achadosList) {
+          if (achadoJson is! Map) continue;
+          final aMap = Map<String, dynamic>.from(achadoJson);
+
+          if (aMap['caso_uuid'] == null || aMap['caso_uuid'].toString().isEmpty) {
+            aMap['caso_uuid'] = casoBackend.uuid;
+          }
+
+          if (aMap['diagrama_nome'] == null || aMap['diagrama_nome'].toString().isEmpty) {
+            final vistaRaw = aMap['vista_anatomica']?.toString();
+            if (vistaRaw != null && vistaRaw.isNotEmpty) {
+              aMap['diagrama_nome'] = vistaRaw;
+            } else {
+              try {
+                final dpRaw = aMap['dados_preenchidos_json'];
+                final dpMap = dpRaw is Map
+                    ? dpRaw
+                    : (dpRaw is String ? jsonDecode(dpRaw) as Map? : null);
+                final viewVal = dpMap?['view']?.toString();
+                aMap['diagrama_nome'] = (viewVal != null && viewVal.isNotEmpty)
+                    ? viewVal
+                    : 'GERAL';
+              } catch (_) {
+                aMap['diagrama_nome'] = 'GERAL';
+              }
+            }
+          }
+
+          if (aMap['diagrama_caso_uuid'] == null || aMap['diagrama_caso_uuid'].toString().isEmpty) {
+            aMap['diagrama_caso_uuid'] = casoBackend.uuid;
+          }
+
+          final achadoBackend = Achado.fromMap(aMap);
+          if (achadoBackend.uuid.isEmpty) continue;
+
+          final bool isRemovido = achadoJson['removido'] == true || achadoJson['removido'] == 1;
+          achados.add(achadoBackend.copyWith(removido: isRemovido || achadoBackend.removido));
+
+          if (achadoBackend.photoPath != null &&
+              achadoBackend.photoPath!.isNotEmpty &&
+              !achadosComEvidenciaExplicita.contains(achadoBackend.uuid)) {
+            
+            final evidenciaUuid = const Uuid().v5(
+              casoBackend.uuid,
+              'achado-evidencia-${achadoBackend.uuid}',
+            );
+            
+            evidencias.add(EvidenciaMultimidia(
+              uuid: evidenciaUuid,
+              casoUuid: casoBackend.uuid,
+              achadoUuid: achadoBackend.uuid,
+              tipo: 'ACHADO',
+              caminhoArquivoEncriptado: achadoBackend.photoPath,
+              fotoSincronizada: true,
+              removido: achadoBackend.removido,
+              versao: achadoBackend.versao,
+              criadoEm: achadoBackend.criadoEm.toUtc(),
+            ));
+          }
+        }
+      }
+
+      final bool casoRemovido = jsonCaso['removido'] == true || jsonCaso['removido'] == 1;
+      
+      result.add(ParsedSyncPayload(
+        caso: casoBackend.copyWith(removido: casoRemovido || casoBackend.removido),
+        achados: achados,
+        evidencias: evidencias,
+        rawJson: jsonCaso,
+      ));
+    } catch (e) {
+      debugPrint('[Background Isolate] Erro no parseamento do caso: $e');
+    }
+  }
+  
+  return result;
 }

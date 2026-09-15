@@ -10,42 +10,58 @@ import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
+/// Função em nível superior para verificação assíncrona do PIN pericial em segundo plano via [compute],
+/// garantindo que a execução dos cálculos criptográficos não cause travamentos na interface do usuário.
 bool _verificarPinEmBackground(Map<String, String> dados) {
-  final pin = dados['pin'] ?? '';
-  final hash = dados['hash'] ?? '';
-  final salt = dados['salt'] ?? '';
+  final String pin = dados['pin'] ?? '';
+  final String hash = dados['hash'] ?? '';
+  final String salt = dados['salt'] ?? '';
   return SecurityHelper.verifyPin(pin, hash, salt);
 }
 
+/// Função em nível superior para derivação de chaves e salt criptográfico em segundo plano via [compute],
+/// empregada durante o provisionamento de credenciais locais para autenticação offline do perito.
 Map<String, String> _gerarCredenciaisEmBackground(String pin) {
-  final salt = SecurityHelper.generateSalt();
-  final hash = SecurityHelper.hashPin(pin, salt);
-  return {'hash': hash, 'salt': salt};
+  final String salt = SecurityHelper.generateSalt();
+  final String hash = SecurityHelper.hashPin(pin, salt);
+  return <String, String>{'hash': hash, 'salt': salt};
 }
 
-/// Serviço de domínio encarregado do controle de autenticação e sessão do [Perito]
-/// no aplicativo de diagramação de lesões (croquis).
+/// Serviço de domínio encarregado do controle de autenticação, ciclo de vida da sessão
+/// e aplicação de políticas de autorização baseadas em funções (RBAC) no aplicativo pericial.
 ///
-/// Gerencia as credenciais do perito, permitindo o [login] online ou offline, a renovação
-/// automática de tokens de segurança e a atualização obrigatória do PIN de acesso
-/// em conformidade com as políticas do Instituto Médico Legal (IML).
+/// Implementa a estratégia arquitetural "Network-First com Fallback Offline Local",
+/// permitindo a operação ininterrupta do perito criminal tanto em ambiente conectado
+/// quanto em zonas remotas ou contingências operacionais desprovidas de sinal de rede.
 class AuthService {
+  /// Conjunto imutável de perfis institucionais estritamente autorizados a operar o
+  /// aplicativo pericial de Necrópsia Digital conforme as diretrizes de governança RBAC.
+  static const Set<String> _perfisAutorizados = <String>{
+    'PERITO',
+    'MEDICO_LEGISTA',
+    'ADMIN',
+  };
+
   final UsuarioRepository _usuarioRepository;
   final KeyStorageInterface _keyStorage;
   final IRemoteDataSource _remoteDataSource;
 
   Usuario? _usuarioLogado;
 
+  /// Inicializa o serviço de autenticação injetando os repositórios de dados locais,
+  /// o provedor de armazenamento seguro de chaves e a fonte de dados remota.
   AuthService(this._usuarioRepository, this._keyStorage, this._remoteDataSource);
 
-  /// Retorna os dados do [Perito] atualmente autenticado na sessão do dispositivo,
-  /// ou `null` caso nenhum perito esteja ativo no momento.
+  /// Retorna o [Usuario] pericial autenticado na sessão ativa do dispositivo,
+  /// ou `null` caso nenhuma sessão válida esteja inicializada.
   Usuario? get usuario => _usuarioLogado;
 
-  /// Indica se há uma sessão de autenticação ativa para o [Perito] neste dispositivo.
+  /// Indica se existe uma sessão ativa de usuário autenticado no dispositivo.
   bool get isLogged => _usuarioLogado != null;
 
-  bool _isConnectivityError(dynamic e) {
+  /// Analisa se uma exceção capturada corresponde a uma falha de conectividade ou transporte de rede,
+  /// habilitando a transição resiliente para a rotina de validação offline local.
+  bool _isConnectivityError(Object e) {
     if (e is DioException) {
       return e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
@@ -54,87 +70,126 @@ class AuthService {
           e.error is SocketException;
     }
     if (e is AuthException) {
-      final msg = e.message;
-      return msg.contains('Dispositivo offline') || 
-             msg.contains('Falha na comunicação');
+      final String msg = e.message;
+      return msg.contains('Dispositivo offline') ||
+          msg.contains('Falha na comunicação');
     }
-    final errStr = e.toString();
-    return errStr.contains('SocketException') || 
-           errStr.contains('Network') || 
-           errStr.contains('timeout') || 
-           errStr.contains('Failed host lookup');
+    final String errStr = e.toString();
+    return errStr.contains('SocketException') ||
+        errStr.contains('Network') ||
+        errStr.contains('timeout') ||
+        errStr.contains('Failed host lookup');
   }
 
-  /// Realiza a autenticação do [Perito] utilizando sua matrícula funcional e PIN de acesso.
+  /// Realiza a autenticação institucional do usuário por meio de credenciais funcionais (matrícula/e-mail e PIN/senha).
   ///
-  /// Padrão "Network First, Local Fallback para Login":
-  /// Tenta inicialmente realizar o login online no servidor central. Se a conexão falhar por motivos
-  /// de conectividade, intercepta o erro e faz a validação offline usando credenciais locais.
-  /// Se as credenciais estiverem incorretas ou inválidas (401/403), rejeita imediatamente.
+  /// Aplica a estratégia "Network-First com Fallback Offline Local":
+  /// 1. Tenta autenticação remota junto à API central do IML.
+  /// 2. Valida a presença do token e extrai as permissões (roles).
+  /// 3. Aplica a trava estrita de segurança RBAC: apenas perfis 'PERITO', 'MEDICO_LEGISTA' ou 'ADMIN'
+  ///    podem prosseguir. Se o usuário não possuir pelo menos um desses perfis, uma [AuthException]
+  ///    é imediatamente disparada e NENHUM token é persistido no Secure Storage.
+  /// 4. Somente após a validação bem-sucedida das roles, os tokens e identificadores são gravados
+  ///    no chaveiro seguro e o perfil é persistido no banco local.
+  /// 5. Em caso de falha de conectividade (rede/timeout), recorre ao cache local criptografado para
+  ///    validar as credenciais offline do último usuário autenticado no dispositivo.
   Future<void> login(String login, String senha) async {
     try {
-      // Passo A: Tentar realizar a requisição de login na API
-      final responseData = await _remoteDataSource.login(login, senha);
+      final Map<String, dynamic> rawResponse = await _remoteDataSource.login(login, senha);
+      final Map<String, Object?> responseData = Map<String, Object?>.from(rawResponse);
 
-      final perfil = (responseData['user'] ?? responseData['usuario']) as Map<String, dynamic>? ?? responseData;
-      final accessToken = responseData['access_token']?.toString() ?? responseData['token']?.toString();
-      final refreshToken = responseData['refresh_token']?.toString();
+      final Object? rawPerfil = responseData['user'] ?? responseData['usuario'];
+      final Map<String, Object?> perfil = rawPerfil is Map
+          ? (rawPerfil is Map<String, Object?>
+              ? rawPerfil
+              : Map<String, Object?>.from(rawPerfil))
+          : responseData;
 
-      if (accessToken == null) {
-        throw const AuthException('Token ausente na resposta.');
+      final String? accessToken = responseData['access_token']?.toString() ??
+          responseData['token']?.toString();
+      final String? refreshToken = responseData['refresh_token']?.toString();
+
+      if (accessToken == null || accessToken.trim().isEmpty) {
+        throw const AuthException('Token de autenticação ausente na resposta do servidor.');
       }
 
-      final userId = perfil['usuario_id']?.toString() ??
+      final String userId = perfil['usuario_id']?.toString() ??
           perfil['id']?.toString() ??
           responseData['usuario_id']?.toString() ??
           responseData['id']?.toString() ??
           '';
 
-      final nomeCompleto = perfil['usuario_nome']?.toString() ??
+      final String nomeCompleto = perfil['usuario_nome']?.toString() ??
           perfil['nome_completo']?.toString() ??
           perfil['nome']?.toString() ??
           responseData['usuario_nome']?.toString() ??
           '';
 
-      final matriculaFuncional = perfil['matricula_funcional']?.toString() ??
+      final String matriculaFuncional = perfil['matricula_funcional']?.toString() ??
           perfil['matricula']?.toString() ??
           login;
 
-      if (userId.isEmpty) {
-        throw const AuthException('ID do usuário não fornecido pela API.');
+      if (userId.trim().isEmpty) {
+        throw const AuthException('Identificador de usuário não fornecido pela API.');
+      }
+
+      final Object? rawRoles = perfil['roles'] ?? perfil['role'] ?? responseData['roles'];
+      final List<String> roles = <String>[];
+      if (rawRoles is List) {
+        for (final Object? item in rawRoles) {
+          if (item != null) {
+            final String roleStr = item.toString().trim();
+            if (roleStr.isNotEmpty) {
+              roles.add(roleStr);
+            }
+          }
+        }
+      } else if (rawRoles is String && rawRoles.trim().isNotEmpty) {
+        final String trimmed = rawRoles.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            final Object? decoded = jsonDecode(trimmed);
+            if (decoded is List) {
+              for (final Object? item in decoded) {
+                if (item != null) {
+                  final String roleStr = item.toString().trim();
+                  if (roleStr.isNotEmpty) {
+                    roles.add(roleStr);
+                  }
+                }
+              }
+            }
+          } on Object catch (_) {
+            roles.add(trimmed);
+          }
+        } else {
+          roles.add(trimmed);
+        }
+      }
+
+      final bool isAutorizado = roles.any(
+        (String role) => _perfisAutorizados.contains(role.trim().toUpperCase()),
+      );
+
+      if (!isAutorizado) {
+        throw const AuthException(
+          'Acesso restrito: seu perfil funcional não possui autorização para operar o aplicativo. '
+          'Acesso permitido exclusivamente para Perito, Médico Legista ou Administrador.',
+        );
       }
 
       await _keyStorage.save(key: 'access_token', value: accessToken);
       _remoteDataSource.setBearerToken(accessToken);
 
-      if (refreshToken != null) {
+      if (refreshToken != null && refreshToken.trim().isNotEmpty) {
         await _keyStorage.save(key: 'refresh_token', value: refreshToken);
       }
       await _keyStorage.save(key: 'user_id', value: userId);
       await _keyStorage.save(key: 'last_user_id', value: userId);
 
-      final credenciais = _gerarCredenciaisEmBackground(senha);
+      final Map<String, String> credenciais = _gerarCredenciaisEmBackground(senha);
 
-      final rawRoles = perfil['roles'] ?? perfil['role'] ?? responseData['roles'];
-      List<String> roles = [];
-      if (rawRoles is List) {
-        roles = rawRoles.map((e) => e.toString()).toList();
-      } else if (rawRoles is String && rawRoles.isNotEmpty) {
-        if (rawRoles.startsWith('[') && rawRoles.endsWith(']')) {
-          try {
-            final decoded = jsonDecode(rawRoles);
-            if (decoded is List) {
-              roles = decoded.map((e) => e.toString()).toList();
-            }
-          } catch (_) {
-            roles = [rawRoles];
-          }
-        } else {
-          roles = [rawRoles];
-        }
-      }
-
-      final novoUsuario = Usuario(
+      final Usuario novoUsuario = Usuario(
         id: userId,
         matriculaFuncional: matriculaFuncional,
         nomeCompleto: nomeCompleto,
@@ -149,12 +204,13 @@ class AuthService {
       await _usuarioRepository.createUsuario(novoUsuario);
       _usuarioLogado = novoUsuario;
 
-      developer.log('[AUTH] Login online realizado com sucesso (ID: $userId)', name: 'AuthService');
-
-    } catch (e) {
-      // Passo B: Se for uma exceção de conectividade, tentar local fallback
+      developer.log(
+        '[AUTH] Login online e validação RBAC concluídos com sucesso (ID: $userId)',
+        name: 'AuthService',
+      );
+    } on Object catch (e) {
       if (_isConnectivityError(e)) {
-        final localUsuario = await _usuarioRepository.getUsuarioByMatricula(login);
+        final Usuario? localUsuario = await _usuarioRepository.getUsuarioByMatricula(login);
         if (localUsuario == null) {
           throw const AuthException('Dispositivo offline e sem dados locais armazenados para este usuário.');
         }
@@ -168,11 +224,20 @@ class AuthService {
           throw const AuthException('Usuário desativado.');
         }
 
+        final bool hasOfflineRole = localUsuario.roles.any(
+          (String role) => _perfisAutorizados.contains(role.trim().toUpperCase()),
+        );
+        if (!hasOfflineRole) {
+          throw const AuthException(
+            'Acesso restrito: usuário local sem autorização de Perito, Médico Legista ou Administrador.',
+          );
+        }
+
         if (localUsuario.hashPinOffline == null || localUsuario.salt == null) {
           throw const AuthException('Erro de integridade nas credenciais locais.');
         }
 
-        final bool isPinValido = await compute(_verificarPinEmBackground, {
+        final bool isPinValido = await compute(_verificarPinEmBackground, <String, String>{
           'pin': senha,
           'hash': localUsuario.hashPinOffline ?? '',
           'salt': localUsuario.salt ?? '',
@@ -189,7 +254,6 @@ class AuthService {
         return;
       }
 
-      // Passo C: Se for 401/403 ou qualquer outro erro de credenciais inválidas, rejeita imediatamente
       if (e is AuthException) {
         rethrow;
       }
@@ -197,11 +261,11 @@ class AuthService {
     }
   }
 
-  /// Encerra a sessão ativa do [Perito] corrente no dispositivo.
+  /// Encerra a sessão ativa do perito corrente no dispositivo.
   ///
-  /// Limpa a referência em memória do perito e remove de forma segura as chaves de acesso
-  /// (tokens temporários de API e identificador do usuário) do armazenamento criptografado
-  /// local para prevenir o acesso indevido aos laudos periciais.
+  /// Limpa a referência em memória do usuário e remove de forma segura e definitiva
+  /// as chaves de acesso (tokens temporários de API e identificadores) do armazenamento
+  /// criptografado local para prevenir o acesso indevido aos laudos periciais.
   Future<void> logout() async {
     _usuarioLogado = null;
     await _keyStorage.delete(key: 'access_token');
@@ -209,19 +273,18 @@ class AuthService {
     await _keyStorage.delete(key: 'user_id');
   }
 
-  /// Expira a sessão em memória do [Perito] ativo no momento de forma silenciosa.
+  /// Expira a sessão em memória do usuário ativo no momento de forma silenciosa.
   ///
-  /// Utilizado internamente pelo interceptor de autenticação de rede para invalidar a sessão
-  /// local quando os tokens de atualização (refresh tokens) falham no servidor central,
-  /// forçando o perito a se reautenticar para a continuidade segura dos trabalhos.
+  /// Utilizado internamente pelo interceptor de rede quando os tokens de atualização
+  /// (refresh tokens) falham no servidor central, forçando o perito a se autenticar novamente.
   void forceExpireSession() {
     _usuarioLogado = null;
   }
 
-  /// Verifica e recupera uma sessão pré-existente salva para algum [Perito] neste dispositivo.
+  /// Verifica e recupera uma sessão persistente para este dispositivo.
   ///
-  /// Lê o identificador único do perito guardado no chaveiro criptografado e carrega seu respectivo
-  /// perfil do banco de dados local. Retorna o [Usuario] correspondente ativo ou `null`.
+  /// Lê o identificador único guardado no chaveiro criptografado e valida o registro
+  /// bem como as permissões de acesso RBAC no banco de dados local. Retorna o [Usuario] ativo ou `null`.
   Future<Usuario?> checkSession() async {
     final String? id = await _keyStorage.read(key: 'user_id');
 
@@ -231,28 +294,35 @@ class AuthService {
     return _usuarioLogado;
   }
 
+  /// Carrega o perfil do perito a partir da base de dados local aplicando as validações RBAC.
+  ///
+  /// Caso o usuário esteja inativo ou seu perfil não atenda às permissões autorizadas,
+  /// executa o [logout] preventivo para anular a sessão residual.
   Future<void> _loadUsuario(String id) async {
     try {
-      final usuario = await _usuarioRepository.getUsuarioById(id);
+      final Usuario? usuario = await _usuarioRepository.getUsuarioById(id);
       if (usuario != null && usuario.ativo) {
-        _usuarioLogado = usuario;
-      } else {
-        await logout();
+        final bool isAutorizado = usuario.roles.any(
+          (String role) => _perfisAutorizados.contains(role.trim().toUpperCase()),
+        );
+        if (isAutorizado) {
+          _usuarioLogado = usuario;
+          return;
+        }
       }
-    } catch (e) {
+      await logout();
+    } on Object catch (_) {
       await logout();
     }
   }
 
-
-
-
+  /// Armazena no Secure Storage a identificação funcional (matrícula ou e-mail) para preenchimento ágil.
   Future<void> saveSavedLogin(String login) async {
     await _keyStorage.save(key: 'saved_login', value: login);
   }
 
+  /// Recupera do Secure Storage a última identificação funcional registrada no dispositivo.
   Future<String?> getSavedLogin() async {
     return await _keyStorage.read(key: 'saved_login');
   }
 }
-
