@@ -338,6 +338,14 @@ class DatabaseHelper {
         await _addColumnIfNotExists(txn, 'casos', 'numero_declaracao_obito', 'TEXT');
         break;
         
+      case 20:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 20 (Campos de Balística e Cadeia de Custódia em Achados)...');
+        await _addColumnIfNotExists(txn, 'achados', 'tipo_ferimento', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'numero_lacre', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'tipo_objeto', 'TEXT');
+        await _addColumnIfNotExists(txn, 'achados', 'comentario_adicional', 'TEXT');
+        break;
+        
       default:
         debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');
     }

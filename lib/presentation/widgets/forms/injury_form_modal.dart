@@ -39,6 +39,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   late final TextEditingController _customSizeController;
   late final TextEditingController _depthController;
   late final TextEditingController _obsController;
+  late final TextEditingController _numeroLacreController;
+  late final TextEditingController _comentarioAdicionalController;
+
+  String? _selectedTipoFerimento;
+  String? _selectedTipoObjeto;
 
   String? _currentPhotoPath;
   InjuryType? _selectedType;
@@ -70,6 +75,12 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _customSizeController = TextEditingController(text: _isCustomSize ? existingSize : '');
     _depthController = TextEditingController(text: m?.profundidade ?? '');
     _obsController = TextEditingController(text: m?.description ?? '');
+    _numeroLacreController = TextEditingController(text: m?.numeroLacre ?? '');
+    _comentarioAdicionalController = TextEditingController(text: m?.comentarioAdicional ?? '');
+    
+    _selectedTipoFerimento = m?.tipoFerimento;
+    _selectedTipoObjeto = m?.tipoObjeto;
+
     _currentPhotoPath = m?.photoPath;
     _isInterno = m?.isInterno ?? false;
 
@@ -160,6 +171,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _customSizeController.dispose();
     _depthController.dispose();
     _obsController.dispose();
+    _numeroLacreController.dispose();
+    _comentarioAdicionalController.dispose();
     super.dispose();
   }
 
@@ -190,6 +203,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'isInterno': _isInterno,
         'dados_dinamicos_json': dadosDinamicos,
         'achadoRelacionadoUuid': achadoRelacionadoUuid,
+        'tipoFerimento': _selectedTipoFerimento,
+        'tipoObjeto': _selectedTipoObjeto,
+        'numeroLacre': _numeroLacreController.text.trim(),
+        'comentarioAdicional': _comentarioAdicionalController.text.trim(),
       };
       Navigator.pop(context, data);
     }
@@ -264,6 +281,8 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                   ),
                 ],
                 const SizedBox(height: 20),
+  
+                _buildBalisticaSection(),
   
                 _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
                 Padding(
@@ -579,5 +598,53 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         );
       }
     }
+  }
+
+  Widget _buildBalisticaSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSectionLabel("VESTÍGIO RECOLHIDO / BALÍSTICA"),
+        DropdownButtonFormField<String>(
+          value: _selectedTipoFerimento,
+          decoration: const InputDecoration(
+            labelText: "Tipo de Ferimento",
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12),
+          ),
+          items: ['Entrada', 'Saída', 'Raspão']
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
+          onChanged: (v) => setState(() => _selectedTipoFerimento = v),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedTipoObjeto,
+          decoration: const InputDecoration(
+            labelText: "Tipo de Objeto Recolhido",
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12),
+          ),
+          items: ['Projétil', 'Estojo', 'Fragmento', 'Roupas/Jaqueta', 'Outro']
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
+          onChanged: (v) => setState(() => _selectedTipoObjeto = v),
+        ),
+        const SizedBox(height: 12),
+        _buildTextField(_numeroLacreController, "Nº do Lacre", Icons.security, false),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _comentarioAdicionalController,
+          maxLines: 2,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: "Comentário Adicional (Cadeia de Custódia)",
+            border: OutlineInputBorder(),
+            alignLabelWithHint: true,
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
   }
 }

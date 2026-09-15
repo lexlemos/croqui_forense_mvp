@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 19;
+const int kDatabaseVersion = 20;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -150,6 +150,10 @@ CREATE TABLE achados (
     tamanho TEXT,
     vista_anatomica TEXT,
     local_anatomico TEXT,
+    tipo_ferimento TEXT,
+    numero_lacre TEXT,
+    tipo_objeto TEXT,
+    comentario_adicional TEXT,
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE,
     FOREIGN KEY (achado_relacionado_uuid) REFERENCES achados(uuid) ON DELETE SET NULL,
     FOREIGN KEY (tipo_achado_id) REFERENCES tipos_achados(id) ON DELETE RESTRICT

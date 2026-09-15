@@ -28,6 +28,22 @@ class Achado {
   final String vistaAnatomica;
   final String localAnatomico;
 
+  /// Especifica a natureza balística da lesão (ex: Entrada, Saída, Raspão).
+  /// Fundamental para determinar a trajetória do projétil na dinâmica do crime.
+  final String? tipoFerimento;
+
+  /// Número do lacre de segurança utilizado para acondicionar o vestígio físico (projétil, estojo, etc).
+  /// Elemento crucial para garantir a rastreabilidade e a validade jurídica da cadeia de custódia.
+  final String? numeroLacre;
+
+  /// Descreve a natureza do vestígio físico recolhido (ex: Projétil, Estojo, Fragmento, Roupa).
+  /// Atua em conjunto com o [numeroLacre] para individualizar o objeto na cadeia de custódia.
+  final String? tipoObjeto;
+
+  /// Observações pormenorizadas exclusivas sobre o vestígio recolhido e seu acondicionamento.
+  /// Complementa as evidências materiais garantindo que peculiaridades do objeto sejam registradas.
+  final String? comentarioAdicional;
+
   Achado({
     required this.uuid,
     required this.casoUuid,
@@ -49,6 +65,10 @@ class Achado {
     required this.tamanho,
     required this.vistaAnatomica,
     required this.localAnatomico,
+    this.tipoFerimento,
+    this.numeroLacre,
+    this.tipoObjeto,
+    this.comentarioAdicional,
   });
 
   String get profundidade {
@@ -69,6 +89,10 @@ class Achado {
     required this.vistaAnatomica,
     required this.localAnatomico,
     this.achadoRelacionadoUuid,
+    this.tipoFerimento,
+    this.numeroLacre,
+    this.tipoObjeto,
+    this.comentarioAdicional,
   }) : uuid = const Uuid().v4(),
        dadosPreenchidos = const {},
        observacoesTexto = null,
@@ -138,6 +162,10 @@ class Achado {
       tamanho: map['tamanho']?.toString() ?? '',
       vistaAnatomica: map['vista_anatomica']?.toString() ?? '',
       localAnatomico: map['local_anatomico']?.toString() ?? '',
+      tipoFerimento: map['tipo_ferimento']?.toString(),
+      numeroLacre: map['numero_lacre']?.toString(),
+      tipoObjeto: map['tipo_objeto']?.toString(),
+      comentarioAdicional: map['comentario_adicional']?.toString(),
     );
   }
 
@@ -162,6 +190,10 @@ class Achado {
     String? tamanho,
     String? vistaAnatomica,
     String? localAnatomico,
+    String? tipoFerimento,
+    String? numeroLacre,
+    String? tipoObjeto,
+    String? comentarioAdicional,
   }) {
     return Achado(
       uuid: uuid ?? this.uuid,
@@ -184,6 +216,10 @@ class Achado {
       tamanho: tamanho ?? this.tamanho,
       vistaAnatomica: vistaAnatomica ?? this.vistaAnatomica,
       localAnatomico: localAnatomico ?? this.localAnatomico,
+      tipoFerimento: tipoFerimento ?? this.tipoFerimento,
+      numeroLacre: numeroLacre ?? this.numeroLacre,
+      tipoObjeto: tipoObjeto ?? this.tipoObjeto,
+      comentarioAdicional: comentarioAdicional ?? this.comentarioAdicional,
     );
   }
 
@@ -209,6 +245,10 @@ class Achado {
       'tamanho': tamanho,
       'vista_anatomica': vistaAnatomica,
       'local_anatomico': localAnatomico,
+      'tipo_ferimento': tipoFerimento,
+      'numero_lacre': numeroLacre,
+      'tipo_objeto': tipoObjeto,
+      'comentario_adicional': comentarioAdicional,
     };
   }
 
@@ -228,6 +268,10 @@ class Achado {
       'tamanho': tamanho,
       'vista_anatomica': vistaAnatomica,
       'local_anatomico': localAnatomico,
+      'tipo_ferimento': tipoFerimento,
+      'numero_lacre': numeroLacre,
+      'tipo_objeto': tipoObjeto,
+      'comentario_adicional': comentarioAdicional,
       'criado_em': criadoEm.toUtc().toIso8601String(),
       'atualizado_em': (atualizadoEm ?? criadoEm).toUtc().toIso8601String(),
     };

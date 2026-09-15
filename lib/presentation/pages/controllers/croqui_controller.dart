@@ -381,6 +381,11 @@ class CroquiController extends ChangeNotifier {
       final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
       final bool isInterno = result['isInterno'] ?? false;
       final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
+      
+      final String? tipoFerimento = result['tipoFerimento']?.toString();
+      final String? tipoObjeto = result['tipoObjeto']?.toString();
+      final String? numeroLacre = result['numeroLacre']?.toString();
+      final String? comentarioAdicional = result['comentarioAdicional']?.toString();
 
       String? finalPhotoPath = result['photoPath'];
       if (finalPhotoPath != null && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
@@ -422,6 +427,10 @@ class CroquiController extends ChangeNotifier {
         tamanho: size,
         vistaAnatomica: viewType,
         localAnatomico: realPartName,
+        tipoFerimento: tipoFerimento,
+        tipoObjeto: tipoObjeto,
+        numeroLacre: numeroLacre,
+        comentarioAdicional: comentarioAdicional,
       );
 
       try {
@@ -475,6 +484,11 @@ class CroquiController extends ChangeNotifier {
       final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
       final bool isInterno = result['isInterno'] ?? achado.isInterno;
       final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
+      
+      final String? tipoFerimento = result['tipoFerimento']?.toString();
+      final String? tipoObjeto = result['tipoObjeto']?.toString();
+      final String? numeroLacre = result['numeroLacre']?.toString();
+      final String? comentarioAdicional = result['comentarioAdicional']?.toString();
 
       String? finalPhotoPath = result['photoPath'];
       String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
@@ -508,6 +522,10 @@ class CroquiController extends ChangeNotifier {
         tamanho: size,
         vistaAnatomica: achado.vistaAnatomica,
         localAnatomico: localNome,
+        tipoFerimento: tipoFerimento,
+        tipoObjeto: tipoObjeto,
+        numeroLacre: numeroLacre,
+        comentarioAdicional: comentarioAdicional,
       );
 
       try {
