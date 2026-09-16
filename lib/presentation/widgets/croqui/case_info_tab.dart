@@ -36,6 +36,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
   @override
   void dispose() {
+    _croquiController.flushAutoSave();
     super.dispose();
   }
 
@@ -275,7 +276,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 DropdownMenuItem(value: 'Atestadas em documento médico', child: Text('Atestadas em documento médico')),
               ],
               onChanged: readOnly ? null : (val) {
-                if (val != null) controller.tipoEstimativaHoraObitoCtrl.text = val;
+                if (val != null) {
+                  controller.tipoEstimativaHoraObitoCtrl.text = val;
+                  controller.sincronizarDadosEmMemoria(null, false);
+                  controller.scheduleAutoSave();
+                }
               },
             ),
             const SizedBox(height: 16),
@@ -289,7 +294,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 DropdownMenuItem(value: 'Indeterminado', child: Text('Indeterminado')),
               ],
               onChanged: readOnly ? null : (val) {
-                if (val != null) controller.sexoBiologicoEstimadoCtrl.text = val;
+                if (val != null) {
+                  controller.sexoBiologicoEstimadoCtrl.text = val;
+                  controller.sincronizarDadosEmMemoria(null, false);
+                  controller.scheduleAutoSave();
+                }
               },
             ),
             const SizedBox(height: 16),
@@ -310,8 +319,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               onChanged: readOnly ? null : (val) {
                 if (val != null) {
                   controller.corpoEstadoCtrl.text = val;
-                  // Chama um método no controller conforme instruído
                   controller.setCorpoEstado(val); 
+                  controller.sincronizarDadosEmMemoria(null, false);
+                  controller.scheduleAutoSave();
                 }
               },
             ),
@@ -378,50 +388,13 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
             
             const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            const _SectionHeader(title: "3. Balística / Objetos Retirados", icon: Icons.gps_fixed),
-            const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: controller.descricaoObjetoCtrls.length,
-              itemBuilder: (context, index) {
-                final objCtrl = controller.descricaoObjetoCtrls[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildTextField("Objeto / Lacre #${index + 1}", objCtrl, readOnly: readOnly, maxLines: null)),
-                      if (!readOnly && controller.descricaoObjetoCtrls.length > 1)
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => controller.removerObjeto(index),
-                        )
-                    ],
-                  ),
-                );
-              },
-            ),
-            if (!readOnly)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text("Adicionar Objeto/Lacre"),
-                  style: TextButton.styleFrom(foregroundColor: Colors.indigo),
-                  onPressed: () => controller.adicionarObjeto(),
-                ),
-              ),
-
             const SizedBox(height: 32),
-            const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
+            const _SectionHeader(title: "3. Discussão / Comentário Forense", icon: Icons.chat),
             const SizedBox(height: 16),
             _buildTextField("Comentário Médico Forense", controller.discussaoCtrl, readOnly: readOnly, maxLines: null),
             
             const SizedBox(height: 24),
-            const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
+            const _SectionHeader(title: "4. Conclusão", icon: Icons.assignment_turned_in),
             const SizedBox(height: 16),
             _buildTextField("Conclusão Final", controller.conclusaoCtrl, readOnly: readOnly, maxLines: null),
             
@@ -639,6 +612,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         minLines: maxLines == null ? 3 : null,
         keyboardType: maxLines == null ? TextInputType.multiline : TextInputType.text,
         textCapitalization: TextCapitalization.sentences,
+        onChanged: (val) {
+          final c = context.read<CroquiController>();
+          c.sincronizarDadosEmMemoria(null, false);
+          c.scheduleAutoSave();
+        },
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(

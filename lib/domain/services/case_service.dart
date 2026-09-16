@@ -211,7 +211,7 @@ class CaseService {
       atualizadoEm: DateTime.now(),
       isDraftSynced: false,
     );
-    debugPrint('[CaseService] 💾 salvarRascunho - dados_laudo_json: ${jsonEncode(casoAtualizado.dadosLaudo)}');
+    debugPrint('[CaseService] 💾 salvarRascunho - dados_laudo_json: ${jsonEncode(casoAtualizado.dadosLaudo.toMap())}');
     await _repository.updateCase(casoAtualizado);
   }
 

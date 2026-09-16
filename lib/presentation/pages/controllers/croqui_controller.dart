@@ -12,6 +12,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
@@ -83,8 +84,7 @@ class CroquiController extends ChangeNotifier {
 
   bool _isDisposed = false;
 
-  Timer? _autoSaveTimer;
-  bool _isAutoSavePending = false;
+
 
   final bool? _isReadOnlyInput;
   bool get isReadOnly =>
@@ -235,7 +235,7 @@ class CroquiController extends ChangeNotifier {
       causasMorteCtrls[index].dispose();
       causasMorteCtrls.removeAt(index);
       notifyListeners();
-      _scheduleAutoSave();
+      scheduleAutoSave();
     }
   }
 
@@ -272,7 +272,7 @@ class CroquiController extends ChangeNotifier {
     debugPrint('[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}');
 
     notifyListeners();
-    _scheduleAutoSave();
+    scheduleAutoSave();
   }
 
   Future<void> _bumpRootVersion() async {
@@ -296,7 +296,7 @@ class CroquiController extends ChangeNotifier {
     );
     
     notifyListeners();
-    _scheduleAutoSave(); // Garante que o SQLite salve a versão nova antes do Sync
+    scheduleAutoSave(); // Garante que o SQLite salve a versão nova antes do Sync
   }
 
   Future<void> salvarExamesSolicitados({
@@ -321,7 +321,7 @@ class CroquiController extends ChangeNotifier {
     );
     
     notifyListeners();
-    _scheduleAutoSave(); // Garante salvamento no SQLite local
+    scheduleAutoSave(); // Garante salvamento no SQLite local
   }
 
   List<Achado> getMarkersForView(String view) {
@@ -550,7 +550,7 @@ class CroquiController extends ChangeNotifier {
       atualizadoEm: DateTime.now(),
     );
     notifyListeners();
-    _scheduleAutoSave();
+    scheduleAutoSave();
   }
 
   Future<void> finalizarCasoDireto(BuildContext context) async {
@@ -907,7 +907,7 @@ class CroquiController extends ChangeNotifier {
     atualizarDadosLaudoMemoria(novosDados);
     
     if (!isReadOnly) {
-      _scheduleAutoSave();
+      scheduleAutoSave();
     }
   }
 
@@ -964,6 +964,7 @@ class CroquiController extends ChangeNotifier {
     String? dataNecropsia,
     String? horaNecropsia,
     dynamic causaMorte,
+    bool notify = true,
   }) {
     casoAtual = casoAtual.copyWith(
       numeroBo: numeroBo,
@@ -994,9 +995,12 @@ class CroquiController extends ChangeNotifier {
     );
 
     debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}');
-    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo)}');
-    notifyListeners();
-    _scheduleAutoSave();
+    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo.toMap())}');
+    
+    if (notify) {
+      notifyListeners();
+      scheduleAutoSave();
+    }
   }
 
   Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
@@ -1009,42 +1013,33 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-  void _scheduleAutoSave() {
+  void scheduleAutoSave() {
+    salvarRascunhoImediato();
+  }
+
+  Future<void> salvarRascunhoImediato() async {
     if (isReadOnly) return;
-    _isAutoSavePending = true;
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(seconds: 3), () async {
-      if (_isDisposed) return;
-      if (_isAutoSavePending && !isReadOnly) {
-        _isAutoSavePending = false;
-        try {
-          await _caseService.salvarRascunho(casoAtual);
-          debugPrint('[CroquiController] 💾 Auto-save resiliente gravado no SQLite.');
-        } catch (e) {
-          debugPrint('[CroquiController] ⚠️ Erro no auto-save resiliente: $e');
-        }
-      }
-    });
+    try {
+      sincronizarDadosEmMemoria(null, false);
+      // Fire-and-forget: não usamos await para não travar quem chama, 
+      // mas garantimos que a gravação será despachada.
+      _caseService.salvarRascunho(casoAtual).catchError((e) {
+        debugPrint('[CroquiController] ⚠️ Erro no auto-save fire-and-forget: $e');
+      });
+    } catch (e) {
+      debugPrint('[CroquiController] ⚠️ Erro ao preparar dados para auto-save: $e');
+    }
   }
 
   Future<void> flushAutoSave() async {
-    _autoSaveTimer?.cancel();
-    if (_isAutoSavePending && !isReadOnly) {
-      _isAutoSavePending = false;
+    // Agora o flushAutoSave apenas garante a sincronização e o salvamento síncrono.
+    if (!isReadOnly) {
       try {
+        sincronizarDadosEmMemoria(null, false);
         await _caseService.salvarRascunho(casoAtual);
         debugPrint('[CroquiController] 💾 Flush imediato de rascunho gravado no SQLite.');
       } catch (e) {
         debugPrint('[CroquiController] ⚠️ Erro ao forçar flush de rascunho: $e');
-      }
-    } else if (!isReadOnly) {
-      try {
-        await _caseService.salvarRascunho(casoAtual);
-      } catch (e) {
-        /// Intercepta falhas de persistência em background (AutoSave).
-        /// Essencial para monitorar gargalos de I/O no SQLite ou quebras de 
-        /// concorrência que impediriam a recuperação do rascunho offline.
-        debugPrint('[AutoSave] FALHA CRÍTICA ao salvar rascunho local: $e');
       }
     }
   }
@@ -1052,12 +1047,17 @@ class CroquiController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
-    _autoSaveTimer?.cancel();
+
+    // Sincroniza os controllers de texto com o casoAtual ANTES de liberar
+    // os recursos e sem chamar notifyListeners (pois estamos no dispose).
+    if (!isReadOnly) {
+      sincronizarDadosEmMemoria(null, false);
+    }
 
     // Copia o estado necessário ANTES de liberar os controllers
     // para evitar use-after-free na escrita assíncrona pós-dispose.
     final casoParaFlush = casoAtual;
-    final deveFlush = _isAutoSavePending && !isReadOnly;
+    final deveFlush = !isReadOnly; // Sempre garante que o último estado da memória vai pro banco
 
     // Libera todos os recursos síncronos imediatamente
     numeroLaudoCtrl.dispose();
@@ -1103,10 +1103,19 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-  void sincronizarDadosEmMemoria(AuthProvider authProvider) {
+  void sincronizarDadosEmMemoria([AuthProvider? authProvider, bool notify = true]) {
     if (isReadOnly) return;
 
-    final nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
+    final String nomePerito;
+    final String dataFinalizacao;
+    if (authProvider != null) {
+      nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
+      dataFinalizacao = DateTime.now().toIso8601String();
+    } else {
+      nomePerito = casoAtual.dadosLaudo.auditoria.peritoResponsavel ?? "Perito não identificado";
+      dataFinalizacao = casoAtual.dadosLaudo.auditoria.dataFinalizacao ?? DateTime.now().toIso8601String();
+    }
+
     final Map<String, dynamic> novosDados = {};
 
     final nomesAtns = casoAtual.atnsIds.map((id) {
@@ -1116,7 +1125,7 @@ class CroquiController extends ChangeNotifier {
 
     novosDados['auditoria'] = {
       'perito_responsavel': nomePerito,
-      'data_finalizacao': DateTime.now().toIso8601String(),
+      'data_finalizacao': dataFinalizacao,
       'atns_nomes': nomesAtns,
     };
 
@@ -1148,11 +1157,11 @@ class CroquiController extends ChangeNotifier {
     final dataNecropsiaFinal = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
     final horaNecropsiaFinal = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-    final causasMorteList = causasMorteCtrls.map((ctrl) => {
-      'imediata': ctrl.imediataCtrl.text,
-      'devido_a': ctrl.devidoACtrl.text,
-      'consequencia': ctrl.consequenciaCtrl.text,
-    }).toList();
+    final causasMorteList = causasMorteCtrls.map((ctrl) => CausaMorteModel(
+      imediata: ctrl.imediataCtrl.text,
+      devidoA: ctrl.devidoACtrl.text,
+      consequencia: ctrl.consequenciaCtrl.text,
+    )).toList();
 
     salvarDadosGerais(
       numeroBo: boCtrl.text,
@@ -1174,6 +1183,7 @@ class CroquiController extends ChangeNotifier {
       dataNecropsia: dataNecropsiaFinal,
       horaNecropsia: horaNecropsiaFinal,
       causaMorte: causasMorteList,
+      notify: notify,
     );
   }
 

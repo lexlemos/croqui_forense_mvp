@@ -21,6 +21,7 @@ import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/case_info_tab.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/croqui/tabs/balistica_tab.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/exames_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller_result.dart';
@@ -94,10 +95,10 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
     const double sidebarWidth = 320.0;
 
     return DefaultTabController(
-      length: 7,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Consumer<CroquiController>(
+      length: 8,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Consumer<CroquiController>(
             builder: (context, c, _) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -203,6 +204,7 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               Tab(text: "Períneo"),
               Tab(text: "Face Dir. / Esq."),
               Tab(text: "Exames", icon: Icon(Icons.science, size: 16)),
+              Tab(text: "Balística", icon: Icon(Icons.gps_fixed, size: 16)),
               Tab(text: "Dados", icon: Icon(Icons.description, size: 16)),
             ],
           ),
@@ -227,6 +229,10 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                             PerineoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
                             RostosTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
                             const ExamesTab(),
+                            BalisticaTab(
+                              readOnly: controller.isReadOnly,
+                              onEdit: (achado) => _showEditOrDetail(context, controller, achado),
+                            ),
                             const CaseInfoTab(),
                           ],
                         ),

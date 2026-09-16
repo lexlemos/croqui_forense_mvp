@@ -409,27 +409,24 @@ class Caso {
   Map<String, dynamic> toSyncMap() {
     return {
       'uuid': uuid,
-      'id_usuario_criador': idUsuarioCriador,
-      'numero_laudo_externo': numeroLaudoExterno,
-      'status': status.name.toUpperCase(),
-      'dados_laudo_json': dadosLaudo.toMap(),
-      'hash_integridade': hashIntegridade,
-      'removido': removido,
       'versao': versao,
-      'criado_em_dispositivo': criadoEmDispositivo.toIso8601String(),
-      'atualizado_em': atualizadoEm?.toIso8601String(),
-      'finalizado_em': finalizadoEm?.toIso8601String(),
+      'removido': removido,
+      'status_pericia': _mapearStatusParaApi(status),
       'device_id': deviceId,
+      'atns_ids': atnsIds,
+      'criado_em_dispositivo': criadoEmDispositivo.toUtc().toIso8601String(),
+      'atualizado_em': (atualizadoEm ?? criadoEmDispositivo).toUtc().toIso8601String(),
+      'finalizado_em': finalizadoEm?.toUtc().toIso8601String(),
+      'perito_responsavel': idUsuarioCriador,
       'numero_pic': numeroPic,
+      'numero_laudo_externo': numeroLaudoExterno,
       'numero_bo': numeroBo,
       'numero_requisicao': numeroRequisicao,
-      'nome_vitima': nomeVitima,
-      'destino': destino,
       'requisitante': requisitante,
-      'atns_ids': atnsIds,
-      'pdf_local_path': pdfLocalPath,
+      'destino': destino,
+      'nome_vitima': nomeVitima,
+      'dados_laudo_json': dadosLaudo.toMap(),
       'pdf_url': pdfUrl,
-      'is_draft_synced': isDraftSynced,
       'corpo_estado': corpoEstado,
       'corpo_estado_outros': corpoEstadoOutros,
       'sexo_biologico_estimado': sexoBiologicoEstimado,
@@ -437,16 +434,28 @@ class Caso {
       'hora_obito': horaObito,
       'tipo_estimativa_hora_obito': tipoEstimativaHoraObito,
       'causa_morte': causaMorte?.map((e) => e.toMap()).toList(),
-      /// Alinhado com o DTO [CasoSyncDTO] do backend FastAPI para evitar colisão 
-      /// estrutural com o array de objetos de exames.
-      'tem_exames_solicitados': examesSolicitados,
+      'exames_solicitados_flag': examesSolicitados,
       'descricao_exames': descricaoExames,
       'objeto_retirado': objetoRetirado,
       'descricao_objeto': descricaoObjeto,
       'data_necropsia': dataNecropsia,
       'hora_necropsia': horaNecropsia,
       'numero_declaracao_obito': numeroDeclaracaoObito,
-      'perito_responsavel': idUsuarioCriador,
     };
+  }
+
+  String _mapearStatusParaApi(StatusCaso statusLocal) {
+    switch (statusLocal) {
+      case StatusCaso.rascunho:
+        return 'EM_ANDAMENTO';
+      case StatusCaso.laudo_pendente:
+        return 'LAUDO_PENDENTE';
+      case StatusCaso.finalizado:
+      case StatusCaso.sincronizado:
+      case StatusCaso.arquivado:
+        return 'CONCLUIDO';
+      default:
+        return 'EM_ANDAMENTO';
+    }
   }
 }

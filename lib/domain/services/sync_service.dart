@@ -541,44 +541,11 @@ class SyncService {
     }
 
 
-    return {
-      'uuid': caso.uuid,
-      'id_usuario_criador': caso.idUsuarioCriador,
-      'versao': caso.versao,
-      'removido': caso.removido,
-      'status': caso.status.name.toUpperCase(),
-      'numero_laudo_externo': caso.numeroLaudoExterno,
-      'dados_laudo_json': caso.dadosLaudo,
-      'device_id': caso.deviceId,
-      'criado_em_dispositivo': caso.criadoEmDispositivo.toUtc().toIso8601String(),
-      'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
-      'finalizado_em': caso.finalizadoEm?.toUtc().toIso8601String(),
-      'numero_pic': caso.numeroPic,
-      'numero_bo': caso.numeroBo,
-      'numero_requisicao': caso.numeroRequisicao,
-      'nome_vitima': caso.nomeVitima,
-      'destino': caso.destino,
-      'requisitante': caso.requisitante,
-      'atns_ids': caso.atnsIds,
-      'pdf_local_path': caso.pdfLocalPath,
-      'pdf_url': caso.pdfUrl,
-      'corpo_estado': caso.corpoEstado,
-      'corpo_estado_outros': caso.corpoEstadoOutros,
-      'sexo_biologico_estimado': caso.sexoBiologicoEstimado,
-      'data_obito': caso.dataObito,
-      'hora_obito': caso.horaObito,
-      'tipo_estimativa_hora_obito': caso.tipoEstimativaHoraObito,
-      'causa_morte': caso.causaMorte,
-      'tem_exames_solicitados': caso.examesSolicitados, // renomeado para evitar colisão com array de exames
-      'descricao_exames': caso.descricaoExames,
-      'objeto_retirado': caso.objetoRetirado,
-      'descricao_objeto': caso.descricaoObjeto,
-      'data_necropsia': caso.dataNecropsia,
-      'hora_necropsia': caso.horaNecropsia,
-      'numero_declaracao_obito': caso.numeroDeclaracaoObito,
-      'diagramas': diagramasJson,
-      'achados': achados.map(_achadoParaJson).toList(),
-    };
+    final payload = caso.toSyncMap();
+    payload['diagramas'] = diagramasJson;
+    payload['achados'] = achados.map(_achadoParaJson).toList();
+    
+    return payload;
   }
 
   Map<String, dynamic> _achadoParaJson(Achado achado) {

@@ -56,6 +56,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   static const List<String> _sizeOptions = ['0.5', '1.0', '1.5', '2.0', '2.5', 'Outro'];
   String? _selectedSize;
   bool _isCustomSize = false;
+  bool _hasBalistica = false;
   
   final ImagePicker _picker = ImagePicker();
   List<InjuryType> _availableTypes = [];
@@ -98,6 +99,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         debugPrint('[InjuryFormModal] Erro ao decodificar dados_dinamicos_json: $e');
       }
     }
+
+    _hasBalistica = (m?.tipoFerimento != null && m!.tipoFerimento!.isNotEmpty) ||
+                    (m?.tipoObjeto != null && m!.tipoObjeto!.isNotEmpty) ||
+                    (m?.numeroLacre != null && m!.numeroLacre!.isNotEmpty) ||
+                    (m?.comentarioAdicional != null && m!.comentarioAdicional!.isNotEmpty);
 
     _loadTypes(initialTypeLabel: m?.type);
     _loadEntradas();
@@ -605,6 +611,28 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildSectionLabel("VESTÍGIO RECOLHIDO / BALÍSTICA"),
+        SwitchListTile(
+          title: const Text(
+            "Possui Balística / Objeto Retirado?",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: const Text("Vincular vestígio a este ferimento"),
+          value: _hasBalistica,
+          onChanged: (val) {
+            setState(() {
+              _hasBalistica = val;
+              if (!val) {
+                // Limpa os campos se desmarcado
+                _selectedTipoFerimento = null;
+                _selectedTipoObjeto = null;
+                _numeroLacreController.clear();
+                _comentarioAdicionalController.clear();
+              }
+            });
+          },
+        ),
+        if (_hasBalistica) ...[
+          const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _selectedTipoFerimento,
           decoration: const InputDecoration(
@@ -625,7 +653,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12),
           ),
-          items: ['Projétil', 'Estojo', 'Fragmento', 'Roupas/Jaqueta', 'Outro']
+          items: ['Projétil', 'Estojo', 'Fragmento', 'Outro']
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))
               .toList(),
           onChanged: (v) => setState(() => _selectedTipoObjeto = v),
@@ -643,6 +671,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
             alignLabelWithHint: true,
           ),
         ),
+        ],
         const SizedBox(height: 20),
       ],
     );
