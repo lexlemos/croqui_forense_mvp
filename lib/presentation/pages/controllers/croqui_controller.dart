@@ -5,13 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:uuid/uuid.dart'; 
+import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
@@ -31,15 +32,22 @@ import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart
 import 'package:croqui_forense_mvp/presentation/widgets/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
-import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;
-import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart' as face_left;
-import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart' as lat_right;
+import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart'
+    as face_right;
+import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart'
+    as face_left;
+import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart'
+    as lat_right;
 import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
-import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart' as lat_left;
-import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart' as trunk_right;
-import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart' as trunk_left;
-import 'package:croqui_forense_mvp/core/constants/perineal_data.dart' as perineal;
+import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart'
+    as lat_left;
+import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart'
+    as trunk_right;
+import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart'
+    as trunk_left;
+import 'package:croqui_forense_mvp/core/constants/perineal_data.dart'
+    as perineal;
 
 class CausaMorteControllers {
   final TextEditingController imediataCtrl;
@@ -50,9 +58,9 @@ class CausaMorteControllers {
     String imediata = '',
     String devidoA = '',
     String consequencia = '',
-  })  : imediataCtrl = TextEditingController(text: imediata),
-        devidoACtrl = TextEditingController(text: devidoA),
-        consequenciaCtrl = TextEditingController(text: consequencia);
+  }) : imediataCtrl = TextEditingController(text: imediata),
+       devidoACtrl = TextEditingController(text: devidoA),
+       consequenciaCtrl = TextEditingController(text: consequencia);
 
   void dispose() {
     imediataCtrl.dispose();
@@ -83,8 +91,6 @@ class CroquiController extends ChangeNotifier {
   bool get isProcessing => _isProcessing;
 
   bool _isDisposed = false;
-
-
 
   final bool? _isReadOnlyInput;
   bool get isReadOnly =>
@@ -119,27 +125,7 @@ class CroquiController extends ChangeNotifier {
   late final TextEditingController sexoBiologicoEstimadoCtrl;
   late final TextEditingController corpoEstadoCtrl;
   late final TextEditingController corpoEstadoOutrosCtrl;
-  List<TextEditingController> descricaoObjetoCtrls = [];
-  
-  bool objetoRetirado = false;
-
-  void adicionarObjeto() {
-    descricaoObjetoCtrls.add(TextEditingController());
-    notifyListeners();
-  }
-
-  void removerObjeto(int index) {
-    if (descricaoObjetoCtrls.length > 1) {
-      descricaoObjetoCtrls[index].dispose();
-      descricaoObjetoCtrls.removeAt(index);
-      notifyListeners();
-    }
-  }
-
-  void setObjetoRetirado(bool value) {
-    objetoRetirado = value;
-    notifyListeners();
-  }
+  late final TextEditingController delegaciaSolicitanteCtrl;
 
   void setCorpoEstado(String value) {
     corpoEstadoCtrl.text = value;
@@ -164,47 +150,73 @@ class CroquiController extends ChangeNotifier {
     final caso = casoAtual;
     final dados = caso.dadosLaudo;
 
-    numeroLaudoCtrl = TextEditingController(text: caso.numeroRequisicao.isNotEmpty ? caso.numeroRequisicao : (caso.numeroLaudoExterno ?? ''));
+    numeroLaudoCtrl = TextEditingController(
+      text: caso.numeroRequisicao.isNotEmpty
+          ? caso.numeroRequisicao
+          : (caso.numeroLaudoExterno ?? ''),
+    );
     boCtrl = TextEditingController(text: caso.numeroBo);
     picCtrl = TextEditingController(text: caso.numeroPic);
     reqOrigemCtrl = TextEditingController(text: caso.requisitante);
+    delegaciaSolicitanteCtrl = TextEditingController(
+      text: caso.delegaciaSolicitante ?? '',
+    );
     reqDestinoCtrl = TextEditingController(text: caso.destino);
     nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
 
-    numeroDeclaracaoObitoCtrl = TextEditingController(text: caso.numeroDeclaracaoObito ?? '');
+    numeroDeclaracaoObitoCtrl = TextEditingController(
+      text: caso.numeroDeclaracaoObito ?? '',
+    );
     dataObitoCtrl = TextEditingController(text: caso.dataObito ?? '');
     horaObitoCtrl = TextEditingController(text: caso.horaObito ?? '');
-    tipoEstimativaHoraObitoCtrl = TextEditingController(text: caso.tipoEstimativaHoraObito ?? '');
-    sexoBiologicoEstimadoCtrl = TextEditingController(text: caso.sexoBiologicoEstimado ?? '');
+    tipoEstimativaHoraObitoCtrl = TextEditingController(
+      text: caso.tipoEstimativaHoraObito ?? '',
+    );
+    sexoBiologicoEstimadoCtrl = TextEditingController(
+      text: caso.sexoBiologicoEstimado ?? '',
+    );
     corpoEstadoCtrl = TextEditingController(text: caso.corpoEstado ?? '');
-    corpoEstadoOutrosCtrl = TextEditingController(text: caso.corpoEstadoOutros ?? '');
-    
-    final String descObjeto = caso.descricaoObjeto ?? '';
-    if (descObjeto.trim().isNotEmpty) {
-      final items = descObjeto.split('\n');
-      descricaoObjetoCtrls = items.map((e) => TextEditingController(text: e.trim())).toList();
-    } else {
-      descricaoObjetoCtrls = [TextEditingController()];
-    }
-    
-    objetoRetirado = caso.objetoRetirado ?? false;
-
-    historicoCtrl = TextEditingController(
-      text: dados.identificacao.historico.isNotEmpty ? dados.identificacao.historico : 
-            "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+    corpoEstadoOutrosCtrl = TextEditingController(
+      text: caso.corpoEstadoOutros ?? '',
     );
 
-    vestesCtrl = TextEditingController(text: dados.identificacao.vestes.isNotEmpty ? dados.identificacao.vestes : 'Despido no momento da necrópsia.');
-    caracteristicasCtrl = TextEditingController(text: dados.caracteristicas.identificacao.isNotEmpty ? dados.caracteristicas.identificacao : 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.');
-    tanatoImediatoCtrl = TextEditingController(text: dados.caracteristicas.tanatoImediato.isNotEmpty ? dados.caracteristicas.tanatoImediato : 'XXX');
-    tanatoConsecutivoCtrl = TextEditingController(text: dados.caracteristicas.tanatoConsecutivo.isNotEmpty ? dados.caracteristicas.tanatoConsecutivo : 'XXX');
-    tanatoObservacaoCtrl = TextEditingController(text: dados.caracteristicas.tanatoObservacao.isNotEmpty ? dados.caracteristicas.tanatoObservacao : 'XXX');
+    historicoCtrl = TextEditingController(
+      text: dados.identificacao.historico.isNotEmpty
+          ? dados.identificacao.historico
+          : "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX.",
+    );
+
+    vestesCtrl = TextEditingController(
+      text: dados.identificacao.vestes.isNotEmpty
+          ? dados.identificacao.vestes
+          : 'Despido no momento da necrópsia.',
+    );
+    caracteristicasCtrl = TextEditingController(
+      text: dados.caracteristicas.identificacao.isNotEmpty
+          ? dados.caracteristicas.identificacao
+          : 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.',
+    );
+    tanatoImediatoCtrl = TextEditingController(
+      text: dados.caracteristicas.tanatoImediato.isNotEmpty
+          ? dados.caracteristicas.tanatoImediato
+          : 'XXX',
+    );
+    tanatoConsecutivoCtrl = TextEditingController(
+      text: dados.caracteristicas.tanatoConsecutivo.isNotEmpty
+          ? dados.caracteristicas.tanatoConsecutivo
+          : 'XXX',
+    );
+    tanatoObservacaoCtrl = TextEditingController(
+      text: dados.caracteristicas.tanatoObservacao.isNotEmpty
+          ? dados.caracteristicas.tanatoObservacao
+          : 'XXX',
+    );
 
     discussaoCtrl = TextEditingController(text: dados.conclusao.discussao);
     conclusaoCtrl = TextEditingController(text: dados.conclusao.conclusaoTexto);
 
     quesito1Ctrl = TextEditingController(text: dados.conclusao.quesito1Morte);
-    
+
     if (caso.causaMorte != null && caso.causaMorte!.isNotEmpty) {
       causasMorteCtrls = caso.causaMorte!.map((cm) {
         return CausaMorteControllers(
@@ -216,12 +228,12 @@ class CroquiController extends ChangeNotifier {
     } else {
       // Fallback para o antigo formato
       String causaAntiga = dados.conclusao.quesito2Causa;
-      causasMorteCtrls = [
-        CausaMorteControllers(imediata: causaAntiga)
-      ];
+      causasMorteCtrls = [CausaMorteControllers(imediata: causaAntiga)];
     }
-    
-    quesito3Ctrl = TextEditingController(text: dados.conclusao.quesito3Instrumento);
+
+    quesito3Ctrl = TextEditingController(
+      text: dados.conclusao.quesito3Instrumento,
+    );
     quesito4Ctrl = TextEditingController(text: dados.conclusao.quesito4Meio);
   }
 
@@ -251,8 +263,12 @@ class CroquiController extends ChangeNotifier {
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
-      examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
-      examesSolicitadosModel = await _casoRepository.getExamesPorCaso(casoAtual.uuid);
+      examesSolicitados = await _caseService.getExamesSolicitados(
+        casoAtual.uuid,
+      );
+      examesSolicitadosModel = await _casoRepository.getExamesPorCaso(
+        casoAtual.uuid,
+      );
       atns = await _atnRepository.getAtns();
     } finally {
       isLoading = false;
@@ -260,16 +276,20 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
-
-
-  Future<void> atualizarAtnsResponsaveis(List<String> atnsIdsSelecionados) async {
+  Future<void> atualizarAtnsResponsaveis(
+    List<String> atnsIdsSelecionados,
+  ) async {
     casoAtual = casoAtual.copyWith(
       atnsIds: atnsIdsSelecionados,
       atualizadoEm: DateTime.now(),
     );
 
-    debugPrint('[CroquiController] 🔄 ATNs Atualizados na RAIZ do Caso: atns_ids=${casoAtual.atnsIds}');
-    debugPrint('[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}');
+    debugPrint(
+      '[CroquiController] 🔄 ATNs Atualizados na RAIZ do Caso: atns_ids=${casoAtual.atnsIds}',
+    );
+    debugPrint(
+      '[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}',
+    );
 
     notifyListeners();
     scheduleAutoSave();
@@ -285,18 +305,47 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
+    debugPrint('--- CONTROLLER TEST (RECEBIMENTO) ---');
+    for (var e in exames) {
+      debugPrint('Recebido Exame: ${e.tipoExame} | Detalhes nulo: ${e.detalhes == null}');
+      if (e.detalhes != null) debugPrint('  Detalhes: ${e.detalhes}');
+    }
+
     examesSolicitadosModel = exames;
     await _casoRepository.salvarExames(casoAtual.uuid, exames);
-    
+
     // A MÁGICA DE VERSÃO FICA AQUI:
     // Suja o caso matriz para o backend saber que o pacote de exames mudou
     casoAtual = casoAtual.copyWith(
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now().toUtc(),
+      exames: List<ExameSolicitadoModel>.from(exames),
     );
-    
+
+    // CRÍTICO: Devemos salvar o rascunho do caso para persistir o exames_offline_backup no SQLite!
+    await _caseService.salvarRascunho(casoAtual);
+
+    debugPrint(
+      '🔍 [AUDITORIA 1 - MEMORIA] Exames no Caso Atual: ${casoAtual.exames.length}',
+    );
+    debugPrint(
+      '🔍 [AUDITORIA 1 - MEMORIA] Detalhes (toSyncMap): ${casoAtual.exames.map((e) => e.toSyncMap()).toList()}',
+    );
+
     notifyListeners();
     scheduleAutoSave(); // Garante que o SQLite salve a versão nova antes do Sync
+  }
+
+  void adicionarBalistica(BalisticaModel balistica) {
+    final novasBalisticas = List<BalisticaModel>.from(casoAtual.balisticas)
+      ..add(balistica);
+    casoAtual = casoAtual.copyWith(
+      balisticas: novasBalisticas,
+      versao: casoAtual.versao + 1,
+      atualizadoEm: DateTime.now().toUtc(),
+    );
+    _caseService.salvarRascunho(casoAtual);
+    notifyListeners();
   }
 
   Future<void> salvarExamesSolicitados({
@@ -313,22 +362,30 @@ class CroquiController extends ChangeNotifier {
       outrosLacre: outrosLacre,
     );
     examesSolicitados = await _caseService.getExamesSolicitados(casoAtual.uuid);
-    
+
     // Suja a raiz (OCC Bump)
     casoAtual = casoAtual.copyWith(
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now().toUtc(),
     );
-    
+
     notifyListeners();
     scheduleAutoSave(); // Garante salvamento no SQLite local
   }
 
   List<Achado> getMarkersForView(String view) {
-    return achados.where((a) => (a.dadosPreenchidos['view'] ?? '') == view).toList();
+    return achados
+        .where((a) => (a.dadosPreenchidos['view'] ?? '') == view)
+        .toList();
   }
 
-  Future<void> addAchado(BuildContext context, String viewType, String partId, double x, double y) async {
+  Future<void> addAchado(
+    BuildContext context,
+    String viewType,
+    String partId,
+    double x,
+    double y,
+  ) async {
     if (isReadOnly) {
       _snack("Caso finalizado. Edição bloqueada.");
       return;
@@ -342,7 +399,12 @@ class CroquiController extends ChangeNotifier {
         await _caseService.salvarRascunho(casoAtual);
       } catch (e) {
         debugPrint("Erro ao garantir salvamento do caso: $e");
-        globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Erro ao preparar o caso."), backgroundColor: Colors.red));
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao preparar o caso."),
+            backgroundColor: Colors.red,
+          ),
+        );
         return;
       }
 
@@ -366,20 +428,34 @@ class CroquiController extends ChangeNotifier {
       final String size = result['size']?.toString() ?? '';
       final String depth = result['depth']?.toString() ?? '';
       final String description = result['description']?.toString() ?? '';
-      final String tipoLesaoNome = result['type']?.toString() ?? 'Não especificado';
+      final String tipoLesaoNome =
+          result['type']?.toString() ?? 'Não especificado';
       final String tipoLesaoId = result['typeId']?.toString() ?? 'outro';
       final bool isInterno = result['isInterno'] ?? false;
-      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
-      
+      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']
+          ?.toString();
+
       final String? tipoFerimento = result['tipoFerimento']?.toString();
       final String? tipoObjeto = result['tipoObjeto']?.toString();
       final String? numeroLacre = result['numeroLacre']?.toString();
-      final String? comentarioAdicional = result['comentarioAdicional']?.toString();
+      final String? comentarioAdicional = result['comentarioAdicional']
+          ?.toString();
 
       String? finalPhotoPath = result['photoPath'];
-      if (finalPhotoPath != null && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
-        final String existingUuid = finalPhotoPath.split('/').last.split('\\').last.replaceAll('.jpg', '').replaceAll('.png', '');
-        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath), existingUuid);
+      if (finalPhotoPath != null &&
+          !finalPhotoPath.startsWith('http://') &&
+          !finalPhotoPath.startsWith('https://')) {
+        final String existingUuid = finalPhotoPath
+            .split('/')
+            .last
+            .split('\\')
+            .last
+            .replaceAll('.jpg', '')
+            .replaceAll('.png', '');
+        final File compressedFile = await ImageHelper.compressImage(
+          File(finalPhotoPath),
+          existingUuid,
+        );
         finalPhotoPath = compressedFile.path;
       }
 
@@ -392,10 +468,14 @@ class CroquiController extends ChangeNotifier {
         'depth': depth,
         'photo_path': finalPhotoPath,
         'is_interno': isInterno,
-        if (result['dados_dinamicos_json'] is Map) 'dados_dinamicos_json': result['dados_dinamicos_json'],
+        if (result['dados_dinamicos_json'] is Map)
+          'dados_dinamicos_json': result['dados_dinamicos_json'],
       };
 
-      final String diagramaCasoUuid = _toDeterministicUuidV4(casoAtual.uuid, viewType);
+      final String diagramaCasoUuid = _toDeterministicUuidV4(
+        casoAtual.uuid,
+        viewType,
+      );
 
       final achadoFinal = Achado(
         uuid: const Uuid().v4(),
@@ -422,18 +502,47 @@ class CroquiController extends ChangeNotifier {
         comentarioAdicional: comentarioAdicional,
       );
 
+      List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
+      if (tipoFerimento != null ||
+          tipoObjeto != null ||
+          numeroLacre != null ||
+          comentarioAdicional != null) {
+        final String balisticaId = _toDeterministicUuidV4(
+          achadoFinal.uuid,
+          'balistica',
+        );
+        novasBalisticas.add(
+          BalisticaModel(
+            id: balisticaId,
+            exameId: casoAtual.uuid,
+            tipoFerimento: tipoFerimento,
+            tipoObjeto: tipoObjeto,
+            numeroLacre: numeroLacre,
+            comentarioAdicional: comentarioAdicional,
+          ),
+        );
+      }
+
+      casoAtual = casoAtual.copyWith(balisticas: novasBalisticas);
+
       try {
         await _achadoService.salvarAchado(achadoFinal);
         await _bumpRootVersion();
         await _loadAchados();
-        
+
         globalMessengerKey.currentState?.hideCurrentSnackBar();
-        globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Achado adicionado!")));
-        
+        globalMessengerKey.currentState?.showSnackBar(
+          const SnackBar(content: Text("Achado adicionado!")),
+        );
       } catch (e) {
         debugPrint("Erro real ao salvar achado: $e");
         globalMessengerKey.currentState?.hideCurrentSnackBar();
-        globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red));
+        globalMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text("Erro ao salvar: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       _isProcessing = false;
@@ -449,8 +558,12 @@ class CroquiController extends ChangeNotifier {
 
     try {
       final dados = achado.dadosPreenchidos;
-      final String localNome = dados['local_anatomico_nome'] ?? 
-                               _resolveBodyPartName(dados['view'], dados['local_anatomico_id'] ?? '');
+      final String localNome =
+          dados['local_anatomico_nome'] ??
+          _resolveBodyPartName(
+            dados['view'],
+            dados['local_anatomico_id'] ?? '',
+          );
 
       final result = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
@@ -470,27 +583,44 @@ class CroquiController extends ChangeNotifier {
       final String depth = result['depth']?.toString() ?? '';
       final String description = result['description']?.toString() ?? '';
       final String tipoLesaoNome = result['type']?.toString() ?? achado.type;
-      final String tipoLesaoId = result['typeId']?.toString() ?? achado.tipoAchadoId;
+      final String tipoLesaoId =
+          result['typeId']?.toString() ?? achado.tipoAchadoId;
       final bool isInterno = result['isInterno'] ?? achado.isInterno;
-      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']?.toString();
-      
+      final String? achadoRelacionadoUuid = result['achadoRelacionadoUuid']
+          ?.toString();
+
       final String? tipoFerimento = result['tipoFerimento']?.toString();
       final String? tipoObjeto = result['tipoObjeto']?.toString();
       final String? numeroLacre = result['numeroLacre']?.toString();
-      final String? comentarioAdicional = result['comentarioAdicional']?.toString();
+      final String? comentarioAdicional = result['comentarioAdicional']
+          ?.toString();
 
       String? finalPhotoPath = result['photoPath'];
       String? oldPhotoPath = achado.dadosPreenchidos['photo_path'];
 
-      if (finalPhotoPath != null && finalPhotoPath != oldPhotoPath && !finalPhotoPath.startsWith('http://') && !finalPhotoPath.startsWith('https://')) {
-        final String existingUuid = finalPhotoPath.split('/').last.split('\\').last.replaceAll('.jpg', '').replaceAll('.png', '');
-        final File compressedFile = await ImageHelper.compressImage(File(finalPhotoPath), existingUuid);
+      if (finalPhotoPath != null &&
+          finalPhotoPath != oldPhotoPath &&
+          !finalPhotoPath.startsWith('http://') &&
+          !finalPhotoPath.startsWith('https://')) {
+        final String existingUuid = finalPhotoPath
+            .split('/')
+            .last
+            .split('\\')
+            .last
+            .replaceAll('.jpg', '')
+            .replaceAll('.png', '');
+        final File compressedFile = await ImageHelper.compressImage(
+          File(finalPhotoPath),
+          existingUuid,
+        );
         finalPhotoPath = compressedFile.path;
       }
 
       if (!context.mounted) return;
 
-      final Map<String, dynamic> novosDados = Map<String, dynamic>.from(achado.dadosPreenchidos);
+      final Map<String, dynamic> novosDados = Map<String, dynamic>.from(
+        achado.dadosPreenchidos,
+      );
       novosDados['type_label'] = tipoLesaoNome;
       novosDados['size'] = size;
       novosDados['depth'] = depth;
@@ -517,6 +647,31 @@ class CroquiController extends ChangeNotifier {
         comentarioAdicional: comentarioAdicional,
       );
 
+      List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
+      final String balisticaId = _toDeterministicUuidV4(
+        achadoAtualizado.uuid,
+        'balistica',
+      );
+      novasBalisticas.removeWhere((b) => b.id == balisticaId);
+
+      if (tipoFerimento != null ||
+          tipoObjeto != null ||
+          numeroLacre != null ||
+          comentarioAdicional != null) {
+        novasBalisticas.add(
+          BalisticaModel(
+            id: balisticaId,
+            exameId: casoAtual.uuid,
+            tipoFerimento: tipoFerimento,
+            tipoObjeto: tipoObjeto,
+            numeroLacre: numeroLacre,
+            comentarioAdicional: comentarioAdicional,
+          ),
+        );
+      }
+
+      casoAtual = casoAtual.copyWith(balisticas: novasBalisticas);
+
       try {
         await _achadoService.atualizarAchado(achadoAtualizado);
         await _bumpRootVersion();
@@ -533,6 +688,13 @@ class CroquiController extends ChangeNotifier {
 
   Future<void> deleteAchado(BuildContext context, String uuid) async {
     if (isReadOnly) return;
+
+    List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
+    final String balisticaId = _toDeterministicUuidV4(uuid, 'balistica');
+    novasBalisticas.removeWhere((b) => b.id == balisticaId);
+
+    casoAtual = casoAtual.copyWith(balisticas: novasBalisticas);
+
     try {
       await _achadoService.removerAchado(uuid);
       await _bumpRootVersion();
@@ -542,7 +704,6 @@ class CroquiController extends ChangeNotifier {
       _snack("Erro ao deletar", color: Colors.red);
     }
   }
-
 
   void atualizarDadosLaudoMemoria(DadosLaudoModel novosDados) {
     casoAtual = casoAtual.copyWith(
@@ -568,7 +729,9 @@ class CroquiController extends ChangeNotifier {
       if (!validarCamposObrigatorios()) {
         globalMessengerKey.currentState?.showSnackBar(
           const SnackBar(
-            content: Text("Por favor, responda todos os quesitos obrigatórios."),
+            content: Text(
+              "Por favor, responda todos os quesitos obrigatórios.",
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -576,25 +739,6 @@ class CroquiController extends ChangeNotifier {
         try {
           DefaultTabController.of(context).animateTo(6);
         } catch (_) {}
-        _isProcessing = false;
-        notifyListeners();
-        return;
-      }
-
-      /// Trava Processual: Exames Complementares Pendentes
-      /// Justificativa Jurídica: Garante a conformidade legal do laudo pericial ao impedir a 
-      /// finalização processual e submissão (mudança de status para FINALIZADO) enquanto 
-      /// houver requisições de exames de laboratório aguardando resultados, mantendo a integridade material.
-      final bool temExamePendente = examesSolicitadosModel.any((e) => e.status == 'aguardando') || 
-                                    examesSolicitados.any((e) => e.status == 'aguardando');
-      if (temExamePendente) {
-        debugPrint('[CroquiController] Abortando finalização: exames complementares pendentes detectados.');
-        globalMessengerKey.currentState?.showSnackBar(
-          const SnackBar(
-            content: Text("O laudo não pode ser finalizado com exames complementares pendentes"),
-            backgroundColor: Colors.red,
-          ),
-        );
         _isProcessing = false;
         notifyListeners();
         return;
@@ -617,7 +761,10 @@ class CroquiController extends ChangeNotifier {
                 child: const Text("Voltar"),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () => Navigator.pop(ctx, true),
                 child: const Text("Sim, prosseguir"),
               ),
@@ -644,7 +791,10 @@ class CroquiController extends ChangeNotifier {
               child: const Text("Deixar Pendente"),
             ),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
               icon: const Icon(Icons.check_circle),
               label: const Text("Concluir Laudo Agora"),
               onPressed: () => Navigator.pop(ctx, "CONCLUIR"),
@@ -659,6 +809,27 @@ class CroquiController extends ChangeNotifier {
         if (!context.mounted) return;
         await _processarDeixarPendente(context);
       } else if (opcaoSelecionada == "CONCLUIR") {
+        /// Trava Processual: Exames Complementares Pendentes
+        /// Bloqueio apenas se o perito tentar FINALIZAR o laudo.
+        /// A transição para LAUDO_PENDENTE é livre.
+        final bool temExamePendente =
+            examesSolicitadosModel.any((e) => e.status == 'aguardando') ||
+            examesSolicitados.any((e) => e.status == 'aguardando');
+        if (temExamePendente) {
+          debugPrint(
+            '[CroquiController] Abortando finalização: exames complementares pendentes detectados.',
+          );
+          globalMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: Text(
+                "O laudo não pode ser finalizado com exames complementares pendentes.",
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
         if (!context.mounted) return;
         await _processarConcluirLaudoAgora(context);
       }
@@ -682,7 +853,10 @@ class CroquiController extends ChangeNotifier {
       casoAtual = casoAtualizado;
       notifyListeners();
 
-      _snack("Exame finalizado. Laudo mantido em andamento.", color: Colors.orange[800]);
+      _snack(
+        "Exame finalizado. Laudo mantido em andamento.",
+        color: Colors.orange[800],
+      );
 
       if (context.mounted) {
         final syncService = Provider.of<SyncService>(context, listen: false);
@@ -707,9 +881,7 @@ class CroquiController extends ChangeNotifier {
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 20),
-              Expanded(
-                child: Text("Gerando laudo PDF e finalizando caso..."),
-              ),
+              Expanded(child: Text("Gerando laudo PDF e finalizando caso...")),
             ],
           ),
         ),
@@ -770,7 +942,10 @@ class CroquiController extends ChangeNotifier {
 
         // 6. Fecha o loading
         Navigator.pop(context);
-        _snack("Laudo concluído com sucesso e PDF gerado!", color: Colors.green);
+        _snack(
+          "Laudo concluído com sucesso e PDF gerado!",
+          color: Colors.green,
+        );
 
         // Fecha a tela do croqui retornando para a biblioteca
         Navigator.pop(context);
@@ -787,7 +962,9 @@ class CroquiController extends ChangeNotifier {
   Future<void> reabrirCaso(BuildContext context) async {
     try {
       await _caseService.reabrirCaso(casoAtual.uuid);
-      final casoAtualizado = await _caseService.buscarCasoPorUuid(casoAtual.uuid);
+      final casoAtualizado = await _caseService.buscarCasoPorUuid(
+        casoAtual.uuid,
+      );
       if (casoAtualizado != null) {
         casoAtual = casoAtualizado;
       } else {
@@ -802,9 +979,15 @@ class CroquiController extends ChangeNotifier {
       _snack("Edição habilitada.");
     } catch (e) {
       globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao reabrir: $e"), backgroundColor: Colors.red));
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text("Erro ao reabrir: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+
   Future<void> exportarCaso(BuildContext context) async {
     if (_isProcessing) return;
     _isProcessing = true;
@@ -814,7 +997,12 @@ class CroquiController extends ChangeNotifier {
     final usuarioLogado = auth.usuario;
 
     if (usuarioLogado == null) {
-      globalMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text("Usuário não autenticado."), backgroundColor: Colors.red));
+      globalMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text("Usuário não autenticado."),
+          backgroundColor: Colors.red,
+        ),
+      );
       _isProcessing = false;
       notifyListeners();
       return;
@@ -830,7 +1018,7 @@ class CroquiController extends ChangeNotifier {
 
       final injuryTypes = await _injuryTypeRepository.getAllTypes();
       final Map<String, dynamic> schemas = {
-        for (var t in injuryTypes) t.id: t.schemaFormulario
+        for (var t in injuryTypes) t.id: t.schemaFormulario,
       };
 
       final pdfBytes = await PdfService().gerarLaudoPdf(
@@ -844,29 +1032,35 @@ class CroquiController extends ChangeNotifier {
       );
 
       final tempDir = await getTemporaryDirectory();
-      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
+      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero')
+          .replaceAll('/', '-');
       tempPdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
-      
+
       await tempPdfFile.writeAsBytes(pdfBytes, flush: true);
 
       if (!context.mounted) return;
       globalMessengerKey.currentState?.hideCurrentSnackBar();
 
       // ignore: deprecated_member_use
-      await Share.shareXFiles(
-        [XFile(tempPdfFile.path)],
-        subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}',
-      );
-
+      await Share.shareXFiles([
+        XFile(tempPdfFile.path),
+      ], subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}');
     } catch (e) {
       debugPrint("Erro na exportação do PDF: $e");
       globalMessengerKey.currentState?.hideCurrentSnackBar();
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Erro ao gerar PDF: ${e.toString()}"), backgroundColor: Colors.red));
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text("Erro ao gerar PDF: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (tempPdfFile != null && tempPdfFile.existsSync()) {
         try {
           await tempPdfFile.delete();
-          debugPrint('[CroquiController] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}');
+          debugPrint(
+            '[CroquiController] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}',
+          );
         } catch (_) {}
       }
       _isProcessing = false;
@@ -879,51 +1073,87 @@ class CroquiController extends ChangeNotifier {
     if (s.isNotEmpty) {
       return s.startsWith('f') ? 'Feminino' : 'Masculino';
     }
-    final caracteristicas = casoAtual.dadosLaudo.caracteristicas.identificacao.toLowerCase();
-    if (caracteristicas.contains('feminino') || caracteristicas.contains('mulher')) {
+    final caracteristicas = casoAtual.dadosLaudo.caracteristicas.identificacao
+        .toLowerCase();
+    if (caracteristicas.contains('feminino') ||
+        caracteristicas.contains('mulher')) {
       return 'Feminino';
     }
-    if (caracteristicas.contains('masculino') || caracteristicas.contains('homem')) {
+    if (caracteristicas.contains('masculino') ||
+        caracteristicas.contains('homem')) {
       return 'Masculino';
     }
-    return 'Indeterminado'; 
+    return 'Indeterminado';
   }
 
-  Future<void> alterarSexoExaminado(BuildContext context, String novoSexo) async {
-    IdentificacaoModel novaId = casoAtual.dadosLaudo.identificacao.copyWith(sexo: novoSexo);
+  Future<void> alterarSexoExaminado(
+    BuildContext context,
+    String novoSexo,
+  ) async {
+    IdentificacaoModel novaId = casoAtual.dadosLaudo.identificacao.copyWith(
+      sexo: novoSexo,
+    );
     CaracteristicasModel novaCarac = casoAtual.dadosLaudo.caracteristicas;
-    
+
     String caracteristicas = novaCarac.identificacao;
-    if (caracteristicas.isEmpty || caracteristicas.toLowerCase().contains('sexo xxx')) {
-      caracteristicas = 'Cadáver do sexo ${novoSexo.toLowerCase()}, raça XXX, estado nutricional XXX, e idade aparente de XX anos.';
+    if (caracteristicas.isEmpty ||
+        caracteristicas.toLowerCase().contains('sexo xxx')) {
+      caracteristicas =
+          'Cadáver do sexo ${novoSexo.toLowerCase()}, raça XXX, estado nutricional XXX, e idade aparente de XX anos.';
     } else if (novoSexo == 'Feminino') {
-      caracteristicas = caracteristicas.replaceAll(RegExp(r'sexo masculino', caseSensitive: false), 'sexo feminino');
+      caracteristicas = caracteristicas.replaceAll(
+        RegExp(r'sexo masculino', caseSensitive: false),
+        'sexo feminino',
+      );
     } else if (novoSexo == 'Masculino') {
-      caracteristicas = caracteristicas.replaceAll(RegExp(r'sexo feminino', caseSensitive: false), 'sexo masculino');
+      caracteristicas = caracteristicas.replaceAll(
+        RegExp(r'sexo feminino', caseSensitive: false),
+        'sexo masculino',
+      );
     }
     novaCarac = novaCarac.copyWith(identificacao: caracteristicas);
-    
-    final novosDados = casoAtual.dadosLaudo.copyWith(identificacao: novaId, caracteristicas: novaCarac);
+
+    final novosDados = casoAtual.dadosLaudo.copyWith(
+      identificacao: novaId,
+      caracteristicas: novaCarac,
+    );
     atualizarDadosLaudoMemoria(novosDados);
-    
+
     if (!isReadOnly) {
       scheduleAutoSave();
     }
   }
 
   String _resolveBodyPartName(String view, String partId) {
-    if ((view == 'frente' || view == 'front') && kIdToDefinitionFrontMap.containsKey(partId)) return kIdToDefinitionFrontMap[partId]!.name;
-    if ((view == 'costas' || view == 'back') && kIdToDefinitionBackMap.containsKey(partId)) return kIdToDefinitionBackMap[partId]!.name;
-    if (view == 'lateral_dir' && lat_right.kIdToDefinitionLateralRightMap.containsKey(partId)) return lat_right.kIdToDefinitionLateralRightMap[partId]!.name;
-    if (view == 'lateral_esq' && lat_left.kIdToDefinitionLateralLeftMap.containsKey(partId)) return lat_left.kIdToDefinitionLateralLeftMap[partId]!.name;
-    if (view == 'trunk_dir' && trunk_right.kIdToDefinitionTrunkRightMap.containsKey(partId)) return trunk_right.kIdToDefinitionTrunkRightMap[partId]!.name;
-    if (view == 'trunk_esq' && trunk_left.kIdToDefinitionTrunkLeftMap.containsKey(partId)) return trunk_left.kIdToDefinitionTrunkLeftMap[partId]!.name;
-    if (view == 'perineal' && perineal.kIdToDefinitionPerinealMap.containsKey(partId)) return perineal.kIdToDefinitionPerinealMap[partId]!.name;
-    if (view == 'face_dir' && face_right.kIdToDefinitionLateralRightMap.containsKey(partId)) return face_right.kIdToDefinitionLateralRightMap[partId]!.name;
-    if (view == 'face_esq' && face_left.kIdToDefinitionLateralLeftMap.containsKey(partId)) return face_left.kIdToDefinitionLateralLeftMap[partId]!.name;
+    if ((view == 'frente' || view == 'front') &&
+        kIdToDefinitionFrontMap.containsKey(partId))
+      return kIdToDefinitionFrontMap[partId]!.name;
+    if ((view == 'costas' || view == 'back') &&
+        kIdToDefinitionBackMap.containsKey(partId))
+      return kIdToDefinitionBackMap[partId]!.name;
+    if (view == 'lateral_dir' &&
+        lat_right.kIdToDefinitionLateralRightMap.containsKey(partId))
+      return lat_right.kIdToDefinitionLateralRightMap[partId]!.name;
+    if (view == 'lateral_esq' &&
+        lat_left.kIdToDefinitionLateralLeftMap.containsKey(partId))
+      return lat_left.kIdToDefinitionLateralLeftMap[partId]!.name;
+    if (view == 'trunk_dir' &&
+        trunk_right.kIdToDefinitionTrunkRightMap.containsKey(partId))
+      return trunk_right.kIdToDefinitionTrunkRightMap[partId]!.name;
+    if (view == 'trunk_esq' &&
+        trunk_left.kIdToDefinitionTrunkLeftMap.containsKey(partId))
+      return trunk_left.kIdToDefinitionTrunkLeftMap[partId]!.name;
+    if (view == 'perineal' &&
+        perineal.kIdToDefinitionPerinealMap.containsKey(partId))
+      return perineal.kIdToDefinitionPerinealMap[partId]!.name;
+    if (view == 'face_dir' &&
+        face_right.kIdToDefinitionLateralRightMap.containsKey(partId))
+      return face_right.kIdToDefinitionLateralRightMap[partId]!.name;
+    if (view == 'face_esq' &&
+        face_left.kIdToDefinitionLateralLeftMap.containsKey(partId))
+      return face_left.kIdToDefinitionLateralLeftMap[partId]!.name;
     return partId.replaceAll('_', ' ').toUpperCase();
   }
-
 
   Future<void> adicionarFotoGeral(String path) async {
     final ev = EvidenciaMultimidia.novo(
@@ -942,8 +1172,6 @@ class CroquiController extends ChangeNotifier {
     await _loadAchados();
   }
 
-
-
   void salvarDadosGerais({
     String numeroBo = '',
     String numeroPic = '',
@@ -951,6 +1179,7 @@ class CroquiController extends ChangeNotifier {
     String nomeVitima = '',
     String destino = '',
     String requisitante = '',
+    String? delegaciaSolicitante,
     required DadosLaudoModel novosDadosLaudo,
     String? numeroDeclaracaoObito,
     String? dataObito,
@@ -959,8 +1188,6 @@ class CroquiController extends ChangeNotifier {
     String? sexoBiologicoEstimado,
     String? corpoEstado,
     String? corpoEstadoOutros,
-    bool? objetoRetirado,
-    String? descricaoObjeto,
     String? dataNecropsia,
     String? horaNecropsia,
     dynamic causaMorte,
@@ -973,6 +1200,7 @@ class CroquiController extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
+      delegaciaSolicitante: delegaciaSolicitante,
       dadosLaudo: novosDadosLaudo,
       numeroDeclaracaoObito: numeroDeclaracaoObito,
       dataObito: dataObito,
@@ -981,22 +1209,25 @@ class CroquiController extends ChangeNotifier {
       sexoBiologicoEstimado: sexoBiologicoEstimado,
       corpoEstado: corpoEstado,
       corpoEstadoOutros: corpoEstadoOutros,
-      objetoRetirado: objetoRetirado,
-      descricaoObjeto: descricaoObjeto,
       dataNecropsia: dataNecropsia,
       horaNecropsia: horaNecropsia,
       causaMorte: causaMorte,
+
       /// Atualiza os metadados clínicos do laudo e prepara para o AutoSave.
-      /// O incremento da propriedade [versao] e a padronização via [toUtc] 
-      /// são requisitos inegociáveis da arquitetura Offline-First para 
+      /// O incremento da propriedade [versao] e a padronização via [toUtc]
+      /// são requisitos inegociáveis da arquitetura Offline-First para
       /// garantir integridade no motor de concorrência (OCC) do repositório.
       atualizadoEm: DateTime.now().toUtc(),
       versao: casoAtual.versao + 1,
     );
 
-    debugPrint('[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}');
-    debugPrint('[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo.toMap())}');
-    
+    debugPrint(
+      '[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}',
+    );
+    debugPrint(
+      '[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo.toMap())}',
+    );
+
     if (notify) {
       notifyListeners();
       scheduleAutoSave();
@@ -1006,7 +1237,9 @@ class CroquiController extends ChangeNotifier {
   Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
     final index = evidenciasGerais.indexWhere((e) => e.uuid == uuid);
     if (index != -1) {
-      final evAtualizada = evidenciasGerais[index].copyWith(descricao: descricao);
+      final evAtualizada = evidenciasGerais[index].copyWith(
+        descricao: descricao,
+      );
       await _caseService.salvarEvidenciaGeral(evAtualizada);
       await _bumpRootVersion();
       await _loadAchados();
@@ -1021,13 +1254,17 @@ class CroquiController extends ChangeNotifier {
     if (isReadOnly) return;
     try {
       sincronizarDadosEmMemoria(null, false);
-      // Fire-and-forget: não usamos await para não travar quem chama, 
+      // Fire-and-forget: não usamos await para não travar quem chama,
       // mas garantimos que a gravação será despachada.
       _caseService.salvarRascunho(casoAtual).catchError((e) {
-        debugPrint('[CroquiController] ⚠️ Erro no auto-save fire-and-forget: $e');
+        debugPrint(
+          '[CroquiController] ⚠️ Erro no auto-save fire-and-forget: $e',
+        );
       });
     } catch (e) {
-      debugPrint('[CroquiController] ⚠️ Erro ao preparar dados para auto-save: $e');
+      debugPrint(
+        '[CroquiController] ⚠️ Erro ao preparar dados para auto-save: $e',
+      );
     }
   }
 
@@ -1037,9 +1274,13 @@ class CroquiController extends ChangeNotifier {
       try {
         sincronizarDadosEmMemoria(null, false);
         await _caseService.salvarRascunho(casoAtual);
-        debugPrint('[CroquiController] 💾 Flush imediato de rascunho gravado no SQLite.');
+        debugPrint(
+          '[CroquiController] 💾 Flush imediato de rascunho gravado no SQLite.',
+        );
       } catch (e) {
-        debugPrint('[CroquiController] ⚠️ Erro ao forçar flush de rascunho: $e');
+        debugPrint(
+          '[CroquiController] ⚠️ Erro ao forçar flush de rascunho: $e',
+        );
       }
     }
   }
@@ -1057,7 +1298,8 @@ class CroquiController extends ChangeNotifier {
     // Copia o estado necessário ANTES de liberar os controllers
     // para evitar use-after-free na escrita assíncrona pós-dispose.
     final casoParaFlush = casoAtual;
-    final deveFlush = !isReadOnly; // Sempre garante que o último estado da memória vai pro banco
+    final deveFlush =
+        !isReadOnly; // Sempre garante que o último estado da memória vai pro banco
 
     // Libera todos os recursos síncronos imediatamente
     numeroLaudoCtrl.dispose();
@@ -1080,7 +1322,7 @@ class CroquiController extends ChangeNotifier {
     }
     quesito3Ctrl.dispose();
     quesito4Ctrl.dispose();
-    
+
     numeroDeclaracaoObitoCtrl.dispose();
     dataObitoCtrl.dispose();
     horaObitoCtrl.dispose();
@@ -1088,40 +1330,52 @@ class CroquiController extends ChangeNotifier {
     sexoBiologicoEstimadoCtrl.dispose();
     corpoEstadoCtrl.dispose();
     corpoEstadoOutrosCtrl.dispose();
-    for (var ctrl in descricaoObjetoCtrls) {
-      ctrl.dispose();
-    }
+    delegaciaSolicitanteCtrl.dispose();
 
     super.dispose();
 
     // Dispara o flush DEPOIS do super.dispose() operando apenas
     // sobre a cópia local — nunca sobre membros já liberados.
     if (deveFlush) {
-      _caseService.salvarRascunho(casoParaFlush).catchError(
-        (e) => debugPrint('[CroquiController] ⚠️ Erro no flush pós-dispose: $e'),
-      );
+      _caseService
+          .salvarRascunho(casoParaFlush)
+          .catchError(
+            (e) => debugPrint(
+              '[CroquiController] ⚠️ Erro no flush pós-dispose: $e',
+            ),
+          );
     }
   }
 
-  void sincronizarDadosEmMemoria([AuthProvider? authProvider, bool notify = true]) {
+  void sincronizarDadosEmMemoria([
+    AuthProvider? authProvider,
+    bool notify = true,
+  ]) {
     if (isReadOnly) return;
 
     final String nomePerito;
     final String dataFinalizacao;
     if (authProvider != null) {
-      nomePerito = authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
+      nomePerito =
+          authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
       dataFinalizacao = DateTime.now().toIso8601String();
     } else {
-      nomePerito = casoAtual.dadosLaudo.auditoria.peritoResponsavel ?? "Perito não identificado";
-      dataFinalizacao = casoAtual.dadosLaudo.auditoria.dataFinalizacao ?? DateTime.now().toIso8601String();
+      nomePerito =
+          casoAtual.dadosLaudo.auditoria.peritoResponsavel ??
+          "Perito não identificado";
+      dataFinalizacao =
+          casoAtual.dadosLaudo.auditoria.dataFinalizacao ??
+          DateTime.now().toIso8601String();
     }
 
     final Map<String, dynamic> novosDados = {};
 
-    final nomesAtns = casoAtual.atnsIds.map((id) {
-      final match = atns.where((a) => a.id == id).firstOrNull;
-      return match?.nome ?? id;
-    }).join(", ");
+    final nomesAtns = casoAtual.atnsIds
+        .map((id) {
+          final match = atns.where((a) => a.id == id).firstOrNull;
+          return match?.nome ?? id;
+        })
+        .join(", ");
 
     novosDados['auditoria'] = {
       'perito_responsavel': nomePerito,
@@ -1149,19 +1403,23 @@ class CroquiController extends ChangeNotifier {
       'conclusao_texto': conclusaoCtrl.text,
     };
 
-    final descObjetosList = descricaoObjetoCtrls.map((e) => e.text.trim()).where((e) => e.isNotEmpty).toList();
-    final String descricaoObjetoFinal = descObjetosList.join('\n');
-    final bool isObjetoRetirado = descObjetosList.isNotEmpty;
+    final String corpoEstOu = corpoEstadoOutrosCtrl.text.trim();
 
     final now = DateTime.now();
-    final dataNecropsiaFinal = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-    final horaNecropsiaFinal = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+    final dataNecropsiaFinal =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final horaNecropsiaFinal =
+        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-    final causasMorteList = causasMorteCtrls.map((ctrl) => CausaMorteModel(
-      imediata: ctrl.imediataCtrl.text,
-      devidoA: ctrl.devidoACtrl.text,
-      consequencia: ctrl.consequenciaCtrl.text,
-    )).toList();
+    final causasMorteList = causasMorteCtrls
+        .map(
+          (ctrl) => CausaMorteModel(
+            imediata: ctrl.imediataCtrl.text,
+            devidoA: ctrl.devidoACtrl.text,
+            consequencia: ctrl.consequenciaCtrl.text,
+          ),
+        )
+        .toList();
 
     salvarDadosGerais(
       numeroBo: boCtrl.text,
@@ -1170,6 +1428,7 @@ class CroquiController extends ChangeNotifier {
       nomeVitima: nomeVitimaCtrl.text,
       destino: reqDestinoCtrl.text,
       requisitante: reqOrigemCtrl.text,
+      delegaciaSolicitante: delegaciaSolicitanteCtrl.text,
       novosDadosLaudo: DadosLaudoModel.fromMap(novosDados),
       numeroDeclaracaoObito: numeroDeclaracaoObitoCtrl.text,
       dataObito: dataObitoCtrl.text,
@@ -1177,9 +1436,7 @@ class CroquiController extends ChangeNotifier {
       tipoEstimativaHoraObito: tipoEstimativaHoraObitoCtrl.text,
       sexoBiologicoEstimado: sexoBiologicoEstimadoCtrl.text,
       corpoEstado: corpoEstadoCtrl.text,
-      corpoEstadoOutros: corpoEstadoOutrosCtrl.text,
-      objetoRetirado: isObjetoRetirado,
-      descricaoObjeto: descricaoObjetoFinal,
+      corpoEstadoOutros: corpoEstOu,
       dataNecropsia: dataNecropsiaFinal,
       horaNecropsia: horaNecropsiaFinal,
       causaMorte: causasMorteList,
@@ -1189,13 +1446,13 @@ class CroquiController extends ChangeNotifier {
 
   bool validarCamposObrigatorios() {
     if (quesito1Ctrl.text.trim().isEmpty) return false;
-    
+
     for (var ctrl in causasMorteCtrls) {
       if (ctrl.imediataCtrl.text.trim().isEmpty) return false;
       if (ctrl.devidoACtrl.text.trim().isEmpty) return false;
       if (ctrl.consequenciaCtrl.text.trim().isEmpty) return false;
     }
-    
+
     if (quesito3Ctrl.text.trim().isEmpty) return false;
     if (quesito4Ctrl.text.trim().isEmpty) return false;
     return true;
@@ -1206,8 +1463,11 @@ class CroquiController extends ChangeNotifier {
     if (messenger == null) return;
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color, duration: const Duration(seconds: 2))
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 }
-

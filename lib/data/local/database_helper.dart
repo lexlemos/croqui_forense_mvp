@@ -351,6 +351,11 @@ class DatabaseHelper {
         await _addColumnIfNotExists(txn, 'exames_solicitados', 'status', "TEXT DEFAULT 'aguardando'");
         break;
         
+      case 22:
+        debugPrint('[DatabaseHelper] Executando migração para a versão 22 (Tabela Balística 1:N)...');
+        await txn.execute(kCreateBalisticasSql);
+        break;
+        
       default:
         debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');
     }

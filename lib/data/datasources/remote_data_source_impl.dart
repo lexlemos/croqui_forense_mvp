@@ -1,4 +1,6 @@
 import 'dart:developer' as developer;
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as p;
@@ -79,6 +81,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   @override
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload) async {
     try {
+      _printCompleto('PUSH_ENVIADO', jsonEncode(payload));
       final response = await _apiClient.dio.post(
         'croqui/sync/push',
         data: payload,
@@ -106,6 +109,9 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       if (response.statusCode != 200 || response.data == null) {
         throw Exception('Resposta inesperada do servidor ao tentar puxar os casos.');
       }
+      
+      _printCompleto('PULL_RECEBIDO', jsonEncode(response.data));
+      
       final data = response.data;
       if (data is Map && data.containsKey('casos')) {
         final list = data['casos'] as List<dynamic>;
@@ -224,4 +230,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   void setBearerToken(String token) {
     _apiClient.setBearerToken(token);
   }
+}
+
+void _printCompleto(String prefixo, String texto) {
+  debugPrint('=== INICIO $prefixo ===');
+  final pattern = RegExp('.{1,800}'); 
+  pattern.allMatches(texto).forEach((match) => debugPrint(match.group(0)));
+  debugPrint('=== FIM $prefixo ===');
 }

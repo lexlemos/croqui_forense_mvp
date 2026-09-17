@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 21;
+const int kDatabaseVersion = 22;
 
 const String tableUsuarios = 'usuarios'; 
 const String tablePapeis = 'papeis';
@@ -11,6 +11,7 @@ const String tableAchados = 'achados';
 const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
 const String tableAtns = 'atns';
+const String tableBalisticas = 'balisticas';
 
 const String kCreateAtnsSql = '''
 CREATE TABLE IF NOT EXISTS atns (
@@ -274,6 +275,18 @@ CREATE TABLE log_auditoria (
 );
 ''';
 
+const String kCreateBalisticasSql = '''
+CREATE TABLE IF NOT EXISTS balisticas (
+    id TEXT PRIMARY KEY,
+    exame_id TEXT NOT NULL,
+    tipo_ferimento TEXT,
+    tipo_objeto TEXT,
+    numero_lacre TEXT,
+    comentario_adicional TEXT,
+    FOREIGN KEY (exame_id) REFERENCES casos(uuid) ON DELETE CASCADE
+);
+''';
+
 const List<String> kIndexCreationScripts = [
   'CREATE INDEX idx_usuarios_papel ON usuarios (papel_id);',
   'CREATE INDEX idx_casos_criador ON casos (id_usuario_criador);',
@@ -308,6 +321,7 @@ const Map<String, String> kTableScripts = {
   tableAmostrasGenetica: kCreateAmostrasGeneticaSql,
   tableFrascosAnatomo: kCreateFrascosAnatomoSql,
   tableAtns: kCreateAtnsSql,
+  tableBalisticas: kCreateBalisticasSql,
 };
 
 final List<String> kFullDatabaseCreationScripts = [

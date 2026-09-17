@@ -12,6 +12,9 @@ import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
+import 'package:provider/provider.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 
 class InjuryFormModal extends StatefulWidget {
   final String bodyPartName;
@@ -53,11 +56,18 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   Map<String, dynamic> _currentFormData = {};
   String? _databaseError;
 
-  static const List<String> _sizeOptions = ['0.5', '1.0', '1.5', '2.0', '2.5', 'Outro'];
+  static const List<String> _sizeOptions = [
+    '0.5',
+    '1.0',
+    '1.5',
+    '2.0',
+    '2.5',
+    'Outro',
+  ];
   String? _selectedSize;
   bool _isCustomSize = false;
   bool _hasBalistica = false;
-  
+
   final ImagePicker _picker = ImagePicker();
   List<InjuryType> _availableTypes = [];
 
@@ -73,19 +83,25 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       _selectedSize = 'Outro';
       _isCustomSize = true;
     }
-    _customSizeController = TextEditingController(text: _isCustomSize ? existingSize : '');
+    _customSizeController = TextEditingController(
+      text: _isCustomSize ? existingSize : '',
+    );
     _depthController = TextEditingController(text: m?.profundidade ?? '');
     _obsController = TextEditingController(text: m?.description ?? '');
     _numeroLacreController = TextEditingController(text: m?.numeroLacre ?? '');
-    _comentarioAdicionalController = TextEditingController(text: m?.comentarioAdicional ?? '');
-    
+    _comentarioAdicionalController = TextEditingController(
+      text: m?.comentarioAdicional ?? '',
+    );
+
     _selectedTipoFerimento = m?.tipoFerimento;
     _selectedTipoObjeto = m?.tipoObjeto;
 
     _currentPhotoPath = m?.photoPath;
     _isInterno = m?.isInterno ?? false;
 
-    final existingDynamic = m?.dadosPreenchidos['dados_dinamicos_json'] ?? m?.dadosPreenchidos['dynamicFields'];
+    final existingDynamic =
+        m?.dadosPreenchidos['dados_dinamicos_json'] ??
+        m?.dadosPreenchidos['dynamicFields'];
     if (existingDynamic is Map) {
       _currentFormData = Map<String, dynamic>.from(existingDynamic);
     } else if (existingDynamic is String && existingDynamic.trim().isNotEmpty) {
@@ -96,14 +112,17 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         }
       } catch (e) {
         _databaseError = 'Banco de dados local corrompido';
-        debugPrint('[InjuryFormModal] Erro ao decodificar dados_dinamicos_json: $e');
+        debugPrint(
+          '[InjuryFormModal] Erro ao decodificar dados_dinamicos_json: $e',
+        );
       }
     }
 
-    _hasBalistica = (m?.tipoFerimento != null && m!.tipoFerimento!.isNotEmpty) ||
-                    (m?.tipoObjeto != null && m!.tipoObjeto!.isNotEmpty) ||
-                    (m?.numeroLacre != null && m!.numeroLacre!.isNotEmpty) ||
-                    (m?.comentarioAdicional != null && m!.comentarioAdicional!.isNotEmpty);
+    _hasBalistica =
+        (m?.tipoFerimento != null && m!.tipoFerimento!.isNotEmpty) ||
+        (m?.tipoObjeto != null && m!.tipoObjeto!.isNotEmpty) ||
+        (m?.numeroLacre != null && m!.numeroLacre!.isNotEmpty) ||
+        (m?.comentarioAdicional != null && m!.comentarioAdicional!.isNotEmpty);
 
     _loadTypes(initialTypeLabel: m?.type);
     _loadEntradas();
@@ -115,8 +134,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     final campos = schema['campos'];
     if (campos is! List) return null;
     for (final campo in campos) {
-      if (campo is Map &&
-          campo['tipo_input'] == 'auto_relacionamento') {
+      if (campo is Map && campo['tipo_input'] == 'auto_relacionamento') {
         return campo['id_campo']?.toString();
       }
     }
@@ -132,7 +150,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final types = await widget.injuryTypeRepository.getAllTypes();
       if (!mounted) return;
 
-      debugPrint("Types loaded: ${types.map((t) => '${t.label} (isInterno: ${t.isInterno}, parte: ${t.schemaFormulario['parte_corpo']})').toList()}");
+      debugPrint(
+        "Types loaded: ${types.map((t) => '${t.label} (isInterno: ${t.isInterno}, parte: ${t.schemaFormulario['parte_corpo']})').toList()}",
+      );
 
       setState(() {
         _availableTypes = types;
@@ -149,16 +169,19 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           );
 
           if (_isInterno) {
-            _selectedParteCorpo = _selectedType?.schemaFormulario['parte_corpo']?.toString();
+            _selectedParteCorpo = _selectedType?.schemaFormulario['parte_corpo']
+                ?.toString();
           }
 
           final autoRelKey = _findAutoRelacionamentoKey();
-          if (autoRelKey != null && widget.achadoToEdit?.achadoRelacionadoUuid != null) {
-            _currentFormData[autoRelKey] = widget.achadoToEdit!.achadoRelacionadoUuid;
+          if (autoRelKey != null &&
+              widget.achadoToEdit?.achadoRelacionadoUuid != null) {
+            _currentFormData[autoRelKey] =
+                widget.achadoToEdit!.achadoRelacionadoUuid;
           }
         }
       });
-    } catch(e) {
+    } catch (e) {
       debugPrint("Erro ao carregar tipos de lesão: $e");
       if (mounted) {
         setState(() {
@@ -168,7 +191,12 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           }
         });
       }
-      globalMessengerKey.currentState?.showSnackBar(SnackBar(content: Text("Falha ao carregar tipos de lesão: $e"), backgroundColor: Colors.red));
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text("Falha ao carregar tipos de lesão: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -202,7 +230,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       final data = {
         'type': _selectedType?.label ?? 'Não especificado',
         'typeId': _selectedType?.id,
-        'size': _isCustomSize ? _customSizeController.text.trim() : (_selectedSize ?? ''),
+        'size': _isCustomSize
+            ? _customSizeController.text.trim()
+            : (_selectedSize ?? ''),
         'depth': _depthController.text.trim(),
         'description': _obsController.text.trim(),
         'photoPath': _currentPhotoPath,
@@ -214,6 +244,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'numeroLacre': _numeroLacreController.text.trim(),
         'comentarioAdicional': _comentarioAdicionalController.text.trim(),
       };
+
       Navigator.pop(context, data);
     }
   }
@@ -226,8 +257,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       bottom: true,
       child: Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom, 
-          left: 16, right: 16, top: 16
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
         ),
         child: Form(
           key: _formKey,
@@ -240,11 +273,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 _buildHeader(isEditing),
                 const Divider(),
                 const SizedBox(height: 16),
-  
+
                 _buildSectionLabel("CLASSIFICAÇÃO DO EXAME"),
                 _buildClassificationToggle(),
                 const SizedBox(height: 20),
-  
+
                 _buildSectionLabel("NATUREZA DA LESÃO"),
                 _buildTypeDropdown(),
                 if (_selectedType != null) ...[
@@ -253,7 +286,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                   if (_databaseError != null)
                     Text(
                       _databaseError!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     )
                   else
                     DynamicFormBuilder(
@@ -265,19 +300,28 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                     ),
                 ],
                 const SizedBox(height: 16),
-  
+
                 Row(
                   children: [
                     Expanded(child: _buildSizeDropdown()),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildTextField(_depthController, "Profundidade", Icons.vertical_align_bottom, false)),
+                    Expanded(
+                      child: _buildTextField(
+                        _depthController,
+                        "Profundidade",
+                        Icons.vertical_align_bottom,
+                        false,
+                      ),
+                    ),
                   ],
                 ),
                 if (_isCustomSize) ...[
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _customSizeController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.edit, size: 20),
                       labelText: "Valor personalizado (cm)",
@@ -287,16 +331,18 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                   ),
                 ],
                 const SizedBox(height: 20),
-  
+
                 _buildBalisticaSection(),
-  
+
                 _buildSectionLabel("EVIDÊNCIA FOTOGRÁFICA"),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 60), // Aumente este valor para diminuir a foto
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 60,
+                  ), // Aumente este valor para diminuir a foto
                   child: _buildPhotoPicker(),
                 ),
                 const SizedBox(height: 20),
-  
+
                 _buildSectionLabel("COMENTÁRIOS ADICIONAIS"),
                 TextFormField(
                   controller: _obsController,
@@ -311,17 +357,21 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                   ),
                 ),
                 const SizedBox(height: 24),
-  
+
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: _saveForm,
                   icon: Icon(isEditing ? Icons.save : Icons.add_circle_outline),
-                  label: Text(isEditing ? "ATUALIZAR REGISTRO" : "CONFIRMAR ACHADO"),
+                  label: Text(
+                    isEditing ? "ATUALIZAR REGISTRO" : "CONFIRMAR ACHADO",
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -336,7 +386,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     children: [
       CircleAvatar(
         backgroundColor: Colors.indigo.withAlpha(40),
-        child: Icon(isEditing ? Icons.edit : Icons.add_location_alt, color: Colors.indigo),
+        child: Icon(
+          isEditing ? Icons.edit : Icons.add_location_alt,
+          color: Colors.indigo,
+        ),
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -345,22 +398,40 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           children: [
             Text(
               isEditing ? "Edição de Achado" : "Novo Registro",
-              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               widget.bodyPartName.toUpperCase(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo,
+              ),
             ),
           ],
         ),
       ),
-      IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close))
+      IconButton(
+        onPressed: () => Navigator.pop(context),
+        icon: const Icon(Icons.close),
+      ),
     ],
   );
 
   Widget _buildSectionLabel(String label) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: Colors.blueGrey,
+      ),
+    ),
   );
 
   Widget _buildClassificationToggle() => Container(
@@ -371,45 +442,54 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     ),
     child: Row(
       children: [
-        _buildToggleItem("EXTERNO", !_isInterno, () => setState(() {
-          _isInterno = false;
-          _selectedType = null;
-          _selectedParteCorpo = null;
-        })),
-        _buildToggleItem("INTERNO", _isInterno, () => setState(() {
-          _isInterno = true;
-          _selectedType = null;
-          _selectedParteCorpo = null;
-        })),
+        _buildToggleItem(
+          "EXTERNO",
+          !_isInterno,
+          () => setState(() {
+            _isInterno = false;
+            _selectedType = null;
+            _selectedParteCorpo = null;
+          }),
+        ),
+        _buildToggleItem(
+          "INTERNO",
+          _isInterno,
+          () => setState(() {
+            _isInterno = true;
+            _selectedType = null;
+            _selectedParteCorpo = null;
+          }),
+        ),
       ],
     ),
   );
 
-  Widget _buildToggleItem(String label, bool isSelected, VoidCallback onTap) => Expanded(
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4), 
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.indigo : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown, 
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.grey[600],
-              fontWeight: FontWeight.bold,
-              fontSize: 12, 
+  Widget _buildToggleItem(String label, bool isSelected, VoidCallback onTap) =>
+      Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.indigo : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey[600],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 
   Widget _buildTypeDropdown() {
     if (_isLoadingTypes) {
@@ -432,7 +512,11 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           .toList();
 
       final tiposFiltrados = _availableTypes
-          .where((t) => t.isInterno && t.schemaFormulario['parte_corpo'] == _selectedParteCorpo)
+          .where(
+            (t) =>
+                t.isInterno &&
+                t.schemaFormulario['parte_corpo'] == _selectedParteCorpo,
+          )
           .toList();
 
       return Column(
@@ -445,7 +529,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
-            items: partesDeCorpo.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+            items: partesDeCorpo
+                .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                .toList(),
             onChanged: (v) {
               setState(() {
                 _selectedParteCorpo = v;
@@ -463,13 +549,17 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
-            items: tiposFiltrados.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-            onChanged: _selectedParteCorpo == null ? null : (v) => setState(() {
-              if (v?.id != _selectedType?.id) {
-                _currentFormData = {};
-              }
-              _selectedType = v;
-            }),
+            items: tiposFiltrados
+                .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                .toList(),
+            onChanged: _selectedParteCorpo == null
+                ? null
+                : (v) => setState(() {
+                    if (v?.id != _selectedType?.id) {
+                      _currentFormData = {};
+                    }
+                    _selectedType = v;
+                  }),
             validator: (v) => v == null ? 'Obrigatório' : null,
           ),
         ],
@@ -484,7 +574,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 12),
         ),
-        items: tiposExternos.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+        items: tiposExternos
+            .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+            .toList(),
         onChanged: (v) => setState(() {
           if (v?.id != _selectedType?.id) {
             _currentFormData = {};
@@ -503,7 +595,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       labelText: "Tamanho (cm)",
       border: OutlineInputBorder(),
     ),
-    items: _sizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+    items: _sizeOptions
+        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+        .toList(),
     onChanged: (v) => setState(() {
       _selectedSize = v;
       _isCustomSize = v == 'Outro';
@@ -512,9 +606,16 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     validator: null,
   );
 
-  Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, bool isNumeric) => TextFormField(
+  Widget _buildTextField(
+    TextEditingController ctrl,
+    String label,
+    IconData icon,
+    bool isNumeric,
+  ) => TextFormField(
     controller: ctrl,
-    keyboardType: isNumeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+    keyboardType: isNumeric
+        ? const TextInputType.numberWithOptions(decimal: true)
+        : TextInputType.text,
     decoration: InputDecoration(
       prefixIcon: Icon(icon, size: 20),
       labelText: label,
@@ -531,7 +632,10 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         decoration: BoxDecoration(
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
+          border: Border.all(
+            color: Colors.grey[300]!,
+            style: BorderStyle.solid,
+          ),
         ),
         child: _currentPhotoPath == null
             ? const Column(
@@ -539,7 +643,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 children: [
                   Icon(Icons.add_a_photo, size: 32, color: Colors.indigo),
                   SizedBox(height: 8),
-                  Text("Capturar Imagem", style: TextStyle(color: Colors.indigo, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(
+                    "Capturar Imagem",
+                    style: TextStyle(
+                      color: Colors.indigo,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               )
             : Stack(
@@ -547,10 +658,15 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: ImageResolver.buildImage(_currentPhotoPath, fit: BoxFit.cover),
+                    child: ImageResolver.buildImage(
+                      _currentPhotoPath,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   Container(color: Colors.black26),
-                  const Center(child: Icon(Icons.sync, color: Colors.white, size: 30)),
+                  const Center(
+                    child: Icon(Icons.sync, color: Colors.white, size: 30),
+                  ),
                 ],
               ),
       ),
@@ -563,8 +679,25 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
-            ListTile(leading: const Icon(Icons.camera_alt), title: const Text('Trocar Foto'), onTap: () { Navigator.pop(ctx); _takePhoto(); }),
-            ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('Remover Foto', style: TextStyle(color: Colors.red)), onTap: () { Navigator.pop(ctx); setState(() => _currentPhotoPath = null); }),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Trocar Foto'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _takePhoto();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text(
+                'Remover Foto',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                setState(() => _currentPhotoPath = null);
+              },
+            ),
           ],
         ),
       ),
@@ -583,12 +716,17 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       if (photo == null) return;
       final String fotoUuid = const Uuid().v4();
       final originalFile = File(photo.path);
-      final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
-      
+      final File compressedFile = await ImageHelper.compressImage(
+        originalFile,
+        fotoUuid,
+      );
+
       try {
         if (await originalFile.exists()) await originalFile.delete();
       } catch (e) {
-        debugPrint('[InjuryFormModal] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+        debugPrint(
+          '[InjuryFormModal] ⚠️ Falha ao apagar arquivo temporário da câmera: $e',
+        );
       }
 
       if (!mounted) return;
@@ -598,7 +736,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
       if (mounted) {
         globalMessengerKey.currentState?.showSnackBar(
           const SnackBar(
-            content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+            content: Text(
+              "Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo.",
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -633,44 +773,54 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         ),
         if (_hasBalistica) ...[
           const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _selectedTipoFerimento,
-          decoration: const InputDecoration(
-            labelText: "Tipo de Ferimento",
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12),
+          DropdownButtonFormField<String>(
+            value: _selectedTipoFerimento,
+            decoration: const InputDecoration(
+              labelText: "Tipo de Ferimento",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            items: [
+              'Entrada',
+              'Saída',
+              'Raspão',
+            ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+            onChanged: (v) => setState(() => _selectedTipoFerimento = v),
           ),
-          items: ['Entrada', 'Saída', 'Raspão']
-              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-              .toList(),
-          onChanged: (v) => setState(() => _selectedTipoFerimento = v),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _selectedTipoObjeto,
-          decoration: const InputDecoration(
-            labelText: "Tipo de Objeto Recolhido",
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _selectedTipoObjeto,
+            decoration: const InputDecoration(
+              labelText: "Tipo de Objeto Recolhido",
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+            items: [
+              'Projétil',
+              'Estojo',
+              'Fragmento',
+              'Outro',
+            ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+            onChanged: (v) => setState(() => _selectedTipoObjeto = v),
           ),
-          items: ['Projétil', 'Estojo', 'Fragmento', 'Outro']
-              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-              .toList(),
-          onChanged: (v) => setState(() => _selectedTipoObjeto = v),
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(_numeroLacreController, "Nº do Lacre", Icons.security, false),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _comentarioAdicionalController,
-          maxLines: 2,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: "Comentário Adicional (Cadeia de Custódia)",
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
+          const SizedBox(height: 12),
+          _buildTextField(
+            _numeroLacreController,
+            "Nº do Lacre",
+            Icons.security,
+            false,
           ),
-        ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _comentarioAdicionalController,
+            maxLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: "Comentário Adicional (Cadeia de Custódia)",
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
+          ),
         ],
         const SizedBox(height: 20),
       ],

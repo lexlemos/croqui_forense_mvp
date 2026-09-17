@@ -1,4 +1,4 @@
-import 'dart:convert'; 
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
 class Achado {
@@ -73,7 +73,8 @@ class Achado {
 
   String get profundidade {
     return dadosPreenchidos['depth']?.toString() ??
-           dadosPreenchidos['profundidade']?.toString() ?? '';
+        dadosPreenchidos['profundidade']?.toString() ??
+        '';
   }
 
   Achado.novo({
@@ -105,22 +106,31 @@ class Achado {
   factory Achado.fromMap(Map<String, dynamic> map) {
     final Map<String, dynamic> dados = map['dados_preenchidos_json'] != null
         ? (map['dados_preenchidos_json'] is Map
-            ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
-            : Map<String, dynamic>.from((() {
-                try {
-                  return jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {};
-                } catch (_) {
-                  return {};
-                }
-              })()))
+              ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
+              : Map<String, dynamic>.from(
+                  (() {
+                    try {
+                      return jsonDecode(
+                                map['dados_preenchidos_json'].toString(),
+                              )
+                              as Map? ??
+                          {};
+                    } catch (_) {
+                      return {};
+                    }
+                  })(),
+                ))
         : <String, dynamic>{};
 
-    if (!dados.containsKey('photo_path') || dados['photo_path'] == null || dados['photo_path'].toString().isEmpty) {
+    if (!dados.containsKey('photo_path') ||
+        dados['photo_path'] == null ||
+        dados['photo_path'].toString().isEmpty) {
       final rawEvidencias = map['evidencias_multimidia'] ?? map['evidencias'];
       if (rawEvidencias is List && rawEvidencias.isNotEmpty) {
         final firstEv = rawEvidencias.first;
         if (firstEv is Map) {
-          final photoUrl = firstEv['caminho_arquivo_encriptado']?.toString() ??
+          final photoUrl =
+              firstEv['caminho_arquivo_encriptado']?.toString() ??
               firstEv['url']?.toString() ??
               firstEv['path']?.toString();
           if (photoUrl != null && photoUrl.isNotEmpty) {
@@ -128,7 +138,8 @@ class Achado {
           }
         }
       } else {
-        final photoDirect = map['photo_path']?.toString() ??
+        final photoDirect =
+            map['photo_path']?.toString() ??
             map['caminho_arquivo_encriptado']?.toString() ??
             map['url']?.toString();
         if (photoDirect != null && photoDirect.isNotEmpty) {
@@ -147,17 +158,21 @@ class Achado {
       numeroSequencial: map['numero_sequencial'] as int? ?? 0,
       posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
       posY: (map['pos_y'] as num?)?.toDouble() ?? 0.0,
-      isInterno: map['is_interno'] is bool 
-          ? map['is_interno'] as bool 
+      isInterno: map['is_interno'] is bool
+          ? map['is_interno'] as bool
           : (map['is_interno'] as int? ?? 0) == 1,
       dadosPreenchidos: dados,
       observacoesTexto: map['observacoes_texto']?.toString(),
-      removido: map['removido'] is bool 
-          ? map['removido'] as bool 
+      removido: map['removido'] is bool
+          ? map['removido'] as bool
           : (map['removido'] as int? ?? 0) == 1,
       versao: map['versao'] as int? ?? 1,
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
-      atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
+      atualizadoEm: map['atualizado_em'] != null
+          ? DateTime.tryParse(map['atualizado_em'].toString())
+          : null,
       deviceId: map['device_id']?.toString(),
       tamanho: map['tamanho']?.toString() ?? '',
       vistaAnatomica: map['vista_anatomica']?.toString() ?? '',
@@ -201,7 +216,8 @@ class Achado {
       diagramaCasoUuid: diagramaCasoUuid ?? this.diagramaCasoUuid,
       diagramaNome: diagramaNome ?? this.diagramaNome,
       tipoAchadoId: tipoAchadoId ?? this.tipoAchadoId,
-      achadoRelacionadoUuid: achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
+      achadoRelacionadoUuid:
+          achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
       numeroSequencial: numeroSequencial ?? this.numeroSequencial,
       posX: posX ?? this.posX,
       posY: posY ?? this.posY,

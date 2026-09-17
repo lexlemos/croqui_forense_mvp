@@ -72,26 +72,41 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
       outroHist = _historicoOcorrencia!;
       _historicoOcorrencia = 'Outro';
     }
-    _historicoOutroCtrl.text = outroHist;
+    if (_historicoOutroCtrl.text != outroHist) {
+      _historicoOutroCtrl.text = outroHist;
+    }
 
     _materialSgFemoral  = data?.materialSgFemoral  ?? false;
     _materialSgCardiaca = data?.materialSgCardiaca ?? false;
-    _materialSgOutroCtrl.text = data?.materialSgOutro ?? '';
+    if (_materialSgOutroCtrl.text != (data?.materialSgOutro ?? '')) {
+      _materialSgOutroCtrl.text = data?.materialSgOutro ?? '';
+    }
     _materialSg = data != null
         ? (data.materialSgFemoral ||
             data.materialSgCardiaca ||
-            (data.materialSgOutro?.isNotEmpty == true))
+            (data.materialSgOutro?.isNotEmpty == true) ||
+            (data.numeroLacreSg?.isNotEmpty == true))
         : false;
 
-    _lacreSgCtrl.text = data?.numeroLacreSg ?? '';
+    if (_lacreSgCtrl.text != (data?.numeroLacreSg ?? '')) {
+      _lacreSgCtrl.text = data?.numeroLacreSg ?? '';
+    }
     _materialUrina       = data?.materialUrina       ?? false;
-    _lacreUrCtrl.text    = data?.numeroLacreUr       ?? '';
+    if (_lacreUrCtrl.text != (data?.numeroLacreUr ?? '')) {
+      _lacreUrCtrl.text = data?.numeroLacreUr ?? '';
+    }
     _materialHumorVitreo = data?.materialHumorVitreo ?? false;
-    _lacreHvCtrl.text    = data?.numeroLacreHv       ?? '';
+    if (_lacreHvCtrl.text != (data?.numeroLacreHv ?? '')) {
+      _lacreHvCtrl.text = data?.numeroLacreHv ?? '';
+    }
     _materialEstomago    = data?.materialEstomago    ?? false;
-    _lacreCeCtrl.text    = data?.numeroLacreCe       ?? '';
+    if (_lacreCeCtrl.text != (data?.numeroLacreCe ?? '')) {
+      _lacreCeCtrl.text = data?.numeroLacreCe ?? '';
+    }
     _materialPulmao      = data?.materialPulmao      ?? false;
-    _lacrePmCtrl.text    = data?.numeroLacrePm       ?? '';
+    if (_lacrePmCtrl.text != (data?.numeroLacrePm ?? '')) {
+      _lacrePmCtrl.text = data?.numeroLacrePm ?? '';
+    }
     _quantificacaoDrogas = data?.quantificacaoDrogas ?? false;
   }
 
@@ -140,6 +155,12 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
           : null,
       quantificacaoDrogas: _quantificacaoDrogas,
     );
+    debugPrint('--- DUMB TEST (WIDGET TOXICOLOGICO) ---');
+    debugPrint('exameUuid: ${model.exameUuid}');
+    debugPrint('materialSgFemoral: ${model.materialSgFemoral}');
+    debugPrint('materialUrina: ${model.materialUrina}');
+    debugPrint('numeroLacreSg: ${model.numeroLacreSg}');
+    debugPrint('toMap: ${model.toMap()}');
     widget.onChanged(model);
   }
 

@@ -54,7 +54,13 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
   }
 
   void _notifyChanges() {
-    widget.onChanged(List.unmodifiable(_frascos));
+    debugPrint('--- DUMB TEST (WIDGET ANATOMO) ---');
+    debugPrint('Total frascos: ${_frascos.length}');
+    for (var f in _frascos) {
+      debugPrint('  Frasco #${f.numeroFrasco} | lacre: ${f.numeroLacre} | exameUuid: ${f.exameUuid}');
+      debugPrint('  toMap: ${f.toMap()}');
+    }
+    widget.onChanged(List<FrascoAnatomoModel>.from(_frascos));
   }
 
   void _addFrasco() {

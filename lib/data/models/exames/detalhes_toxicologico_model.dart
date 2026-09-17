@@ -81,7 +81,9 @@ class DetalhesToxicologicoModel {
     }
 
     return DetalhesToxicologicoModel(
-      uuid: map['uuid']?.toString() ?? '',
+      uuid: (map['uuid'] != null && map['uuid'].toString().isNotEmpty) 
+          ? map['uuid'].toString() 
+          : const Uuid().v4(),
       exameUuid: map['exame_uuid']?.toString() ?? '',
       historicoOcorrencia: map['historico_ocorrencia']?.toString(),
       historicoOutro: map['historico_outro']?.toString(),

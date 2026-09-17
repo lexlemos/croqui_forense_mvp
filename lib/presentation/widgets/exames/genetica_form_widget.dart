@@ -45,7 +45,13 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
   }
 
   void _notifyChanges() {
-    widget.onChanged(List.unmodifiable(_amostras));
+    debugPrint('--- DUMB TEST (WIDGET GENETICA) ---');
+    debugPrint('Total amostras: ${_amostras.length}');
+    for (var a in _amostras) {
+      debugPrint('  Amostra: ${a.tipoAmostra} | lacre: ${a.numeroLacre} | swabs: ${a.quantidadeSwabs}');
+      debugPrint('  toMap: ${a.toMap()}');
+    }
+    widget.onChanged(List<AmostraGeneticaModel>.from(_amostras));
   }
 
   bool _hasTipo(String tipo) {

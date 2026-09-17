@@ -1,6 +1,5 @@
 import 'dart:io';
 
-
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -35,7 +34,9 @@ abstract interface class ISyncRepository {
   Future<Map<String, List<Achado>>> getAchadosEmLote(List<String> casoUuids);
 
   /// Retorna as lesões que possuem [Evidência Fotográfica] capturada no tablet mas que ainda não foram sincronizadas com o servidor.
-  Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids);
+  Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(
+    List<String> casoUuids,
+  );
 
   /// Atualiza o status local do [Caso] (Laudo) para marcado como sincronizado no banco de dados.
   Future<void> marcarCasoComoSincronizado(Caso caso);
@@ -106,7 +107,6 @@ class EvidenceNotFoundException implements Exception {
       'arquivo: $filePath)';
 }
 
-
 /// Serviço de domínio encarregado da [Sincronização] e conformidade dos dados periciais do IML.
 ///
 /// Ele garante que a [Cadeia de Custódia] dos [Caso]s (Laudos) e suas respectivas [Evidência Fotográfica]s
@@ -121,9 +121,9 @@ class SyncService {
     required IRemoteDataSource remoteDataSource,
     required ISyncRepository repository,
     AuthService? authService,
-  })  : _remoteDataSource = remoteDataSource,
-        _repository = repository,
-        _authService = authService;
+  }) : _remoteDataSource = remoteDataSource,
+       _repository = repository,
+       _authService = authService;
 
   final Set<String> _uuidsEmTransito = {};
   bool _isSyncing = false;
@@ -135,7 +135,9 @@ class SyncService {
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
   bool _isSessionExpiredError(Object error) {
     if (error is DioException) {
-      if (error.response?.statusCode == 401 || error.response?.statusCode == 403 || error.error is SessionExpiredException) {
+      if (error.response?.statusCode == 401 ||
+          error.response?.statusCode == 403 ||
+          error.error is SessionExpiredException) {
         return true;
       }
     }
@@ -150,118 +152,156 @@ class SyncService {
   /// das fotos e dos dados textuais, atualiza a marcação no repositório local.
   Future<void> execute() async {
     if (_isSyncing) {
-      debugPrint('[SyncService] ⏭️ Sincronização já em andamento. Abortando duplo-clique.');
+      debugPrint(
+        '[SyncService] ⏭️ Sincronização já em andamento. Abortando duplo-clique.',
+      );
       return;
     }
     _isSyncing = true;
     try {
       debugPrint('[SyncService] Iniciando sincronização...');
 
-
-    try {
-      await pullCasos();
-    } on DioException catch (e) {
-      if (_isSessionExpiredError(e)) {
-        debugPrint('[SyncService] 🛑 Sessão expirada (401) no pull de casos. Abortando ciclo.');
-        rethrow;
+      try {
+        await pullCasos();
+      } on DioException catch (e) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint(
+            '[SyncService] 🛑 Sessão expirada (401) no pull de casos. Abortando ciclo.',
+          );
+          rethrow;
+        }
+        debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
+      } catch (e) {
+        debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
       }
-      debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
-    } catch (e) {
-      debugPrint('[SyncService] ⚠️ Falha no pull de casos: $e');
-    }
 
-    final usuarioId = _authService?.usuario?.id;
-    if (usuarioId == null || usuarioId.isEmpty) {
-      debugPrint('[SyncService] 🛑 Nenhum usuário logado. Abortando envio de casos pendentes.');
-      return;
-    }
-
-    final casosFinalizados = await _repository.getCasosNaoSincronizados(usuarioId);
-    final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados(usuarioId);
-
-    final List<Caso> casosParaEnviar = [...casosFinalizados, ...rascunhosPendentes];
-
-    if (casosParaEnviar.isEmpty) {
-      debugPrint('[SyncService] Nenhum caso (finalizado ou rascunho) pendente de sincronização.');
-      return;
-    }
-
-    debugPrint('[SyncService] Preparando push de ${casosFinalizados.length} casos finalizados e ${rascunhosPendentes.length} rascunhos.');
-
-    int totalFotosFalhas = 0;
-    int totalCasosConflito = 0;
-
-    try {
-      debugPrint('[SyncService] 📦 Fazendo push textual (Bulk) de ${casosParaEnviar.length} casos...');
-      
-      final syncResult = await _pushTextual(casosParaEnviar);
-      final conflitosUuids = Set<String>.from(
-        syncResult['conflitos'] ?? const <String>[],
-      );
-      final salvosUuids = Set<String>.from(
-        syncResult['casos_salvos'] ?? const <String>[],
-      );
-      
-      totalCasosConflito += conflitosUuids.length;
-
-      for (final caso in casosParaEnviar) {
-        if (_authService != null && !_authService.isLogged) {
-          debugPrint('[SyncService] 🛑 Sessão nula. Abortando fila de fotos prematuramente.');
-          return;
-        }
-
-        if (conflitosUuids.contains(caso.uuid) || !salvosUuids.contains(caso.uuid)) {
-          debugPrint('[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado. Pulando envio de fotos.');
-          continue;
-        }
-
-        try {
-          await Sentry.captureMessage('Iniciando ciclo de upload de mídia para o caso salvo ${caso.uuid}', level: SentryLevel.info);
-          final fotos = await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
-          final falhasNoCaso = await _processarCaso(caso, fotos);
-          totalFotosFalhas += falhasNoCaso;
-        } on DioException catch (e, stackTrace) {
-          if (_isSessionExpiredError(e)) {
-            debugPrint('[SyncService] 🛑 Sessão expirada no envio de fotos do caso ${caso.uuid}.');
-            return;
-          }
-          debugPrint('[SyncService] ⚠️ Falha de rede ao enviar fotos do caso ${caso.uuid}: $e');
-          SentryHelper.setSyncErrorTag(caso.uuid);
-          await Sentry.captureException(e, stackTrace: stackTrace);
-          totalFotosFalhas++;
-        } catch (e, stackTrace) {
-          debugPrint('[SyncService] ⚠️ Erro inesperado nas fotos do caso ${caso.uuid}: $e');
-          SentryHelper.setSyncErrorTag(caso.uuid);
-          await Sentry.captureException(e, stackTrace: stackTrace);
-          totalFotosFalhas++;
-        }
-      }
-    } on DioException catch (e, stackTrace) {
-      if (_isSessionExpiredError(e)) {
-        debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no envio (Bulk).');
+      final usuarioId = _authService?.usuario?.id;
+      if (usuarioId == null || usuarioId.isEmpty) {
+        debugPrint(
+          '[SyncService] 🛑 Nenhum usuário logado. Abortando envio de casos pendentes.',
+        );
         return;
       }
-      debugPrint('[SyncService] ⚠️ Falha na rede no Bulk Push: $e');
-      await Sentry.captureException(e, stackTrace: stackTrace);
-      totalFotosFalhas++; // Falhou tudo
-    } catch (e, stackTrace) {
-      debugPrint('[SyncService] ⚠️ Erro inesperado no Bulk Push: $e');
-      await Sentry.captureException(e, stackTrace: stackTrace);
-      totalFotosFalhas++;
-    }
 
-    debugPrint('[SyncService] Ciclo concluído.');
+      final casosFinalizados = await _repository.getCasosNaoSincronizados(
+        usuarioId,
+      );
+      final rascunhosPendentes = await _repository.getRascunhosNaoSincronizados(
+        usuarioId,
+      );
 
-    if (totalCasosConflito > 0 || totalFotosFalhas > 0) {
-      final List<String> erros = [];
-      if (totalCasosConflito > 0) {
-        erros.add('$totalCasosConflito caso(s) em conflito no servidor central.');
+      final List<Caso> casosParaEnviar = [
+        ...casosFinalizados,
+        ...rascunhosPendentes,
+      ];
+
+      if (casosParaEnviar.isEmpty) {
+        debugPrint(
+          '[SyncService] Nenhum caso (finalizado ou rascunho) pendente de sincronização.',
+        );
+        return;
       }
-      if (totalFotosFalhas > 0) {
-        erros.add('falha ao enviar $totalFotosFalhas item(ns).');
+
+      debugPrint(
+        '[SyncService] Preparando push de ${casosFinalizados.length} casos finalizados e ${rascunhosPendentes.length} rascunhos.',
+      );
+
+      int totalFotosFalhas = 0;
+      int totalCasosConflito = 0;
+
+      try {
+        debugPrint(
+          '[SyncService] 📦 Fazendo push textual (Bulk) de ${casosParaEnviar.length} casos...',
+        );
+
+        final syncResult = await _pushTextual(casosParaEnviar);
+        final conflitosUuids = Set<String>.from(
+          syncResult['conflitos'] ?? const <String>[],
+        );
+        final salvosUuids = Set<String>.from(
+          syncResult['casos_salvos'] ?? const <String>[],
+        );
+
+        totalCasosConflito += conflitosUuids.length;
+
+        for (final caso in casosParaEnviar) {
+          if (_authService != null && !_authService.isLogged) {
+            debugPrint(
+              '[SyncService] 🛑 Sessão nula. Abortando fila de fotos prematuramente.',
+            );
+            return;
+          }
+
+          if (conflitosUuids.contains(caso.uuid) ||
+              !salvosUuids.contains(caso.uuid)) {
+            debugPrint(
+              '[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado. Pulando envio de fotos.',
+            );
+            continue;
+          }
+
+          try {
+            await Sentry.captureMessage(
+              'Iniciando ciclo de upload de mídia para o caso salvo ${caso.uuid}',
+              level: SentryLevel.info,
+            );
+            final fotos = await _repository.getEvidenciasPendentesPorCaso(
+              caso.uuid,
+            );
+            final falhasNoCaso = await _processarCaso(caso, fotos);
+            totalFotosFalhas += falhasNoCaso;
+          } on DioException catch (e, stackTrace) {
+            if (_isSessionExpiredError(e)) {
+              debugPrint(
+                '[SyncService] 🛑 Sessão expirada no envio de fotos do caso ${caso.uuid}.',
+              );
+              return;
+            }
+            debugPrint(
+              '[SyncService] ⚠️ Falha de rede ao enviar fotos do caso ${caso.uuid}: $e',
+            );
+            SentryHelper.setSyncErrorTag(caso.uuid);
+            await Sentry.captureException(e, stackTrace: stackTrace);
+            totalFotosFalhas++;
+          } catch (e, stackTrace) {
+            debugPrint(
+              '[SyncService] ⚠️ Erro inesperado nas fotos do caso ${caso.uuid}: $e',
+            );
+            SentryHelper.setSyncErrorTag(caso.uuid);
+            await Sentry.captureException(e, stackTrace: stackTrace);
+            totalFotosFalhas++;
+          }
+        }
+      } on DioException catch (e, stackTrace) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint(
+            '[SyncService] 🛑 Sessão expirada (401/403) no envio (Bulk).',
+          );
+          return;
+        }
+        debugPrint('[SyncService] ⚠️ Falha na rede no Bulk Push: $e');
+        await Sentry.captureException(e, stackTrace: stackTrace);
+        totalFotosFalhas++; // Falhou tudo
+      } catch (e, stackTrace) {
+        debugPrint('[SyncService] ⚠️ Erro inesperado no Bulk Push: $e');
+        await Sentry.captureException(e, stackTrace: stackTrace);
+        totalFotosFalhas++;
       }
-      throw Exception('Sincronização parcial: ${erros.join(" e ")}');
-    }
+
+      debugPrint('[SyncService] Ciclo concluído.');
+
+      if (totalCasosConflito > 0 || totalFotosFalhas > 0) {
+        final List<String> erros = [];
+        if (totalCasosConflito > 0) {
+          erros.add(
+            '$totalCasosConflito caso(s) em conflito no servidor central.',
+          );
+        }
+        if (totalFotosFalhas > 0) {
+          erros.add('falha ao enviar $totalFotosFalhas item(ns).');
+        }
+        throw Exception('Sincronização parcial: ${erros.join(" e ")}');
+      }
     } finally {
       _isSyncing = false;
     }
@@ -275,20 +315,25 @@ class SyncService {
     try {
       final secureStorage = SecureKeyStorage();
       final lastSync = await secureStorage.read(key: 'last_sync_timestamp');
-      
-      final casosRemotos = await _remoteDataSource.pullCasos(lastSyncTimestamp: lastSync);
-      
+
+      final casosRemotos = await _remoteDataSource.pullCasos(
+        lastSyncTimestamp: lastSync,
+      );
+
       if (casosRemotos.isEmpty) {
         debugPrint('[SyncService] Nenhum caso recebido no pull.');
         return;
       }
-      
-      debugPrint('[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.');
+
+      debugPrint(
+        '[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.',
+      );
       String? lastSuccessfulSyncTimestamp;
+
       /// A conversão da carga massiva de JSON para entidades de domínio ocorre em uma Background Isolate
       /// para garantir que a Main Thread não sofra bloqueios (UI Jank).
       final payloads = await compute(_parseCasosEmBackground, casosRemotos);
-      
+
       for (final payload in payloads) {
         try {
           await _repository.upsertCasoTransaction(payload);
@@ -297,7 +342,9 @@ class SyncService {
             lastSuccessfulSyncTimestamp = atualizadoEm;
           }
         } catch (e, stackTrace) {
-          debugPrint('[SyncService] Erro ao sincronizar (upsert) o caso ${payload.caso.uuid}: $e\n$stackTrace');
+          debugPrint(
+            '[SyncService] Erro ao sincronizar (upsert) o caso ${payload.caso.uuid}: $e\n$stackTrace',
+          );
           final casoUuid = payload.caso.uuid;
           if (casoUuid.isNotEmpty) {
             try {
@@ -320,14 +367,20 @@ class SyncService {
         );
       }
 
-      debugPrint('[SyncService] Pull Synchronization concluído com sucesso parcial.');
+      debugPrint(
+        '[SyncService] Pull Synchronization concluído com sucesso parcial.',
+      );
       onPullCompleted?.call();
     } on DioException catch (e, stackTrace) {
       if (_isSessionExpiredError(e)) {
-        debugPrint('[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.');
+        debugPrint(
+          '[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.',
+        );
         rethrow;
       }
-      debugPrint('[SyncService] ⚠️ Falha na rede durante o Pull: $e\n$stackTrace');
+      debugPrint(
+        '[SyncService] ⚠️ Falha na rede durante o Pull: $e\n$stackTrace',
+      );
       rethrow;
     } catch (e, stackTrace) {
       debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e\n$stackTrace');
@@ -340,17 +393,24 @@ class SyncService {
   /// garante o reenvio automático assim que a conectividade retornar.
   Future<void> pushCasoRascunho(Caso caso) async {
     if (_uuidsEmTransito.contains(caso.uuid)) {
-      debugPrint('[SyncService] ⏭️ Caso ${caso.uuid} já em trânsito. Ignorando push duplicado.');
+      debugPrint(
+        '[SyncService] ⏭️ Caso ${caso.uuid} já em trânsito. Ignorando push duplicado.',
+      );
       return;
     }
     _uuidsEmTransito.add(caso.uuid);
 
     try {
-      debugPrint('[SyncService] 🚀 Disparando push silencioso de rascunho para o caso ${caso.uuid}...');
-      await Sentry.captureMessage('Iniciando ciclo de sincronização para o caso ${caso.uuid}', level: SentryLevel.info);
-      
+      debugPrint(
+        '[SyncService] 🚀 Disparando push silencioso de rascunho para o caso ${caso.uuid}...',
+      );
+      await Sentry.captureMessage(
+        'Iniciando ciclo de sincronização para o caso ${caso.uuid}',
+        level: SentryLevel.info,
+      );
+
       final casoProcessado = await _sincronizarPdfCaso(caso);
-      
+
       final achados = await _repository.getAchadosPorCaso(casoProcessado.uuid);
       final casoJson = await _casoParaJson(casoProcessado, achados);
       final deviceId = await DeviceInfoService.getDeviceId();
@@ -363,13 +423,19 @@ class SyncService {
 
       await _remoteDataSource.pushTextual(payload);
       await _repository.marcarRascunhoComoSincronizado(caso.uuid);
-      debugPrint('[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.');
+      debugPrint(
+        '[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.',
+      );
     } catch (e, stackTrace) {
       if (_isSessionExpiredError(e)) {
-        debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no push silencioso do rascunho. Abortando.');
+        debugPrint(
+          '[SyncService] 🛑 Sessão expirada (401/403) no push silencioso do rascunho. Abortando.',
+        );
         rethrow;
       }
-      debugPrint('[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e');
+      debugPrint(
+        '[SyncService] ⚠️ Push silencioso do rascunho falhou (dispositivo offline ou servidor indisponível): $e',
+      );
       SentryHelper.setSyncErrorTag(caso.uuid);
       await Sentry.captureException(e, stackTrace: stackTrace);
     } finally {
@@ -384,6 +450,9 @@ class SyncService {
 
     final List<Map<String, dynamic>> casosJson = [];
     for (final caso in casos) {
+      debugPrint(
+        '🔍 [AUDITORIA 2 - SQLITE] Caso ${caso.uuid} carregado do SQLite. Exames encontrados: ${caso.exames.length}',
+      );
       final casoProcessado = await _sincronizarPdfCaso(caso);
       final achados = achadosPorCaso[casoProcessado.uuid] ?? [];
       casosJson.add(await _casoParaJson(casoProcessado, achados));
@@ -412,7 +481,9 @@ class SyncService {
 
     for (final achado in achadosComFotos) {
       if (_authService != null && !_authService.isLogged) {
-        debugPrint('[SyncService] 🛑 Sessão nula. Abortando upload de fotos prematuramente.');
+        debugPrint(
+          '[SyncService] 🛑 Sessão nula. Abortando upload de fotos prematuramente.',
+        );
         throw SessionExpiredException();
       }
       try {
@@ -430,11 +501,15 @@ class SyncService {
         return 1;
       } catch (e, stackTrace) {
         if (_isSessionExpiredError(e)) {
-          debugPrint('[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.');
+          debugPrint(
+            '[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.',
+          );
           rethrow;
         }
         erros.add(e);
-        debugPrint('[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e');
+        debugPrint(
+          '[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e',
+        );
         SentryHelper.setSyncErrorTag(caso.uuid);
         await Sentry.captureException(e, stackTrace: stackTrace);
       }
@@ -476,7 +551,8 @@ class SyncService {
     final String evidenciaUuid =
         achado.dadosPreenchidos['_evidencia_uuid']?.toString() ?? achado.uuid;
 
-    final bool isFotoGeral = achado.tipoAchadoId == 'FOTO_GERAL' || achado.diagramaNome == 'GERAL';
+    final bool isFotoGeral =
+        achado.tipoAchadoId == 'FOTO_GERAL' || achado.diagramaNome == 'GERAL';
 
     await _remoteDataSource.uploadEvidencia(
       casoUuid: caso.uuid,
@@ -499,15 +575,22 @@ class SyncService {
       final pdfFile = File(localPath);
       if (pdfFile.existsSync()) {
         try {
-          debugPrint('[SyncService] 📄 Fazendo upload físico do Laudo PDF: ${caso.pdfLocalPath}');
+          debugPrint(
+            '[SyncService] 📄 Fazendo upload físico do Laudo PDF: ${caso.pdfLocalPath}',
+          );
           final pdfUrl = await _remoteDataSource.uploadLaudoPdf(
             casoUuid: caso.uuid,
             filePath: pdfFile.path,
           );
-          await Sentry.captureMessage('Upload do Laudo concluído com sucesso: ${caso.uuid}', level: SentryLevel.info);
+          await Sentry.captureMessage(
+            'Upload do Laudo concluído com sucesso: ${caso.uuid}',
+            level: SentryLevel.info,
+          );
           return caso.copyWith(pdfUrl: pdfUrl);
         } catch (e, stackTrace) {
-          debugPrint('[SyncService] ⚠️ Erro ao fazer upload do PDF para o caso ${caso.uuid}: $e');
+          debugPrint(
+            '[SyncService] ⚠️ Erro ao fazer upload do PDF para o caso ${caso.uuid}: $e',
+          );
           SentryHelper.setSyncErrorTag(caso.uuid);
           await Sentry.captureException(e, stackTrace: stackTrace);
           rethrow;
@@ -522,7 +605,10 @@ class SyncService {
     return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
   }
 
-  Future<Map<String, dynamic>> _casoParaJson(Caso caso, List<Achado> achados) async {
+  Future<Map<String, dynamic>> _casoParaJson(
+    Caso caso,
+    List<Achado> achados,
+  ) async {
     final uniqueDiagramNames = achados.map((a) => a.diagramaNome).toSet();
 
     final List<Map<String, dynamic>> diagramasJson = [];
@@ -536,15 +622,19 @@ class SyncService {
         'versao': 1,
         'removido': false,
         'criado_em': caso.criadoEmDispositivo.toUtc().toIso8601String(),
-        'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo).toUtc().toIso8601String(),
+        'atualizado_em': (caso.atualizadoEm ?? caso.criadoEmDispositivo)
+            .toUtc()
+            .toIso8601String(),
       });
     }
 
-
     final payload = caso.toSyncMap();
+    debugPrint(
+      '🔍 [AUDITORIA 3 - JSON DART] Nó exames_solicitados gerado: ${jsonEncode(payload['exames_solicitados'])}',
+    );
     payload['diagramas'] = diagramasJson;
     payload['achados'] = achados.map(_achadoParaJson).toList();
-    
+
     return payload;
   }
 
@@ -554,13 +644,15 @@ class SyncService {
 }
 
 /// Função pura e estática executada em uma Isolate secundária (Background Thread).
-/// 
+///
 /// Otimiza a ingestão massiva de dados do servidor central (GET /pull), transferindo o parsing
 /// e a alocação de memória (jsonDecode, factory instantiations) para fora da Main Thread,
 /// evitando cenários severos de 'UI Jank' ou travamentos durante a sincronização Offline-First.
-List<ParsedSyncPayload> _parseCasosEmBackground(List<Map<String, Object?>> payload) {
+List<ParsedSyncPayload> _parseCasosEmBackground(
+  List<Map<String, Object?>> payload,
+) {
   final result = <ParsedSyncPayload>[];
-  
+
   for (final jsonCaso in payload) {
     try {
       final casoBackend = Caso.fromMap(jsonCaso);
@@ -598,12 +690,15 @@ List<ParsedSyncPayload> _parseCasosEmBackground(List<Map<String, Object?>> paylo
         final evBackend = EvidenciaMultimidia.fromMap(evMap);
         if (evBackend.uuid.isEmpty) continue;
 
-        final bool isRemovido = evJson['removido'] == true || evJson['removido'] == 1;
-        evidencias.add(evBackend.copyWith(
-          fotoSincronizada: true, 
-          removido: isRemovido || evBackend.removido
-        ));
-        
+        final bool isRemovido =
+            evJson['removido'] == true || evJson['removido'] == 1;
+        evidencias.add(
+          evBackend.copyWith(
+            fotoSincronizada: true,
+            removido: isRemovido || evBackend.removido,
+          ),
+        );
+
         if (evBackend.achadoUuid != null && evBackend.achadoUuid!.isNotEmpty) {
           achadosComEvidenciaExplicita.add(evBackend.achadoUuid!);
         }
@@ -616,11 +711,13 @@ List<ParsedSyncPayload> _parseCasosEmBackground(List<Map<String, Object?>> paylo
           if (achadoJson is! Map) continue;
           final aMap = Map<String, dynamic>.from(achadoJson);
 
-          if (aMap['caso_uuid'] == null || aMap['caso_uuid'].toString().isEmpty) {
+          if (aMap['caso_uuid'] == null ||
+              aMap['caso_uuid'].toString().isEmpty) {
             aMap['caso_uuid'] = casoBackend.uuid;
           }
 
-          if (aMap['diagrama_nome'] == null || aMap['diagrama_nome'].toString().isEmpty) {
+          if (aMap['diagrama_nome'] == null ||
+              aMap['diagrama_nome'].toString().isEmpty) {
             final vistaRaw = aMap['vista_anatomica']?.toString();
             if (vistaRaw != null && vistaRaw.isNotEmpty) {
               aMap['diagrama_nome'] = vistaRaw;
@@ -640,52 +737,64 @@ List<ParsedSyncPayload> _parseCasosEmBackground(List<Map<String, Object?>> paylo
             }
           }
 
-          if (aMap['diagrama_caso_uuid'] == null || aMap['diagrama_caso_uuid'].toString().isEmpty) {
+          if (aMap['diagrama_caso_uuid'] == null ||
+              aMap['diagrama_caso_uuid'].toString().isEmpty) {
             aMap['diagrama_caso_uuid'] = casoBackend.uuid;
           }
 
           final achadoBackend = Achado.fromMap(aMap);
           if (achadoBackend.uuid.isEmpty) continue;
 
-          final bool isRemovido = achadoJson['removido'] == true || achadoJson['removido'] == 1;
-          achados.add(achadoBackend.copyWith(removido: isRemovido || achadoBackend.removido));
+          final bool isRemovido =
+              achadoJson['removido'] == true || achadoJson['removido'] == 1;
+          achados.add(
+            achadoBackend.copyWith(
+              removido: isRemovido || achadoBackend.removido,
+            ),
+          );
 
           if (achadoBackend.photoPath != null &&
               achadoBackend.photoPath!.isNotEmpty &&
               !achadosComEvidenciaExplicita.contains(achadoBackend.uuid)) {
-            
             final evidenciaUuid = const Uuid().v5(
               casoBackend.uuid,
               'achado-evidencia-${achadoBackend.uuid}',
             );
-            
-            evidencias.add(EvidenciaMultimidia(
-              uuid: evidenciaUuid,
-              casoUuid: casoBackend.uuid,
-              achadoUuid: achadoBackend.uuid,
-              tipo: 'ACHADO',
-              caminhoArquivoEncriptado: achadoBackend.photoPath,
-              fotoSincronizada: true,
-              removido: achadoBackend.removido,
-              versao: achadoBackend.versao,
-              criadoEm: achadoBackend.criadoEm.toUtc(),
-            ));
+
+            evidencias.add(
+              EvidenciaMultimidia(
+                uuid: evidenciaUuid,
+                casoUuid: casoBackend.uuid,
+                achadoUuid: achadoBackend.uuid,
+                tipo: 'ACHADO',
+                caminhoArquivoEncriptado: achadoBackend.photoPath,
+                fotoSincronizada: true,
+                removido: achadoBackend.removido,
+                versao: achadoBackend.versao,
+                criadoEm: achadoBackend.criadoEm.toUtc(),
+              ),
+            );
           }
         }
       }
 
-      final bool casoRemovido = jsonCaso['removido'] == true || jsonCaso['removido'] == 1;
-      
-      result.add(ParsedSyncPayload(
-        caso: casoBackend.copyWith(removido: casoRemovido || casoBackend.removido),
-        achados: achados,
-        evidencias: evidencias,
-        rawJson: jsonCaso,
-      ));
+      final bool casoRemovido =
+          jsonCaso['removido'] == true || jsonCaso['removido'] == 1;
+
+      result.add(
+        ParsedSyncPayload(
+          caso: casoBackend.copyWith(
+            removido: casoRemovido || casoBackend.removido,
+          ),
+          achados: achados,
+          evidencias: evidencias,
+          rawJson: jsonCaso,
+        ),
+      );
     } catch (e) {
       debugPrint('[Background Isolate] Erro no parseamento do caso: $e');
     }
   }
-  
+
   return result;
 }

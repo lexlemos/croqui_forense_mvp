@@ -73,9 +73,15 @@ class FrascoAnatomoModel {
     }
 
     return FrascoAnatomoModel(
-      uuid: map['uuid']?.toString() ?? '',
+      uuid: (map['uuid'] != null && map['uuid'].toString().isNotEmpty) 
+          ? map['uuid'].toString() 
+          : const Uuid().v4(),
       exameUuid: map['exame_uuid']?.toString() ?? '',
-      numeroFrasco: map['numero_frasco'] as int? ?? 1,
+      numeroFrasco: map['numero_frasco'] != null
+          ? (map['numero_frasco'] is int
+              ? map['numero_frasco'] as int
+              : int.tryParse(map['numero_frasco'].toString()) ?? 1)
+          : 1,
       numeroLacre: map['numero_lacre']?.toString(),
       coracao: boolFromMap(map['coracao']),
       figado: boolFromMap(map['figado']),

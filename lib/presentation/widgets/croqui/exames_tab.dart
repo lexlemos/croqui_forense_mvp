@@ -19,12 +19,21 @@ class ExamesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();
-    final examesList = controller.examesSolicitadosModel;
+    final examesList = controller.casoAtual.exames;
     final bool readOnly = controller.isReadOnly;
 
-    final bool solicitarToxicologico = examesList.any((e) => e.tipoExame == 'TOXICOLOGICO');
-    final bool solicitarGenetica = examesList.any((e) => e.tipoExame == 'GENETICA');
-    final bool solicitarAnatomo = examesList.any((e) => e.tipoExame == 'ANATOMO');
+    // DIAGNÓSTICO: verificar se readOnly está travando a aba
+    debugPrint('🔍 [EXAMES_TAB BUILD] readOnly=$readOnly | exames=${examesList.length} | status=${controller.casoAtual.status}');
+
+    final bool solicitarToxicologico = examesList.any(
+      (e) => e.tipoExame == 'TOXICOLOGICO',
+    );
+    final bool solicitarGenetica = examesList.any(
+      (e) => e.tipoExame == 'GENETICA',
+    );
+    final bool solicitarAnatomo = examesList.any(
+      (e) => e.tipoExame == 'ANATOMO',
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -40,7 +49,11 @@ class ExamesTab extends StatelessWidget {
                   color: Colors.indigo.shade50,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.science_outlined, color: Colors.indigo.shade700, size: 28),
+                child: Icon(
+                  Icons.science_outlined,
+                  color: Colors.indigo.shade700,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 14),
               Column(
@@ -48,7 +61,11 @@ class ExamesTab extends StatelessWidget {
                 children: [
                   const Text(
                     'Exames Complementares',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                   Text(
                     'Selecione e detalhe as requisições de perícia laboratorial',
@@ -88,10 +105,14 @@ class ExamesTab extends StatelessWidget {
                   onChanged: readOnly
                       ? null
                       : (val) {
-                          final newList = List<ExameSolicitadoModel>.from(controller.examesSolicitadosModel);
+                          final newList = List<ExameSolicitadoModel>.from(
+                            controller.casoAtual.exames,
+                          );
                           final checked = val ?? false;
                           if (checked) {
-                            final idx = newList.indexWhere((e) => e.tipoExame == 'TOXICOLOGICO');
+                            final idx = newList.indexWhere(
+                              (e) => e.tipoExame == 'TOXICOLOGICO',
+                            );
                             if (idx == -1) {
                               final novoExame = ExameSolicitadoModel.novo(
                                 casoUuid: controller.casoAtual.uuid,
@@ -99,35 +120,91 @@ class ExamesTab extends StatelessWidget {
                               );
                               newList.add(
                                 novoExame.copyWith(
-                                  detalhes: DetalhesToxicologicoModel.novo(exameUuid: novoExame.uuid),
+                                  detalhes: DetalhesToxicologicoModel.novo(
+                                    exameUuid: novoExame.uuid,
+                                  ),
                                 ),
                               );
                             }
                           } else {
-                            newList.removeWhere((e) => e.tipoExame == 'TOXICOLOGICO');
+                            newList.removeWhere(
+                              (e) => e.tipoExame == 'TOXICOLOGICO',
+                            );
                           }
                           controller.salvarExamesModel(newList);
                         },
                 ),
-                if (solicitarToxicologico)
+                if (solicitarToxicologico) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: TextFormField(
+                      initialValue:
+                          examesList
+                              .firstWhere(
+                                (e) => e.tipoExame == 'TOXICOLOGICO',
+                                orElse: () => ExameSolicitadoModel.novo(
+                                  casoUuid: '',
+                                  tipoExame: '',
+                                ),
+                              )
+                              .numeroLacre ??
+                          '',
+                      enabled: !readOnly,
+                      decoration: const InputDecoration(
+                        labelText: 'Nº do Lacre (Principal/Envelope)',
+                        prefixIcon: Icon(Icons.lock_outline, size: 18),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        final newList = List<ExameSolicitadoModel>.from(
+                          controller.casoAtual.exames,
+                        );
+                        final idx = newList.indexWhere(
+                          (e) => e.tipoExame == 'TOXICOLOGICO',
+                        );
+                        if (idx != -1) {
+                          newList[idx] = newList[idx].copyWith(
+                            numeroLacre: val.trim(),
+                          );
+                          controller.salvarExamesModel(newList);
+                          controller.scheduleAutoSave();
+                        }
+                      },
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: ToxicologicoFormWidget(
                       readOnly: readOnly,
                       initialData: () {
-                        final idx = examesList.indexWhere((e) => e.tipoExame == 'TOXICOLOGICO');
-                        if (idx != -1 && examesList[idx].detalhes is DetalhesToxicologicoModel) {
-                          return examesList[idx].detalhes as DetalhesToxicologicoModel;
+                        final idx = examesList.indexWhere(
+                          (e) => e.tipoExame == 'TOXICOLOGICO',
+                        );
+                        if (idx != -1 &&
+                            examesList[idx].detalhes
+                                is DetalhesToxicologicoModel) {
+                          return examesList[idx].detalhes
+                              as DetalhesToxicologicoModel;
                         }
                         return null;
                       }(),
                       onChanged: (novosDetalhes) {
-                        final newList = List<ExameSolicitadoModel>.from(controller.examesSolicitadosModel);
-                        final idx = newList.indexWhere((e) => e.tipoExame == 'TOXICOLOGICO');
+                        final newList = List<ExameSolicitadoModel>.from(
+                          controller.casoAtual.exames,
+                        );
+                        final idx = newList.indexWhere(
+                          (e) => e.tipoExame == 'TOXICOLOGICO',
+                        );
                         if (idx != -1) {
                           final parentUuid = newList[idx].uuid;
                           newList[idx] = newList[idx].copyWith(
-                            detalhes: novosDetalhes.copyWith(exameUuid: parentUuid),
+                            detalhes: novosDetalhes.copyWith(
+                              exameUuid: parentUuid,
+                            ),
                           );
                         } else {
                           final novoExame = ExameSolicitadoModel.novo(
@@ -136,14 +213,23 @@ class ExamesTab extends StatelessWidget {
                           );
                           newList.add(
                             novoExame.copyWith(
-                              detalhes: novosDetalhes.copyWith(exameUuid: novoExame.uuid),
+                              detalhes: novosDetalhes.copyWith(
+                                exameUuid: novoExame.uuid,
+                              ),
                             ),
                           );
                         }
+                        debugPrint('--- DUMB TEST UI [TOXICOLOGICO] ---');
+                        for (final e in newList) {
+                          debugPrint('Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}');
+                          if (e.detalhes != null) debugPrint('Conteudo: ${e.detalhes}');
+                        }
+                        debugPrint('🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [TOXICOLOGICO]! Detalhes nulo? ${newList.firstWhere((e) => e.tipoExame == "TOXICOLOGICO", orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: "")).detalhes == null}');
                         controller.salvarExamesModel(newList);
                       },
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -175,10 +261,14 @@ class ExamesTab extends StatelessWidget {
                   onChanged: readOnly
                       ? null
                       : (val) {
-                          final newList = List<ExameSolicitadoModel>.from(controller.examesSolicitadosModel);
+                          final newList = List<ExameSolicitadoModel>.from(
+                            controller.casoAtual.exames,
+                          );
                           final checked = val ?? false;
                           if (checked) {
-                            final idx = newList.indexWhere((e) => e.tipoExame == 'GENETICA');
+                            final idx = newList.indexWhere(
+                              (e) => e.tipoExame == 'GENETICA',
+                            );
                             if (idx == -1) {
                               newList.add(
                                 ExameSolicitadoModel.novo(
@@ -189,32 +279,86 @@ class ExamesTab extends StatelessWidget {
                               );
                             }
                           } else {
-                            newList.removeWhere((e) => e.tipoExame == 'GENETICA');
+                            newList.removeWhere(
+                              (e) => e.tipoExame == 'GENETICA',
+                            );
                           }
                           controller.salvarExamesModel(newList);
                         },
                 ),
-                if (solicitarGenetica)
+                if (solicitarGenetica) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: TextFormField(
+                      initialValue:
+                          examesList
+                              .firstWhere(
+                                (e) => e.tipoExame == 'GENETICA',
+                                orElse: () => ExameSolicitadoModel.novo(
+                                  casoUuid: '',
+                                  tipoExame: '',
+                                ),
+                              )
+                              .numeroLacre ??
+                          '',
+                      enabled: !readOnly,
+                      decoration: const InputDecoration(
+                        labelText: 'Nº do Lacre (Principal/Envelope)',
+                        prefixIcon: Icon(Icons.lock_outline, size: 18),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        final newList = List<ExameSolicitadoModel>.from(
+                          controller.casoAtual.exames,
+                        );
+                        final idx = newList.indexWhere(
+                          (e) => e.tipoExame == 'GENETICA',
+                        );
+                        if (idx != -1) {
+                          newList[idx] = newList[idx].copyWith(
+                            numeroLacre: val.trim(),
+                          );
+                          controller.salvarExamesModel(newList);
+                          controller.scheduleAutoSave();
+                        }
+                      },
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: GeneticaFormWidget(
                       readOnly: readOnly,
                       initialData: () {
-                        final idx = examesList.indexWhere((e) => e.tipoExame == 'GENETICA');
-                        if (idx != -1 && examesList[idx].detalhes is List<AmostraGeneticaModel>) {
-                          return examesList[idx].detalhes as List<AmostraGeneticaModel>;
+                        final idx = examesList.indexWhere(
+                          (e) => e.tipoExame == 'GENETICA',
+                        );
+                        if (idx != -1 &&
+                            examesList[idx].detalhes
+                                is List<AmostraGeneticaModel>) {
+                          return examesList[idx].detalhes
+                              as List<AmostraGeneticaModel>;
                         }
                         return <AmostraGeneticaModel>[];
                       }(),
                       onChanged: (novasAmostras) {
-                        final newList = List<ExameSolicitadoModel>.from(controller.examesSolicitadosModel);
-                        final idx = newList.indexWhere((e) => e.tipoExame == 'GENETICA');
+                        final newList = List<ExameSolicitadoModel>.from(
+                          controller.casoAtual.exames,
+                        );
+                        final idx = newList.indexWhere(
+                          (e) => e.tipoExame == 'GENETICA',
+                        );
                         if (idx != -1) {
                           final parentUuid = newList[idx].uuid;
                           final amostrasCorrigidas = novasAmostras
                               .map((a) => a.copyWith(exameUuid: parentUuid))
                               .toList();
-                          newList[idx] = newList[idx].copyWith(detalhes: amostrasCorrigidas);
+                          newList[idx] = newList[idx].copyWith(
+                            detalhes: amostrasCorrigidas,
+                          );
                         } else {
                           final novoExame = ExameSolicitadoModel.novo(
                             casoUuid: controller.casoAtual.uuid,
@@ -227,10 +371,17 @@ class ExamesTab extends StatelessWidget {
                             novoExame.copyWith(detalhes: amostrasCorrigidas),
                           );
                         }
+                        debugPrint('--- DUMB TEST UI [GENETICA] ---');
+                        for (final e in newList) {
+                          debugPrint('Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}');
+                          if (e.detalhes != null) debugPrint('Conteudo: ${e.detalhes}');
+                        }
+                        debugPrint('🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [GENETICA]! Detalhes nulo? ${newList.firstWhere((e) => e.tipoExame == "GENETICA", orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: "")).detalhes == null}');
                         controller.salvarExamesModel(newList);
                       },
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -262,10 +413,14 @@ class ExamesTab extends StatelessWidget {
                   onChanged: readOnly
                       ? null
                       : (val) {
-                          final newList = List<ExameSolicitadoModel>.from(controller.examesSolicitadosModel);
+                          final newList = List<ExameSolicitadoModel>.from(
+                            controller.casoAtual.exames,
+                          );
                           final checked = val ?? false;
                           if (checked) {
-                            final idx = newList.indexWhere((e) => e.tipoExame == 'ANATOMO');
+                            final idx = newList.indexWhere(
+                              (e) => e.tipoExame == 'ANATOMO',
+                            );
                             if (idx == -1) {
                               newList.add(
                                 ExameSolicitadoModel.novo(
@@ -276,32 +431,86 @@ class ExamesTab extends StatelessWidget {
                               );
                             }
                           } else {
-                            newList.removeWhere((e) => e.tipoExame == 'ANATOMO');
+                            newList.removeWhere(
+                              (e) => e.tipoExame == 'ANATOMO',
+                            );
                           }
                           controller.salvarExamesModel(newList);
                         },
                 ),
-                if (solicitarAnatomo)
+                if (solicitarAnatomo) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: TextFormField(
+                      initialValue:
+                          examesList
+                              .firstWhere(
+                                (e) => e.tipoExame == 'ANATOMO',
+                                orElse: () => ExameSolicitadoModel.novo(
+                                  casoUuid: '',
+                                  tipoExame: '',
+                                ),
+                              )
+                              .numeroLacre ??
+                          '',
+                      enabled: !readOnly,
+                      decoration: const InputDecoration(
+                        labelText: 'Nº do Lacre (Principal/Envelope)',
+                        prefixIcon: Icon(Icons.lock_outline, size: 18),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        final newList = List<ExameSolicitadoModel>.from(
+                          controller.casoAtual.exames,
+                        );
+                        final idx = newList.indexWhere(
+                          (e) => e.tipoExame == 'ANATOMO',
+                        );
+                        if (idx != -1) {
+                          newList[idx] = newList[idx].copyWith(
+                            numeroLacre: val.trim(),
+                          );
+                          controller.salvarExamesModel(newList);
+                          controller.scheduleAutoSave();
+                        }
+                      },
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: AnatomoFormWidget(
                       readOnly: readOnly,
                       initialData: () {
-                        final idx = examesList.indexWhere((e) => e.tipoExame == 'ANATOMO');
-                        if (idx != -1 && examesList[idx].detalhes is List<FrascoAnatomoModel>) {
-                          return examesList[idx].detalhes as List<FrascoAnatomoModel>;
+                        final idx = examesList.indexWhere(
+                          (e) => e.tipoExame == 'ANATOMO',
+                        );
+                        if (idx != -1 &&
+                            examesList[idx].detalhes
+                                is List<FrascoAnatomoModel>) {
+                          return examesList[idx].detalhes
+                              as List<FrascoAnatomoModel>;
                         }
                         return <FrascoAnatomoModel>[];
                       }(),
                       onChanged: (novosFrascos) {
-                        final newList = List<ExameSolicitadoModel>.from(controller.examesSolicitadosModel);
-                        final idx = newList.indexWhere((e) => e.tipoExame == 'ANATOMO');
+                        final newList = List<ExameSolicitadoModel>.from(
+                          controller.casoAtual.exames,
+                        );
+                        final idx = newList.indexWhere(
+                          (e) => e.tipoExame == 'ANATOMO',
+                        );
                         if (idx != -1) {
                           final parentUuid = newList[idx].uuid;
                           final frascosCorrigidos = novosFrascos
                               .map((f) => f.copyWith(exameUuid: parentUuid))
                               .toList();
-                          newList[idx] = newList[idx].copyWith(detalhes: frascosCorrigidos);
+                          newList[idx] = newList[idx].copyWith(
+                            detalhes: frascosCorrigidos,
+                          );
                         } else {
                           final novoExame = ExameSolicitadoModel.novo(
                             casoUuid: controller.casoAtual.uuid,
@@ -314,10 +523,17 @@ class ExamesTab extends StatelessWidget {
                             novoExame.copyWith(detalhes: frascosCorrigidos),
                           );
                         }
+                        debugPrint('--- DUMB TEST UI [ANATOMO] ---');
+                        for (final e in newList) {
+                          debugPrint('Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}');
+                          if (e.detalhes != null) debugPrint('Conteudo: ${e.detalhes}');
+                        }
+                        debugPrint('🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [ANATOMO]! Detalhes nulo? ${newList.firstWhere((e) => e.tipoExame == "ANATOMO", orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: "")).detalhes == null}');
                         controller.salvarExamesModel(newList);
                       },
                     ),
                   ),
+                ],
               ],
             ),
           ),
