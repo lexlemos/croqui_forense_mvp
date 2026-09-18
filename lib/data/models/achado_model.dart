@@ -150,8 +150,8 @@ class Achado {
 
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? '',
-      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? '',
+      casoUuid: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
+      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? map['diagrama_uuid']?.toString() ?? '',
       diagramaNome: map['diagrama_nome']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
       achadoRelacionadoUuid: map['achado_relacionado_uuid']?.toString(),

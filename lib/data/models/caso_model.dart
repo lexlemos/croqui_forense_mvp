@@ -159,6 +159,12 @@ class Caso {
        finalizadoEm = null;
 
   factory Caso.fromMap(Map<String, dynamic> map) {
+    String? _toTitleCase(String? text) {
+      if (text == null || text.trim().isEmpty) return text;
+      final trimmed = text.trim();
+      return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
+    }
+
     final Map<String, dynamic> dadosLaudoParsed =
         map['dados_laudo_json'] != null
         ? (map['dados_laudo_json'] is Map
@@ -186,7 +192,8 @@ class Caso {
     }
 
     final String? delegaciaSolicitanteParsed =
-        dadosLaudoParsed['delegacia_solicitante']?.toString();
+        dadosLaudoParsed['delegacia_solicitante']?.toString() ??
+        map['delegacia_solicitante']?.toString();
     final DadosLaudoModel modelDadosLaudo = DadosLaudoModel.fromMap(
       dadosLaudoParsed,
     );
@@ -241,7 +248,7 @@ class Caso {
     }
 
     List<ExameSolicitadoModel> parsedExames = [];
-    final rawExames = map['exames'];
+    final rawExames = map['exames'] ?? map['exames_solicitados'];
     if (rawExames is List) {
       parsedExames = rawExames
           .whereType<Map>()
@@ -335,12 +342,12 @@ class Caso {
           ? map['sync_error'] as bool
           : (map['sync_error'] as int? ?? 0) == 1,
       evidenciasMultimidia: parsedEvidencias,
-      corpoEstado: map['corpo_estado']?.toString(),
+      corpoEstado: _toTitleCase(map['corpo_estado']?.toString()),
       corpoEstadoOutros: map['corpo_estado_outros']?.toString(),
-      sexoBiologicoEstimado: map['sexo_biologico_estimado']?.toString(),
+      sexoBiologicoEstimado: _toTitleCase(map['sexo_biologico_estimado']?.toString()),
       dataObito: map['data_obito']?.toString(),
       horaObito: map['hora_obito']?.toString(),
-      tipoEstimativaHoraObito: map['tipo_estimativa_hora_obito']?.toString(),
+      tipoEstimativaHoraObito: _toTitleCase(map['tipo_estimativa_hora_obito']?.toString()),
 
       /// Valida e converte o payload de causa da morte.
       /// Estruturas compostas nativas da API (Map/List) são aceitas diretamente.
@@ -369,13 +376,28 @@ class Caso {
             .toList();
       })(),
       examesSolicitados: (() {
-        // Lê 'tem_exames_solicitados' (backend) com fallback para 'exames_solicitados' (SQLite)
-        final raw = map['tem_exames_solicitados'] ?? map['exames_solicitados'];
-        if (raw == null) return null;
-        return raw == true || raw == 1;
+        // Fallback primário: a chave exata do SQLite ou a antiga chave boolean do backend
+        final raw = map['tem_exames_solicitados'] ?? map['exames_solicitados_flag'];
+        if (raw != null) {
+          if (raw is bool) return raw;
+          if (raw is int) return raw == 1;
+          if (raw is String) return raw.toLowerCase() == 'true' || raw == '1';
+        }
+
+        // Fallback secundário: O backend envia a lista JSON sob a chave 'exames_solicitados'
+        final legacyRaw = map['exames_solicitados'];
+        if (legacyRaw is bool) return legacyRaw;
+        if (legacyRaw is int) return legacyRaw == 1;
+
+        // Se for lista JSON do backend ou estiver em branco, usamos a dedução da lista polimórfica já parseada
+        if (parsedExames.isNotEmpty) return true;
+        
+        return false;
       })(),
       descricaoExames: map['descricao_exames']?.toString(),
-      balisticas: parsedBalisticas,
+      balisticas: map['balisticas'] != null
+          ? (map['balisticas'] as List).map((e) => BalisticaModel.fromMap(e)).toList()
+          : [],
       exames: parsedExames,
       dataNecropsia: map['data_necropsia']?.toString(),
       horaNecropsia: map['hora_necropsia']?.toString(),
@@ -561,12 +583,12 @@ class Caso {
       'nome_vitima': nomeVitima,
       'dados_laudo_json': dadosLaudo.toMap(),
       'pdf_url': pdfUrl,
-      'corpo_estado': corpoEstado,
+      'corpo_estado': (corpoEstado?.trim().isEmpty ?? true) ? null : corpoEstado,
       'corpo_estado_outros': corpoEstadoOutros,
-      'sexo_biologico_estimado': sexoBiologicoEstimado,
+      'sexo_biologico_estimado': (sexoBiologicoEstimado?.trim().isEmpty ?? true) ? null : sexoBiologicoEstimado,
       'data_obito': _formatDateToSync(dataObito),
       'hora_obito': _formatTimeToSync(horaObito),
-      'tipo_estimativa_hora_obito': tipoEstimativaHoraObito,
+      'tipo_estimativa_hora_obito': (tipoEstimativaHoraObito?.trim().isEmpty ?? true) ? null : tipoEstimativaHoraObito,
       'causa_morte': causaMorte?.map((e) => e.toMap()).toList(),
       'exames_solicitados_flag': examesSolicitados,
       'descricao_exames': descricaoExames,

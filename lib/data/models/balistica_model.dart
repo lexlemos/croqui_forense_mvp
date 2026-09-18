@@ -49,7 +49,7 @@ class BalisticaModel {
   factory BalisticaModel.fromMap(Map<String, dynamic> map) {
     return BalisticaModel(
       id: map['id'] ?? map['uuid'] as String?,
-      exameId: map['exame_id'] ?? map['caso_uuid'] as String,
+      exameId: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
       tipoFerimento: map['tipo_ferimento'] as String?,
       tipoObjeto: map['tipo_objeto'] as String?,
       numeroLacre: map['numero_lacre'] as String?,

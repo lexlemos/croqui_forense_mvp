@@ -85,7 +85,8 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
         ? (data.materialSgFemoral ||
             data.materialSgCardiaca ||
             (data.materialSgOutro?.isNotEmpty == true) ||
-            (data.numeroLacreSg?.isNotEmpty == true))
+            (data.numeroLacreSg?.isNotEmpty == true) ||
+            data.quantificacaoDrogas)
         : false;
 
     if (_lacreSgCtrl.text != (data?.numeroLacreSg ?? '')) {

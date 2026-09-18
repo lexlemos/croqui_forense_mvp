@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -111,6 +112,14 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       }
       
       _printCompleto('PULL_RECEBIDO', jsonEncode(response.data));
+      try {
+        if (response.data != null && response.data is List && (response.data as List).isNotEmpty) {
+          final firstCase = response.data[0];
+          _printCompleto('JSON_DO_PRIMEIRO_CASO', jsonEncode(firstCase));
+        }
+      } catch (e) {
+        debugPrint('Erro no debug do JSON: $e');
+      }
       
       final data = response.data;
       if (data is Map && data.containsKey('casos')) {

@@ -105,7 +105,11 @@ class ExameSolicitadoModel {
 
   /// Para persistência no SQLite (via caso_repository), o repositório filtra
   /// as chaves polimórficas antes de inserir na tabela exames_solicitados.
-  Map<String, dynamic> toMap() => toSyncMap();
+  Map<String, dynamic> toMap() {
+    final map = toSyncMap();
+    map['criado_em'] = criadoEm.toIso8601String();
+    return map;
+  }
 
   Map<String, dynamic> toSyncMap() {
     final map = <String, dynamic>{

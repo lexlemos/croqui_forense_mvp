@@ -58,7 +58,7 @@ class EvidenciaMultimidia {
 
     return EvidenciaMultimidia(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? '',
+      casoUuid: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
       achadoUuid: map['achado_uuid']?.toString(),
       substituidaPor: map['substituida_por']?.toString(),
       tipo: map['tipo']?.toString() ?? 'ACHADO',

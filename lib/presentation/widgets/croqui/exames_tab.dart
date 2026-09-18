@@ -25,15 +25,19 @@ class ExamesTab extends StatelessWidget {
     // DIAGNÓSTICO: verificar se readOnly está travando a aba
     debugPrint('🔍 [EXAMES_TAB BUILD] readOnly=$readOnly | exames=${examesList.length} | status=${controller.casoAtual.status}');
 
-    final bool solicitarToxicologico = examesList.any(
-      (e) => e.tipoExame == 'TOXICOLOGICO',
-    );
-    final bool solicitarGenetica = examesList.any(
-      (e) => e.tipoExame == 'GENETICA',
-    );
-    final bool solicitarAnatomo = examesList.any(
-      (e) => e.tipoExame == 'ANATOMO',
-    );
+    ExameSolicitadoModel? toxicologicoExam;
+    ExameSolicitadoModel? geneticaExam;
+    ExameSolicitadoModel? anatomoExam;
+
+    for (final e in examesList) {
+      if (e.tipoExame == 'TOXICOLOGICO') toxicologicoExam = e;
+      else if (e.tipoExame == 'GENETICA') geneticaExam = e;
+      else if (e.tipoExame == 'ANATOMO') anatomoExam = e;
+    }
+
+    final bool solicitarToxicologico = toxicologicoExam != null;
+    final bool solicitarGenetica = geneticaExam != null;
+    final bool solicitarAnatomo = anatomoExam != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -141,17 +145,8 @@ class ExamesTab extends StatelessWidget {
                       vertical: 8.0,
                     ),
                     child: TextFormField(
-                      initialValue:
-                          examesList
-                              .firstWhere(
-                                (e) => e.tipoExame == 'TOXICOLOGICO',
-                                orElse: () => ExameSolicitadoModel.novo(
-                                  casoUuid: '',
-                                  tipoExame: '',
-                                ),
-                              )
-                              .numeroLacre ??
-                          '',
+                      key: ValueKey('lacre_tox_${toxicologicoExam!.uuid}'),
+                      initialValue: toxicologicoExam.numeroLacre ?? '',
                       enabled: !readOnly,
                       decoration: const InputDecoration(
                         labelText: 'Nº do Lacre (Principal/Envelope)',
@@ -180,18 +175,9 @@ class ExamesTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: ToxicologicoFormWidget(
                       readOnly: readOnly,
-                      initialData: () {
-                        final idx = examesList.indexWhere(
-                          (e) => e.tipoExame == 'TOXICOLOGICO',
-                        );
-                        if (idx != -1 &&
-                            examesList[idx].detalhes
-                                is DetalhesToxicologicoModel) {
-                          return examesList[idx].detalhes
-                              as DetalhesToxicologicoModel;
-                        }
-                        return null;
-                      }(),
+                      initialData: toxicologicoExam.detalhes is DetalhesToxicologicoModel
+                          ? toxicologicoExam.detalhes as DetalhesToxicologicoModel
+                          : null,
                       onChanged: (novosDetalhes) {
                         final newList = List<ExameSolicitadoModel>.from(
                           controller.casoAtual.exames,
@@ -293,17 +279,8 @@ class ExamesTab extends StatelessWidget {
                       vertical: 8.0,
                     ),
                     child: TextFormField(
-                      initialValue:
-                          examesList
-                              .firstWhere(
-                                (e) => e.tipoExame == 'GENETICA',
-                                orElse: () => ExameSolicitadoModel.novo(
-                                  casoUuid: '',
-                                  tipoExame: '',
-                                ),
-                              )
-                              .numeroLacre ??
-                          '',
+                      key: ValueKey('lacre_gen_${geneticaExam!.uuid}'),
+                      initialValue: geneticaExam.numeroLacre ?? '',
                       enabled: !readOnly,
                       decoration: const InputDecoration(
                         labelText: 'Nº do Lacre (Principal/Envelope)',
@@ -332,18 +309,9 @@ class ExamesTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: GeneticaFormWidget(
                       readOnly: readOnly,
-                      initialData: () {
-                        final idx = examesList.indexWhere(
-                          (e) => e.tipoExame == 'GENETICA',
-                        );
-                        if (idx != -1 &&
-                            examesList[idx].detalhes
-                                is List<AmostraGeneticaModel>) {
-                          return examesList[idx].detalhes
-                              as List<AmostraGeneticaModel>;
-                        }
-                        return <AmostraGeneticaModel>[];
-                      }(),
+                      initialData: geneticaExam.detalhes is List<AmostraGeneticaModel>
+                          ? geneticaExam.detalhes as List<AmostraGeneticaModel>
+                          : <AmostraGeneticaModel>[],
                       onChanged: (novasAmostras) {
                         final newList = List<ExameSolicitadoModel>.from(
                           controller.casoAtual.exames,
@@ -445,17 +413,8 @@ class ExamesTab extends StatelessWidget {
                       vertical: 8.0,
                     ),
                     child: TextFormField(
-                      initialValue:
-                          examesList
-                              .firstWhere(
-                                (e) => e.tipoExame == 'ANATOMO',
-                                orElse: () => ExameSolicitadoModel.novo(
-                                  casoUuid: '',
-                                  tipoExame: '',
-                                ),
-                              )
-                              .numeroLacre ??
-                          '',
+                      key: ValueKey('lacre_ana_${anatomoExam!.uuid}'),
+                      initialValue: anatomoExam.numeroLacre ?? '',
                       enabled: !readOnly,
                       decoration: const InputDecoration(
                         labelText: 'Nº do Lacre (Principal/Envelope)',
@@ -484,18 +443,9 @@ class ExamesTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: AnatomoFormWidget(
                       readOnly: readOnly,
-                      initialData: () {
-                        final idx = examesList.indexWhere(
-                          (e) => e.tipoExame == 'ANATOMO',
-                        );
-                        if (idx != -1 &&
-                            examesList[idx].detalhes
-                                is List<FrascoAnatomoModel>) {
-                          return examesList[idx].detalhes
-                              as List<FrascoAnatomoModel>;
-                        }
-                        return <FrascoAnatomoModel>[];
-                      }(),
+                      initialData: anatomoExam.detalhes is List<FrascoAnatomoModel>
+                          ? anatomoExam.detalhes as List<FrascoAnatomoModel>
+                          : <FrascoAnatomoModel>[],
                       onChanged: (novosFrascos) {
                         final newList = List<ExameSolicitadoModel>.from(
                           controller.casoAtual.exames,

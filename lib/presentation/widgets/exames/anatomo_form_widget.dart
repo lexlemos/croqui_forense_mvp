@@ -211,6 +211,7 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
 
             // Campo de Lacre Individual — obrigatório por cadeia de custódia
             TextFormField(
+              key: ValueKey('lacre_frasco_${frasco.uuid}'),
               initialValue: frasco.numeroLacre ?? '',
               enabled: !widget.readOnly,
               keyboardType: TextInputType.number,
@@ -391,6 +392,7 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
 
             // 3. Regiões Descritivas
             TextFormField(
+              key: ValueKey('pele_${frasco.uuid}'),
               initialValue: frasco.peleRegiao,
               enabled: !widget.readOnly,
               decoration: const InputDecoration(
@@ -406,6 +408,7 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
             const SizedBox(height: 8),
 
             TextFormField(
+              key: ValueKey('partes_moles_${frasco.uuid}'),
               initialValue: frasco.partesMolesRegiao,
               enabled: !widget.readOnly,
               decoration: const InputDecoration(
@@ -421,6 +424,7 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
             const SizedBox(height: 8),
 
             TextFormField(
+              key: ValueKey('outras_${frasco.uuid}'),
               initialValue: frasco.outrasRegiao,
               enabled: !widget.readOnly,
               decoration: const InputDecoration(

@@ -635,6 +635,26 @@ class CasoRepository implements ISyncRepository {
     return pending;
   }
 
+  Future<List<Map<String, dynamic>>> getTodasEvidenciasPendentesGlobais() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT 
+        e.uuid AS evidencia_uuid,
+        e.caso_uuid AS caso_uuid_fallback,
+        e.caminho_arquivo_encriptado,
+        e.hash_arquivo,
+        a.uuid AS achado_uuid,
+        a.caso_uuid AS caso_uuid_achado
+      FROM evidencias_multimidia e
+      LEFT JOIN achados a ON e.achado_uuid = a.uuid
+      WHERE e.removido = 0
+        AND e.caminho_arquivo_encriptado IS NOT NULL
+        AND e.caminho_arquivo_encriptado != ''
+        AND e.foto_sincronizada = 0
+    ''');
+    return maps;
+  }
+
   @override
   Future<void> marcarCasoComoSincronizado(Caso caso) async {
     final db = await database;
@@ -688,13 +708,18 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final evidenciaUuid = achado.dadosPreenchidos['_evidencia_uuid'];
     if (evidenciaUuid != null) {
-      await db.update(
-        tableEvidenciasMultimidia,
-        {'foto_sincronizada': 1},
-        where: 'uuid = ?',
-        whereArgs: [evidenciaUuid],
-      );
+      await marcarEvidenciaComoSincronizada(evidenciaUuid.toString());
     }
+  }
+
+  Future<void> marcarEvidenciaComoSincronizada(String uuid) async {
+    final db = await database;
+    await db.update(
+      tableEvidenciasMultimidia,
+      {'foto_sincronizada': 1},
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+    );
   }
 
   Future<EvidenciaMultimidia?> getEvidenciaByUuid(String uuid) async {

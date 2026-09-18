@@ -55,6 +55,12 @@ abstract interface class ISyncRepository {
 
   /// Motor de Upsert (Sincronização Pull). Resolve conflitos e insere/atualiza casos, achados e evidências.
   Future<void> upsertCasoTransaction(ParsedSyncPayload payload);
+
+  /// Obtém todas as evidências pendentes globalmente (desacopladas do status do Caso).
+  Future<List<Map<String, dynamic>>> getTodasEvidenciasPendentesGlobais();
+
+  /// Marca uma Evidência Multimídia como sincronizada.
+  Future<void> marcarEvidenciaComoSincronizada(String uuid);
 }
 
 /// Exceção lançada quando o push dos dados textuais de sincronização dos laudos é rejeitado pelo servidor central.
@@ -227,7 +233,7 @@ class SyncService {
         for (final caso in casosParaEnviar) {
           if (_authService != null && !_authService.isLogged) {
             debugPrint(
-              '[SyncService] 🛑 Sessão nula. Abortando fila de fotos prematuramente.',
+              '[SyncService] 🛑 Sessão nula. Abortando fila de casos prematuramente.',
             );
             return;
           }
@@ -235,43 +241,23 @@ class SyncService {
           if (conflitosUuids.contains(caso.uuid) ||
               !salvosUuids.contains(caso.uuid)) {
             debugPrint(
-              '[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado. Pulando envio de fotos.',
+              '[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado. Pulando confirmação.',
             );
             continue;
           }
 
           try {
-            await Sentry.captureMessage(
-              'Iniciando ciclo de upload de mídia para o caso salvo ${caso.uuid}',
-              level: SentryLevel.info,
-            );
-            final fotos = await _repository.getEvidenciasPendentesPorCaso(
-              caso.uuid,
-            );
-            final falhasNoCaso = await _processarCaso(caso, fotos);
-            totalFotosFalhas += falhasNoCaso;
-          } on DioException catch (e, stackTrace) {
-            if (_isSessionExpiredError(e)) {
-              debugPrint(
-                '[SyncService] 🛑 Sessão expirada no envio de fotos do caso ${caso.uuid}.',
-              );
-              return;
-            }
-            debugPrint(
-              '[SyncService] ⚠️ Falha de rede ao enviar fotos do caso ${caso.uuid}: $e',
-            );
-            SentryHelper.setSyncErrorTag(caso.uuid);
-            await Sentry.captureException(e, stackTrace: stackTrace);
-            totalFotosFalhas++;
+            await _confirmarCaso(caso);
           } catch (e, stackTrace) {
             debugPrint(
-              '[SyncService] ⚠️ Erro inesperado nas fotos do caso ${caso.uuid}: $e',
+              '[SyncService] ⚠️ Erro inesperado ao confirmar caso ${caso.uuid}: $e',
             );
             SentryHelper.setSyncErrorTag(caso.uuid);
             await Sentry.captureException(e, stackTrace: stackTrace);
-            totalFotosFalhas++;
           }
         }
+
+        await _processarFilaDeMidiasGlobais();
       } on DioException catch (e, stackTrace) {
         if (_isSessionExpiredError(e)) {
           debugPrint(
@@ -281,26 +267,15 @@ class SyncService {
         }
         debugPrint('[SyncService] ⚠️ Falha na rede no Bulk Push: $e');
         await Sentry.captureException(e, stackTrace: stackTrace);
-        totalFotosFalhas++; // Falhou tudo
       } catch (e, stackTrace) {
         debugPrint('[SyncService] ⚠️ Erro inesperado no Bulk Push: $e');
         await Sentry.captureException(e, stackTrace: stackTrace);
-        totalFotosFalhas++;
       }
 
       debugPrint('[SyncService] Ciclo concluído.');
 
-      if (totalCasosConflito > 0 || totalFotosFalhas > 0) {
-        final List<String> erros = [];
-        if (totalCasosConflito > 0) {
-          erros.add(
-            '$totalCasosConflito caso(s) em conflito no servidor central.',
-          );
-        }
-        if (totalFotosFalhas > 0) {
-          erros.add('falha ao enviar $totalFotosFalhas item(ns).');
-        }
-        throw Exception('Sincronização parcial: ${erros.join(" e ")}');
+      if (totalCasosConflito > 0) {
+        throw Exception('Sincronização parcial: $totalCasosConflito caso(s) em conflito no servidor central.');
       }
     } finally {
       _isSyncing = false;
@@ -468,99 +443,28 @@ class SyncService {
     return await _remoteDataSource.pushTextual(payload);
   }
 
-  /// Processa a sincronização de fotos de um caso.
-  /// Retorna o número de fotos que falharam no envio.
-  Future<int> _processarCaso(Caso caso, List<Achado> achadosComFotos) async {
-    if (achadosComFotos.isEmpty) {
-      await _confirmarCaso(caso);
-      return 0;
-    }
+  Future<void> _processarFilaDeMidiasGlobais() async {
+    debugPrint('[SyncService] 📸 Iniciando varredura global de mídias pendentes...');
+    final pendentes = await _repository.getTodasEvidenciasPendentesGlobais();
+    
+    for (final ev in pendentes) {
+      final casoUuid = ev['caso_uuid_achado'] ?? ev['caso_uuid_fallback'];
+      if (casoUuid == null) continue;
 
-    final List<Achado> achadosSincronizados = [];
-    final List<Object> erros = [];
-
-    for (final achado in achadosComFotos) {
-      if (_authService != null && !_authService.isLogged) {
-        debugPrint(
-          '[SyncService] 🛑 Sessão nula. Abortando upload de fotos prematuramente.',
-        );
-        throw SessionExpiredException();
-      }
       try {
-        await _uploadEvidencia(caso, achado);
-        achadosSincronizados.add(achado);
-        await _repository.marcarFotoComoSincronizada(achado);
-      } on EvidenceNotFoundException catch (e, stackTrace) {
-        debugPrint(
-          '[SyncService] 🛑 Evidência ausente no caso ${caso.uuid}; '
-          'upload do caso abortado: $e',
+        await _remoteDataSource.uploadEvidencia(
+          casoUuid: casoUuid as String,
+          achadoUuid: ev['achado_uuid'] as String?,
+          evidenciaUuid: ev['evidencia_uuid'] as String,
+          hash: (ev['hash_arquivo'] as String?) ?? '',
+          filePath: ev['caminho_arquivo_encriptado'] as String,
         );
-        await _repository.marcarCasoComErroDeSincronizacao(caso.uuid);
-        SentryHelper.setSyncErrorTag(caso.uuid);
-        await Sentry.captureException(e, stackTrace: stackTrace);
-        return 1;
-      } catch (e, stackTrace) {
-        if (_isSessionExpiredError(e)) {
-          debugPrint(
-            '[SyncService] 🛑 Sessão expirada (401/403) no upload de foto. Abortando.',
-          );
-          rethrow;
-        }
-        erros.add(e);
-        debugPrint(
-          '[SyncService] Upload falhou para o achado ${achado.uuid} no caso ${caso.uuid}: $e',
-        );
-        SentryHelper.setSyncErrorTag(caso.uuid);
-        await Sentry.captureException(e, stackTrace: stackTrace);
+        
+        await _repository.marcarEvidenciaComoSincronizada(ev['evidencia_uuid'] as String);
+      } catch (e) {
+        debugPrint('[SyncService] ❌ Falha ao subir mídia ${ev['evidencia_uuid']}: $e');
       }
     }
-
-    if (erros.isEmpty) {
-      await _confirmarCaso(caso);
-      return 0;
-    } else {
-      debugPrint(
-        '[SyncService] Caso ${caso.uuid}: ${erros.length} foto(s) falharam. O status permanecerá pendente.',
-      );
-      return erros.length;
-    }
-  }
-
-  Future<void> _uploadEvidencia(Caso caso, Achado achado) async {
-    final String? caminhoFoto = achado.photoPath;
-    if (caminhoFoto == null || caminhoFoto.isEmpty) {
-      throw EvidenceNotFoundException(
-        casoUuid: caso.uuid,
-        achadoUuid: achado.uuid,
-        filePath: caminhoFoto,
-      );
-    }
-
-    final File arquivoOriginal = File(caminhoFoto);
-    if (!arquivoOriginal.existsSync()) {
-      throw EvidenceNotFoundException(
-        casoUuid: caso.uuid,
-        achadoUuid: achado.uuid,
-        filePath: caminhoFoto,
-      );
-    }
-
-    final bytes = await arquivoOriginal.readAsBytes();
-    final String hashOriginal = sha256.convert(bytes).toString();
-
-    final String evidenciaUuid =
-        achado.dadosPreenchidos['_evidencia_uuid']?.toString() ?? achado.uuid;
-
-    final bool isFotoGeral =
-        achado.tipoAchadoId == 'FOTO_GERAL' || achado.diagramaNome == 'GERAL';
-
-    await _remoteDataSource.uploadEvidencia(
-      casoUuid: caso.uuid,
-      achadoUuid: isFotoGeral ? null : achado.uuid,
-      evidenciaUuid: evidenciaUuid,
-      hash: hashOriginal,
-      filePath: arquivoOriginal.path,
-    );
   }
 
   Future<void> _confirmarCaso(Caso caso) async {
