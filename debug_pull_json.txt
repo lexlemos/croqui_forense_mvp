@@ -1,0 +1,431 @@
+[
+  {
+    "uuid": "fc35f863-d715-4ee6-8ab4-17a528621708",
+    "versao": 2,
+    "removido": false,
+    "status_pericia": "EM_ANDAMENTO",
+    "device_id": null,
+    "numero_pic": "6543234567",
+    "numero_laudo_externo": "55543222",
+    "numero_bo": "sxdcfvgbh",
+    "numero_requisicao": "55543222",
+    "requisitante": "cfvgbhj",
+    "destino": "v bhjnugy",
+    "nome_vitima": "fg h",
+    "atns_ids": [
+      "4bb35510-e36b-43e5-9b3f-90594662de02"
+    ],
+    "dados_laudo_json": {
+      "auditoria": {
+        "atns_nomes": "ADRIANA PRISCILA MOREIRA BOMFIM",
+        "data_finalizacao": "2026-09-06T10:16:43.825846",
+        "perito_responsavel": "Administrador Geral"
+      },
+      "conclusao": {
+        "discussao": "iikkjgfdfvb",
+        "causas_morte": [
+          {
+            "devido_a": "srtyuikm",
+            "imediata": "syujm",
+            "consequencia": "srtyuikm"
+          }
+        ],
+        "quesito_4_meio": "sdfgkmu",
+        "conclusao_texto": "bgfdsdtyuik",
+        "quesito_1_morte": "jhfbnm,",
+        "quesito_3_instrumento": "dtyjm "
+      },
+      "identificacao": {
+        "vestes": "iifhn",
+        "historico": "Consta em Boletim de Ocorrência de número sxdcfvgbh que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+      },
+      "caracteristicas": {
+        "identificacao": "Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.",
+        "tanato_imediato": "fghjk,mv",
+        "tanato_observacao": "",
+        "tanato_consecutivo": "vgbhnjmk"
+      }
+    },
+    "pdf_url": null,
+    "delegacia_solicitante": "",
+    "perito_responsavel": null,
+    "id_usuario_criador": "6e9466cb-090d-5cb5-aaef-8aa93fb9d6b9",
+    "finalizado_em": null,
+    "atualizado_em": "2026-09-16T13:18:27.405108Z",
+    "criado_em_dispositivo": "2026-09-06T13:16:10.075119Z",
+    "corpo_estado": null,
+    "corpo_estado_outros": null,
+    "sexo_biologico_estimado": null,
+    "data_obito": null,
+    "hora_obito": null,
+    "tipo_estimativa_hora_obito": null,
+    "causa_morte": null,
+    "data_necropsia": null,
+    "hora_necropsia": null,
+    "numero_declaracao_obito": null,
+    "diagramas": [
+      {
+        "uuid": "dcab9f83-216a-41e5-abdd-b2471d2f7abd",
+        "exame_id": "fc35f863-d715-4ee6-8ab4-17a528621708",
+        "nome_diagrama": "tpl_corpo_frente",
+        "versao": 1,
+        "removido": false,
+        "device_id": null,
+        "criado_em": "2026-09-06T13:15:33.707896Z",
+        "atualizado_em": "2026-09-06T13:20:11.724980Z"
+      }
+    ],
+    "achados": [
+      {
+        "uuid": "276fb0d8-7fa2-4739-a1f5-cfad95fce00d",
+        "exame_id": "fc35f863-d715-4ee6-8ab4-17a528621708",
+        "diagrama_uuid": "b74030db-fd71-482e-ae6c-df121e995fe6",
+        "achado_relacionado_uuid": null,
+        "diagrama_nome": null,
+        "tipo_achado_id": "085cfd3d-1b84-4659-81ad-183533a93b2e",
+        "versao": 1,
+        "removido": false,
+        "is_interno": false,
+        "numero_sequencial": 1,
+        "pos_x": 0.606787419881865,
+        "pos_y": 0.533492522307402,
+        "tamanho": "",
+        "vista_anatomica": "frente",
+        "local_anatomico": "Fossas Ilíacas",
+        "profundidade": null,
+        "dados_preenchidos_json": {
+          "size": "",
+          "view": "frente",
+          "depth": "",
+          "is_interno": false,
+          "photo_path": "/data/user/0/com.mvplabs.croquiforense.croqui_forense_mvp/app_flutter/evidencias/b7a834e4-0ef9-48bd-9441-25aeaa3c5b5b.jpg",
+          "type_label": "Ferida Pérfuro-cortante (Facada/Punhal)",
+          "local_anatomico_id": "fossas_iliacas",
+          "dados_dinamicos_json": {
+            "formato_orificio": "Oval"
+          },
+          "local_anatomico_nome": "Fossas Ilíacas"
+        },
+        "observacoes_texto": "",
+        "device_id": null,
+        "criado_em": "2026-09-06T13:16:10.075119Z",
+        "atualizado_em": "2026-09-06T13:16:10.075119Z"
+      }
+    ],
+    "exames_solicitados": [],
+    "evidencias_multimidia": [
+      {
+        "uuid": "a44de4dc-4b41-4a7f-9cf2-e4ef8a1befde",
+        "exame_id": "fc35f863-d715-4ee6-8ab4-17a528621708",
+        "achado_uuid": null,
+        "versao": 1,
+        "removido": false,
+        "substituida_por": null,
+        "tipo": "GERAL",
+        "caminho_arquivo_encriptado": "evidencias_multimidia/casos/fc35f863-d715-4ee6-8ab4-17a528621708/foto_geral/7aeed402-833e-4bfa-96fc-8840664851f7.jpg",
+        "hash_arquivo": "173fbb08757c17186247a93740ebab211d5276dfc547ce5b32ff998c091ac35f",
+        "descricao": null,
+        "criado_em": "2026-09-06T13:21:49.664275Z",
+        "atualizado_em": "2026-09-06T13:21:49.664284Z"
+      },
+      {
+        "uuid": "b7a834e4-0ef9-48bd-9441-25aeaa3c5b5b",
+        "exame_id": "fc35f863-d715-4ee6-8ab4-17a528621708",
+        "achado_uuid": "276fb0d8-7fa2-4739-a1f5-cfad95fce00d",
+        "versao": 1,
+        "removido": false,
+        "substituida_por": null,
+        "tipo": "ACHADO",
+        "caminho_arquivo_encriptado": "evidencias_multimidia/casos/fc35f863-d715-4ee6-8ab4-17a528621708/achados/276fb0d8-7fa2-4739-a1f5-cfad95fce00d/aa606185-b3be-435d-a5e1-9145833f2806.jpg",
+        "hash_arquivo": "fc2941c34f26e416647250e4d3e5f9373f63d4fa281ee7cdb7291f55d7b3c7c0",
+        "descricao": null,
+        "criado_em": "2026-09-06T13:21:51.737859Z",
+        "atualizado_em": "2026-09-06T13:21:51.737865Z"
+      }
+    ],
+    "balisticas": []
+  },
+  {
+    "uuid": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+    "versao": 129,
+    "removido": false,
+    "status_pericia": "EM_ANDAMENTO",
+    "device_id": "167a0d1d-1af1-4538-9420-75247c19d164",
+    "numero_pic": "152463",
+    "numero_laudo_externo": "152462",
+    "numero_bo": "",
+    "numero_requisicao": "152462",
+    "requisitante": "",
+    "destino": "",
+    "nome_vitima": "Não Identificado",
+    "atns_ids": [],
+    "dados_laudo_json": {
+      "auditoria": {
+        "data_finalizacao": "2026-09-18T00:17:04.041507",
+        "perito_responsavel": "Perito não identificado"
+      },
+      "cabecalho": {
+        "descricao": ""
+      },
+      "conclusao": {
+        "discussao": "",
+        "quesito_4_meio": "",
+        "conclusao_texto": "",
+        "quesito_1_morte": "",
+        "quesito_2_causa": "",
+        "quesito_3_instrumento": ""
+      },
+      "identificacao": {
+        "sexo": "",
+        "fotos": [],
+        "vestes": "Despido no momento da necrópsia.",
+        "historico": "Consta em Boletim de Ocorrência de número  que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX."
+      },
+      "caracteristicas": {
+        "identificacao": "Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.",
+        "tanato_imediato": "XXX",
+        "tanato_observacao": "XXX",
+        "tanato_consecutivo": "XXX"
+      }
+    },
+    "pdf_url": null,
+    "delegacia_solicitante": "",
+    "perito_responsavel": null,
+    "id_usuario_criador": "5cabfc0f-3987-487f-9a82-2bf4008c67f5",
+    "finalizado_em": null,
+    "atualizado_em": "2026-09-18T17:05:31.422924Z",
+    "criado_em_dispositivo": "2026-09-18T03:12:39.785631Z",
+    "corpo_estado": null,
+    "corpo_estado_outros": "",
+    "sexo_biologico_estimado": null,
+    "data_obito": null,
+    "hora_obito": null,
+    "tipo_estimativa_hora_obito": null,
+    "causa_morte": [
+      {
+        "devido_a": "",
+        "imediata": "",
+        "consequencia": ""
+      }
+    ],
+    "data_necropsia": "2026-09-18",
+    "hora_necropsia": "13:56:12",
+    "numero_declaracao_obito": "",
+    "diagramas": [
+      {
+        "uuid": "bd0f7f76-ea76-4f9b-a756-2c807605f6ad",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "nome_diagrama": "frente",
+        "versao": 1,
+        "removido": false,
+        "device_id": null,
+        "criado_em": "2026-09-18T03:12:39.785631Z",
+        "atualizado_em": "2026-09-18T16:56:12.952072Z"
+      },
+      {
+        "uuid": "f07766ab-c459-4e4d-aff8-fe2975140876",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "nome_diagrama": "trunk_dir",
+        "versao": 1,
+        "removido": false,
+        "device_id": null,
+        "criado_em": "2026-09-18T03:12:39.785631Z",
+        "atualizado_em": "2026-09-18T16:56:12.952072Z"
+      },
+      {
+        "uuid": "e9f0f915-88d2-4eef-a52b-658511ad9be3",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "nome_diagrama": "tpl_corpo_frente",
+        "versao": 1,
+        "removido": false,
+        "device_id": null,
+        "criado_em": "2026-09-18T03:11:53.033441Z",
+        "atualizado_em": "2026-09-18T03:18:17.868217Z"
+      },
+      {
+        "uuid": "803fbe88-4a88-4cfc-a341-4e97209ae21e",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "nome_diagrama": "tpl_corpo_tronco_dir",
+        "versao": 1,
+        "removido": false,
+        "device_id": null,
+        "criado_em": "2026-09-18T03:11:53.033441Z",
+        "atualizado_em": "2026-09-18T03:18:17.868217Z"
+      }
+    ],
+    "achados": [
+      {
+        "uuid": "49cc9dd0-3e0b-4df3-99f8-3f7cee6e7e18",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "diagrama_uuid": "bd0f7f76-ea76-4f9b-a756-2c807605f6ad",
+        "achado_relacionado_uuid": null,
+        "diagrama_nome": null,
+        "tipo_achado_id": "4d206b8f-7411-41ae-8a48-a5b1fb8cb2b2",
+        "versao": 1,
+        "removido": false,
+        "is_interno": false,
+        "numero_sequencial": 2,
+        "pos_x": 0.537226663933306,
+        "pos_y": 0.380073800738007,
+        "tamanho": "1.0",
+        "vista_anatomica": "frente",
+        "local_anatomico": "Esternal",
+        "profundidade": null,
+        "dados_preenchidos_json": {
+          "size": "1.0",
+          "view": "frente",
+          "depth": "aaaa",
+          "is_interno": false,
+          "photo_path": null,
+          "type_label": "Escoriação",
+          "local_anatomico_id": "esternal",
+          "dados_dinamicos_json": {},
+          "local_anatomico_nome": "Esternal"
+        },
+        "observacoes_texto": "",
+        "device_id": null,
+        "criado_em": "2026-09-18T03:18:12.086213Z",
+        "atualizado_em": "2026-09-18T03:18:12.086213Z"
+      },
+      {
+        "uuid": "7c50d3f1-f96f-47f9-888a-24b093ef2090",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "diagrama_uuid": "f07766ab-c459-4e4d-aff8-fe2975140876",
+        "achado_relacionado_uuid": null,
+        "diagrama_nome": null,
+        "tipo_achado_id": "4d206b8f-7411-41ae-8a48-a5b1fb8cb2b2",
+        "versao": 1,
+        "removido": false,
+        "is_interno": false,
+        "numero_sequencial": 1,
+        "pos_x": 0.472799396480347,
+        "pos_y": 0.340454945331155,
+        "tamanho": "1.0",
+        "vista_anatomica": "trunk_dir",
+        "local_anatomico": "Torácica",
+        "profundidade": null,
+        "dados_preenchidos_json": {
+          "size": "1.0",
+          "view": "trunk_dir",
+          "depth": "",
+          "is_interno": false,
+          "photo_path": null,
+          "type_label": "Escoriação",
+          "local_anatomico_id": "toracica",
+          "dados_dinamicos_json": {},
+          "local_anatomico_nome": "Torácica"
+        },
+        "observacoes_texto": "",
+        "device_id": null,
+        "criado_em": "2026-09-18T03:12:39.785631Z",
+        "atualizado_em": "2026-09-18T03:12:39.785631Z"
+      }
+    ],
+    "exames_solicitados": [
+      {
+        "uuid": "523e3bc5-2920-459f-9e21-23b23fa0e0da",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "tipo_exame": "TOXICOLOGICO",
+        "quantidade_amostras": 1,
+        "numero_lacre": "3323",
+        "criado_em": "2026-09-18T03:23:09.780523Z",
+        "amostras_genetica": [],
+        "frascos_anatomo": [],
+        "detalhes_toxicologico": [
+          {
+            "uuid": "ea8482d7-fae6-4cd4-94ef-c364e20c115a",
+            "exame_uuid": "523e3bc5-2920-459f-9e21-23b23fa0e0da",
+            "historico_ocorrencia": "Ferimento por arma branca (FAB)",
+            "historico_outro": null,
+            "material_sg_femoral": 1,
+            "material_sg_cardiaca": 0,
+            "material_sg_outro": "aaaa",
+            "material_urina": 0,
+            "material_humor_vitreo": 0,
+            "material_estomago": 0,
+            "material_pulmao": 0,
+            "quantificacao_drogas": 0,
+            "numero_lacre_sg": "2345671",
+            "numero_lacre_ur": null,
+            "numero_lacre_hv": null,
+            "numero_lacre_ce": null,
+            "numero_lacre_pm": null
+          }
+        ]
+      },
+      {
+        "uuid": "f225ef8e-273c-4d86-b3a6-6b6a9df72d12",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "tipo_exame": "GENETICA",
+        "quantidade_amostras": 1,
+        "numero_lacre": "124125",
+        "criado_em": "2026-09-18T03:23:09.780567Z",
+        "amostras_genetica": [
+          {
+            "uuid": "3f092edf-7633-49b0-a0f9-edf6495a245e",
+            "exame_uuid": "f225ef8e-273c-4d86-b3a6-6b6a9df72d12",
+            "tipo_amostra": "SWAB_VAGINAL_1",
+            "descricao_outro": null,
+            "pesquisa_semen": 1,
+            "pesquisa_dna": 0,
+            "quantidade_swabs": 1,
+            "numero_lacre": "55423"
+          }
+        ],
+        "frascos_anatomo": [],
+        "detalhes_toxicologico": []
+      },
+      {
+        "uuid": "61097ac2-99f0-4c53-b309-b91f42d84ba7",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "tipo_exame": "ANATOMO",
+        "quantidade_amostras": 1,
+        "numero_lacre": "43513141",
+        "criado_em": "2026-09-18T03:23:09.780588Z",
+        "amostras_genetica": [],
+        "frascos_anatomo": [
+          {
+            "uuid": "214848a5-34e6-4220-b237-97fa47d38099",
+            "exame_uuid": "61097ac2-99f0-4c53-b309-b91f42d84ba7",
+            "numero_frasco": 1,
+            "numero_lacre": "232525243",
+            "coracao": 1,
+            "figado": 1,
+            "baco": 0,
+            "encefalo": 0,
+            "pulmao_d_lsd": 0,
+            "pulmao_d_lmd": 0,
+            "pulmao_d_lid": 0,
+            "pulmao_e_lse": 0,
+            "pulmao_e_lie": 0,
+            "rim_d": 0,
+            "rim_e": 0,
+            "pele_regiao": null,
+            "partes_moles_regiao": null,
+            "outras_regiao": null
+          }
+        ],
+        "detalhes_toxicologico": []
+      }
+    ],
+    "evidencias_multimidia": [],
+    "balisticas": [
+      {
+        "id": "352980fb-3fbf-4279-a02b-352b24a2e964",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "tipo_ferimento": "Entrada",
+        "tipo_objeto": "Estojo",
+        "numero_lacre": "46665",
+        "comentario_adicional": ""
+      },
+      {
+        "id": "056ddd09-8128-4860-aada-606b950e4b9e",
+        "exame_id": "ae97e6c8-c8b8-4413-86e9-06310b30fbd0",
+        "tipo_ferimento": "Saída",
+        "tipo_objeto": "Projétil",
+        "numero_lacre": "aaacxfd",
+        "comentario_adicional": ""
+      }
+    ]
+  }
+]

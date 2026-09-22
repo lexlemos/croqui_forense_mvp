@@ -7,11 +7,14 @@ import 'package:uuid/uuid.dart';
 
 import 'package:dio/dio.dart';
 import 'dart:convert';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/parsed_sync_payload.dart';
+import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/device_info_service.dart';
 import 'package:croqui_forense_mvp/core/utils/sentry_helper.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
@@ -21,6 +24,9 @@ import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 /// Contrato de repositório local responsável pelas operações de leitura e atualização
 /// de integridade dos [Caso]s (Laudos) e seus respectivos [Achado]s durante o processo de sincronização.
 abstract interface class ISyncRepository {
+  /// Instância do banco de dados SQLite (SQLCipher) para auditoria e operações de baixo nível.
+  Future<Database> get database;
+
   /// Obtém todos os [Caso]s (Laudos) finalizados do usuário que ainda não foram sincronizados com o servidor central.
   Future<List<Caso>> getCasosNaoSincronizados(String usuarioId);
 
@@ -50,8 +56,10 @@ abstract interface class ISyncRepository {
   /// Atualiza o status local da [Evidência Fotográfica] de um [Achado] para marcado como sincronizada.
   Future<void> marcarFotoComoSincronizada(Achado achado);
 
-  /// Recupera as lesões com fotos pendentes de sincronização para um caso específico.
-  Future<List<Achado>> getEvidenciasPendentesPorCaso(String casoUuid);
+  /// Recupera as evidências multimídia pendentes de sincronização para um caso específico.
+  Future<List<Map<String, dynamic>>> getEvidenciasPendentesPorCaso(
+    String casoUuid,
+  );
 
   /// Motor de Upsert (Sincronização Pull). Resolve conflitos e insere/atualiza casos, achados e evidências.
   Future<void> upsertCasoTransaction(ParsedSyncPayload payload);
@@ -167,6 +175,8 @@ class SyncService {
     try {
       debugPrint('[SyncService] Iniciando sincronização...');
 
+
+
       try {
         await pullCasos();
       } on DioException catch (e) {
@@ -246,18 +256,80 @@ class SyncService {
             continue;
           }
 
-          try {
-            await _confirmarCaso(caso);
-          } catch (e, stackTrace) {
-            debugPrint(
-              '[SyncService] ⚠️ Erro inesperado ao confirmar caso ${caso.uuid}: $e',
-            );
-            SentryHelper.setSyncErrorTag(caso.uuid);
-            await Sentry.captureException(e, stackTrace: stackTrace);
+          final List<Map<String, dynamic>> evidenciasPendentes =
+              await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
+          bool todasFotosSincronizadas = true;
+
+          for (final ev in evidenciasPendentes) {
+            try {
+              final filePath =
+                  ev['caminho_arquivo_encriptado'] as String? ?? '';
+              if (filePath.isEmpty) continue;
+
+              final file = File(filePath);
+              if (!await file.exists()) {
+                debugPrint(
+                  '[SyncService] ⚠️ Arquivo de evidência não encontrado em disco: $filePath',
+                );
+                todasFotosSincronizadas = false;
+                totalFotosFalhas++;
+                continue;
+              }
+
+              var hash = (ev['hash_arquivo'] as String?) ?? '';
+              if (hash.isEmpty) {
+                final bytes = await file.readAsBytes();
+                hash = sha256.convert(bytes).toString();
+              }
+
+              await _remoteDataSource.uploadEvidencia(
+                casoUuid: caso.uuid,
+                achadoUuid: ev['achado_uuid'] as String?,
+                evidenciaUuid: ev['evidencia_uuid'] as String,
+                hash: hash,
+                filePath: filePath,
+              );
+
+              await _repository.marcarEvidenciaComoSincronizada(
+                ev['evidencia_uuid'] as String,
+              );
+            } on DioException catch (e, stackTrace) {
+              todasFotosSincronizadas = false;
+              totalFotosFalhas++;
+              if (_isSessionExpiredError(e)) {
+                debugPrint(
+                  '[SyncService] 🛑 Sessão expirada no upload da evidência ${ev['evidencia_uuid']}. Abortando.',
+                );
+                rethrow;
+              }
+              debugPrint(
+                '[SyncService] ❌ Falha de rede ao subir mídia ${ev['evidencia_uuid']}: $e',
+              );
+              await Sentry.captureException(e, stackTrace: stackTrace);
+            } catch (e, stackTrace) {
+              todasFotosSincronizadas = false;
+              totalFotosFalhas++;
+              debugPrint(
+                '[SyncService] ❌ Falha inesperada ao subir mídia ${ev['evidencia_uuid']}: $e',
+              );
+              await Sentry.captureException(e, stackTrace: stackTrace);
+            }
+          }
+
+          if (todasFotosSincronizadas) {
+            try {
+              await _confirmarCaso(caso);
+            } catch (e, stackTrace) {
+              debugPrint(
+                '[SyncService] ⚠️ Erro inesperado ao confirmar caso ${caso.uuid}: $e',
+              );
+              SentryHelper.setSyncErrorTag(caso.uuid);
+              await Sentry.captureException(e, stackTrace: stackTrace);
+            }
+          } else {
+            await _repository.marcarCasoComErroDeSincronizacao(caso.uuid);
           }
         }
-
-        await _processarFilaDeMidiasGlobais();
       } on DioException catch (e, stackTrace) {
         if (_isSessionExpiredError(e)) {
           debugPrint(
@@ -274,8 +346,10 @@ class SyncService {
 
       debugPrint('[SyncService] Ciclo concluído.');
 
-      if (totalCasosConflito > 0) {
-        throw Exception('Sincronização parcial: $totalCasosConflito caso(s) em conflito no servidor central.');
+      if (totalCasosConflito > 0 || totalFotosFalhas > 0) {
+        throw Exception(
+          'Sincronização com pendências: $totalCasosConflito caso(s) em conflito e $totalFotosFalhas foto(s) com falha no envio.',
+        );
       }
     } finally {
       _isSyncing = false;
@@ -286,80 +360,89 @@ class SyncService {
 
   /// Baixa casos da base central e sincroniza localmente através de Upsert com resolução de conflito.
   Future<void> pullCasos() async {
-    debugPrint('[SyncService] Iniciando Pull Synchronization...');
+    if (_isSyncing) {
+      debugPrint('[SyncService] ⏭️ Sincronização já em andamento. Abortando pullCasos.');
+      return;
+    }
+    _isSyncing = true;
     try {
-      final secureStorage = SecureKeyStorage();
-      final lastSync = await secureStorage.read(key: 'last_sync_timestamp');
+      debugPrint('[SyncService] Iniciando Pull Synchronization...');
+      try {
+        final secureStorage = SecureKeyStorage();
+        final lastSync = await secureStorage.read(key: 'last_sync_timestamp');
 
-      final casosRemotos = await _remoteDataSource.pullCasos(
-        lastSyncTimestamp: lastSync,
-      );
-
-      if (casosRemotos.isEmpty) {
-        debugPrint('[SyncService] Nenhum caso recebido no pull.');
-        return;
-      }
-
-      debugPrint(
-        '[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.',
-      );
-      String? lastSuccessfulSyncTimestamp;
-
-      /// A conversão da carga massiva de JSON para entidades de domínio ocorre em uma Background Isolate
-      /// para garantir que a Main Thread não sofra bloqueios (UI Jank).
-      final payloads = await compute(_parseCasosEmBackground, casosRemotos);
-
-      for (final payload in payloads) {
-        try {
-          await _repository.upsertCasoTransaction(payload);
-          final atualizadoEm = payload.rawJson['atualizado_em']?.toString();
-          if (atualizadoEm != null && atualizadoEm.isNotEmpty) {
-            lastSuccessfulSyncTimestamp = atualizadoEm;
-          }
-        } catch (e, stackTrace) {
-          debugPrint(
-            '[SyncService] Erro ao sincronizar (upsert) o caso ${payload.caso.uuid}: $e\n$stackTrace',
-          );
-          final casoUuid = payload.caso.uuid;
-          if (casoUuid.isNotEmpty) {
-            try {
-              await _repository.marcarCasoComErroDeSincronizacao(casoUuid);
-            } catch (markError, markStackTrace) {
-              debugPrint(
-                '[SyncService] Não foi possível registrar sync_error para '
-                '$casoUuid: $markError\n$markStackTrace',
-              );
-            }
-          }
-          continue;
-        }
-      }
-
-      if (lastSuccessfulSyncTimestamp != null) {
-        await secureStorage.save(
-          key: 'last_sync_timestamp',
-          value: lastSuccessfulSyncTimestamp,
+        final casosRemotos = await _remoteDataSource.pullCasos(
+          lastSyncTimestamp: lastSync,
         );
-      }
 
-      debugPrint(
-        '[SyncService] Pull Synchronization concluído com sucesso parcial.',
-      );
-      onPullCompleted?.call();
-    } on DioException catch (e, stackTrace) {
-      if (_isSessionExpiredError(e)) {
+        if (casosRemotos.isEmpty) {
+          debugPrint('[SyncService] Nenhum caso recebido no pull.');
+          return;
+        }
+
         debugPrint(
-          '[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.',
+          '[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.',
+        );
+        String? lastSuccessfulSyncTimestamp;
+
+        /// A conversão da carga massiva de JSON para entidades de domínio ocorre em uma Background Isolate
+        /// para garantir que a Main Thread não sofra bloqueios (UI Jank).
+        final payloads = await compute(_parseCasosEmBackground, casosRemotos);
+
+        for (final payload in payloads) {
+          try {
+            await _repository.upsertCasoTransaction(payload);
+            final atualizadoEm = payload.rawJson['atualizado_em']?.toString();
+            if (atualizadoEm != null && atualizadoEm.isNotEmpty) {
+              lastSuccessfulSyncTimestamp = atualizadoEm;
+            }
+          } catch (e, stackTrace) {
+            debugPrint(
+              '[SyncService] Erro ao sincronizar (upsert) o caso ${payload.caso.uuid}: $e\n$stackTrace',
+            );
+            final casoUuid = payload.caso.uuid;
+            if (casoUuid.isNotEmpty) {
+              try {
+                await _repository.marcarCasoComErroDeSincronizacao(casoUuid);
+              } catch (markError, markStackTrace) {
+                debugPrint(
+                  '[SyncService] Não foi possível registrar sync_error para '
+                  '$casoUuid: $markError\n$markStackTrace',
+                );
+              }
+            }
+            continue;
+          }
+        }
+
+        if (lastSuccessfulSyncTimestamp != null) {
+          await secureStorage.save(
+            key: 'last_sync_timestamp',
+            value: lastSuccessfulSyncTimestamp,
+          );
+        }
+
+        debugPrint(
+          '[SyncService] Pull Synchronization concluído com sucesso parcial.',
+        );
+        onPullCompleted?.call();
+      } on DioException catch (e, stackTrace) {
+        if (_isSessionExpiredError(e)) {
+          debugPrint(
+            '[SyncService] 🛑 Sessão expirada (401) no Pull. Abortando.',
+          );
+          rethrow;
+        }
+        debugPrint(
+          '[SyncService] ⚠️ Falha na rede durante o Pull: $e\n$stackTrace',
         );
         rethrow;
+      } catch (e, stackTrace) {
+        debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e\n$stackTrace');
+        rethrow;
       }
-      debugPrint(
-        '[SyncService] ⚠️ Falha na rede durante o Pull: $e\n$stackTrace',
-      );
-      rethrow;
-    } catch (e, stackTrace) {
-      debugPrint('[SyncService] ⚠️ Erro inesperado no Pull: $e\n$stackTrace');
-      rethrow;
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -418,6 +501,7 @@ class SyncService {
     }
   }
 
+  // TODO (Next Sprint): Alterar Push em lote para toler�ncia a falhas. Implementar suporte a HTTP 207 Partial Success do backend para evitar a Falha da P�lula Venenosa (onde 1 caso corrompido trava toda a fila).
   Future<Map<String, dynamic>> _pushTextual(List<Caso> casos) async {
     final achadosPorCaso = await _repository.getAchadosEmLote(
       casos.map((c) => c.uuid).toList(),
@@ -441,30 +525,6 @@ class SyncService {
     };
 
     return await _remoteDataSource.pushTextual(payload);
-  }
-
-  Future<void> _processarFilaDeMidiasGlobais() async {
-    debugPrint('[SyncService] 📸 Iniciando varredura global de mídias pendentes...');
-    final pendentes = await _repository.getTodasEvidenciasPendentesGlobais();
-    
-    for (final ev in pendentes) {
-      final casoUuid = ev['caso_uuid_achado'] ?? ev['caso_uuid_fallback'];
-      if (casoUuid == null) continue;
-
-      try {
-        await _remoteDataSource.uploadEvidencia(
-          casoUuid: casoUuid as String,
-          achadoUuid: ev['achado_uuid'] as String?,
-          evidenciaUuid: ev['evidencia_uuid'] as String,
-          hash: (ev['hash_arquivo'] as String?) ?? '',
-          filePath: ev['caminho_arquivo_encriptado'] as String,
-        );
-        
-        await _repository.marcarEvidenciaComoSincronizada(ev['evidencia_uuid'] as String);
-      } catch (e) {
-        debugPrint('[SyncService] ❌ Falha ao subir mídia ${ev['evidencia_uuid']}: $e');
-      }
-    }
   }
 
   Future<void> _confirmarCaso(Caso caso) async {
@@ -505,8 +565,7 @@ class SyncService {
   }
 
   String _toDeterministicUuidV4(String namespace, String name) {
-    final String uuidV5 = const Uuid().v5(namespace, name);
-    return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
+    return deterministicUuidV4(namespace, name);
   }
 
   Future<Map<String, dynamic>> _casoParaJson(
@@ -560,7 +619,6 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
   for (final jsonCaso in payload) {
     try {
       final casoBackend = Caso.fromMap(jsonCaso);
-      final atualizadoEm = jsonCaso['atualizado_em']?.toString();
 
       final List<dynamic> rawEvidenciasList = [];
       if (jsonCaso['evidencias_multimidia'] is List) {
@@ -609,6 +667,56 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
       }
 
       final achados = <Achado>[];
+      final List<BalisticaModel> todasBalisticas = [];
+      todasBalisticas.addAll(casoBackend.balisticas);
+
+      if (jsonCaso['balisticas'] is List) {
+        for (final rawB in (jsonCaso['balisticas'] as List)) {
+          if (rawB is! Map) continue;
+          final bMap = Map<String, dynamic>.from(rawB);
+          final bModel = BalisticaModel.fromMap(bMap);
+          if (bModel.id.isNotEmpty &&
+              !todasBalisticas.any((b) => b.id.trim().toLowerCase() == bModel.id.trim().toLowerCase())) {
+            todasBalisticas.add(bModel);
+          }
+        }
+      }
+
+      final Map<String, BalisticaModel> balisticasById = {};
+      final Map<String, BalisticaModel> balisticasByAchadoUuid = {};
+      final Map<String, BalisticaModel> balisticasByExameId = {};
+
+      for (final b in todasBalisticas) {
+        final bId = b.id.trim().toLowerCase();
+        if (bId.isNotEmpty) {
+          balisticasById[bId] = b;
+        }
+        if (b.achadoUuid != null && b.achadoUuid!.trim().isNotEmpty) {
+          balisticasByAchadoUuid[b.achadoUuid!.trim().toLowerCase()] = b;
+        }
+        final bExameId = b.exameId.trim().toLowerCase();
+        if (bExameId.isNotEmpty) {
+          balisticasByExameId[bExameId] = b;
+        }
+      }
+
+      if (jsonCaso['balisticas'] is List) {
+        for (final rawB in (jsonCaso['balisticas'] as List)) {
+          if (rawB is! Map) continue;
+          final achadoId =
+              rawB['achado_uuid']?.toString() ?? rawB['achado_id']?.toString();
+          final bId = (rawB['id']?.toString() ?? rawB['uuid']?.toString())
+              ?.trim()
+              .toLowerCase();
+          if (achadoId != null && achadoId.trim().isNotEmpty && bId != null) {
+            final bModel = balisticasById[bId];
+            if (bModel != null) {
+              balisticasByAchadoUuid[achadoId.trim().toLowerCase()] = bModel;
+            }
+          }
+        }
+      }
+
       if (jsonCaso['achados'] is List) {
         final achadosList = jsonCaso['achados'] as List;
         for (final achadoJson in achadosList) {
@@ -649,11 +757,62 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
           final achadoBackend = Achado.fromMap(aMap);
           if (achadoBackend.uuid.isEmpty) continue;
 
+          final achadoUuidLower = achadoBackend.uuid.trim().toLowerCase();
+          final detBalisticaId =
+              deterministicUuidV5(achadoBackend.uuid, 'balistica')
+                  .toLowerCase();
+          final legacyDetBalisticaId =
+              deterministicUuidV4(achadoBackend.uuid, 'balistica')
+                  .toLowerCase();
+
+          // Heurística de match:
+          // 1. ID determinístico V5 (e fallback V4 legado)
+          // 2. achado_uuid / achado_id vínculo
+          // 3. exame_id == achado.uuid
+          // 4. ID direto da balística == achado.uuid
+          BalisticaModel? matchedBalistica =
+              (detBalisticaId.isNotEmpty ? balisticasById[detBalisticaId] : null) ??
+              (legacyDetBalisticaId.isNotEmpty ? balisticasById[legacyDetBalisticaId] : null);
+          matchedBalistica ??= balisticasByAchadoUuid[achadoUuidLower];
+          matchedBalistica ??= balisticasByExameId[achadoUuidLower];
+          matchedBalistica ??= balisticasById[achadoUuidLower];
+          if (matchedBalistica == null) {
+            for (final b in todasBalisticas) {
+              final bId = b.id.trim().toLowerCase();
+              final bAchado = b.achadoUuid?.trim().toLowerCase();
+              final bExame = b.exameId.trim().toLowerCase();
+              if ((detBalisticaId.isNotEmpty && bId == detBalisticaId) ||
+                  (legacyDetBalisticaId.isNotEmpty && bId == legacyDetBalisticaId) ||
+                  (bAchado != null && bAchado == achadoUuidLower) ||
+                  bExame == achadoUuidLower ||
+                  bId == achadoUuidLower) {
+                matchedBalistica = b;
+                break;
+              }
+            }
+          }
+
+          final achadoReconciliado = matchedBalistica != null
+              ? achadoBackend.copyWith(
+                  tipoFerimento:
+                      matchedBalistica.tipoFerimento ??
+                      achadoBackend.tipoFerimento,
+                  tipoObjeto:
+                      matchedBalistica.tipoObjeto ?? achadoBackend.tipoObjeto,
+                  numeroLacre:
+                      matchedBalistica.numeroLacre ??
+                      achadoBackend.numeroLacre,
+                  comentarioAdicional:
+                      matchedBalistica.comentarioAdicional ??
+                      achadoBackend.comentarioAdicional,
+                )
+              : achadoBackend;
+
           final bool isRemovido =
               achadoJson['removido'] == true || achadoJson['removido'] == 1;
           achados.add(
-            achadoBackend.copyWith(
-              removido: isRemovido || achadoBackend.removido,
+            achadoReconciliado.copyWith(
+              removido: isRemovido || achadoReconciliado.removido,
             ),
           );
 
@@ -688,6 +847,7 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
       result.add(
         ParsedSyncPayload(
           caso: casoBackend.copyWith(
+            balisticas: todasBalisticas,
             removido: casoRemovido || casoBackend.removido,
           ),
           achados: achados,

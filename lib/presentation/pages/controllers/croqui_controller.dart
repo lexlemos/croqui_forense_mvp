@@ -23,6 +23,7 @@ import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
+import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 
@@ -263,6 +264,9 @@ class CroquiController extends ChangeNotifier {
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
+      final todasEvidencias =
+          await _casoRepository.getEvidenciasPorCaso(casoAtual.uuid);
+      casoAtual = casoAtual.copyWith(evidenciasMultimidia: todasEvidencias);
       examesSolicitados = await _caseService.getExamesSolicitados(
         casoAtual.uuid,
       );
@@ -287,9 +291,7 @@ class CroquiController extends ChangeNotifier {
     debugPrint(
       '[CroquiController] 🔄 ATNs Atualizados na RAIZ do Caso: atns_ids=${casoAtual.atnsIds}',
     );
-    debugPrint(
-      '[CroquiController] 📦 Payload completo raiz (toSyncMap): ${jsonEncode(casoAtual.toSyncMap())}',
-    );
+
 
     notifyListeners();
     scheduleAutoSave();
@@ -507,7 +509,7 @@ class CroquiController extends ChangeNotifier {
           tipoObjeto != null ||
           numeroLacre != null ||
           comentarioAdicional != null) {
-        final String balisticaId = _toDeterministicUuidV4(
+        final String balisticaId = deterministicUuidV5(
           achadoFinal.uuid,
           'balistica',
         );
@@ -648,7 +650,7 @@ class CroquiController extends ChangeNotifier {
       );
 
       List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
-      final String balisticaId = _toDeterministicUuidV4(
+      final String balisticaId = deterministicUuidV5(
         achadoAtualizado.uuid,
         'balistica',
       );
@@ -690,7 +692,7 @@ class CroquiController extends ChangeNotifier {
     if (isReadOnly) return;
 
     List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
-    final String balisticaId = _toDeterministicUuidV4(uuid, 'balistica');
+    final String balisticaId = deterministicUuidV5(uuid, 'balistica');
     novasBalisticas.removeWhere((b) => b.id == balisticaId);
 
     casoAtual = casoAtual.copyWith(balisticas: novasBalisticas);
@@ -1223,9 +1225,6 @@ class CroquiController extends ChangeNotifier {
 
     debugPrint(
       '[CroquiController] 📦 atualizarCasoCamposEJson - atns_ids na RAIZ: ${casoAtual.atnsIds}',
-    );
-    debugPrint(
-      '[CroquiController] 📦 dados_laudo_json (sem ATN legado): ${jsonEncode(casoAtual.dadosLaudo.toMap())}',
     );
 
     if (notify) {

@@ -165,6 +165,14 @@ class Caso {
       return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
     }
 
+    String? _parseEstimativa(String? raw) {
+      if (raw == null) return null;
+      final val = raw.toUpperCase();
+      if (val.contains('PERICIAL')) return 'Pericialmente Estimadas';
+      if (val.contains('ATESTADA')) return 'Atestadas em documento médico';
+      return raw;
+    }
+
     final Map<String, dynamic> dadosLaudoParsed =
         map['dados_laudo_json'] != null
         ? (map['dados_laudo_json'] is Map
@@ -226,10 +234,17 @@ class Caso {
 
     List<BalisticaModel> parsedBalisticas = [];
     final rawBalisticas = map['balisticas'];
+    final casoUuidParsed = map['uuid']?.toString() ?? '';
     if (rawBalisticas is List) {
       parsedBalisticas = rawBalisticas
           .whereType<Map>()
-          .map((x) => BalisticaModel.fromMap(Map<String, dynamic>.from(x)))
+          .map((x) {
+            final m = Map<String, dynamic>.from(x);
+            if (m['exame_id'] == null || m['exame_id'].toString().isEmpty) {
+              m['exame_id'] = m['caso_uuid'] ?? casoUuidParsed;
+            }
+            return BalisticaModel.fromMap(m);
+          })
           .toList();
     } else if (rawBalisticas is String && rawBalisticas.isNotEmpty) {
       try {
@@ -237,7 +252,13 @@ class Caso {
         if (decoded is List) {
           parsedBalisticas = decoded
               .whereType<Map>()
-              .map((x) => BalisticaModel.fromMap(Map<String, dynamic>.from(x)))
+              .map((x) {
+                final m = Map<String, dynamic>.from(x);
+                if (m['exame_id'] == null || m['exame_id'].toString().isEmpty) {
+                  m['exame_id'] = m['caso_uuid'] ?? casoUuidParsed;
+                }
+                return BalisticaModel.fromMap(m);
+              })
               .toList();
         }
       } catch (e) {
@@ -347,7 +368,7 @@ class Caso {
       sexoBiologicoEstimado: _toTitleCase(map['sexo_biologico_estimado']?.toString()),
       dataObito: map['data_obito']?.toString(),
       horaObito: map['hora_obito']?.toString(),
-      tipoEstimativaHoraObito: _toTitleCase(map['tipo_estimativa_hora_obito']?.toString()),
+      tipoEstimativaHoraObito: _parseEstimativa(map['tipo_estimativa_hora_obito']?.toString()),
 
       /// Valida e converte o payload de causa da morte.
       /// Estruturas compostas nativas da API (Map/List) são aceitas diretamente.
@@ -395,9 +416,7 @@ class Caso {
         return false;
       })(),
       descricaoExames: map['descricao_exames']?.toString(),
-      balisticas: map['balisticas'] != null
-          ? (map['balisticas'] as List).map((e) => BalisticaModel.fromMap(e)).toList()
-          : [],
+      balisticas: parsedBalisticas,
       exames: parsedExames,
       dataNecropsia: map['data_necropsia']?.toString(),
       horaNecropsia: map['hora_necropsia']?.toString(),
@@ -430,6 +449,7 @@ class Caso {
     String? pdfUrl,
     bool? isDraftSynced,
     bool? syncError,
+    List<EvidenciaMultimidia>? evidenciasMultimidia,
     String? corpoEstado,
     String? corpoEstadoOutros,
     String? sexoBiologicoEstimado,
@@ -470,6 +490,8 @@ class Caso {
       pdfUrl: pdfUrl ?? this.pdfUrl,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
       syncError: syncError ?? this.syncError,
+      evidenciasMultimidia:
+          evidenciasMultimidia ?? this.evidenciasMultimidia,
       corpoEstado: corpoEstado ?? this.corpoEstado,
       corpoEstadoOutros: corpoEstadoOutros ?? this.corpoEstadoOutros,
       sexoBiologicoEstimado:

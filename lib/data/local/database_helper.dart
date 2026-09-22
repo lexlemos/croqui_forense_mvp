@@ -104,6 +104,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
     await _addColumnIfNotExists(txn, 'casos', 'sync_error', 'INTEGER NOT NULL DEFAULT 0');
     await txn.execute(kCreateAtnsSql);
+    await txn.execute(kCreateBalisticasSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
     await DatabaseSeeder(txn).seedAtns();
     await _addColumnIfNotExists(txn, 'amostras_genetica', 'numero_lacre', 'TEXT');

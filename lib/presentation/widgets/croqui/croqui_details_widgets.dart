@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class AchadosSidebar extends StatelessWidget {
   final List<Achado> achados;
+  final List<EvidenciaMultimidia>? evidencias;
   final bool isReadOnly;
   final Function(Achado) onEdit;
   final Function(String) onDelete;
@@ -11,6 +13,7 @@ class AchadosSidebar extends StatelessWidget {
   const AchadosSidebar({
     super.key,
     required this.achados,
+    this.evidencias,
     required this.isReadOnly,
     required this.onEdit,
     required this.onDelete,
@@ -61,6 +64,7 @@ class AchadosSidebar extends StatelessWidget {
         itemCount: achados.length,
         itemBuilder: (ctx, i) => _AchadoCard(
           achado: achados[i],
+          evidencias: evidencias,
           isReadOnly: isReadOnly,
           onTap: () => onEdit(achados[i]),
           onDelete: () => onDelete(achados[i].uuid),
@@ -70,11 +74,18 @@ class AchadosSidebar extends StatelessWidget {
 
 class _AchadoCard extends StatelessWidget {
   final Achado achado;
+  final List<EvidenciaMultimidia>? evidencias;
   final bool isReadOnly;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  const _AchadoCard({required this.achado, required this.isReadOnly, required this.onTap, required this.onDelete});
+  const _AchadoCard({
+    required this.achado,
+    this.evidencias,
+    required this.isReadOnly,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +101,7 @@ class _AchadoCard extends StatelessWidget {
           child: IntrinsicHeight( 
             child: Row(
               children: [
-                _buildImageBadge(d['photo_path']),
+                _buildImageBadge(achado),
                 const SizedBox(width: 10),
                 Expanded(child: _buildInfoColumn(d, color)),
                 if (!isReadOnly)
@@ -103,20 +114,26 @@ class _AchadoCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImageBadge(String? path) {
+  Widget _buildImageBadge(Achado achado) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
           width: 50,
           height: 50,
-          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
-          child: (path != null && path.trim().isNotEmpty)
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: ImageResolver.buildImage(path, fit: BoxFit.cover),
-                )
-              : const Icon(Icons.camera_alt, color: Colors.grey),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: ImageResolver.buildAchadoImage(
+              achado: achado,
+              evidencias: evidencias,
+              fit: BoxFit.cover,
+              errorWidget: const Icon(Icons.camera_alt, color: Colors.grey),
+            ),
+          ),
         ),
         Positioned(
           top: -5,
@@ -124,7 +141,10 @@ class _AchadoCard extends StatelessWidget {
           child: CircleAvatar(
             radius: 9,
             backgroundColor: Colors.red,
-            child: Text(achado.numeroSequencial.toString(), style: const TextStyle(color: Colors.white, fontSize: 9)),
+            child: Text(
+              achado.numeroSequencial.toString(),
+              style: const TextStyle(color: Colors.white, fontSize: 9),
+            ),
           ),
         ),
       ],

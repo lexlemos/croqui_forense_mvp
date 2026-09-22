@@ -17,6 +17,7 @@ class SessionExpiredException implements Exception {
   String toString() => 'SessÃ£o expirada. FaÃ§a login novamente.';
 }
 
+// TODO (Next Sprint): Adicionar Interceptor de Retry com Exponential Backoff (ex: pacote retry) para blindar requisições contra flutuações de rede transientes (SocketException, 502).
 class AuthInterceptor extends QueuedInterceptor {
   final KeyStorageInterface _keyStorage;
   final Dio _dio;

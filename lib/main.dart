@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
@@ -55,6 +56,18 @@ void main() async {
   final keyStorage = SecureKeyStorage();
 
   DatabaseHelper.init(dbFactory, keyStorage);
+
+  // [AUDITORIA INVESTIGATIVA SQLITE NO STARTUP]
+  try {
+    final db = await DatabaseHelper.instance.database;
+    final total = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM evidencias_multimidia'));
+    final pendentes = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM evidencias_multimidia WHERE foto_sincronizada = 0'));
+    debugPrint('AUDITORIA SQLITE (Startup): Total Fotos: $total | Pendentes (foto_sincronizada = 0): $pendentes');
+    final amostra = await db.rawQuery('SELECT uuid, caso_uuid, achado_uuid, tipo, foto_sincronizada, caminho_arquivo_encriptado FROM evidencias_multimidia LIMIT 5');
+    debugPrint('AUDITORIA SQLITE (Startup Amostra): $amostra');
+  } catch (e) {
+    debugPrint('AUDITORIA SQLITE (Startup Erro): $e');
+  }
 
   // Garbage Collection: remove arquivos órfãos e expurga arquivos físicos e
   // registros SQLite de laudos finalizados, sincronizados na nuvem e com mais de 30 dias.

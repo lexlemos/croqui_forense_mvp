@@ -49,5 +49,6 @@ app.*.map.json
 # CLAUDE
 CLAUDE.md
 /docs
+/prompts
 
 sentry.properties

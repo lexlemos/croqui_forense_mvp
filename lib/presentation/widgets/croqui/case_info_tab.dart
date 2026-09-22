@@ -654,6 +654,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     child: EvidenciaFotoCard(
                       key: ValueKey(ev.uuid),
                       path: ev.caminhoArquivoEncriptado ?? '',
+                      evidenciaUuid: ev.uuid,
                       descricao: ev.descricao,
                       readOnly: readOnly,
                       onDescriptionChanged: (val) async {

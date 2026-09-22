@@ -244,11 +244,11 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                       child: Consumer<CroquiController>(
                         builder: (context, c, _) => AchadosSidebar(
                           achados: c.achados,
+                          evidencias: c.casoAtual.evidenciasMultimidia,
                           isReadOnly: c.isReadOnly,
                           onEdit: (achado) => _showEditOrDetail(context, c, achado),
                           onDelete: (uuid) async {
                             await c.deleteAchado(context, uuid);
-                            
                           },
                         ),
                       ),
@@ -329,6 +329,7 @@ Future<void> _showEditOrDetail(BuildContext context, CroquiController controller
     context: context,
     builder: (dialogContext) => AchadoDetailModal(
       achado: achado,
+      evidencias: controller.casoAtual.evidenciasMultimidia,
       onEdit: controller.isReadOnly
           ? null
           : () async {

@@ -177,10 +177,22 @@ class Achado {
       tamanho: map['tamanho']?.toString() ?? '',
       vistaAnatomica: map['vista_anatomica']?.toString() ?? '',
       localAnatomico: map['local_anatomico']?.toString() ?? '',
-      tipoFerimento: map['tipo_ferimento']?.toString(),
-      numeroLacre: map['numero_lacre']?.toString(),
-      tipoObjeto: map['tipo_objeto']?.toString(),
-      comentarioAdicional: map['comentario_adicional']?.toString(),
+      tipoFerimento: map['tipo_ferimento']?.toString() ??
+          map['tipoFerimento']?.toString() ??
+          dados['tipo_ferimento']?.toString() ??
+          dados['tipoFerimento']?.toString(),
+      numeroLacre: map['numero_lacre']?.toString() ??
+          map['numeroLacre']?.toString() ??
+          dados['numero_lacre']?.toString() ??
+          dados['numeroLacre']?.toString(),
+      tipoObjeto: map['tipo_objeto']?.toString() ??
+          map['tipoObjeto']?.toString() ??
+          dados['tipo_objeto']?.toString() ??
+          dados['tipoObjeto']?.toString(),
+      comentarioAdicional: map['comentario_adicional']?.toString() ??
+          map['comentarioAdicional']?.toString() ??
+          dados['comentario_adicional']?.toString() ??
+          dados['comentarioAdicional']?.toString(),
     );
   }
 

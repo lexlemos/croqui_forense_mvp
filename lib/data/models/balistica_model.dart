@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 class BalisticaModel {
   final String id;
   final String exameId;
+  final String? achadoUuid;
   final String? tipoFerimento;
   final String? tipoObjeto;
   final String? numeroLacre;
@@ -11,6 +12,7 @@ class BalisticaModel {
   BalisticaModel({
     String? id,
     required this.exameId,
+    this.achadoUuid,
     this.tipoFerimento,
     this.tipoObjeto,
     this.numeroLacre,
@@ -20,6 +22,7 @@ class BalisticaModel {
   BalisticaModel copyWith({
     String? id,
     String? exameId,
+    String? achadoUuid,
     String? tipoFerimento,
     String? tipoObjeto,
     String? numeroLacre,
@@ -28,6 +31,7 @@ class BalisticaModel {
     return BalisticaModel(
       id: id ?? this.id,
       exameId: exameId ?? this.exameId,
+      achadoUuid: achadoUuid ?? this.achadoUuid,
       tipoFerimento: tipoFerimento ?? this.tipoFerimento,
       tipoObjeto: tipoObjeto ?? this.tipoObjeto,
       numeroLacre: numeroLacre ?? this.numeroLacre,
@@ -48,12 +52,13 @@ class BalisticaModel {
 
   factory BalisticaModel.fromMap(Map<String, dynamic> map) {
     return BalisticaModel(
-      id: map['id'] ?? map['uuid'] as String?,
-      exameId: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
-      tipoFerimento: map['tipo_ferimento'] as String?,
-      tipoObjeto: map['tipo_objeto'] as String?,
-      numeroLacre: map['numero_lacre'] as String?,
-      comentarioAdicional: map['comentario_adicional'] as String?,
+      id: map['id']?.toString() ?? map['uuid']?.toString(),
+      exameId: map['exame_id']?.toString() ?? map['caso_uuid']?.toString() ?? '',
+      achadoUuid: (map['achado_uuid'] ?? map['achado_id'] ?? map['achadoUuid'])?.toString(),
+      tipoFerimento: (map['tipo_ferimento'] ?? map['tipoFerimento'])?.toString(),
+      tipoObjeto: (map['tipo_objeto'] ?? map['tipoObjeto'])?.toString(),
+      numeroLacre: (map['numero_lacre'] ?? map['numeroLacre'])?.toString(),
+      comentarioAdicional: (map['comentario_adicional'] ?? map['comentarioAdicional'])?.toString(),
     );
   }
 }

@@ -82,7 +82,6 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   @override
   Future<Map<String, dynamic>> pushTextual(Map<String, dynamic> payload) async {
     try {
-      _printCompleto('PUSH_ENVIADO', jsonEncode(payload));
       final response = await _apiClient.dio.post(
         'croqui/sync/push',
         data: payload,
@@ -111,15 +110,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
         throw Exception('Resposta inesperada do servidor ao tentar puxar os casos.');
       }
       
-      _printCompleto('PULL_RECEBIDO', jsonEncode(response.data));
-      try {
-        if (response.data != null && response.data is List && (response.data as List).isNotEmpty) {
-          final firstCase = response.data[0];
-          _printCompleto('JSON_DO_PRIMEIRO_CASO', jsonEncode(firstCase));
-        }
-      } catch (e) {
-        debugPrint('Erro no debug do JSON: $e');
-      }
+
       
       final data = response.data;
       if (data is Map && data.containsKey('casos')) {

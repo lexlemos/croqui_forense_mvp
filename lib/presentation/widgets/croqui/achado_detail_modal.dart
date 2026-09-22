@@ -1,17 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class AchadoDetailModal extends StatelessWidget {
   final Achado achado;
+  final List<EvidenciaMultimidia>? evidencias;
   final VoidCallback? onEdit;
 
-  const AchadoDetailModal({super.key, required this.achado, this.onEdit});
+  const AchadoDetailModal({
+    super.key,
+    required this.achado,
+    this.evidencias,
+    this.onEdit,
+  });
 
-  static Future<void> show(BuildContext context, Achado achado) {
+  static Future<void> show(
+    BuildContext context,
+    Achado achado, {
+    List<EvidenciaMultimidia>? evidencias,
+  }) {
     return showDialog(
       context: context,
-      builder: (context) => AchadoDetailModal(achado: achado),
+      builder: (context) =>
+          AchadoDetailModal(achado: achado, evidencias: evidencias),
     );
   }
 
@@ -22,6 +34,18 @@ class AchadoDetailModal extends StatelessWidget {
     final String local = d['local_anatomico_nome'] ?? d['local_anatomico_id'] ?? '-';
     final String? photoPath = d['photo_path'];
     final Color tagColor = achado.isInterno ? Colors.orange : Colors.green;
+
+    final bool temEvidencia = evidencias != null &&
+        evidencias!.any((ev) => ev.achadoUuid == achado.uuid && !ev.removido);
+    final bool temPhotoPath = photoPath != null && photoPath.trim().isNotEmpty;
+    final bool deveExibirFoto = temEvidencia || temPhotoPath || evidencias == null;
+
+    final bool temBalistica =
+        (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty) ||
+        (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty) ||
+        (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty) ||
+        (achado.comentarioAdicional != null &&
+            achado.comentarioAdicional!.isNotEmpty);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -35,8 +59,9 @@ class AchadoDetailModal extends StatelessWidget {
               _buildHeader(tipo, local, tagColor),
               _buildTechnicalInfo(d),
               _buildDynamicFields(d['dynamicFields'] is Map ? Map<String, dynamic>.from(d['dynamicFields']) : null),
+              if (temBalistica) _buildBalisticaSection(),
               if (achado.observacoesTexto?.isNotEmpty == true) _buildObservations(achado.observacoesTexto!),
-              if (photoPath != null && photoPath.trim().isNotEmpty) _buildPhoto(photoPath),
+              if (deveExibirFoto) _buildPhoto(),
               _buildFooter(context),
             ],
           ),
@@ -44,6 +69,106 @@ class AchadoDetailModal extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildBalisticaSection() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.amber.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.gps_fixed, size: 14, color: Colors.amber.shade800),
+                  const SizedBox(width: 6),
+                  Text(
+                    "VESTÍGIO RECOLHIDO / BALÍSTICA",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Text(
+                        "Tipo de Ferimento: ",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      Text(
+                        achado.tipoFerimento!,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              if (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Text(
+                        "Objeto Recolhido: ",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      Text(
+                        achado.tipoObjeto!,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              if (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Text(
+                        "Nº do Lacre: ",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      Text(
+                        achado.numeroLacre!,
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              if (achado.comentarioAdicional != null && achado.comentarioAdicional!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Observações: ",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      Expanded(
+                        child: Text(
+                          achado.comentarioAdicional!,
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+
 
   Widget _buildHeader(String tipo, String local, Color tagColor) => Container(
         padding: const EdgeInsets.all(16),
@@ -98,7 +223,7 @@ class AchadoDetailModal extends StatelessWidget {
         ),
       );
 
-  Widget _buildPhoto(String path) {
+  Widget _buildPhoto() {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -111,7 +236,11 @@ class AchadoDetailModal extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               height: 250,
-              child: ImageResolver.buildImage(path, fit: BoxFit.cover),
+              child: ImageResolver.buildAchadoImage(
+                achado: achado,
+                evidencias: evidencias,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ],
