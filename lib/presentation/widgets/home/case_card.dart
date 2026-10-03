@@ -7,21 +7,21 @@ class CaseCard extends StatelessWidget {
   final Caso caso;
   final VoidCallback onTap;
 
-  const CaseCard({
-    super.key,
-    required this.caso,
-    required this.onTap,
-  });
+  const CaseCard({super.key, required this.caso, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
-      StatusCaso.rascunho => (
+    final (
+      Color statusColor,
+      Color statusBg,
+      String statusLabel,
+    ) = switch (caso.status) {
+      StatusCaso.emAndamento || StatusCaso.rascunho => (
         AppColors.statusDraftText,
         AppColors.statusDraftBg,
-        'RASCUNHO',
+        'EM ANDAMENTO',
       ),
-      StatusCaso.laudo_pendente => (
+      StatusCaso.laudoPendente => (
         AppColors.statusPendingText,
         AppColors.statusPendingBg,
         'LAUDO PENDENTE',
@@ -43,12 +43,16 @@ class CaseCard extends StatelessWidget {
       ),
     };
 
-    final mainTitle = (caso.numeroPic.isNotEmpty) 
+    final mainTitle = (caso.numeroPic.isNotEmpty)
         ? 'N. PIC: ${caso.numeroPic}'
         : 'N. PIC: Não informado';
-    
-    final laudoSub = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
-        ? 'Laudo: ${caso.numeroLaudoExterno}'
+
+    final cdOrLaudo = caso.numeroRequisicao.isNotEmpty
+        ? caso.numeroRequisicao
+        : (caso.numeroLaudoExterno ?? '');
+
+    final laudoSub = cdOrLaudo.isNotEmpty
+        ? 'CD / Laudo: $cdOrLaudo'
         : 'Laudo: Pendente';
 
     return Container(
@@ -128,7 +132,10 @@ class CaseCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: statusBg,
                               borderRadius: BorderRadius.circular(20),
@@ -167,7 +174,9 @@ class CaseCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          DateFormat('dd/MM/yyyy').format(caso.criadoEmDispositivo),
+                          DateFormat(
+                            'dd/MM/yyyy',
+                          ).format(caso.criadoEmDispositivo),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,

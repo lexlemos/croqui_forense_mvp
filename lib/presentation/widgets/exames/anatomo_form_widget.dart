@@ -26,12 +26,7 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
     super.initState();
     _frascos = List.from(widget.initialData);
     if (_frascos.isEmpty && !widget.readOnly) {
-      _frascos.add(
-        FrascoAnatomoModel.novo(
-          exameUuid: '',
-          numeroFrasco: 1,
-        ),
-      );
+      _frascos.add(FrascoAnatomoModel.novo(exameUuid: '', numeroFrasco: 1));
     }
   }
 
@@ -42,19 +37,22 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
       setState(() {
         _frascos = List.from(widget.initialData);
         if (_frascos.isEmpty && !widget.readOnly) {
-          _frascos.add(
-            FrascoAnatomoModel.novo(
-              exameUuid: '',
-              numeroFrasco: 1,
-            ),
-          );
+          _frascos.add(FrascoAnatomoModel.novo(exameUuid: '', numeroFrasco: 1));
         }
       });
     }
   }
 
   void _notifyChanges() {
-    widget.onChanged(List.unmodifiable(_frascos));
+    debugPrint('--- DUMB TEST (WIDGET ANATOMO) ---');
+    debugPrint('Total frascos: ${_frascos.length}');
+    for (var f in _frascos) {
+      debugPrint(
+        '  Frasco #${f.numeroFrasco} | lacre: ${f.numeroLacre} | exameUuid: ${f.exameUuid}',
+      );
+      debugPrint('  toMap: ${f.toMap()}');
+    }
+    widget.onChanged(List<FrascoAnatomoModel>.from(_frascos));
   }
 
   void _addFrasco() {
@@ -125,7 +123,11 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   "Nenhum frasco cadastrado.",
-                  style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ),
 
@@ -156,7 +158,9 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
   }
 
   Widget _buildFrascoCard(int index, FrascoAnatomoModel frasco) {
-    final numStr = frasco.numeroFrasco < 10 ? '0${frasco.numeroFrasco}' : '${frasco.numeroFrasco}';
+    final numStr = frasco.numeroFrasco < 10
+        ? '0${frasco.numeroFrasco}'
+        : '${frasco.numeroFrasco}';
 
     return Card(
       elevation: 1,
@@ -177,7 +181,10 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.indigo.shade700,
                         borderRadius: BorderRadius.circular(6),
@@ -195,7 +202,11 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                 ),
                 if (!widget.readOnly && _frascos.length > 1)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent,
+                      size: 20,
+                    ),
                     tooltip: 'Remover Frasco $numStr',
                     onPressed: () => _removeFrascoAt(index),
                   ),
@@ -205,18 +216,30 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
 
             // Campo de Lacre Individual — obrigatório por cadeia de custódia
             TextFormField(
+              key: ValueKey('lacre_frasco_${frasco.uuid}'),
               initialValue: frasco.numeroLacre ?? '',
               enabled: !widget.readOnly,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Nº Lacre do Frasco $numStr *',
                 hintText: 'Ex: 123456',
-                prefixIcon: Icon(Icons.lock_outline, color: Colors.indigo.shade700, size: 18),
+                prefixIcon: Icon(
+                  Icons.lock_outline,
+                  color: Colors.indigo.shade700,
+                  size: 18,
+                ),
                 border: const OutlineInputBorder(),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                helperText: 'Identifica individualmente este recipiente lacrado',
-                helperStyle: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                helperText:
+                    'Identifica individualmente este recipiente lacrado',
+                helperStyle: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade600,
+                ),
               ),
               onChanged: (v) {
                 _updateFrascoAt(index, frasco.copyWith(numeroLacre: v.trim()));
@@ -227,7 +250,11 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
             // 1. Grid de Órgãos Principais (2 Colunas)
             const Text(
               "Órgãos para Análise Histopatológica",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 6),
 
@@ -239,7 +266,10 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                   child: Column(
                     children: [
                       CheckboxListTile(
-                        title: const Text("Coração", style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          "Coração",
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: frasco.coracao,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -248,10 +278,16 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly
                             ? null
-                            : (val) => _updateFrascoAt(index, frasco.copyWith(coracao: val ?? false)),
+                            : (val) => _updateFrascoAt(
+                                index,
+                                frasco.copyWith(coracao: val ?? false),
+                              ),
                       ),
                       CheckboxListTile(
-                        title: const Text("Fígado", style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          "Fígado",
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: frasco.figado,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -260,10 +296,16 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly
                             ? null
-                            : (val) => _updateFrascoAt(index, frasco.copyWith(figado: val ?? false)),
+                            : (val) => _updateFrascoAt(
+                                index,
+                                frasco.copyWith(figado: val ?? false),
+                              ),
                       ),
                       CheckboxListTile(
-                        title: const Text("Baço", style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          "Baço",
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: frasco.baco,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -272,7 +314,10 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly
                             ? null
-                            : (val) => _updateFrascoAt(index, frasco.copyWith(baco: val ?? false)),
+                            : (val) => _updateFrascoAt(
+                                index,
+                                frasco.copyWith(baco: val ?? false),
+                              ),
                       ),
                     ],
                   ),
@@ -283,7 +328,10 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                   child: Column(
                     children: [
                       CheckboxListTile(
-                        title: const Text("Rim Direito", style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          "Rim Direito",
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: frasco.rimD,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -292,10 +340,16 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly
                             ? null
-                            : (val) => _updateFrascoAt(index, frasco.copyWith(rimD: val ?? false)),
+                            : (val) => _updateFrascoAt(
+                                index,
+                                frasco.copyWith(rimD: val ?? false),
+                              ),
                       ),
                       CheckboxListTile(
-                        title: const Text("Rim Esquerdo", style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          "Rim Esquerdo",
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: frasco.rimE,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -304,10 +358,16 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly
                             ? null
-                            : (val) => _updateFrascoAt(index, frasco.copyWith(rimE: val ?? false)),
+                            : (val) => _updateFrascoAt(
+                                index,
+                                frasco.copyWith(rimE: val ?? false),
+                              ),
                       ),
                       CheckboxListTile(
-                        title: const Text("Encéfalo", style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          "Encéfalo",
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: frasco.encefalo,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -316,7 +376,10 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
                         contentPadding: EdgeInsets.zero,
                         onChanged: widget.readOnly
                             ? null
-                            : (val) => _updateFrascoAt(index, frasco.copyWith(encefalo: val ?? false)),
+                            : (val) => _updateFrascoAt(
+                                index,
+                                frasco.copyWith(encefalo: val ?? false),
+                              ),
                       ),
                     ],
                   ),
@@ -329,7 +392,11 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
             // 2. Seção de Pulmões (Sub-opções detalhadas)
             const Text(
               "Pulmões (Lóbulos)",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 6),
 
@@ -338,20 +405,47 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
               children: [
                 const SizedBox(
                   width: 140,
-                  child: Text("Pulmão Direito (D):", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    "Pulmão Direito (D):",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                 ),
                 Expanded(
                   child: Row(
                     children: [
-                      _buildMiniCheckbox("LSD", frasco.pulmaoDLsd, widget.readOnly, (v) {
-                        _updateFrascoAt(index, frasco.copyWith(pulmaoDLsd: v));
-                      }),
-                      _buildMiniCheckbox("LMD", frasco.pulmaoDLmd, widget.readOnly, (v) {
-                        _updateFrascoAt(index, frasco.copyWith(pulmaoDLmd: v));
-                      }),
-                      _buildMiniCheckbox("LID", frasco.pulmaoDLid, widget.readOnly, (v) {
-                        _updateFrascoAt(index, frasco.copyWith(pulmaoDLid: v));
-                      }),
+                      _buildMiniCheckbox(
+                        "LSD",
+                        frasco.pulmaoDLsd,
+                        widget.readOnly,
+                        (v) {
+                          _updateFrascoAt(
+                            index,
+                            frasco.copyWith(pulmaoDLsd: v),
+                          );
+                        },
+                      ),
+                      _buildMiniCheckbox(
+                        "LMD",
+                        frasco.pulmaoDLmd,
+                        widget.readOnly,
+                        (v) {
+                          _updateFrascoAt(
+                            index,
+                            frasco.copyWith(pulmaoDLmd: v),
+                          );
+                        },
+                      ),
+                      _buildMiniCheckbox(
+                        "LID",
+                        frasco.pulmaoDLid,
+                        widget.readOnly,
+                        (v) {
+                          _updateFrascoAt(
+                            index,
+                            frasco.copyWith(pulmaoDLid: v),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -364,17 +458,36 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
               children: [
                 const SizedBox(
                   width: 140,
-                  child: Text("Pulmão Esquerdo (E):", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    "Pulmão Esquerdo (E):",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                 ),
                 Expanded(
                   child: Row(
                     children: [
-                      _buildMiniCheckbox("LSE", frasco.pulmaoELse, widget.readOnly, (v) {
-                        _updateFrascoAt(index, frasco.copyWith(pulmaoELse: v));
-                      }),
-                      _buildMiniCheckbox("LIE", frasco.pulmaoELie, widget.readOnly, (v) {
-                        _updateFrascoAt(index, frasco.copyWith(pulmaoELie: v));
-                      }),
+                      _buildMiniCheckbox(
+                        "LSE",
+                        frasco.pulmaoELse,
+                        widget.readOnly,
+                        (v) {
+                          _updateFrascoAt(
+                            index,
+                            frasco.copyWith(pulmaoELse: v),
+                          );
+                        },
+                      ),
+                      _buildMiniCheckbox(
+                        "LIE",
+                        frasco.pulmaoELie,
+                        widget.readOnly,
+                        (v) {
+                          _updateFrascoAt(
+                            index,
+                            frasco.copyWith(pulmaoELie: v),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -385,13 +498,17 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
 
             // 3. Regiões Descritivas
             TextFormField(
+              key: ValueKey('pele_${frasco.uuid}'),
               initialValue: frasco.peleRegiao,
               enabled: !widget.readOnly,
               decoration: const InputDecoration(
                 labelText: 'Pele (descrever a região)',
                 isDense: true,
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               onChanged: (v) {
                 _updateFrascoAt(index, frasco.copyWith(peleRegiao: v.trim()));
@@ -400,28 +517,39 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
             const SizedBox(height: 8),
 
             TextFormField(
+              key: ValueKey('partes_moles_${frasco.uuid}'),
               initialValue: frasco.partesMolesRegiao,
               enabled: !widget.readOnly,
               decoration: const InputDecoration(
                 labelText: 'Partes moles (descrever a região)',
                 isDense: true,
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               onChanged: (v) {
-                _updateFrascoAt(index, frasco.copyWith(partesMolesRegiao: v.trim()));
+                _updateFrascoAt(
+                  index,
+                  frasco.copyWith(partesMolesRegiao: v.trim()),
+                );
               },
             ),
             const SizedBox(height: 8),
 
             TextFormField(
+              key: ValueKey('outras_${frasco.uuid}'),
               initialValue: frasco.outrasRegiao,
               enabled: !widget.readOnly,
               decoration: const InputDecoration(
                 labelText: 'Outras (descrever a região)',
                 isDense: true,
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               onChanged: (v) {
                 _updateFrascoAt(index, frasco.copyWith(outrasRegiao: v.trim()));
@@ -433,7 +561,12 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
     );
   }
 
-  Widget _buildMiniCheckbox(String label, bool value, bool readOnly, ValueChanged<bool> onChanged) {
+  Widget _buildMiniCheckbox(
+    String label,
+    bool value,
+    bool readOnly,
+    ValueChanged<bool> onChanged,
+  ) {
     return InkWell(
       onTap: readOnly ? null : () => onChanged(!value),
       child: Padding(

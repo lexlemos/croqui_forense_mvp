@@ -21,8 +21,9 @@ class CaseListProvider extends ChangeNotifier {
   SortCriteria _sortCriteria = SortCriteria.data;
   SortOrder _sortOrder = SortOrder.desc;
   Set<StatusCaso> _statusFilter = {
+    StatusCaso.emAndamento,
     StatusCaso.rascunho,
-    StatusCaso.laudo_pendente,
+    StatusCaso.laudoPendente,
     StatusCaso.finalizado,
     StatusCaso.sincronizado,
   };
@@ -34,14 +35,17 @@ class CaseListProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   String? get erro => _erro;
-  
+
   SortCriteria get sortCriteria => _sortCriteria;
   SortOrder get sortOrder => _sortOrder;
   List<StatusCaso> get statusFilter => List.unmodifiable(_statusFilter);
 
-  CaseListProvider(this._caseService, {SyncService? syncService, AuthService? authService})
-      : _syncService = syncService,
-        _authService = authService {
+  CaseListProvider(
+    this._caseService, {
+    SyncService? syncService,
+    AuthService? authService,
+  }) : _syncService = syncService,
+       _authService = authService {
     _syncService?.onPullCompleted = () => carregarCasos();
   }
 
@@ -60,7 +64,7 @@ class CaseListProvider extends ChangeNotifier {
       super.notifyListeners();
     }
   }
-  
+
   void updateService(CaseService newService) {
     _caseService = newService;
   }
@@ -69,7 +73,11 @@ class CaseListProvider extends ChangeNotifier {
     _authService = authService;
   }
 
-  void updateServices({required CaseService caseService, SyncService? syncService, AuthService? authService}) {
+  void updateServices({
+    required CaseService caseService,
+    SyncService? syncService,
+    AuthService? authService,
+  }) {
     _caseService = caseService;
     _syncService = syncService;
     _authService = authService;
@@ -86,6 +94,8 @@ class CaseListProvider extends ChangeNotifier {
     required String nomeVitima,
     required String destino,
     required String requisitante,
+    String? delegaciaSolicitante,
+    String? numeroDeclaracaoObito,
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
@@ -99,6 +109,8 @@ class CaseListProvider extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
+      delegaciaSolicitante: delegaciaSolicitante,
+      numeroDeclaracaoObito: numeroDeclaracaoObito,
       atnsIds: atnsIds,
     );
 
@@ -141,7 +153,7 @@ class CaseListProvider extends ChangeNotifier {
       final result = await _caseService.listarCasos(uid);
       if (_disposed) return;
       _casosOrdenados = _ordenarCasos(result);
-      _aplicarFiltros(); 
+      _aplicarFiltros();
     } catch (e) {
       if (!_disposed) {
         _erro = e.toString();
@@ -178,7 +190,9 @@ class CaseListProvider extends ChangeNotifier {
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      temp = temp.where((c) => (c.numeroLaudoExterno ?? '').toLowerCase().contains(q)).toList();
+      temp = temp
+          .where((c) => (c.numeroLaudoExterno ?? '').toLowerCase().contains(q))
+          .toList();
     }
 
     if (_statusFilter.isNotEmpty) {
@@ -195,7 +209,9 @@ class CaseListProvider extends ChangeNotifier {
       if (_sortCriteria == SortCriteria.data) {
         cmp = a.criadoEmDispositivo.compareTo(b.criadoEmDispositivo);
       } else {
-        cmp = (a.numeroLaudoExterno ?? '').compareTo(b.numeroLaudoExterno ?? '');
+        cmp = (a.numeroLaudoExterno ?? '').compareTo(
+          b.numeroLaudoExterno ?? '',
+        );
       }
       return _sortOrder == SortOrder.asc ? cmp : -cmp;
     });

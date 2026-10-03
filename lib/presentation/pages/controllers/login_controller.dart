@@ -35,7 +35,10 @@ class LoginController {
   /// Recupera do armazenamento seguro o identificador funcional previamente registrado no dispositivo
   /// e preenche automaticamente o formulário para conferir celeridade à rotina de plantão pericial.
   Future<void> carregarLoginSalvo(BuildContext context) async {
-    final AuthProvider provider = Provider.of<AuthProvider>(context, listen: false);
+    final AuthProvider provider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
     final String? salvo = await provider.getSavedLogin();
 
     if (_isDisposed) return;
@@ -54,35 +57,50 @@ class LoginController {
   Future<void> submitLogin(BuildContext context) async {
     if (!formKey.currentState!.validate()) return;
 
-    final AuthProvider provider = Provider.of<AuthProvider>(context, listen: false);
-    final SyncService syncService = Provider.of<SyncService>(context, listen: false);
-    final CaseListProvider caseListProvider = Provider.of<CaseListProvider>(context, listen: false);
+    final AuthProvider provider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+    final SyncService syncService = Provider.of<SyncService>(
+      context,
+      listen: false,
+    );
+    final CaseListProvider caseListProvider = Provider.of<CaseListProvider>(
+      context,
+      listen: false,
+    );
     final String loginText = loginController.text.trim();
 
     try {
-      await provider.login(
-        loginText,
-        senhaController.text,
-      );
+      await provider.login(loginText, senhaController.text);
       await provider.saveSavedLogin(loginText);
 
-      try {
-        await syncService.pullCasos();
-        await caseListProvider.carregarCasos();
-      } on Object catch (e, stackTrace) {
-        debugPrint('Falha ao realizar pullCasos pós-login: $e\n$stackTrace');
+      await caseListProvider.carregarCasos();
+
+      if (provider.isOfflineSession) {
+        _showSnack(
+          'Dispositivo sem conexão com o servidor. Acesso liberado via credenciais offline.',
+          isWarning: true,
+        );
+      } else {
+        try {
+          await syncService.pullCasos();
+          await caseListProvider.carregarCasos();
+        } on Object catch (e, stackTrace) {
+          debugPrint('Falha ao realizar pullCasos pós-login: $e\n$stackTrace');
+        }
       }
     } on AuthException catch (e) {
-      final bool isRestricaoAcesso = e.message.toLowerCase().contains('acesso restrito');
-      _showSnack(
-        e.message,
-        isError: true,
-        isWarning: isRestricaoAcesso,
+      final bool isRestricaoAcesso = e.message.toLowerCase().contains(
+        'acesso restrito',
       );
+      _showSnack(e.message, isError: true, isWarning: isRestricaoAcesso);
     } on Object catch (e) {
       final String msg = e.toString().replaceFirst('Exception: ', '');
       _showSnack(
-        msg.isNotEmpty ? msg : 'Ocorreu uma falha inesperada durante a autenticação. Tente novamente.',
+        msg.isNotEmpty
+            ? msg
+            : 'Ocorreu uma falha inesperada durante a autenticação. Tente novamente.',
         isError: true,
       );
     }
@@ -124,10 +142,10 @@ class LoginController {
         ),
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
-        duration: isWarning ? const Duration(seconds: 5) : const Duration(seconds: 4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        duration: isWarning
+            ? const Duration(seconds: 5)
+            : const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

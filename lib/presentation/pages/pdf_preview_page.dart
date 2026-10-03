@@ -7,7 +7,8 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
-import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart' as em;
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart'
+    as em;
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
@@ -33,20 +34,21 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     final caseService = context.read<CaseService>();
     final authProvider = context.read<AuthProvider>();
 
-    _dataFuture = Future.wait([
-      achadoService.listarAchados(widget.caso.uuid),
-      caseService.getEvidenciasGerais(widget.caso.uuid),
-      caseService.getExamesSolicitados(widget.caso.uuid),
-      context.read<CasoRepository>().getExamesPorCaso(widget.caso.uuid),
-    ]).then((results) {
-      return {
-        'achados': results[0] as List<Achado>,
-        'evidenciasGerais': results[1] as List<EvidenciaMultimidia>,
-        'exames': results[2] as List<ExameSolicitado>,
-        'examesModel': results[3] as List<em.ExameSolicitadoModel>,
-        'perito': authProvider.usuario,
-      };
-    });
+    _dataFuture =
+        Future.wait([
+          achadoService.listarAchados(widget.caso.uuid),
+          caseService.getEvidenciasGerais(widget.caso.uuid),
+          caseService.getExamesSolicitados(widget.caso.uuid),
+          context.read<CasoRepository>().getExamesPorCaso(widget.caso.uuid),
+        ]).then((results) {
+          return {
+            'achados': results[0] as List<Achado>,
+            'evidenciasGerais': results[1] as List<EvidenciaMultimidia>,
+            'exames': results[2] as List<ExameSolicitado>,
+            'examesModel': results[3] as List<em.ExameSolicitadoModel>,
+            'perito': authProvider.usuario,
+          };
+        });
   }
 
   @override
@@ -78,14 +80,18 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erro ao carregar dados: ${snapshot.error}'));
+            return Center(
+              child: Text('Erro ao carregar dados: ${snapshot.error}'),
+            );
           }
 
           final data = snapshot.data!;
           final achados = data['achados'] as List<Achado>;
-          final evidenciasGerais = data['evidenciasGerais'] as List<EvidenciaMultimidia>;
+          final evidenciasGerais =
+              data['evidenciasGerais'] as List<EvidenciaMultimidia>;
           final exames = data['exames'] as List<ExameSolicitado>;
-          final examesModel = data['examesModel'] as List<em.ExameSolicitadoModel>;
+          final examesModel =
+              data['examesModel'] as List<em.ExameSolicitadoModel>;
           final perito = data['perito'] as Usuario?;
 
           if (perito == null) {

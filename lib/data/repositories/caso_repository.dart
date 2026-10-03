@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:uuid/uuid.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
@@ -9,25 +8,41 @@ import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/parsed_sync_payload.dart';
+import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
+import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
+/// RepositÃ³rio central de domÃ­nio pericial responsÃ¡vel pela persistÃªncia atÃ´mica no SQLite (SQLCipher).
+///
+/// Implementa a interface [ISyncRepository] para garantir que todas as transaÃ§Ãµes
+/// mantenham a integridade da Cadeia de CustÃ³dia. Suporta exclusÃ£o lÃ³gica (tombstones),
+/// isolamento de dados por usuÃ¡rio e reconciliaÃ§Ã£o Offline-First utilizando Optimistic Concurrency Control (OCC).
 class CasoRepository implements ISyncRepository {
   final DatabaseHelper _dbHelper;
 
   CasoRepository(this._dbHelper);
 
+  @override
   Future<Database> get database async => _dbHelper.database;
 
+  /// Insere um novo laudo pericial (Caso) no banco local garantindo estado inicial.
+  ///
+  /// TransaÃ§Ã£o atÃ´mica. Se o `uuid` jÃ¡ existir, ele sobrescreve os dados base
+  /// e define `is_draft_synced` como 0, forÃ§ando re-sincronizaÃ§Ã£o no prÃ³ximo loop.
+  /// Throws [Exception] em caso de falha de persistÃªncia atÃ´mica.
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
     try {
       await db.transaction((txn) async {
         final map = novoCaso.toMap()..['is_draft_synced'] = 0;
+        map.remove('balisticas');
+        map.remove('exames');
+        map.remove('exames_solicitados');
         final rowsAffected = await txn.update(
           tableCasos,
           map,
@@ -41,17 +56,41 @@ class CasoRepository implements ISyncRepository {
             conflictAlgorithm: ConflictAlgorithm.ignore,
           );
         }
+
+        await txn.delete(
+          tableBalisticas,
+          where: 'exame_id = ?',
+          whereArgs: [novoCaso.uuid],
+        );
+        for (final b in novoCaso.balisticas) {
+          final balisticaFinal =
+              (b.exameId.isEmpty || b.exameId != novoCaso.uuid)
+              ? b.copyWith(exameId: novoCaso.uuid)
+              : b;
+          await txn.insert(
+            tableBalisticas,
+            balisticaFinal.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        await salvarExames(novoCaso.uuid, novoCaso.exames, executor: txn);
       });
     } catch (e) {
-      throw Exception('Erro de persistência ao inserir caso: $e');
+      throw Exception('Erro de persistÃªncia ao inserir caso: $e');
     }
   }
 
-  Future<void> insertCaseComEvidenciasLote(Caso novoCaso, List<EvidenciaMultimidia> evidencias) async {
+  Future<void> insertCaseComEvidenciasLote(
+    Caso novoCaso,
+    List<EvidenciaMultimidia> evidencias,
+  ) async {
     final db = await database;
     try {
       await db.transaction((txn) async {
         final map = novoCaso.toMap()..['is_draft_synced'] = 0;
+        map.remove('balisticas');
+        map.remove('exames');
+        map.remove('exames_solicitados');
         final rows = await txn.update(
           tableCasos,
           map,
@@ -65,6 +104,20 @@ class CasoRepository implements ISyncRepository {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
+
+        await txn.delete(
+          tableBalisticas,
+          where: 'exame_id = ?',
+          whereArgs: [novoCaso.uuid],
+        );
+        for (final b in novoCaso.balisticas) {
+          await txn.insert(
+            tableBalisticas,
+            b.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
         for (final ev in evidencias) {
           await txn.insert(
             tableEvidenciasMultimidia,
@@ -72,13 +125,16 @@ class CasoRepository implements ISyncRepository {
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
+        await salvarExames(novoCaso.uuid, novoCaso.exames, executor: txn);
       });
     } catch (e) {
-      throw Exception('Erro de persistência atômica ao inserir caso e evidências em lote: $e');
+      throw Exception(
+        'Erro de persistÃªncia atÃ´mica ao inserir caso e evidÃªncias em lote: $e',
+      );
     }
   }
 
-  /// Motor de Upsert (Sincronização Pull). Resolve conflitos verificando o [atualizado_em] e lida com Tombstones.
+  /// Motor de Upsert (SincronizaÃ§Ã£o Pull). Resolve conflitos verificando o [atualizado_em] e lida com Tombstones.
   @override
   Future<void> upsertCasoTransaction(ParsedSyncPayload payload) async {
     final db = await database;
@@ -96,19 +152,25 @@ class CasoRepository implements ISyncRepository {
         bool deveAtualizarCaso = true;
 
         if (localRow.isNotEmpty) {
-          final localAtualizadoEmStr = localRow.first['atualizado_em']?.toString();
-          final localAtualizadoEm = localAtualizadoEmStr != null ? DateTime.tryParse(localAtualizadoEmStr) : null;
+          final int isDraftSynced =
+              (localRow.first['is_draft_synced'] as int?) ?? 1;
+          final localAtualizadoEmStr = localRow.first['atualizado_em']
+              ?.toString();
+          final localAtualizadoEm = localAtualizadoEmStr != null
+              ? DateTime.tryParse(localAtualizadoEmStr)
+              : null;
           final backendAtualizadoEm = casoBackend.atualizadoEm;
 
-          if (localAtualizadoEm != null && backendAtualizadoEm != null) {
-            /// Valida a integridade temporal do dado remoto em relação ao cache local.
-            /// Caso a versão local seja mais recente, o algoritmo OCC rejeita o update.
-            /// Registra o conflito em log para fins de rastreabilidade e auditoria da cadeia de custódia.
+          // SÃ³ rejeita a versÃ£o remota se houver rascunho local PENDENTE de sincronizaÃ§Ã£o (is_draft_synced == 0)
+          // e o dado remoto for temporalmente mais antigo que a alteraÃ§Ã£o local.
+          if (isDraftSynced == 0 &&
+              localAtualizadoEm != null &&
+              backendAtualizadoEm != null) {
             if (!backendAtualizadoEm.isAfter(localAtualizadoEm)) {
               deveAtualizarCaso = false;
               debugPrint(
                 '[CasoRepository] ALERTA OCC: Caso ${casoBackend.uuid} '
-                'remoto ($backendAtualizadoEm) rejeitado a favor do local ($localAtualizadoEm).',
+                'remoto ($backendAtualizadoEm) rejeitado a favor do rascunho local ($localAtualizadoEm).',
               );
             }
           }
@@ -118,6 +180,9 @@ class CasoRepository implements ISyncRepository {
 
         if (deveAtualizarCaso) {
           final mapParaSalvar = casoBackend.toMap();
+          mapParaSalvar.remove('balisticas');
+          mapParaSalvar.remove('exames');
+          mapParaSalvar.remove('exames_solicitados');
 
           if (localRow.isEmpty) {
             batch.insert(
@@ -126,6 +191,53 @@ class CasoRepository implements ISyncRepository {
               conflictAlgorithm: ConflictAlgorithm.replace,
             );
           } else {
+            final localMap = localRow.first;
+            // Preserva id_usuario_criador se o payload remoto vier vazio
+            final localCriador = localMap['id_usuario_criador']?.toString();
+            if ((mapParaSalvar['id_usuario_criador'] == null ||
+                    mapParaSalvar['id_usuario_criador'].toString().isEmpty) &&
+                localCriador != null &&
+                localCriador.isNotEmpty) {
+              mapParaSalvar['id_usuario_criador'] = localCriador;
+            }
+
+            // Preserva pdf_local_path local se o backend vier sem
+            final localPdfPath = localMap['pdf_local_path']?.toString();
+            if ((mapParaSalvar['pdf_local_path'] == null ||
+                    mapParaSalvar['pdf_local_path'].toString().isEmpty) &&
+                localPdfPath != null &&
+                localPdfPath.isNotEmpty) {
+              mapParaSalvar['pdf_local_path'] = localPdfPath;
+            }
+
+            // Blindagem contra regressão de status: se já está finalizado ou sincronizado localmente,
+            // não regride para NAO_INICIADO ou EM_ANDAMENTO
+            final localStatus = (localMap['status']?.toString() ?? '')
+                .toUpperCase();
+            final backendStatus = (mapParaSalvar['status']?.toString() ?? '')
+                .toUpperCase();
+            if ((localStatus == 'FINALIZADO' ||
+                    localStatus == 'SINCRONIZADO' ||
+                    localStatus == 'CONCLUIDO') &&
+                (backendStatus == 'NAO_INICIADO' ||
+                    backendStatus == 'EM_ANDAMENTO' ||
+                    backendStatus == 'RASCUNHO')) {
+              mapParaSalvar['status'] = localStatus;
+            }
+
+            // Preserva finalizado_em se o backend vier sem
+            final localFinalizadoEm = localMap['finalizado_em']?.toString();
+            if (mapParaSalvar['finalizado_em'] == null &&
+                localFinalizadoEm != null) {
+              mapParaSalvar['finalizado_em'] = localFinalizadoEm;
+            }
+
+            // Preserva data de criação original no dispositivo
+            final localCriadoEm = localMap['criado_em_dispositivo']?.toString();
+            if (localCriadoEm != null && localCriadoEm.isNotEmpty) {
+              mapParaSalvar['criado_em_dispositivo'] = localCriadoEm;
+            }
+
             batch.update(
               tableCasos,
               mapParaSalvar,
@@ -133,29 +245,215 @@ class CasoRepository implements ISyncRepository {
               whereArgs: [casoBackend.uuid],
             );
           }
-        }
 
-        for (final achado in payload.achados) {
-          batch.insert(
-            tableAchados,
-            achado.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
+          // Coleta todas as balÃ­sticas do caso (tanto de casoBackend quanto do rawJson)
+          final List<BalisticaModel> todasBalisticas = [];
+          todasBalisticas.addAll(casoBackend.balisticas);
+
+          if (payload.rawJson['balisticas'] is List) {
+            for (final rawB in (payload.rawJson['balisticas'] as List)) {
+              if (rawB is! Map) continue;
+              final bMap = Map<String, dynamic>.from(rawB);
+              final bModel = BalisticaModel.fromMap(bMap);
+              if (bModel.id.isNotEmpty &&
+                  !todasBalisticas.any(
+                    (b) =>
+                        b.id.trim().toLowerCase() ==
+                        bModel.id.trim().toLowerCase(),
+                  )) {
+                todasBalisticas.add(bModel);
+              }
+            }
+          }
+
+          batch.delete(
+            tableBalisticas,
+            where: 'exame_id = ?',
+            whereArgs: [casoBackend.uuid],
           );
-        }
+          for (final b in todasBalisticas) {
+            final balisticaFinal =
+                (b.exameId.isEmpty || b.exameId != casoBackend.uuid)
+                ? b.copyWith(exameId: casoBackend.uuid)
+                : b;
+            batch.insert(
+              tableBalisticas,
+              balisticaFinal.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
 
-        for (final evidencia in payload.evidencias) {
-          batch.insert(
+          final Map<String, BalisticaModel> balisticasById = {};
+          final Map<String, BalisticaModel> balisticasByAchadoUuid = {};
+          final Map<String, BalisticaModel> balisticasByExameId = {};
+
+          for (final b in todasBalisticas) {
+            final bId = b.id.trim().toLowerCase();
+            if (bId.isNotEmpty) {
+              balisticasById[bId] = b;
+            }
+            if (b.achadoUuid != null && b.achadoUuid!.trim().isNotEmpty) {
+              balisticasByAchadoUuid[b.achadoUuid!.trim().toLowerCase()] = b;
+            }
+            final bExameId = b.exameId.trim().toLowerCase();
+            if (bExameId.isNotEmpty) {
+              balisticasByExameId[bExameId] = b;
+            }
+          }
+
+          if (payload.rawJson['balisticas'] is List) {
+            for (final rawB in (payload.rawJson['balisticas'] as List)) {
+              if (rawB is! Map) continue;
+              final achadoId =
+                  rawB['achado_uuid']?.toString() ??
+                  rawB['achado_id']?.toString();
+              final bId = (rawB['id']?.toString() ?? rawB['uuid']?.toString())
+                  ?.trim()
+                  .toLowerCase();
+              if (achadoId != null &&
+                  achadoId.trim().isNotEmpty &&
+                  bId != null) {
+                final bModel = balisticasById[bId];
+                if (bModel != null) {
+                  balisticasByAchadoUuid[achadoId.trim().toLowerCase()] =
+                      bModel;
+                }
+              }
+            }
+          }
+
+          for (final achado in payload.achados) {
+            final detId = deterministicUuidV5(
+              achado.uuid,
+              'balistica',
+            ).toLowerCase();
+            final legacyDetId = deterministicUuidV4(
+              achado.uuid,
+              'balistica',
+            ).toLowerCase();
+            final achadoUuidLower = achado.uuid.trim().toLowerCase();
+
+            // HeurÃ­stica de match:
+            // 1. ID determinÃ­stico V5 (e fallback V4 legado)
+            // 2. achado_uuid / achado_id vÃ­nculo
+            // 3. exame_id == achado.uuid
+            // 4. ID direto da balÃ­stica == achado.uuid
+            BalisticaModel? matchedBalistica =
+                (detId.isNotEmpty ? balisticasById[detId] : null) ??
+                (legacyDetId.isNotEmpty ? balisticasById[legacyDetId] : null);
+            matchedBalistica ??= balisticasByAchadoUuid[achadoUuidLower];
+            matchedBalistica ??= balisticasByExameId[achadoUuidLower];
+            matchedBalistica ??= balisticasById[achadoUuidLower];
+            if (matchedBalistica == null) {
+              for (final b in todasBalisticas) {
+                final bId = b.id.trim().toLowerCase();
+                final bAchado = b.achadoUuid?.trim().toLowerCase();
+                final bExame = b.exameId.trim().toLowerCase();
+                if ((detId.isNotEmpty && bId == detId) ||
+                    (bAchado != null && bAchado == achadoUuidLower) ||
+                    bExame == achadoUuidLower ||
+                    bId == achadoUuidLower) {
+                  matchedBalistica = b;
+                  break;
+                }
+              }
+            }
+
+            final achadoParaSalvar = (matchedBalistica != null)
+                ? achado.copyWith(
+                    tipoFerimento:
+                        matchedBalistica.tipoFerimento ?? achado.tipoFerimento,
+                    tipoObjeto:
+                        matchedBalistica.tipoObjeto ?? achado.tipoObjeto,
+                    numeroLacre:
+                        matchedBalistica.numeroLacre ?? achado.numeroLacre,
+                    comentarioAdicional:
+                        matchedBalistica.comentarioAdicional ??
+                        achado.comentarioAdicional,
+                  )
+                : achado;
+
+            batch.insert(
+              tableAchados,
+              achadoParaSalvar.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+
+          // Busca evidÃªncias locais existentes para o caso para preservar fotos pendentes
+          final localEvidenciasRows = await txn.query(
             tableEvidenciasMultimidia,
-            evidencia.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
+            where: 'caso_uuid = ?',
+            whereArgs: [casoBackend.uuid],
           );
+          final Map<String, Map<String, dynamic>> localEvidenciasByUuid = {
+            for (final r in localEvidenciasRows) r['uuid'].toString(): r,
+          };
+          final Map<String, Map<String, dynamic>> localEvidenciasByAchado = {
+            for (final r in localEvidenciasRows)
+              if (r['achado_uuid'] != null &&
+                  r['achado_uuid'].toString().isNotEmpty)
+                r['achado_uuid'].toString(): r,
+          };
+
+          for (final evidencia in payload.evidencias) {
+            final evMap = Map<String, dynamic>.from(evidencia.toMap());
+
+            final localRow =
+                localEvidenciasByUuid[evidencia.uuid] ??
+                (evidencia.achadoUuid != null
+                    ? localEvidenciasByAchado[evidencia.achadoUuid]
+                    : null);
+
+            if (localRow != null) {
+              final int localSincronizada =
+                  (localRow['foto_sincronizada'] as int?) ?? 0;
+              final String? localPath = localRow['caminho_arquivo_encriptado']
+                  ?.toString();
+
+              // Se a foto local existe e NÃƒO estÃ¡ sincronizada (foto_sincronizada == 0)
+              if (localSincronizada == 0) {
+                evMap['foto_sincronizada'] = 0;
+                if (localRow['uuid'] != null) {
+                  evMap['uuid'] = localRow['uuid'];
+                }
+                if (localPath != null &&
+                    localPath.isNotEmpty &&
+                    !localPath.startsWith('http://') &&
+                    !localPath.startsWith('https://')) {
+                  evMap['caminho_arquivo_encriptado'] = localPath;
+                }
+                debugPrint(
+                  '[CasoRepository] ðŸ›¡ï¸ Preservando foto pendente local: '
+                  'uuid=${evMap['uuid']} achado=${evMap['achado_uuid']} com foto_sincronizada = 0',
+                );
+              }
+            }
+
+            batch.insert(
+              tableEvidenciasMultimidia,
+              evMap,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
         }
 
         await batch.commit(noResult: true);
+
+        if (deveAtualizarCaso) {
+          await salvarExames(
+            payload.caso.uuid,
+            payload.caso.exames,
+            executor: txn,
+            isSyncPull: true,
+          );
+        }
       });
     } catch (e, stackTrace) {
-      debugPrint('[CasoRepository] ❌ Erro na transação de upsertCasoTransaction (caso uuid: ${payload.caso.uuid}): $e\n$stackTrace');
-      throw Exception('Erro de persistência atômica no Upsert: $e');
+      debugPrint(
+        '[CasoRepository] âŒ Erro na transaÃ§Ã£o de upsertCasoTransaction (caso uuid: ${payload.caso.uuid}): $e\n$stackTrace',
+      );
+      throw Exception('Erro de persistÃªncia atÃ´mica no Upsert: $e');
     }
   }
 
@@ -163,14 +461,37 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       final map = caso.toMap()..['is_draft_synced'] = 0;
-      await db.update(
-        tableCasos,
-        map,
-        where: "uuid = ? AND UPPER(status) != 'FINALIZADO'",
-        whereArgs: [caso.uuid],
-      );
+      map.remove('balisticas');
+      map.remove('exames');
+      map.remove('exames_solicitados');
+
+      await db.transaction((txn) async {
+        await txn.update(
+          tableCasos,
+          map,
+          where: "uuid = ? AND UPPER(status) != 'FINALIZADO'",
+          whereArgs: [caso.uuid],
+        );
+
+        await txn.delete(
+          tableBalisticas,
+          where: 'exame_id = ?',
+          whereArgs: [caso.uuid],
+        );
+        for (final b in caso.balisticas) {
+          final balisticaFinal = (b.exameId.isEmpty || b.exameId != caso.uuid)
+              ? b.copyWith(exameId: caso.uuid)
+              : b;
+          await txn.insert(
+            tableBalisticas,
+            balisticaFinal.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        await salvarExames(caso.uuid, caso.exames, executor: txn);
+      });
     } catch (e) {
-      throw Exception('Erro de persistência ao atualizar caso: $e');
+      throw Exception('Erro de persistÃªncia ao atualizar caso: $e');
     }
   }
 
@@ -180,6 +501,10 @@ class CasoRepository implements ISyncRepository {
       final map = caso.toMap()
         ..['is_draft_synced'] = 0
         ..['status'] = 'RASCUNHO';
+      map.remove('balisticas');
+      map.remove('exames');
+      map.remove('exames_solicitados');
+
       await db.update(
         tableCasos,
         map,
@@ -187,7 +512,7 @@ class CasoRepository implements ISyncRepository {
         whereArgs: [caso.uuid],
       );
     } catch (e) {
-      throw Exception('Erro de persistência ao reabrir caso: $e');
+      throw Exception('Erro de persistÃªncia ao reabrir caso: $e');
     }
   }
 
@@ -200,11 +525,73 @@ class CasoRepository implements ISyncRepository {
       whereArgs: [casoUuid],
       orderBy: 'criado_em DESC',
     );
-    return result.map((map) => Achado.fromMap(map)).toList();
+    final achados = result.map((map) => Achado.fromMap(map)).toList();
+
+    final balisticasRows = await db.rawQuery(
+      '''
+      SELECT * FROM $tableBalisticas 
+      WHERE exame_id = ? 
+         OR exame_id IN (SELECT uuid FROM $tableAchados WHERE caso_uuid = ?)
+      ''',
+      [casoUuid, casoUuid],
+    );
+
+    if (balisticasRows.isEmpty) {
+      return achados;
+    }
+
+    final Map<String, Map<String, dynamic>> balisticaById = {
+      for (final r in balisticasRows)
+        if (r['id'] != null) r['id'].toString().trim().toLowerCase(): r,
+    };
+
+    return achados.map((achado) {
+      final hasBalistica =
+          (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty) ||
+          (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty) ||
+          (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty) ||
+          (achado.comentarioAdicional != null &&
+              achado.comentarioAdicional!.isNotEmpty);
+
+      if (hasBalistica) return achado;
+
+      final detId = deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
+      final legacyDetId = deterministicUuidV4(
+        achado.uuid,
+        'balistica',
+      ).toLowerCase();
+      final achadoUuidLower = achado.uuid.trim().toLowerCase();
+      final bRow =
+          (detId.isNotEmpty ? balisticaById[detId] : null) ??
+          (legacyDetId.isNotEmpty ? balisticaById[legacyDetId] : null) ??
+          balisticaById[achadoUuidLower] ??
+          balisticasRows
+              .where(
+                (r) =>
+                    r['exame_id']?.toString().trim().toLowerCase() ==
+                    achadoUuidLower,
+              )
+              .firstOrNull;
+
+      if (bRow != null) {
+        return achado.copyWith(
+          tipoFerimento:
+              bRow['tipo_ferimento']?.toString() ?? achado.tipoFerimento,
+          tipoObjeto: bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
+          numeroLacre: bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
+          comentarioAdicional:
+              bRow['comentario_adicional']?.toString() ??
+              achado.comentarioAdicional,
+        );
+      }
+      return achado;
+    }).toList();
   }
 
   @override
-  Future<Map<String, List<Achado>>> getAchadosEmLote(List<String> casoUuids) async {
+  Future<Map<String, List<Achado>>> getAchadosEmLote(
+    List<String> casoUuids,
+  ) async {
     if (casoUuids.isEmpty) return {};
     final db = await database;
     final placeholders = List.filled(casoUuids.length, '?').join(',');
@@ -214,9 +601,67 @@ class CasoRepository implements ISyncRepository {
       whereArgs: casoUuids,
       orderBy: 'criado_em DESC',
     );
+
+    final balisticasRows = await db.rawQuery(
+      '''
+      SELECT * FROM $tableBalisticas 
+      WHERE exame_id IN ($placeholders)
+         OR exame_id IN (SELECT uuid FROM $tableAchados WHERE caso_uuid IN ($placeholders))
+      ''',
+      [...casoUuids, ...casoUuids],
+    );
+
+    final Map<String, Map<String, dynamic>> balisticaById = {
+      for (final r in balisticasRows)
+        if (r['id'] != null) r['id'].toString().trim().toLowerCase(): r,
+    };
+
     final Map<String, List<Achado>> grouped = {};
     for (final map in result) {
-      final achado = Achado.fromMap(map);
+      var achado = Achado.fromMap(map);
+
+      final hasBalistica =
+          (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty) ||
+          (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty) ||
+          (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty) ||
+          (achado.comentarioAdicional != null &&
+              achado.comentarioAdicional!.isNotEmpty);
+
+      if (!hasBalistica && balisticasRows.isNotEmpty) {
+        final detId = deterministicUuidV5(
+          achado.uuid,
+          'balistica',
+        ).toLowerCase();
+        final legacyDetId = deterministicUuidV4(
+          achado.uuid,
+          'balistica',
+        ).toLowerCase();
+        final achadoUuidLower = achado.uuid.trim().toLowerCase();
+        final bRow =
+            (detId.isNotEmpty ? balisticaById[detId] : null) ??
+            (legacyDetId.isNotEmpty ? balisticaById[legacyDetId] : null) ??
+            balisticaById[achadoUuidLower] ??
+            balisticasRows
+                .where(
+                  (r) =>
+                      r['exame_id']?.toString().trim().toLowerCase() ==
+                      achadoUuidLower,
+                )
+                .firstOrNull;
+
+        if (bRow != null) {
+          achado = achado.copyWith(
+            tipoFerimento:
+                bRow['tipo_ferimento']?.toString() ?? achado.tipoFerimento,
+            tipoObjeto: bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
+            numeroLacre: bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
+            comentarioAdicional:
+                bRow['comentario_adicional']?.toString() ??
+                achado.comentarioAdicional,
+          );
+        }
+      }
+
       (grouped[achado.casoUuid] ??= []).add(achado);
     }
     return grouped;
@@ -227,11 +672,31 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       tableCasos,
-      where: 'id_usuario_criador = ? AND removido = 0',
+      where:
+          '(id_usuario_criador = ? OR id_usuario_criador IS NULL OR id_usuario_criador = "") AND removido = 0',
       whereArgs: [usuarioId],
       orderBy: 'atualizado_em DESC, criado_em_dispositivo DESC',
     );
-    return List.generate(maps.length, (i) => Caso.fromMap(maps[i]));
+
+    final List<Caso> casos = [];
+    for (final map in maps) {
+      final mutableMap = Map<String, dynamic>.from(map);
+      final uuidStr = mutableMap['uuid'].toString();
+      final balisticas = await db.query(
+        tableBalisticas,
+        where: 'exame_id = ?',
+        whereArgs: [uuidStr],
+      );
+      mutableMap['balisticas'] = balisticas;
+      final exames = await getExamesPorCaso(uuidStr);
+      mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
+      casos.add(Caso.fromMap(mutableMap));
+    }
+    return casos;
   }
 
   Future<Caso?> getCaseByUuid(String uuid) async {
@@ -243,7 +708,55 @@ class CasoRepository implements ISyncRepository {
       limit: 1,
     );
     if (maps.isEmpty) return null;
-    return Caso.fromMap(maps.first);
+
+    final mutableMap = Map<String, dynamic>.from(maps.first);
+    final balisticas = await db.query(
+      tableBalisticas,
+      where: 'exame_id = ?',
+      whereArgs: [uuid],
+    );
+    mutableMap['balisticas'] = balisticas;
+    final exames = await getExamesPorCaso(uuid);
+    mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+    final evidencias = await getEvidenciasPorCaso(uuid);
+    mutableMap['evidencias_multimidia'] = evidencias
+        .map((e) => e.toMap())
+        .toList();
+
+    return Caso.fromMap(mutableMap);
+  }
+
+  @override
+  Future<List<Caso>> getCasosPendentesSync(String usuarioId) async {
+    if (usuarioId.isEmpty) return [];
+    final db = await database;
+    final maps = await db.query(
+      tableCasos,
+      where:
+          "id_usuario_criador = ? AND UPPER(status) IN ('EM_ANDAMENTO', 'RASCUNHO', 'LAUDO_PENDENTE', 'FINALIZADO') AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      whereArgs: [usuarioId],
+      orderBy: 'criado_em_dispositivo ASC',
+    );
+
+    final List<Caso> casos = [];
+    for (final map in maps) {
+      final mutableMap = Map<String, dynamic>.from(map);
+      final uuidStr = mutableMap['uuid'].toString();
+      final balisticas = await db.query(
+        tableBalisticas,
+        where: 'exame_id = ?',
+        whereArgs: [uuidStr],
+      );
+      mutableMap['balisticas'] = balisticas;
+      final exames = await getExamesPorCaso(uuidStr);
+      mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
+      casos.add(Caso.fromMap(mutableMap));
+    }
+    return casos;
   }
 
   @override
@@ -252,11 +765,31 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final maps = await db.query(
       tableCasos,
-      where: "id_usuario_criador = ? AND status = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      where:
+          "id_usuario_criador = ? AND UPPER(status) = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
       whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
-    return maps.map(Caso.fromMap).toList();
+
+    final List<Caso> casos = [];
+    for (final map in maps) {
+      final mutableMap = Map<String, dynamic>.from(map);
+      final uuidStr = mutableMap['uuid'].toString();
+      final balisticas = await db.query(
+        tableBalisticas,
+        where: 'exame_id = ?',
+        whereArgs: [uuidStr],
+      );
+      mutableMap['balisticas'] = balisticas;
+      final exames = await getExamesPorCaso(uuidStr);
+      mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
+      casos.add(Caso.fromMap(mutableMap));
+    }
+    return casos;
   }
 
   @override
@@ -265,15 +798,37 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final maps = await db.query(
       tableCasos,
-      where: "id_usuario_criador = ? AND UPPER(status) != 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      where:
+          "id_usuario_criador = ? AND UPPER(status) IN ('EM_ANDAMENTO', 'RASCUNHO', 'LAUDO_PENDENTE') AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
       whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
-    return maps.map(Caso.fromMap).toList();
+
+    final List<Caso> casos = [];
+    for (final map in maps) {
+      final mutableMap = Map<String, dynamic>.from(map);
+      final uuidStr = mutableMap['uuid'].toString();
+      final balisticas = await db.query(
+        tableBalisticas,
+        where: 'exame_id = ?',
+        whereArgs: [uuidStr],
+      );
+      mutableMap['balisticas'] = balisticas;
+      final exames = await getExamesPorCaso(uuidStr);
+      mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
+      casos.add(Caso.fromMap(mutableMap));
+    }
+    return casos;
   }
 
   @override
-  Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(List<String> casoUuids) async {
+  Future<Map<String, List<Achado>>> getAchadosComFotosPendentesEmLote(
+    List<String> casoUuids,
+  ) async {
     if (casoUuids.isEmpty) return {};
 
     final Map<String, List<Achado>> grouped = {};
@@ -284,17 +839,18 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final placeholders = List.filled(casoUuids.length, '?').join(',');
 
-    // 1. Fotos gerais do caso (SQL na tabela evidencias_multimidia)
     try {
       final List<Map<String, dynamic>> generalEvidences = await db.query(
         tableEvidenciasMultimidia,
-        where: 'caso_uuid IN ($placeholders) AND tipo = ? AND foto_sincronizada = 0 AND removido = 0',
+        where:
+            'caso_uuid IN ($placeholders) AND tipo = ? AND foto_sincronizada = 0 AND removido = 0',
         whereArgs: [...casoUuids, 'GERAL'],
       );
 
       for (final row in generalEvidences) {
         final String caseUuid = row['caso_uuid'].toString();
-        final String pathString = row['caminho_arquivo_encriptado']?.toString() ?? '';
+        final String pathString =
+            row['caminho_arquivo_encriptado']?.toString() ?? '';
         if (pathString.isEmpty) continue;
 
         final achadoVirtual = Achado(
@@ -309,7 +865,9 @@ class CasoRepository implements ISyncRepository {
           isInterno: false,
           versao: 1,
           removido: false,
-          criadoEm: DateTime.tryParse(row['criado_em']?.toString() ?? '') ?? DateTime.now(),
+          criadoEm:
+              DateTime.tryParse(row['criado_em']?.toString() ?? '') ??
+              DateTime.now(),
           dadosPreenchidos: {
             'photo_path': pathString,
             '_evidencia_uuid': row['uuid'].toString(),
@@ -321,12 +879,14 @@ class CasoRepository implements ISyncRepository {
         (grouped[caseUuid] ??= []).add(achadoVirtual);
       }
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (GERAL): $e');
+      debugPrint(
+        '[CasoRepository] âŒ getAchadosComFotosPendentesEmLote (GERAL): $e',
+      );
     }
 
-    // 2. Fotos de lesões (SQL na tabela evidencias_multimidia)
     try {
-      final sqlAchados = '''
+      final sqlAchados =
+          '''
         SELECT
           a.*,
           e.caminho_arquivo_encriptado AS _photo_path_override,
@@ -348,7 +908,8 @@ class CasoRepository implements ISyncRepository {
       for (final row in rowsAchados) {
         final casoUuid = row['caso_uuid'].toString();
         final mutableRow = Map<String, dynamic>.from(row);
-        final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
+        final dadosJson =
+            mutableRow['dados_preenchidos_json'] as String? ?? '{}';
         final dados = _decodeJson(dadosJson);
 
         dados['photo_path'] = row['_photo_path_override'] as String?;
@@ -361,99 +922,65 @@ class CasoRepository implements ISyncRepository {
         (grouped[casoUuid] ??= []).add(Achado.fromMap(mutableRow));
       }
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (SQL): $e');
+      debugPrint(
+        '[CasoRepository] âŒ getAchadosComFotosPendentesEmLote (SQL): $e',
+      );
     }
 
     return grouped;
   }
 
   @override
-  Future<List<Achado>> getEvidenciasPendentesPorCaso(String casoUuid) async {
-    final List<Achado> pending = [];
+  Future<List<Map<String, dynamic>>> getEvidenciasPendentesPorCaso(
+    String casoUuid,
+  ) async {
     final db = await database;
-
-    // 1. Fotos gerais do caso (SQL na tabela evidencias_multimidia)
     try {
-      final List<Map<String, dynamic>> generalEvidences = await db.query(
-        tableEvidenciasMultimidia,
-        where: 'caso_uuid = ? AND tipo = ? AND foto_sincronizada = 0 AND removido = 0',
-        whereArgs: [casoUuid, 'GERAL'],
+      final List<Map<String, dynamic>> rows = await db.rawQuery(
+        '''
+        SELECT 
+          e.uuid AS evidencia_uuid,
+          COALESCE(e.caso_uuid, a.caso_uuid) AS caso_uuid,
+          e.caminho_arquivo_encriptado,
+          e.hash_arquivo,
+          e.achado_uuid
+        FROM $tableEvidenciasMultimidia e
+        LEFT JOIN $tableAchados a ON e.achado_uuid = a.uuid
+        WHERE (e.caso_uuid = ? OR a.caso_uuid = ?)
+          AND e.removido = 0
+          AND e.caminho_arquivo_encriptado IS NOT NULL
+          AND e.caminho_arquivo_encriptado != ''
+          AND e.foto_sincronizada = 0
+        ''',
+        [casoUuid, casoUuid],
       );
-
-      for (var i = 0; i < generalEvidences.length; i++) {
-        final row = generalEvidences[i];
-        final String pathString = row['caminho_arquivo_encriptado']?.toString() ?? '';
-        if (pathString.isEmpty) continue;
-
-        final achadoVirtual = Achado(
-          uuid: row['uuid'].toString(),
-          casoUuid: casoUuid,
-          diagramaCasoUuid: '',
-          diagramaNome: 'GERAL',
-          tipoAchadoId: 'FOTO_GERAL',
-          numeroSequencial: i,
-          posX: 0.0,
-          posY: 0.0,
-          isInterno: false,
-          versao: 1,
-          removido: false,
-          criadoEm: DateTime.tryParse(row['criado_em']?.toString() ?? '') ?? DateTime.now(),
-          dadosPreenchidos: {
-            'photo_path': pathString,
-            '_evidencia_uuid': row['uuid'].toString(),
-          },
-          tamanho: '',
-          vistaAnatomica: '',
-          localAnatomico: '',
-        );
-        pending.add(achadoVirtual);
-      }
+      return rows;
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (GERAL): $e');
+      debugPrint('[CasoRepository] âŒ getEvidenciasPendentesPorCaso: $e');
+      return [];
     }
+  }
 
-    // 2. Fotos vinculadas a lesões/achados (SQL)
-    try {
-      const sqlAchados = '''
-        SELECT
-          a.*,
-          e.caminho_arquivo_encriptado AS _photo_path_override,
-          e.uuid                        AS _evidencia_uuid
-        FROM $tableAchados a
-        INNER JOIN $tableEvidenciasMultimidia e
-               ON  e.achado_uuid                = a.uuid
-               AND e.removido                   = 0
-               AND e.caminho_arquivo_encriptado IS NOT NULL
-               AND e.caminho_arquivo_encriptado != ''
-               AND e.foto_sincronizada          = 0
-        WHERE a.caso_uuid = ?
-          AND a.removido  = 0
-          AND a.diagrama_nome IS NOT NULL
-          AND a.diagrama_nome != ''
-        ORDER BY a.criado_em ASC
-      ''';
-
-      final rowsAchados = await db.rawQuery(sqlAchados, [casoUuid]);
-
-      for (final row in rowsAchados) {
-        final mutableRow = Map<String, dynamic>.from(row);
-        final dadosJson = mutableRow['dados_preenchidos_json'] as String? ?? '{}';
-        final dados = _decodeJson(dadosJson);
-
-        dados['photo_path'] = row['_photo_path_override'] as String?;
-        dados['_evidencia_uuid'] = row['_evidencia_uuid'] as String?;
-
-        mutableRow['dados_preenchidos_json'] = _encodeJson(dados);
-        mutableRow.remove('_photo_path_override');
-        mutableRow.remove('_evidencia_uuid');
-
-        pending.add(Achado.fromMap(mutableRow));
-      }
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso (SQL): $e');
-    }
-
-    return pending;
+  @override
+  Future<List<Map<String, dynamic>>>
+  getTodasEvidenciasPendentesGlobais() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT 
+        e.uuid AS evidencia_uuid,
+        e.caso_uuid AS caso_uuid_fallback,
+        e.caminho_arquivo_encriptado,
+        e.hash_arquivo,
+        a.uuid AS achado_uuid,
+        a.caso_uuid AS caso_uuid_achado
+      FROM evidencias_multimidia e
+      LEFT JOIN achados a ON e.achado_uuid = a.uuid
+      WHERE e.removido = 0
+        AND e.caminho_arquivo_encriptado IS NOT NULL
+        AND e.caminho_arquivo_encriptado != ''
+        AND e.foto_sincronizada = 0
+    ''');
+    return maps;
   }
 
   @override
@@ -506,19 +1033,37 @@ class CasoRepository implements ISyncRepository {
 
   @override
   Future<void> marcarFotoComoSincronizada(Achado achado) async {
-    final db = await database;
     final evidenciaUuid = achado.dadosPreenchidos['_evidencia_uuid'];
     if (evidenciaUuid != null) {
-      await db.update(
-        tableEvidenciasMultimidia,
-        {'foto_sincronizada': 1},
-        where: 'uuid = ?',
-        whereArgs: [evidenciaUuid],
-      );
+      await marcarEvidenciaComoSincronizada(evidenciaUuid.toString());
     }
   }
 
-  // Novos Métodos para Evidências Gerais e Exames Solicitados
+  @override
+  Future<void> marcarEvidenciaComoSincronizada(String uuid) async {
+    final db = await database;
+    await db.update(
+      tableEvidenciasMultimidia,
+      {'foto_sincronizada': 1},
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+    );
+  }
+
+  @override
+  Future<void> atualizarPdfUrl(String casoUuid, String pdfUrl) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE $tableCasos
+         SET pdf_url       = ?,
+             atualizado_em = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [pdfUrl, DateTime.now().toIso8601String(), casoUuid],
+    );
+  }
 
   Future<EvidenciaMultimidia?> getEvidenciaByUuid(String uuid) async {
     final db = await database;
@@ -538,6 +1083,19 @@ class CasoRepository implements ISyncRepository {
       tableEvidenciasMultimidia,
       where: 'caso_uuid = ? AND tipo = ? AND removido = 0',
       whereArgs: [casoUuid, 'GERAL'],
+    );
+    return maps.map((m) => EvidenciaMultimidia.fromMap(m)).toList();
+  }
+
+  /// Recupera todas as evidÃªncias multimÃ­dia associadas a um caso (tanto gerais quanto de achados).
+  Future<List<EvidenciaMultimidia>> getEvidenciasPorCaso(
+    String casoUuid,
+  ) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableEvidenciasMultimidia,
+      where: 'caso_uuid = ? AND removido = 0',
+      whereArgs: [casoUuid],
     );
     return maps.map((m) => EvidenciaMultimidia.fromMap(m)).toList();
   }
@@ -566,7 +1124,10 @@ class CasoRepository implements ISyncRepository {
     }
   }
 
-  Future<void> _marcarCasoPendenteSync(DatabaseExecutor db, String casoUuid) async {
+  Future<void> _marcarCasoPendenteSync(
+    DatabaseExecutor db,
+    String casoUuid,
+  ) async {
     await db.rawUpdate(
       '''
       UPDATE $tableCasos
@@ -632,9 +1193,7 @@ class CasoRepository implements ISyncRepository {
           } else {
             await txn.update(
               'exames_solicitados',
-              {
-                'numero_lacre': lacre,
-              },
+              {'numero_lacre': lacre},
               where: 'caso_uuid = ? AND tipo_exame = ?',
               whereArgs: [casoUuid, tipo],
             );
@@ -654,90 +1213,118 @@ class CasoRepository implements ISyncRepository {
 
   String _encodeJson(Map<String, dynamic> map) => jsonEncode(map);
 
-  /// Persiste a lista de exames solicitados e suas filhas polimórficas de forma atômica e performática.
-  Future<void> salvarExames(String casoUuid, List<ExameSolicitadoModel> exames) async {
-    // Guard de imutabilidade: bloqueia escrita se o laudo já estiver finalizado
-    final casoAtual = await getCaseByUuid(casoUuid);
-    if (casoAtual != null && casoAtual.status == StatusCaso.finalizado) {
-      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
-    }
+  /// Persiste a lista de exames solicitados e suas filhas polimÃ³rficas de forma atÃ´mica.
+  /// [executor]: Permite rodar dentro de uma transaÃ§Ã£o existente (txn) garantindo atomicidade real.
+  /// [isSyncPull]: Se true, ignora a trava de finalizado e nÃ£o remarca o caso como pendente de sync.
+  Future<void> salvarExames(
+    String casoUuid,
+    List<ExameSolicitadoModel> exames, {
+    DatabaseExecutor? executor,
+    bool isSyncPull = false,
+  }) async {
+    Future<void> executarOperacoes(DatabaseExecutor targetDb) async {
+      final batch = targetDb.batch();
 
-    final db = await database;
-    try {
-      await db.transaction((txn) async {
-        final batch = txn.batch();
+      const subQueryExames =
+          '(SELECT uuid FROM exames_solicitados WHERE caso_uuid = ?)';
+      batch.delete(
+        'detalhes_toxicologico',
+        where: 'exame_uuid IN $subQueryExames',
+        whereArgs: [casoUuid],
+      );
+      batch.delete(
+        'amostras_genetica',
+        where: 'exame_uuid IN $subQueryExames',
+        whereArgs: [casoUuid],
+      );
+      batch.delete(
+        'frascos_anatomo',
+        where: 'exame_uuid IN $subQueryExames',
+        whereArgs: [casoUuid],
+      );
+      batch.delete(
+        'exames_solicitados',
+        where: 'caso_uuid = ?',
+        whereArgs: [casoUuid],
+      );
 
-        // 1. Deleta exames anteriores (ON DELETE CASCADE limpa as filhas automaticamente)
-        batch.delete(
-          'exames_solicitados',
-          where: 'caso_uuid = ?',
-          whereArgs: [casoUuid],
-        );
+      for (final exame in exames) {
+        final mapExame = exame.toMap();
+        // Remover todas as chaves polimÃ³rficas que toSyncMap injeta â€”
+        // a tabela exames_solicitados sÃ³ aceita colunas simples (flat schema).
+        mapExame.remove('detalhes');
+        mapExame.remove('amostras_genetica');
+        mapExame.remove('frascos_anatomo');
+        mapExame.remove('detalhes_toxicologico');
+        mapExame.remove('quantidade_amostras');
+        mapExame.remove('debug_unmatched_detalhes');
+        mapExame.remove('debug_tipo_recebido');
+        mapExame['caso_uuid'] = casoUuid;
+        batch.insert('exames_solicitados', mapExame);
 
-        // 2. Insere a tabela mestra e as dependências relacionais nas filhas
-        for (final exame in exames) {
-          batch.insert('exames_solicitados', exame.toMap());
+        final detalhes = exame.detalhes;
+        if (detalhes == null) continue;
 
-          final detalhes = exame.detalhes;
-          if (detalhes == null) continue;
+        final tipo = exame.tipoExame.toUpperCase().trim();
 
-          final tipo = exame.tipoExame.toUpperCase().trim();
-
-          if (tipo == 'TOXICOLOGICO') {
-            if (detalhes is DetalhesToxicologicoModel) {
-              final itemFinal = detalhes.copyWith(exameUuid: exame.uuid);
-              batch.insert('detalhes_toxicologico', itemFinal.toMap());
-            } else if (detalhes is Map<String, dynamic>) {
-              final map = Map<String, dynamic>.from(detalhes);
-              map['exame_uuid'] = exame.uuid;
-              batch.insert('detalhes_toxicologico', map);
+        if (tipo == 'TOXICOLOGICO') {
+          if (detalhes is DetalhesToxicologicoModel) {
+            batch.insert(
+              'detalhes_toxicologico',
+              detalhes.copyWith(exameUuid: exame.uuid).toMap(),
+            );
+          } else if (detalhes is Map<String, dynamic>) {
+            final map = Map<String, dynamic>.from(detalhes)
+              ..['exame_uuid'] = exame.uuid;
+            batch.insert('detalhes_toxicologico', map);
+          }
+        } else if (tipo == 'GENETICA') {
+          final lista = detalhes is List ? detalhes : [detalhes];
+          for (final item in lista) {
+            if (item is AmostraGeneticaModel) {
+              batch.insert(
+                'amostras_genetica',
+                item.copyWith(exameUuid: exame.uuid).toMap(),
+              );
+            } else if (item is Map<String, dynamic>) {
+              final map = Map<String, dynamic>.from(item)
+                ..['exame_uuid'] = exame.uuid;
+              batch.insert('amostras_genetica', map);
             }
-          } else if (tipo == 'GENETICA') {
-            if (detalhes is List) {
-              for (final item in detalhes) {
-                if (item is AmostraGeneticaModel) {
-                  final itemFinal = item.copyWith(exameUuid: exame.uuid);
-                  batch.insert('amostras_genetica', itemFinal.toMap());
-                } else if (item is Map<String, dynamic>) {
-                  final map = Map<String, dynamic>.from(item);
-                  map['exame_uuid'] = exame.uuid;
-                  batch.insert('amostras_genetica', map);
-                }
-              }
-            } else if (detalhes is AmostraGeneticaModel) {
-              final itemFinal = detalhes.copyWith(exameUuid: exame.uuid);
-              batch.insert('amostras_genetica', itemFinal.toMap());
-            }
-          } else if (tipo == 'ANATOMO') {
-            if (detalhes is List) {
-              for (final item in detalhes) {
-                if (item is FrascoAnatomoModel) {
-                  final itemFinal = item.copyWith(exameUuid: exame.uuid);
-                  batch.insert('frascos_anatomo', itemFinal.toMap());
-                } else if (item is Map<String, dynamic>) {
-                  final map = Map<String, dynamic>.from(item);
-                  map['exame_uuid'] = exame.uuid;
-                  batch.insert('frascos_anatomo', map);
-                }
-              }
-            } else if (detalhes is FrascoAnatomoModel) {
-              final itemFinal = detalhes.copyWith(exameUuid: exame.uuid);
-              batch.insert('frascos_anatomo', itemFinal.toMap());
+          }
+        } else if (tipo == 'ANATOMO') {
+          final lista = detalhes is List ? detalhes : [detalhes];
+          for (final item in lista) {
+            if (item is FrascoAnatomoModel) {
+              batch.insert(
+                'frascos_anatomo',
+                item.copyWith(exameUuid: exame.uuid).toMap(),
+              );
+            } else if (item is Map<String, dynamic>) {
+              final map = Map<String, dynamic>.from(item)
+                ..['exame_uuid'] = exame.uuid;
+              batch.insert('frascos_anatomo', map);
             }
           }
         }
+      }
 
-        await _marcarCasoPendenteSync(txn, casoUuid);
-        await batch.commit(noResult: true);
-      });
-      debugPrint('[CasoRepository] ✅ ${exames.length} exames salvos com sucesso para o caso $casoUuid');
-    } catch (e) {
-      debugPrint('[CasoRepository] ❌ Erro ao salvar exames para o caso $casoUuid: $e');
-      rethrow;
+      if (!isSyncPull) {
+        await _marcarCasoPendenteSync(targetDb, casoUuid);
+      }
+
+      await batch.commit(noResult: true);
+    }
+
+    if (executor != null) {
+      await executarOperacoes(executor);
+    } else {
+      final dbInst = await database;
+      await dbInst.transaction((txn) async => executarOperacoes(txn));
     }
   }
 
-  /// Recupera todos os exames solicitados e suas tabelas filhas polimórficas para um caso específico.
+  /// Recupera todos os exames solicitados e suas tabelas filhas polimÃ³rficas para um caso especÃ­fico.
   Future<List<ExameSolicitadoModel>> getExamesPorCaso(String casoUuid) async {
     final db = await database;
     try {
@@ -761,8 +1348,9 @@ class CasoRepository implements ISyncRepository {
 
       final tiposPorUuid = <String, String>{
         for (final map in examesMaps)
-          map['uuid']!.toString():
-              (map['tipo_exame']?.toString() ?? '').toUpperCase().trim(),
+          map['uuid']!.toString(): (map['tipo_exame']?.toString() ?? '')
+              .toUpperCase()
+              .trim(),
       };
       final toxicUuids = exameUuids
           .where((uuid) => tiposPorUuid[uuid] == 'TOXICOLOGICO')
@@ -900,40 +1488,44 @@ class CasoRepository implements ISyncRepository {
               .toList();
         } else if (tipo == 'ANATOMO') {
           final detalhes = anatomoByExame[exameUuid] ?? [];
-          detalhes.sort((a, b) =>
-              ((a['numero_frasco'] as num?) ?? 0)
-                  .compareTo((b['numero_frasco'] as num?) ?? 0));
+          detalhes.sort(
+            (a, b) => ((a['numero_frasco'] as num?) ?? 0).compareTo(
+              (b['numero_frasco'] as num?) ?? 0,
+            ),
+          );
           detalhesObj = detalhes.map(FrascoAnatomoModel.fromMap).toList();
         }
 
-        return ExameSolicitadoModel.fromMap(
-          mapMestre,
-          detalhes: detalhesObj,
-        );
+        return ExameSolicitadoModel.fromMap(mapMestre, detalhes: detalhesObj);
       }).toList();
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ Erro ao obter exames para o caso $casoUuid: $e');
+      debugPrint(
+        '[CasoRepository] âŒ Erro ao obter exames para o caso $casoUuid: $e',
+      );
       return [];
     }
   }
 
-  /// Executa a exclusão de casos locais para evitar o esgotamento do armazenamento (SQLite).
+  /// Executa a exclusÃ£o de casos locais para evitar o esgotamento do armazenamento (SQLite).
   ///
-  /// Regra de Retenção Forense:
-  /// - Apenas casos com status 'FINALIZADO' são removidos.
-  /// - O caso deve ter sido atualizado há mais de 30 dias.
-  /// - Casos em RASCUNHO ou LAUDO_PENDENTE são blindados e jamais excluídos por esta rotina.
-  /// - A exclusão em cascata das tabelas filhas (Achados, Evidências, Exames) é feita explicitamente
+  /// Regra de RetenÃ§Ã£o Forense:
+  /// - Apenas casos com status 'FINALIZADO' sÃ£o removidos.
+  /// - O caso deve ter sido atualizado hÃ¡ mais de 30 dias.
+  /// - Casos em RASCUNHO ou LAUDO_PENDENTE sÃ£o blindados e jamais excluÃ­dos por esta rotina.
+  /// - A exclusÃ£o em cascata das tabelas filhas (Achados, EvidÃªncias, Exames) Ã© feita explicitamente
   ///   para garantir a limpeza estrutural sem depender exclusivamente de chaves estrangeiras SQLite.
   Future<void> expurgarCasosAntigos() async {
     final db = await database;
     try {
-      final dataLimite = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
-      
+      final dataLimite = DateTime.now()
+          .subtract(const Duration(days: 15))
+          .toIso8601String();
+
       final casosParaExcluir = await db.query(
         tableCasos,
         columns: ['uuid'],
-        where: "status = 'FINALIZADO' AND atualizado_em < ?",
+        where:
+            "status IN ('FINALIZADO', 'SINCRONIZADO', 'CONCLUIDO') AND atualizado_em < ?",
         whereArgs: [dataLimite],
       );
 
@@ -947,16 +1539,55 @@ class CasoRepository implements ISyncRepository {
 
       await db.transaction((txn) async {
         final batch = txn.batch();
-        batch.delete(tableEvidenciasMultimidia, where: 'caso_uuid IN ($placeholders)', whereArgs: uuids);
-        batch.delete(tableAchados, where: 'caso_uuid IN ($placeholders)', whereArgs: uuids);
-        batch.delete('exames_solicitados', where: 'caso_uuid IN ($placeholders)', whereArgs: uuids);
-        batch.delete(tableCasos, where: 'uuid IN ($placeholders)', whereArgs: uuids);
+        batch.delete(
+          tableEvidenciasMultimidia,
+          where: 'caso_uuid IN ($placeholders)',
+          whereArgs: uuids,
+        );
+        batch.delete(
+          tableAchados,
+          where: 'caso_uuid IN ($placeholders)',
+          whereArgs: uuids,
+        );
+
+        final subQuery =
+            '(SELECT uuid FROM exames_solicitados WHERE caso_uuid IN ($placeholders))';
+        batch.delete(
+          'detalhes_toxicologico',
+          where: 'exame_uuid IN $subQuery',
+          whereArgs: uuids,
+        );
+        batch.delete(
+          'amostras_genetica',
+          where: 'exame_uuid IN $subQuery',
+          whereArgs: uuids,
+        );
+        batch.delete(
+          'frascos_anatomo',
+          where: 'exame_uuid IN $subQuery',
+          whereArgs: uuids,
+        );
+
+        batch.delete(
+          'exames_solicitados',
+          where: 'caso_uuid IN ($placeholders)',
+          whereArgs: uuids,
+        );
+        batch.delete(
+          tableCasos,
+          where: 'uuid IN ($placeholders)',
+          whereArgs: uuids,
+        );
         await batch.commit(noResult: true);
       });
 
-      debugPrint('[CasoRepository] Expurgados ${uuids.length} casos finalizados mais antigos que 30 dias e suas dependências.');
+      debugPrint(
+        '[CasoRepository] Expurgados ${uuids.length} casos finalizados mais antigos que 30 dias e suas dependÃªncias.',
+      );
     } catch (e, stackTrace) {
-      debugPrint('[CasoRepository] ❌ Falha na transação de expurgo de casos antigos: $e\\n$stackTrace');
+      debugPrint(
+        '[CasoRepository] âŒ Falha na transaÃ§Ã£o de expurgo de casos antigos: $e\\n$stackTrace',
+      );
     }
   }
 }

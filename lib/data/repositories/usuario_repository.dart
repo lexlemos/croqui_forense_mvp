@@ -1,7 +1,7 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import 'package:croqui_forense_mvp/data/local/database_helper.dart'; 
+import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
-import 'package:croqui_forense_mvp/data/models/papel_model.dart'; 
+import 'package:croqui_forense_mvp/data/models/papel_model.dart';
 
 class UsuarioRepository {
   final DatabaseHelper _dbHelper;
@@ -24,7 +24,7 @@ class UsuarioRepository {
   Future<Usuario?> getUsuarioById(String id) async {
     final db = await database;
     final maps = await db.query('usuarios', where: 'id = ?', whereArgs: [id]);
-    
+
     if (maps.isNotEmpty) return Usuario.fromMap(maps.first);
     return null;
   }
@@ -61,15 +61,20 @@ class UsuarioRepository {
     final whereClause = query != null && query.isNotEmpty
         ? 'WHERE nome_completo LIKE ? OR matricula_funcional LIKE ?'
         : '';
-    final args = query != null && query.isNotEmpty ? ['%$query%', '%$query%'] : [];
-    
-    final result = await db.rawQuery('SELECT COUNT(*) as total FROM usuarios $whereClause', args);
+    final args = query != null && query.isNotEmpty
+        ? ['%$query%', '%$query%']
+        : [];
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as total FROM usuarios $whereClause',
+      args,
+    );
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<List<Papel>> getAllPapeis() async {
     final db = await database;
-    final maps = await db.query('papeis', orderBy: 'nome ASC'); 
+    final maps = await db.query('papeis', orderBy: 'nome ASC');
     return maps.map((e) => Papel.fromMap(e)).toList();
   }
 
@@ -100,7 +105,9 @@ class UsuarioRepository {
         whereArgs: [id],
       );
     } catch (e) {
-      throw Exception('Erro de persistência ao atualizar status do usuário: $e');
+      throw Exception(
+        'Erro de persistência ao atualizar status do usuário: $e',
+      );
     }
   }
 }

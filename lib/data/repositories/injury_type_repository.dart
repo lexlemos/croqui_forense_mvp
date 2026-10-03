@@ -33,7 +33,9 @@ class InjuryTypeRepository {
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
       final existingRows = await txn.query(tableTiposAchados, columns: ['id']);
-      final existingIds = existingRows.map((row) => row['id'] as String).toSet();
+      final existingIds = existingRows
+          .map((row) => row['id'] as String)
+          .toSet();
 
       final batch = txn.batch();
       for (final type in types) {

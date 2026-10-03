@@ -45,7 +45,15 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
   }
 
   void _notifyChanges() {
-    widget.onChanged(List.unmodifiable(_amostras));
+    debugPrint('--- DUMB TEST (WIDGET GENETICA) ---');
+    debugPrint('Total amostras: ${_amostras.length}');
+    for (var a in _amostras) {
+      debugPrint(
+        '  Amostra: ${a.tipoAmostra} | lacre: ${a.numeroLacre} | swabs: ${a.quantidadeSwabs}',
+      );
+      debugPrint('  toMap: ${a.toMap()}');
+    }
+    widget.onChanged(List<AmostraGeneticaModel>.from(_amostras));
   }
 
   bool _hasTipo(String tipo) {
@@ -60,7 +68,12 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
     }
   }
 
-  void _toggleTipoFixa(String tipo, bool isChecked, {bool pesquisaSemen = false, bool pesquisaDna = false}) {
+  void _toggleTipoFixa(
+    String tipo,
+    bool isChecked, {
+    bool pesquisaSemen = false,
+    bool pesquisaDna = false,
+  }) {
     setState(() {
       if (isChecked) {
         if (!_hasTipo(tipo)) {
@@ -177,7 +190,11 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, color: Colors.amber.shade900, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.amber.shade900,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -245,12 +262,17 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
                 child: Text(
                   "Nenhuma outra amostra adicionada.",
-                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ),
 
             for (final entry in amostrasOutras) ...[
               Card(
+                key: ValueKey('amostra_card_${entry.value.uuid}'),
                 elevation: 0,
                 margin: const EdgeInsets.only(bottom: 8),
                 shape: RoundedRectangleBorder(
@@ -266,6 +288,7 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                         children: [
                           Expanded(
                             child: TextFormField(
+                              key: ValueKey('desc_${entry.value.uuid}'),
                               initialValue: entry.value.descricaoOutro,
                               enabled: !widget.readOnly,
                               decoration: const InputDecoration(
@@ -276,14 +299,19 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                               onChanged: (v) {
                                 _updateAmostraAt(
                                   entry.key,
-                                  entry.value.copyWith(descricaoOutro: v.trim()),
+                                  entry.value.copyWith(
+                                    descricaoOutro: v.trim(),
+                                  ),
                                 );
                               },
                             ),
                           ),
                           if (!widget.readOnly)
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.redAccent,
+                              ),
                               tooltip: 'Remover amostra',
                               onPressed: () => _removeAmostraAt(entry.key),
                             ),
@@ -292,16 +320,24 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                       const SizedBox(height: 8),
                       // Campo de lacre individual obrigatório
                       TextFormField(
+                        key: ValueKey('lacre_${entry.value.uuid}'),
                         initialValue: entry.value.numeroLacre ?? '',
                         enabled: !widget.readOnly,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'Nº Lacre do Envelope *',
                           hintText: 'Ex: 123456',
-                          prefixIcon: Icon(Icons.lock_outline, color: Colors.teal.shade700, size: 18),
+                          prefixIcon: Icon(
+                            Icons.lock_outline,
+                            color: Colors.teal.shade700,
+                            size: 18,
+                          ),
                           border: const OutlineInputBorder(),
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                         ),
                         onChanged: (v) {
                           _updateAmostraAt(
@@ -315,7 +351,10 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                         children: [
                           Expanded(
                             child: CheckboxListTile(
-                              title: const Text("Pesquisa de sêmen", style: TextStyle(fontSize: 12)),
+                              title: const Text(
+                                "Pesquisa de sêmen",
+                                style: TextStyle(fontSize: 12),
+                              ),
                               value: entry.value.pesquisaSemen,
                               enabled: !widget.readOnly,
                               dense: true,
@@ -327,14 +366,19 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                                   : (val) {
                                       _updateAmostraAt(
                                         entry.key,
-                                        entry.value.copyWith(pesquisaSemen: val ?? false),
+                                        entry.value.copyWith(
+                                          pesquisaSemen: val ?? false,
+                                        ),
                                       );
                                     },
                             ),
                           ),
                           Expanded(
                             child: CheckboxListTile(
-                              title: const Text("DNA", style: TextStyle(fontSize: 12)),
+                              title: const Text(
+                                "DNA",
+                                style: TextStyle(fontSize: 12),
+                              ),
                               value: entry.value.pesquisaDna,
                               enabled: !widget.readOnly,
                               dense: true,
@@ -346,7 +390,9 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                                   : (val) {
                                       _updateAmostraAt(
                                         entry.key,
-                                        entry.value.copyWith(pesquisaDna: val ?? false),
+                                        entry.value.copyWith(
+                                          pesquisaDna: val ?? false,
+                                        ),
                                       );
                                     },
                             ),
@@ -366,7 +412,9 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                   onPressed: _addAmostraOutro,
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text("Adicionar outra amostra"),
-                  style: TextButton.styleFrom(foregroundColor: Colors.teal.shade800),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.teal.shade800,
+                  ),
                 ),
               ),
 
@@ -384,7 +432,10 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
             const SizedBox(height: 8),
 
             CheckboxListTile(
-              title: const Text("Swab bucal coletado da vítima", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              title: const Text(
+                "Swab bucal coletado da vítima",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
               value: temBucal,
               enabled: !widget.readOnly,
               dense: true,
@@ -392,37 +443,107 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
               controlAffinity: ListTileControlAffinity.leading,
               onChanged: widget.readOnly
                   ? null
-                  : (val) => _toggleTipoFixa(_kSwabBucalVitima, val ?? false, pesquisaDna: true),
+                  : (val) => _toggleTipoFixa(
+                      _kSwabBucalVitima,
+                      val ?? false,
+                      pesquisaDna: true,
+                    ),
             ),
 
             if (temBucal)
               Padding(
                 padding: const EdgeInsets.only(left: 28.0, top: 4, bottom: 8),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Quantidade de swabs: ", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                    if (!widget.readOnly)
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 20),
-                        onPressed: () => _updateTipoFixaQuantity(_kSwabBucalVitima, -1),
+                    TextFormField(
+                      key: const ValueKey('lacre_swab_bucal'),
+                      initialValue: amostraBucal?.numeroLacre ?? '',
+                      enabled: !widget.readOnly,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Nº Lacre do Envelope — Swab Bucal *',
+                        hintText: 'Ex: 123456',
+                        prefixIcon: Icon(
+                          Icons.lock_outline,
+                          color: Colors.teal.shade700,
+                          size: 18,
+                        ),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        helperText:
+                            'Identifica individualmente este envelope lacrado',
+                        helperStyle: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.teal.shade200),
-                      ),
-                      child: Text(
-                        "${amostraBucal?.quantidadeSwabs ?? 1}",
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
+                      onChanged: (v) {
+                        final idx = _amostras.indexWhere(
+                          (a) => a.tipoAmostra == _kSwabBucalVitima,
+                        );
+                        if (idx != -1) {
+                          setState(() {
+                            _amostras[idx] = _amostras[idx].copyWith(
+                              numeroLacre: v.trim(),
+                            );
+                          });
+                          _notifyChanges();
+                        }
+                      },
                     ),
-                    if (!widget.readOnly)
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 20),
-                        onPressed: () => _updateTipoFixaQuantity(_kSwabBucalVitima, 1),
-                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text(
+                          "Quantidade de swabs: ",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (!widget.readOnly)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.remove_circle_outline,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                _updateTipoFixaQuantity(_kSwabBucalVitima, -1),
+                          ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.teal.shade200),
+                          ),
+                          child: Text(
+                            "${amostraBucal?.quantidadeSwabs ?? 1}",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (!widget.readOnly)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                _updateTipoFixaQuantity(_kSwabBucalVitima, 1),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -447,7 +568,10 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CheckboxListTile(
-          title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          title: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
           value: marcado,
           enabled: !widget.readOnly,
           dense: true,
@@ -455,31 +579,48 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
           controlAffinity: ListTileControlAffinity.leading,
           onChanged: widget.readOnly
               ? null
-              : (val) => _toggleTipoFixa(tipo, val ?? false,
-                  pesquisaSemen: pesquisaSemen, pesquisaDna: pesquisaDna),
+              : (val) => _toggleTipoFixa(
+                  tipo,
+                  val ?? false,
+                  pesquisaSemen: pesquisaSemen,
+                  pesquisaDna: pesquisaDna,
+                ),
         ),
         if (marcado && amostra != null)
           Padding(
             padding: const EdgeInsets.only(left: 52, right: 12, bottom: 8),
             child: TextFormField(
+              key: ValueKey('lacre_$tipo'),
               initialValue: amostra.numeroLacre ?? '',
               enabled: !widget.readOnly,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Nº Lacre do Envelope *',
                 hintText: 'Ex: 123456',
-                prefixIcon: Icon(Icons.lock_outline, color: Colors.teal.shade700, size: 18),
+                prefixIcon: Icon(
+                  Icons.lock_outline,
+                  color: Colors.teal.shade700,
+                  size: 18,
+                ),
                 border: const OutlineInputBorder(),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 helperText: 'Identifica individualmente este envelope lacrado',
-                helperStyle: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                helperStyle: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade600,
+                ),
               ),
               onChanged: (v) {
                 final idx = _amostras.indexWhere((a) => a.tipoAmostra == tipo);
                 if (idx != -1) {
                   setState(() {
-                    _amostras[idx] = _amostras[idx].copyWith(numeroLacre: v.trim());
+                    _amostras[idx] = _amostras[idx].copyWith(
+                      numeroLacre: v.trim(),
+                    );
                   });
                   _notifyChanges();
                 }

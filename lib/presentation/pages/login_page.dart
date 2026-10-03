@@ -45,13 +45,17 @@ class _LoginPageState extends State<LoginPage> {
                 'assets/images/logo/logo-policia-se.jpeg',
                 height: 100,
                 fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                errorBuilder: (context, error, stackTrace) =>
+                    const SizedBox.shrink(),
               ),
             ),
-            
+
             Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 64.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32.0,
+                  vertical: 64.0,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 400),
                   child: Form(
@@ -62,15 +66,19 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         Image.asset(
                           'assets/images/logo/logo-croqui.png',
-                          height: 250, 
+                          height: 250,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.broken_image, size: 80, color: Colors.grey);
+                            return const Icon(
+                              Icons.broken_image,
+                              size: 80,
+                              color: Colors.grey,
+                            );
                           },
                         ),
-                        
+
                         const SizedBox(height: 42),
-                        
+
                         TextFormField(
                           controller: _controller.loginController,
                           keyboardType: TextInputType.emailAddress,
@@ -81,11 +89,13 @@ class _LoginPageState extends State<LoginPage> {
                             border: OutlineInputBorder(),
                           ),
                           textInputAction: TextInputAction.next,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o e-mail ou login.' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Informe o e-mail ou login.'
+                              : null,
                         ),
-                        
+
                         const SizedBox(height: 16),
-  
+
                         TextFormField(
                           controller: _controller.senhaController,
                           obscureText: _obscureSenha,
@@ -95,37 +105,60 @@ class _LoginPageState extends State<LoginPage> {
                             prefixIcon: const Icon(Icons.lock_outline),
                             border: const OutlineInputBorder(),
                             suffixIcon: IconButton(
-                              icon: Icon(_obscureSenha ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
+                              icon: Icon(
+                                _obscureSenha
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscureSenha = !_obscureSenha,
+                              ),
                             ),
                           ),
                           textInputAction: TextInputAction.done,
-                          onFieldSubmitted: (_) => _controller.submitLogin(context),
-                          validator: (v) => (v == null || v.isEmpty) ? 'Informe a senha.' : null,
+                          onFieldSubmitted: (_) =>
+                              _controller.submitLogin(context),
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Informe a senha.'
+                              : null,
                         ),
-                        
+
                         const SizedBox(height: 32),
-  
+
                         Selector<AuthProvider, bool>(
                           selector: (_, provider) => provider.isLoading,
                           builder: (context, isLoading, child) {
                             return SizedBox(
                               height: 50,
                               child: FilledButton(
-                                onPressed: isLoading ? null : () => _controller.submitLogin(context),
+                                onPressed: isLoading
+                                    ? null
+                                    : () => _controller.submitLogin(context),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppColors.loginButtonBg,
-                                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  textStyle: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                                 child: isLoading
-                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : const Text('ENTRAR'),
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('ENTRAR'),
                               ),
                             );
                           },
                         ),
-                        
+
                         const SizedBox(height: 24),
                         const Text(
                           "SECRETARIA DE SEGURANÇA PÚBLICA DO ESTADO DE SERGIPE",

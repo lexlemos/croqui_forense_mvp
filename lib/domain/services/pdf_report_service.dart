@@ -2,7 +2,8 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
-import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart' as em;
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart'
+    as em;
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 
@@ -57,9 +58,13 @@ class PdfReportService {
           if (oldFile.existsSync()) {
             try {
               await oldFile.delete();
-              debugPrint('[PdfReportService] 🧹 PDF residual antigo removido de caso sincronizado: $localPath');
+              debugPrint(
+                '[PdfReportService] 🧹 PDF residual antigo removido de caso sincronizado: $localPath',
+              );
             } catch (e) {
-              debugPrint('[PdfReportService] ⚠️ Falha ao remover PDF residual antigo: $e');
+              debugPrint(
+                '[PdfReportService] ⚠️ Falha ao remover PDF residual antigo: $e',
+              );
             }
           }
         }
@@ -94,10 +99,15 @@ class PdfReportService {
         if (entity is File && entity.path.endsWith('.pdf')) {
           final fileName = entity.path.split(Platform.pathSeparator).last;
           if (fileName.startsWith('laudo_') && fileName.endsWith('.pdf')) {
-            final uuid = fileName.substring('laudo_'.length, fileName.length - '.pdf'.length);
+            final uuid = fileName.substring(
+              'laudo_'.length,
+              fileName.length - '.pdf'.length,
+            );
             if (!ativosSet.contains(uuid)) {
               await entity.delete();
-              debugPrint('[PdfReportService] 🧹 PDF órfão removido com sucesso: ${entity.path}');
+              debugPrint(
+                '[PdfReportService] 🧹 PDF órfão removido com sucesso: ${entity.path}',
+              );
             }
           }
         }

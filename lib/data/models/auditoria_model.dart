@@ -5,10 +5,7 @@ class AuditoriaModel {
   final String? peritoResponsavel;
   final String? dataFinalizacao;
 
-  AuditoriaModel({
-    this.peritoResponsavel,
-    this.dataFinalizacao,
-  });
+  AuditoriaModel({this.peritoResponsavel, this.dataFinalizacao});
 
   factory AuditoriaModel.fromJson(Map<String, dynamic> json) {
     return AuditoriaModel(

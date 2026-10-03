@@ -42,13 +42,17 @@ class _HomePageState extends State<HomePage> {
     try {
       await domainSyncService.syncTiposAchados();
     } catch (e, stackTrace) {
-      debugPrint('[HomePage] Falha ao sincronizar tipos de achados: $e\n$stackTrace');
+      debugPrint(
+        '[HomePage] Falha ao sincronizar tipos de achados: $e\n$stackTrace',
+      );
     }
 
     try {
       await domainSyncService.syncAtns();
     } catch (e, stackTrace) {
-      debugPrint('[HomePage] Falha ao sincronizar catálogo de ATNs: $e\n$stackTrace');
+      debugPrint(
+        '[HomePage] Falha ao sincronizar catálogo de ATNs: $e\n$stackTrace',
+      );
     }
   }
 
@@ -91,7 +95,10 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(20),

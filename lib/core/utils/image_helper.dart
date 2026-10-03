@@ -4,12 +4,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 class ImageHelper {
-  
   static Future<File> compressImage(File file, String fotoUuid) async {
     final dir = await getApplicationDocumentsDirectory();
-    
+
     final evidenciasDir = Directory(p.join(dir.path, 'evidencias'));
-    
+
     if (!await evidenciasDir.exists()) {
       await evidenciasDir.create(recursive: true);
     }
@@ -26,11 +25,11 @@ class ImageHelper {
     var result = await FlutterImageCompress.compressAndGetFile(
       file.absolute.path,
       targetPath,
-      quality: 70, 
-      minWidth: 1200, 
+      quality: 70,
+      minWidth: 1200,
       minHeight: 1200,
-      rotate: 0, 
-      keepExif: true, 
+      rotate: 0,
+      keepExif: true,
     );
 
     if (result == null) {

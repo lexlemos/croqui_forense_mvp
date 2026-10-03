@@ -8,8 +8,8 @@ import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/key_derivators/api.dart';
 
 class SecurityHelper {
-  static const int _iterations = 310000; 
-  static const int _keyLength = 32; 
+  static const int _iterations = 310000;
+  static const int _keyLength = 32;
   static const int _saltLength = 16;
 
   static String generateSalt() {
@@ -23,7 +23,7 @@ class SecurityHelper {
 
   static String hashPin(String pin, String salt) {
     final saltBytes = base64Decode(salt);
-    final pinBytes = utf8.encode(pin); 
+    final pinBytes = utf8.encode(pin);
 
     final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64));
 
@@ -37,7 +37,7 @@ class SecurityHelper {
   static bool verifyPin(String inputPin, String storedHash, String storedSalt) {
     try {
       final newHash = hashPin(inputPin, storedSalt);
-      
+
       return _constantTimeCompare(newHash, storedHash);
     } catch (e) {
       return false;

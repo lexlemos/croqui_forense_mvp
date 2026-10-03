@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:croqui_forense_mvp/core/network/api_client.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
@@ -32,8 +33,8 @@ import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/user_management_provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/widgets/common/auth_wrapper.dart';
-import 'package:croqui_forense_mvp/core/theme/app_colors.dart';import 'package:sentry_flutter/sentry_flutter.dart';
-
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -56,8 +57,30 @@ void main() async {
 
   DatabaseHelper.init(dbFactory, keyStorage);
 
+  // [AUDITORIA INVESTIGATIVA SQLITE NO STARTUP]
+  try {
+    final db = await DatabaseHelper.instance.database;
+    final total = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM evidencias_multimidia'),
+    );
+    final pendentes = Sqflite.firstIntValue(
+      await db.rawQuery(
+        'SELECT COUNT(*) FROM evidencias_multimidia WHERE foto_sincronizada = 0',
+      ),
+    );
+    debugPrint(
+      'AUDITORIA SQLITE (Startup): Total Fotos: $total | Pendentes (foto_sincronizada = 0): $pendentes',
+    );
+    final amostra = await db.rawQuery(
+      'SELECT uuid, caso_uuid, achado_uuid, tipo, foto_sincronizada, caminho_arquivo_encriptado FROM evidencias_multimidia LIMIT 5',
+    );
+    debugPrint('AUDITORIA SQLITE (Startup Amostra): $amostra');
+  } catch (e) {
+    debugPrint('AUDITORIA SQLITE (Startup Erro): $e');
+  }
+
   // Garbage Collection: remove arquivos órfãos e expurga arquivos físicos e
-  // registros SQLite de laudos finalizados, sincronizados na nuvem e com mais de 30 dias.
+  // registros SQLite de laudos finalizados, sincronizados na nuvem e com mais de 15 dias.
   // O bloco try/catch garante que uma falha na limpeza nunca impeça o app de abrir.
   try {
     final storageGcService = LocalStorageGcService(
@@ -69,73 +92,72 @@ void main() async {
     debugPrint('[GC] ⚠️ Falha silenciosa na rotina de Garbage Collection: $e');
   }
 
-  await SentryFlutter.init(
-    (options) {
-      options.dsn = dotenv.env['SENTRY_DSN'];
-      // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
-      // We recommend adjusting this value in production.
-      options.tracesSampleRate = 1.0;
-      // The sampling rate for profiling is relative to tracesSampleRate
-      // Setting to 1.0 will profile 100% of sampled transactions:
-      options.profilesSampleRate = 1.0;
-      
-      options.beforeSend = (event, hint) {
-        try {
-          final bool isConnectivityError = event.exceptions?.any((e) {
-            final type = e.type?.toLowerCase() ?? '';
-            return type.contains('socketexception') ||
-                   type.contains('handshakeexception') ||
-                   type.contains('timeoutexception');
-          }) ?? false;
+  await SentryFlutter.init((options) {
+    options.dsn = dotenv.env['SENTRY_DSN'];
+    // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
+    // We recommend adjusting this value in production.
+    options.tracesSampleRate = 1.0;
 
-          if (isConnectivityError) {
-            return null; 
-          }
+    options.beforeSend = (event, hint) {
+      try {
+        final bool isConnectivityError =
+            event.exceptions?.any((e) {
+              final type = e.type?.toLowerCase() ?? '';
+              return type.contains('socketexception') ||
+                  type.contains('handshakeexception') ||
+                  type.contains('timeoutexception');
+            }) ??
+            false;
 
-          final cpfRegex = RegExp(r'\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b');
-          final laudoRegex = RegExp(r'"dados_laudo"\s*:\s*\{.*?\}', dotAll: true);
-
-          String maskData(String? input) {
-            if (input == null) return '';
-            var masked = input.replaceAll(cpfRegex, '[CPF_MASCARADO]');
-            masked = masked.replaceAll(laudoRegex, '"dados_laudo": "[DADOS_MASCARADOS]"');
-            return masked;
-          }
-
-          if (event.message != null) {
-            event.message!.formatted = maskData(event.message!.formatted);
-          }
-
-          event.exceptions?.forEach((e) {
-            e.value = maskData(e.value);
-            e.type = maskData(e.type);
-          });
-
-          event.breadcrumbs?.forEach((b) {
-            b.message = maskData(b.message);
-            if (b.data != null) {
-              final newData = <String, dynamic>{};
-              b.data!.forEach((key, value) {
-                if (value is String) {
-                  newData[key] = maskData(value);
-                } else {
-                  newData[key] = value;
-                }
-              });
-              b.data!.clear();
-              b.data!.addAll(newData);
-            }
-          });
-
-          return event;
-        } catch (e) {
-          debugPrint('Sentry beforeSend falhou ao mascarar dados: $e');
-          return null; 
+        if (isConnectivityError) {
+          return null;
         }
-      };
-    },
-    appRunner: () => runApp(SentryWidget(child: const AppRoot())),
-  );
+
+        final cpfRegex = RegExp(r'\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b');
+        final laudoRegex = RegExp(r'"dados_laudo"\s*:\s*\{.*?\}', dotAll: true);
+
+        String maskData(String? input) {
+          if (input == null) return '';
+          var masked = input.replaceAll(cpfRegex, '[CPF_MASCARADO]');
+          masked = masked.replaceAll(
+            laudoRegex,
+            '"dados_laudo": "[DADOS_MASCARADOS]"',
+          );
+          return masked;
+        }
+
+        if (event.message != null) {
+          event.message!.formatted = maskData(event.message!.formatted);
+        }
+
+        event.exceptions?.forEach((e) {
+          e.value = maskData(e.value);
+          e.type = maskData(e.type);
+        });
+
+        event.breadcrumbs?.forEach((b) {
+          b.message = maskData(b.message);
+          if (b.data != null) {
+            final newData = <String, dynamic>{};
+            b.data!.forEach((key, value) {
+              if (value is String) {
+                newData[key] = maskData(value);
+              } else {
+                newData[key] = value;
+              }
+            });
+            b.data!.clear();
+            b.data!.addAll(newData);
+          }
+        });
+
+        return event;
+      } catch (e) {
+        debugPrint('Sentry beforeSend falhou ao mascarar dados: $e');
+        return null;
+      }
+    };
+  }, appRunner: () => runApp(SentryWidget(child: const AppRoot())));
   // TODO: Remove this line after sending the first sample event to sentry.
   await Sentry.captureException(Exception('This is a sample exception.'));
 }
@@ -146,32 +168,22 @@ class AppRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final keyStorage = SecureKeyStorage();
-    final dbHelper = DatabaseHelper.instance; 
+    final dbHelper = DatabaseHelper.instance;
 
     return MultiProvider(
       providers: [
-        Provider<UsuarioRepository>(
-          create: (_) => UsuarioRepository(dbHelper),
-        ),
-        Provider<CasoRepository>(
-          create: (_) => CasoRepository(dbHelper),
-        ),
-        Provider<AchadoRepository>(
-          create: (_) => AchadoRepository(dbHelper),
-        ),
+        Provider<UsuarioRepository>(create: (_) => UsuarioRepository(dbHelper)),
+        Provider<CasoRepository>(create: (_) => CasoRepository(dbHelper)),
+        Provider<AchadoRepository>(create: (_) => AchadoRepository(dbHelper)),
         Provider<DiagramaRepository>(
           create: (_) => DiagramaRepository(dbHelper),
         ),
         Provider<InjuryTypeRepository>(
           create: (_) => InjuryTypeRepository(dbHelper),
         ),
-        Provider<AtnRepository>(
-          create: (_) => AtnRepository(dbHelper),
-        ),
+        Provider<AtnRepository>(create: (_) => AtnRepository(dbHelper)),
 
-        Provider<ApiClient>(
-          create: (_) => ApiClient(keyStorage),
-        ),
+        Provider<ApiClient>(create: (_) => ApiClient(keyStorage)),
         Provider<IRemoteDataSource>(
           create: (ctx) => RemoteDataSourceImpl(ctx.read<ApiClient>()),
         ),
@@ -180,8 +192,14 @@ class AppRoot extends StatelessWidget {
           update: (_, repo, remoteDS, prev) =>
               prev ?? AuthService(repo, keyStorage, remoteDS),
         ),
-        ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
-          update: (_, casoRepo, usuarioRepo, __) => CaseService(casoRepo, usuarioRepo),
+        ProxyProvider3<
+          CasoRepository,
+          UsuarioRepository,
+          IRemoteDataSource,
+          CaseService
+        >(
+          update: (_, casoRepo, usuarioRepo, remoteDS, __) =>
+              CaseService(casoRepo, usuarioRepo, remoteDS),
         ),
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),
@@ -190,24 +208,33 @@ class AppRoot extends StatelessWidget {
           update: (_, achadoRepo, __) => AchadoService(achadoRepo),
         ),
 
-        ProxyProvider3<IRemoteDataSource, InjuryTypeRepository, AtnRepository, DomainSyncService>(
+        ProxyProvider3<
+          IRemoteDataSource,
+          InjuryTypeRepository,
+          AtnRepository,
+          DomainSyncService
+        >(
           update: (_, remoteDS, injuryTypeRepo, atnRepo, prev) =>
-              prev ?? DomainSyncService(
+              prev ??
+              DomainSyncService(
                 remoteDataSource: remoteDS,
                 injuryTypeRepository: injuryTypeRepo,
                 atnRepository: atnRepo,
               ),
         ),
-        ProxyProvider3<IRemoteDataSource, CasoRepository, AuthService, SyncService>(
+        ProxyProvider3<
+          IRemoteDataSource,
+          CasoRepository,
+          AuthService,
+          SyncService
+        >(
           update: (_, remoteDS, casoRepo, authService, __) => SyncService(
             remoteDataSource: remoteDS,
             repository: casoRepo,
             authService: authService,
           ),
         ),
-        Provider<PdfGenerationService>(
-          create: (_) => PdfGenerationService(),
-        ),
+        Provider<PdfGenerationService>(create: (_) => PdfGenerationService()),
         ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, apiClient, previous) {
@@ -217,7 +244,12 @@ class AppRoot extends StatelessWidget {
           },
         ),
 
-        ChangeNotifierProxyProvider3<CaseService, SyncService, AuthService, CaseListProvider>(
+        ChangeNotifierProxyProvider3<
+          CaseService,
+          SyncService,
+          AuthService,
+          CaseListProvider
+        >(
           create: (ctx) => CaseListProvider(
             ctx.read<CaseService>(),
             syncService: ctx.read<SyncService>(),
@@ -233,12 +265,14 @@ class AppRoot extends StatelessWidget {
 
         ChangeNotifierProxyProvider<UserService, UserManagementProvider>(
           create: (ctx) => UserManagementProvider(ctx.read<UserService>()),
-          update: (_, userService, previous) => previous!..updateService(userService),
+          update: (_, userService, previous) =>
+              previous!..updateService(userService),
         ),
 
         ChangeNotifierProxyProvider<SyncService, SyncProvider>(
           create: (ctx) => SyncProvider(ctx.read<SyncService>()),
-          update: (_, syncService, previous) => previous!..updateService(syncService),
+          update: (_, syncService, previous) =>
+              previous!..updateService(syncService),
         ),
       ],
       child: const CroquiApp(),
@@ -284,9 +318,7 @@ class _CroquiAppState extends State<CroquiApp> {
         ),
       ),
       home: const AuthWrapper(),
-      routes: {
-        '/login': (context) => const AuthWrapper(),
-      },
+      routes: {'/login': (context) => const AuthWrapper()},
     );
   }
 }

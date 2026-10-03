@@ -27,16 +27,16 @@ class UserService {
   /// - [query]: Filtro de busca textual opcional (ex: por nome ou matrícula funcional).
   ///
   /// @throws DatabaseException se ocorrer erro de leitura no banco de dados local.
-  Future<Map<String, dynamic>> listarUsuarios({int page = 0, String? query}) async {
+  Future<Map<String, dynamic>> listarUsuarios({
+    int page = 0,
+    String? query,
+  }) async {
     final results = await Future.wait([
       _repository.getUsuarios(page: page, query: query),
       _repository.countUsuarios(query: query),
     ]);
 
-    return {
-      'lista': results[0] as List<Usuario>,
-      'total': results[1] as int,
-    };
+    return {'lista': results[0] as List<Usuario>, 'total': results[1] as int};
   }
 
   /// Lista todos os papéis e cargos funcionais cadastrados para os peritos e profissionais.
@@ -75,7 +75,7 @@ class UserService {
 
     final newId = const Uuid().v4();
     final novoUsuario = Usuario(
-      id: newId, 
+      id: newId,
       matriculaFuncional: matricula,
       nomeCompleto: nome,
       roles: [role],
@@ -100,8 +100,8 @@ class UserService {
   /// @throws Exception Caso o perito tente desativar a si próprio.
   /// @throws DatabaseException se houver falha na escrita do novo status no repositório.
   Future<void> alternarStatusUsuario({
-    required Usuario usuarioAlvo, 
-    required String idUsuarioLogado
+    required Usuario usuarioAlvo,
+    required String idUsuarioLogado,
   }) async {
     if (usuarioAlvo.id == idUsuarioLogado) {
       throw Exception('Você não pode desativar seu próprio usuário.');

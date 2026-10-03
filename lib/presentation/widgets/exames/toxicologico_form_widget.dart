@@ -22,23 +22,23 @@ class ToxicologicoFormWidget extends StatefulWidget {
 
 class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
   // Controladores criados imediatamente (não late) para evitar LateInitializationError.
-  final TextEditingController _historicoOutroCtrl   = TextEditingController();
-  final TextEditingController _materialSgOutroCtrl  = TextEditingController();
-  final TextEditingController _lacreSgCtrl          = TextEditingController();
-  final TextEditingController _lacreUrCtrl          = TextEditingController();
-  final TextEditingController _lacreHvCtrl          = TextEditingController();
-  final TextEditingController _lacreCeCtrl          = TextEditingController();
-  final TextEditingController _lacrePmCtrl          = TextEditingController();
+  final TextEditingController _historicoOutroCtrl = TextEditingController();
+  final TextEditingController _materialSgOutroCtrl = TextEditingController();
+  final TextEditingController _lacreSgCtrl = TextEditingController();
+  final TextEditingController _lacreUrCtrl = TextEditingController();
+  final TextEditingController _lacreHvCtrl = TextEditingController();
+  final TextEditingController _lacreCeCtrl = TextEditingController();
+  final TextEditingController _lacrePmCtrl = TextEditingController();
 
   String? _historicoOcorrencia;
-  bool _materialSg         = false;
-  bool _materialSgFemoral  = false;
+  bool _materialSg = false;
+  bool _materialSgFemoral = false;
   bool _materialSgCardiaca = false;
-  bool _materialUrina      = false;
-  bool _materialHumorVitreo= false;
-  bool _materialEstomago   = false;
-  bool _materialPulmao     = false;
-  bool _quantificacaoDrogas= false;
+  bool _materialUrina = false;
+  bool _materialHumorVitreo = false;
+  bool _materialEstomago = false;
+  bool _materialPulmao = false;
+  bool _quantificacaoDrogas = false;
 
   static const List<String> _opcoesHistorico = [
     'Ferimento por arma de fogo (FAF)',
@@ -72,26 +72,42 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
       outroHist = _historicoOcorrencia!;
       _historicoOcorrencia = 'Outro';
     }
-    _historicoOutroCtrl.text = outroHist;
+    if (_historicoOutroCtrl.text != outroHist) {
+      _historicoOutroCtrl.text = outroHist;
+    }
 
-    _materialSgFemoral  = data?.materialSgFemoral  ?? false;
+    _materialSgFemoral = data?.materialSgFemoral ?? false;
     _materialSgCardiaca = data?.materialSgCardiaca ?? false;
-    _materialSgOutroCtrl.text = data?.materialSgOutro ?? '';
+    if (_materialSgOutroCtrl.text != (data?.materialSgOutro ?? '')) {
+      _materialSgOutroCtrl.text = data?.materialSgOutro ?? '';
+    }
     _materialSg = data != null
         ? (data.materialSgFemoral ||
-            data.materialSgCardiaca ||
-            (data.materialSgOutro?.isNotEmpty == true))
+              data.materialSgCardiaca ||
+              (data.materialSgOutro?.isNotEmpty == true) ||
+              (data.numeroLacreSg?.isNotEmpty == true) ||
+              data.quantificacaoDrogas)
         : false;
 
-    _lacreSgCtrl.text = data?.numeroLacreSg ?? '';
-    _materialUrina       = data?.materialUrina       ?? false;
-    _lacreUrCtrl.text    = data?.numeroLacreUr       ?? '';
+    if (_lacreSgCtrl.text != (data?.numeroLacreSg ?? '')) {
+      _lacreSgCtrl.text = data?.numeroLacreSg ?? '';
+    }
+    _materialUrina = data?.materialUrina ?? false;
+    if (_lacreUrCtrl.text != (data?.numeroLacreUr ?? '')) {
+      _lacreUrCtrl.text = data?.numeroLacreUr ?? '';
+    }
     _materialHumorVitreo = data?.materialHumorVitreo ?? false;
-    _lacreHvCtrl.text    = data?.numeroLacreHv       ?? '';
-    _materialEstomago    = data?.materialEstomago    ?? false;
-    _lacreCeCtrl.text    = data?.numeroLacreCe       ?? '';
-    _materialPulmao      = data?.materialPulmao      ?? false;
-    _lacrePmCtrl.text    = data?.numeroLacrePm       ?? '';
+    if (_lacreHvCtrl.text != (data?.numeroLacreHv ?? '')) {
+      _lacreHvCtrl.text = data?.numeroLacreHv ?? '';
+    }
+    _materialEstomago = data?.materialEstomago ?? false;
+    if (_lacreCeCtrl.text != (data?.numeroLacreCe ?? '')) {
+      _lacreCeCtrl.text = data?.numeroLacreCe ?? '';
+    }
+    _materialPulmao = data?.materialPulmao ?? false;
+    if (_lacrePmCtrl.text != (data?.numeroLacrePm ?? '')) {
+      _lacrePmCtrl.text = data?.numeroLacrePm ?? '';
+    }
     _quantificacaoDrogas = data?.quantificacaoDrogas ?? false;
   }
 
@@ -112,11 +128,13 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
       uuid: widget.initialData?.uuid ?? '',
       exameUuid: widget.initialData?.exameUuid ?? '',
       historicoOcorrencia: _historicoOcorrencia,
-      historicoOutro:
-          _historicoOcorrencia == 'Outro' ? _historicoOutroCtrl.text.trim() : null,
+      historicoOutro: _historicoOcorrencia == 'Outro'
+          ? _historicoOutroCtrl.text.trim()
+          : null,
       materialSgFemoral: _materialSg ? _materialSgFemoral : false,
       materialSgCardiaca: _materialSg ? _materialSgCardiaca : false,
-      materialSgOutro: _materialSg && _materialSgOutroCtrl.text.trim().isNotEmpty
+      materialSgOutro:
+          _materialSg && _materialSgOutroCtrl.text.trim().isNotEmpty
           ? _materialSgOutroCtrl.text.trim()
           : null,
       numeroLacreSg: _materialSg && _lacreSgCtrl.text.trim().isNotEmpty
@@ -140,6 +158,12 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
           : null,
       quantificacaoDrogas: _quantificacaoDrogas,
     );
+    debugPrint('--- DUMB TEST (WIDGET TOXICOLOGICO) ---');
+    debugPrint('exameUuid: ${model.exameUuid}');
+    debugPrint('materialSgFemoral: ${model.materialSgFemoral}');
+    debugPrint('materialUrina: ${model.materialUrina}');
+    debugPrint('numeroLacreSg: ${model.numeroLacreSg}');
+    debugPrint('toMap: ${model.toMap()}');
     widget.onChanged(model);
   }
 
@@ -157,10 +181,17 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
         decoration: InputDecoration(
           labelText: 'Nº Lacre — $label *',
           hintText: 'Ex: 123456',
-          prefixIcon: Icon(Icons.lock_outline, color: Colors.purple.shade600, size: 18),
+          prefixIcon: Icon(
+            Icons.lock_outline,
+            color: Colors.purple.shade600,
+            size: 18,
+          ),
           border: const OutlineInputBorder(),
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
           helperText: 'Identifica individualmente este recipiente lacrado',
           helperStyle: TextStyle(fontSize: 10, color: Colors.grey.shade600),
         ),
@@ -301,8 +332,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CheckboxListTile(
-                        title: const Text('Veia femoral',
-                            style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          'Veia femoral',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: _materialSgFemoral,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -311,13 +344,17 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                         onChanged: widget.readOnly
                             ? null
                             : (val) {
-                                setState(() => _materialSgFemoral = val ?? false);
+                                setState(
+                                  () => _materialSgFemoral = val ?? false,
+                                );
                                 _notifyChanges();
                               },
                       ),
                       CheckboxListTile(
-                        title: const Text('Cavidade cardíaca',
-                            style: TextStyle(fontSize: 13)),
+                        title: const Text(
+                          'Cavidade cardíaca',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         value: _materialSgCardiaca,
                         enabled: !widget.readOnly,
                         dense: true,
@@ -326,7 +363,9 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                         onChanged: widget.readOnly
                             ? null
                             : (val) {
-                                setState(() => _materialSgCardiaca = val ?? false);
+                                setState(
+                                  () => _materialSgCardiaca = val ?? false,
+                                );
                                 _notifyChanges();
                               },
                       ),
@@ -338,8 +377,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                           labelText: 'Outro sítio de coleta de sangue',
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                         ),
                         onChanged: (_) => _notifyChanges(),
                       ),
@@ -349,7 +390,9 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                         title: const Text(
                           'Quantificação de drogas / fármacos?',
                           style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                         subtitle: const Text(
                           'Solicitar análise quantitativa em sangue',
@@ -376,8 +419,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
 
             // ── UR Urina ──────────────────────────────────────────────────
             CheckboxListTile(
-              title: const Text('UR Urina (coletor universal)',
-                  style: TextStyle(fontSize: 14)),
+              title: const Text(
+                'UR Urina (coletor universal)',
+                style: TextStyle(fontSize: 14),
+              ),
               value: _materialUrina,
               enabled: !widget.readOnly,
               dense: true,
@@ -398,8 +443,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
 
             // ── HV Humor Vítreo ───────────────────────────────────────────
             CheckboxListTile(
-              title: const Text('HV Humor vítreo (tubo vacutainer)',
-                  style: TextStyle(fontSize: 14)),
+              title: const Text(
+                'HV Humor vítreo (tubo vacutainer)',
+                style: TextStyle(fontSize: 14),
+              ),
               value: _materialHumorVitreo,
               enabled: !widget.readOnly,
               dense: true,
@@ -420,8 +467,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
 
             // ── CE Estômago ───────────────────────────────────────────────
             CheckboxListTile(
-              title: const Text('CE Estômago (conteúdo estomacal)',
-                  style: TextStyle(fontSize: 14)),
+              title: const Text(
+                'CE Estômago (conteúdo estomacal)',
+                style: TextStyle(fontSize: 14),
+              ),
               value: _materialEstomago,
               enabled: !widget.readOnly,
               dense: true,
@@ -442,8 +491,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
 
             // ── PM Pulmão ─────────────────────────────────────────────────
             CheckboxListTile(
-              title: const Text('PM Pulmão (fragmentos)',
-                  style: TextStyle(fontSize: 14)),
+              title: const Text(
+                'PM Pulmão (fragmentos)',
+                style: TextStyle(fontSize: 14),
+              ),
               value: _materialPulmao,
               enabled: !widget.readOnly,
               dense: true,

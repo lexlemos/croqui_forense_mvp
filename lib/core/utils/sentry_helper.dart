@@ -5,10 +5,7 @@ class SentryHelper {
   /// NUNCA enviar nomes reais ou e-mails por questões de privacidade.
   static void setUser({required String userId, required String deviceId}) {
     Sentry.configureScope((scope) {
-      scope.setUser(SentryUser(
-        id: userId,
-        data: {'device_id': deviceId},
-      ));
+      scope.setUser(SentryUser(id: userId, data: {'device_id': deviceId}));
     });
   }
 

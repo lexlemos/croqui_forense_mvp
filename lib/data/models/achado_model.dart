@@ -1,4 +1,4 @@
-import 'dart:convert'; 
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
 class Achado {
@@ -28,6 +28,22 @@ class Achado {
   final String vistaAnatomica;
   final String localAnatomico;
 
+  /// Especifica a natureza balística da lesão (ex: Entrada, Saída, Raspão).
+  /// Fundamental para determinar a trajetória do projétil na dinâmica do crime.
+  final String? tipoFerimento;
+
+  /// Número do lacre de segurança utilizado para acondicionar o vestígio físico (projétil, estojo, etc).
+  /// Elemento crucial para garantir a rastreabilidade e a validade jurídica da cadeia de custódia.
+  final String? numeroLacre;
+
+  /// Descreve a natureza do vestígio físico recolhido (ex: Projétil, Estojo, Fragmento, Roupa).
+  /// Atua em conjunto com o [numeroLacre] para individualizar o objeto na cadeia de custódia.
+  final String? tipoObjeto;
+
+  /// Observações pormenorizadas exclusivas sobre o vestígio recolhido e seu acondicionamento.
+  /// Complementa as evidências materiais garantindo que peculiaridades do objeto sejam registradas.
+  final String? comentarioAdicional;
+
   Achado({
     required this.uuid,
     required this.casoUuid,
@@ -49,11 +65,16 @@ class Achado {
     required this.tamanho,
     required this.vistaAnatomica,
     required this.localAnatomico,
+    this.tipoFerimento,
+    this.numeroLacre,
+    this.tipoObjeto,
+    this.comentarioAdicional,
   });
 
   String get profundidade {
     return dadosPreenchidos['depth']?.toString() ??
-           dadosPreenchidos['profundidade']?.toString() ?? '';
+        dadosPreenchidos['profundidade']?.toString() ??
+        '';
   }
 
   Achado.novo({
@@ -69,6 +90,10 @@ class Achado {
     required this.vistaAnatomica,
     required this.localAnatomico,
     this.achadoRelacionadoUuid,
+    this.tipoFerimento,
+    this.numeroLacre,
+    this.tipoObjeto,
+    this.comentarioAdicional,
   }) : uuid = const Uuid().v4(),
        dadosPreenchidos = const {},
        observacoesTexto = null,
@@ -81,22 +106,31 @@ class Achado {
   factory Achado.fromMap(Map<String, dynamic> map) {
     final Map<String, dynamic> dados = map['dados_preenchidos_json'] != null
         ? (map['dados_preenchidos_json'] is Map
-            ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
-            : Map<String, dynamic>.from((() {
-                try {
-                  return jsonDecode(map['dados_preenchidos_json'].toString()) as Map? ?? {};
-                } catch (_) {
-                  return {};
-                }
-              })()))
+              ? Map<String, dynamic>.from(map['dados_preenchidos_json'] as Map)
+              : Map<String, dynamic>.from(
+                  (() {
+                    try {
+                      return jsonDecode(
+                                map['dados_preenchidos_json'].toString(),
+                              )
+                              as Map? ??
+                          {};
+                    } catch (_) {
+                      return {};
+                    }
+                  })(),
+                ))
         : <String, dynamic>{};
 
-    if (!dados.containsKey('photo_path') || dados['photo_path'] == null || dados['photo_path'].toString().isEmpty) {
+    if (!dados.containsKey('photo_path') ||
+        dados['photo_path'] == null ||
+        dados['photo_path'].toString().isEmpty) {
       final rawEvidencias = map['evidencias_multimidia'] ?? map['evidencias'];
       if (rawEvidencias is List && rawEvidencias.isNotEmpty) {
         final firstEv = rawEvidencias.first;
         if (firstEv is Map) {
-          final photoUrl = firstEv['caminho_arquivo_encriptado']?.toString() ??
+          final photoUrl =
+              firstEv['caminho_arquivo_encriptado']?.toString() ??
               firstEv['url']?.toString() ??
               firstEv['path']?.toString();
           if (photoUrl != null && photoUrl.isNotEmpty) {
@@ -104,7 +138,8 @@ class Achado {
           }
         }
       } else {
-        final photoDirect = map['photo_path']?.toString() ??
+        final photoDirect =
+            map['photo_path']?.toString() ??
             map['caminho_arquivo_encriptado']?.toString() ??
             map['url']?.toString();
         if (photoDirect != null && photoDirect.isNotEmpty) {
@@ -115,29 +150,57 @@ class Achado {
 
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? '',
-      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? '',
+      casoUuid:
+          map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
+      diagramaCasoUuid:
+          map['diagrama_caso_uuid']?.toString() ??
+          map['diagrama_uuid']?.toString() ??
+          '',
       diagramaNome: map['diagrama_nome']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
       achadoRelacionadoUuid: map['achado_relacionado_uuid']?.toString(),
       numeroSequencial: map['numero_sequencial'] as int? ?? 0,
       posX: (map['pos_x'] as num?)?.toDouble() ?? 0.0,
       posY: (map['pos_y'] as num?)?.toDouble() ?? 0.0,
-      isInterno: map['is_interno'] is bool 
-          ? map['is_interno'] as bool 
+      isInterno: map['is_interno'] is bool
+          ? map['is_interno'] as bool
           : (map['is_interno'] as int? ?? 0) == 1,
       dadosPreenchidos: dados,
       observacoesTexto: map['observacoes_texto']?.toString(),
-      removido: map['removido'] is bool 
-          ? map['removido'] as bool 
+      removido: map['removido'] is bool
+          ? map['removido'] as bool
           : (map['removido'] as int? ?? 0) == 1,
       versao: map['versao'] as int? ?? 1,
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
-      atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
+      atualizadoEm: map['atualizado_em'] != null
+          ? DateTime.tryParse(map['atualizado_em'].toString())
+          : null,
       deviceId: map['device_id']?.toString(),
       tamanho: map['tamanho']?.toString() ?? '',
       vistaAnatomica: map['vista_anatomica']?.toString() ?? '',
       localAnatomico: map['local_anatomico']?.toString() ?? '',
+      tipoFerimento:
+          map['tipo_ferimento']?.toString() ??
+          map['tipoFerimento']?.toString() ??
+          dados['tipo_ferimento']?.toString() ??
+          dados['tipoFerimento']?.toString(),
+      numeroLacre:
+          map['numero_lacre']?.toString() ??
+          map['numeroLacre']?.toString() ??
+          dados['numero_lacre']?.toString() ??
+          dados['numeroLacre']?.toString(),
+      tipoObjeto:
+          map['tipo_objeto']?.toString() ??
+          map['tipoObjeto']?.toString() ??
+          dados['tipo_objeto']?.toString() ??
+          dados['tipoObjeto']?.toString(),
+      comentarioAdicional:
+          map['comentario_adicional']?.toString() ??
+          map['comentarioAdicional']?.toString() ??
+          dados['comentario_adicional']?.toString() ??
+          dados['comentarioAdicional']?.toString(),
     );
   }
 
@@ -162,6 +225,10 @@ class Achado {
     String? tamanho,
     String? vistaAnatomica,
     String? localAnatomico,
+    String? tipoFerimento,
+    String? numeroLacre,
+    String? tipoObjeto,
+    String? comentarioAdicional,
   }) {
     return Achado(
       uuid: uuid ?? this.uuid,
@@ -169,7 +236,8 @@ class Achado {
       diagramaCasoUuid: diagramaCasoUuid ?? this.diagramaCasoUuid,
       diagramaNome: diagramaNome ?? this.diagramaNome,
       tipoAchadoId: tipoAchadoId ?? this.tipoAchadoId,
-      achadoRelacionadoUuid: achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
+      achadoRelacionadoUuid:
+          achadoRelacionadoUuid ?? this.achadoRelacionadoUuid,
       numeroSequencial: numeroSequencial ?? this.numeroSequencial,
       posX: posX ?? this.posX,
       posY: posY ?? this.posY,
@@ -184,6 +252,10 @@ class Achado {
       tamanho: tamanho ?? this.tamanho,
       vistaAnatomica: vistaAnatomica ?? this.vistaAnatomica,
       localAnatomico: localAnatomico ?? this.localAnatomico,
+      tipoFerimento: tipoFerimento ?? this.tipoFerimento,
+      numeroLacre: numeroLacre ?? this.numeroLacre,
+      tipoObjeto: tipoObjeto ?? this.tipoObjeto,
+      comentarioAdicional: comentarioAdicional ?? this.comentarioAdicional,
     );
   }
 
@@ -209,6 +281,10 @@ class Achado {
       'tamanho': tamanho,
       'vista_anatomica': vistaAnatomica,
       'local_anatomico': localAnatomico,
+      'tipo_ferimento': tipoFerimento,
+      'numero_lacre': numeroLacre,
+      'tipo_objeto': tipoObjeto,
+      'comentario_adicional': comentarioAdicional,
     };
   }
 
@@ -228,6 +304,10 @@ class Achado {
       'tamanho': tamanho,
       'vista_anatomica': vistaAnatomica,
       'local_anatomico': localAnatomico,
+      'tipo_ferimento': tipoFerimento,
+      'numero_lacre': numeroLacre,
+      'tipo_objeto': tipoObjeto,
+      'comentario_adicional': comentarioAdicional,
       'criado_em': criadoEm.toUtc().toIso8601String(),
       'atualizado_em': (atualizadoEm ?? criadoEm).toUtc().toIso8601String(),
     };

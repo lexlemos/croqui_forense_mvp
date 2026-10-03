@@ -7,6 +7,7 @@ class ExameSolicitado {
   final int quantidadeAmostras;
   final String numeroLacre;
   final DateTime criadoEm;
+  final String status;
 
   ExameSolicitado({
     required this.uuid,
@@ -15,6 +16,7 @@ class ExameSolicitado {
     this.quantidadeAmostras = 1,
     required this.numeroLacre,
     required this.criadoEm,
+    this.status = 'aguardando',
   });
 
   ExameSolicitado.novo({
@@ -22,8 +24,9 @@ class ExameSolicitado {
     required this.tipoExame,
     this.quantidadeAmostras = 1,
     required this.numeroLacre,
-  })  : uuid = const Uuid().v4(),
-        criadoEm = DateTime.now();
+    this.status = 'aguardando',
+  }) : uuid = const Uuid().v4(),
+       criadoEm = DateTime.now();
 
   factory ExameSolicitado.fromMap(Map<String, dynamic> map) {
     return ExameSolicitado(
@@ -32,7 +35,10 @@ class ExameSolicitado {
       tipoExame: map['tipo_exame']?.toString() ?? '',
       quantidadeAmostras: map['quantidade_amostras'] as int? ?? 1,
       numeroLacre: map['numero_lacre']?.toString() ?? '',
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
+      status: map['status']?.toString() ?? 'aguardando',
     );
   }
 
@@ -44,6 +50,7 @@ class ExameSolicitado {
       'quantidade_amostras': quantidadeAmostras,
       'numero_lacre': numeroLacre,
       'criado_em': criadoEm.toIso8601String(),
+      'status': status,
     };
   }
 
@@ -54,6 +61,7 @@ class ExameSolicitado {
     int? quantidadeAmostras,
     String? numeroLacre,
     DateTime? criadoEm,
+    String? status,
   }) {
     return ExameSolicitado(
       uuid: uuid ?? this.uuid,
@@ -62,6 +70,7 @@ class ExameSolicitado {
       quantidadeAmostras: quantidadeAmostras ?? this.quantidadeAmostras,
       numeroLacre: numeroLacre ?? this.numeroLacre,
       criadoEm: criadoEm ?? this.criadoEm,
+      status: status ?? this.status,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -11,7 +12,6 @@ import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
-
 
 class CaseInfoTab extends StatefulWidget {
   const CaseInfoTab({super.key});
@@ -36,11 +36,14 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
 
   @override
   void dispose() {
+    _croquiController.flushAutoSave();
     super.dispose();
   }
 
   void _sincronizarDadosNaMemoria() {
-    _croquiController.sincronizarDadosEmMemoria(Provider.of<AuthProvider>(context, listen: false));
+    _croquiController.sincronizarDadosEmMemoria(
+      Provider.of<AuthProvider>(context, listen: false),
+    );
   }
 
   Future<void> _tirarFoto() async {
@@ -52,41 +55,58 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         maxHeight: 1200,
         preferredCameraDevice: CameraDevice.rear,
       );
-      
+
       if (photo != null) {
         final String fotoUuid = const Uuid().v4();
         final originalFile = File(photo.path);
-        final File compressedFile = await ImageHelper.compressImage(originalFile, fotoUuid);
-        
+        final File compressedFile = await ImageHelper.compressImage(
+          originalFile,
+          fotoUuid,
+        );
+
         try {
           if (await originalFile.exists()) await originalFile.delete();
         } catch (e) {
-          debugPrint('[CaseInfoTab] ⚠️ Falha ao apagar arquivo temporário da câmera: $e');
+          debugPrint(
+            '[CaseInfoTab] ⚠️ Falha ao apagar arquivo temporário da câmera: $e',
+          );
         }
 
         await _croquiController.adicionarFotoGeral(compressedFile.path);
       }
     } on FileSystemException catch (e) {
       debugPrint("Erro de sistema de arquivos ao salvar foto: $e");
-      final isDiskFull = e.osError?.errorCode == 28 || e.message.contains('No space left');
+      final isDiskFull =
+          e.osError?.errorCode == 28 || e.message.contains('No space left');
       final mensagem = isDiskFull
           ? "Armazenamento esgotado! Libere espaço no dispositivo para continuar salvando fotos."
           : "Falha ao gravar arquivo de imagem no disco.";
       globalMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text(mensagem), backgroundColor: Colors.red.shade800, duration: const Duration(seconds: 4)),
+        SnackBar(
+          content: Text(mensagem),
+          backgroundColor: Colors.red.shade800,
+          duration: const Duration(seconds: 4),
+        ),
       );
     } catch (e) {
       debugPrint("Erro ao acessar câmera ou permissão negada: $e");
       globalMessengerKey.currentState?.showSnackBar(
         const SnackBar(
-          content: Text("Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo."),
+          content: Text(
+            "Acesso à câmera negado ou indisponível. Verifique as permissões do dispositivo.",
+          ),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  Future<void> _abrirSeletorAtn(BuildContext context, CroquiController controller, List<String> currentSelected, List<AtnModel> atns) async {
+  Future<void> _abrirSeletorAtn(
+    BuildContext context,
+    CroquiController controller,
+    List<String> currentSelected,
+    List<AtnModel> atns,
+  ) async {
     final List<String> tempSelected = List.from(currentSelected);
     await showModalBottomSheet(
       context: context,
@@ -98,78 +118,96 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             return SafeArea(
               bottom: true,
               child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('Selecione A.T.N.s (Máximo 4)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Buscar A.T.N...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'Selecione A.T.N.s (Máximo 4)',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    onChanged: (value) {
-                      final term = value.trim().toLowerCase();
-                      setModalState(() {
-                        if (term.isEmpty) {
-                          filteredAtns = List.from(atns);
-                        } else {
-                          filteredAtns = atns.where((a) => a.nome.toLowerCase().contains(term)).toList();
-                        }
-                      });
-                    },
                   ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: filteredAtns.length,
-                    itemBuilder: (ctx, index) {
-                      final atn = filteredAtns[index];
-                      final isSelected = tempSelected.contains(atn.id);
-                      return CheckboxListTile(
-                        title: Text(atn.nome),
-                        value: isSelected,
-                        onChanged: (val) {
-                          if (val == true) {
-                            if (tempSelected.length >= 4) {
-                              globalMessengerKey.currentState?.showSnackBar(
-                                const SnackBar(content: Text("Você já selecionou o limite de 4 A.T.N.s.")),
-                              );
-                              return;
-                            }
-                            setModalState(() => tempSelected.add(atn.id));
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Buscar A.T.N...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        final term = value.trim().toLowerCase();
+                        setModalState(() {
+                          if (term.isEmpty) {
+                            filteredAtns = List.from(atns);
                           } else {
-                            setModalState(() => tempSelected.remove(atn.id));
+                            filteredAtns = atns
+                                .where(
+                                  (a) => a.nome.toLowerCase().contains(term),
+                                )
+                                .toList();
                           }
-                        },
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: 16.0,
-                    right: 16.0,
-                    top: 16.0,
-                    bottom: 16.0,
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-                      onPressed: () {
-                        controller.atualizarAtnsResponsaveis(tempSelected);
-                        Navigator.pop(ctx);
+                        });
                       },
-                      child: const Text('Confirmar'),
                     ),
                   ),
-                )
-              ],
-            ));
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredAtns.length,
+                      itemBuilder: (ctx, index) {
+                        final atn = filteredAtns[index];
+                        final isSelected = tempSelected.contains(atn.id);
+                        return CheckboxListTile(
+                          title: Text(atn.nome),
+                          value: isSelected,
+                          onChanged: (val) {
+                            if (val == true) {
+                              if (tempSelected.length >= 4) {
+                                globalMessengerKey.currentState?.showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Você já selecionou o limite de 4 A.T.N.s.",
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              setModalState(() => tempSelected.add(atn.id));
+                            } else {
+                              setModalState(() => tempSelected.remove(atn.id));
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 16.0,
+                      right: 16.0,
+                      top: 16.0,
+                      bottom: 16.0,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          controller.atualizarAtnsResponsaveis(tempSelected);
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text('Confirmar'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
           },
         );
       },
@@ -188,31 +226,105 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SectionHeader(title: "1. Dados da Requisição", icon: Icons.description),
+            const _SectionHeader(
+              title: "1. Dados da Requisição",
+              icon: Icons.description,
+            ),
             const SizedBox(height: 16),
-            
-            _buildTextField("Nº PIC", controller.picCtrl, readOnly: readOnly, isBold: true),
 
-            _buildTextField("Número da Requisição / CD", controller.numeroLaudoCtrl, readOnly: true),
-            
-            _buildTextField("Boletim de Ocorrência", controller.boCtrl, readOnly: readOnly),
+            _buildTextField(
+              "Nº PIC",
+              controller.picCtrl,
+              readOnly: readOnly,
+              isBold: true,
+              suffixIcon: readOnly
+                  ? null
+                  : ListenableBuilder(
+                      listenable: controller,
+                      builder: (context, _) {
+                        final isFetching = controller.isFetchingPic;
+                        if (isFetching) {
+                          return const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        return IconButton(
+                          icon: const Icon(Icons.search, size: 20),
+                          tooltip: 'Buscar dados por PIC',
+                          onPressed: () =>
+                              controller.buscarDadosPorPic(forcar: true),
+                        );
+                      },
+                    ),
+              onChanged: (val) {
+                if (val.trim().length == 9) {
+                  controller.buscarDadosPorPic();
+                }
+              },
+            ),
+
+            _buildTextField(
+              "Número da Requisição / CD",
+              controller.numeroLaudoCtrl,
+              readOnly: readOnly,
+            ),
+
+            _buildTextField(
+              "Boletim de Ocorrência",
+              controller.boCtrl,
+              readOnly: readOnly,
+            ),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Requisitante", controller.reqOrigemCtrl, readOnly: readOnly)),
+                Expanded(
+                  child: _buildTextField(
+                    "Requisitante",
+                    controller.reqOrigemCtrl,
+                    readOnly: readOnly,
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Destino", controller.reqDestinoCtrl, readOnly: readOnly)),
+                Expanded(
+                  child: _buildTextField(
+                    "Delegacia Solicitante",
+                    controller.delegaciaSolicitanteCtrl,
+                    readOnly: readOnly,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    "Destino",
+                    controller.reqDestinoCtrl,
+                    readOnly: readOnly,
+                  ),
+                ),
               ],
             ),
 
-            _buildTextField("Nome da Vítima", controller.nomeVitimaCtrl, readOnly: readOnly),
-            
-            _buildTextField("Número da Declaração de Óbito", controller.numeroDeclaracaoObitoCtrl, readOnly: readOnly),
+            _buildTextField(
+              "Nome da Vítima",
+              controller.nomeVitimaCtrl,
+              readOnly: readOnly,
+            ),
+
+            _buildTextField(
+              "Número da Declaração de Óbito",
+              controller.numeroDeclaracaoObitoCtrl,
+              readOnly: readOnly,
+            ),
 
             const SizedBox(height: 12),
             Builder(
               builder: (context) {
-                final List<String> selectedAtnsIds = controller.casoAtual.atnsIds;
+                final List<String> selectedAtnsIds =
+                    controller.casoAtual.atnsIds;
                 final List<AtnModel> atnsExibicao = controller.atns;
 
                 return Column(
@@ -221,30 +333,60 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("A.T.N.s Responsáveis", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 15)),
+                        const Text(
+                          "A.T.N.s Responsáveis",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey,
+                            fontSize: 15,
+                          ),
+                        ),
                         if (!readOnly)
                           TextButton.icon(
-                            onPressed: () => _abrirSeletorAtn(context, controller, selectedAtnsIds, atnsExibicao),
+                            onPressed: () => _abrirSeletorAtn(
+                              context,
+                              controller,
+                              selectedAtnsIds,
+                              atnsExibicao,
+                            ),
                             icon: const Icon(Icons.add),
                             label: const Text("Adicionar A.T.N"),
-                          )
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     if (selectedAtnsIds.isEmpty)
-                      const Text("Nenhum A.T.N selecionado", style: TextStyle(color: Colors.grey))
+                      const Text(
+                        "Nenhum A.T.N selecionado",
+                        style: TextStyle(color: Colors.grey),
+                      )
                     else
                       Wrap(
                         spacing: 8,
                         children: selectedAtnsIds.map((atnId) {
-                          final atn = atnsExibicao.firstWhere((a) => a.id == atnId, orElse: () => AtnModel(id: atnId, nome: "ATN Desconhecido", ativo: false));
+                          final atn = atnsExibicao.firstWhere(
+                            (a) => a.id == atnId,
+                            orElse: () => AtnModel(
+                              id: atnId,
+                              nome: "ATN Desconhecido",
+                              ativo: false,
+                            ),
+                          );
                           return Chip(
                             label: Text(atn.nome),
-                            deleteIcon: readOnly ? null : const Icon(Icons.close, size: 18),
-                            onDeleted: readOnly ? null : () {
-                              final novosAtns = List<String>.from(selectedAtnsIds)..remove(atnId);
-                              controller.atualizarAtnsResponsaveis(novosAtns);
-                            },
+                            deleteIcon: readOnly
+                                ? null
+                                : const Icon(Icons.close, size: 18),
+                            onDeleted: readOnly
+                                ? null
+                                : () {
+                                    final novosAtns = List<String>.from(
+                                      selectedAtnsIds,
+                                    )..remove(atnId);
+                                    controller.atualizarAtnsResponsaveis(
+                                      novosAtns,
+                                    );
+                                  },
                           );
                         }).toList(),
                       ),
@@ -252,74 +394,198 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 );
               },
             ),
-            
+
             const SizedBox(height: 32),
-            const _SectionHeader(title: "2. Identificação e Exame", icon: Icons.person_search),
+            const _SectionHeader(
+              title: "2. Identificação e Exame",
+              icon: Icons.person_search,
+            ),
             const SizedBox(height: 16),
-            
-            _buildTextField("Histórico do Caso", controller.historicoCtrl, readOnly: readOnly, maxLines: null),
+
+            _buildTextField(
+              "Histórico do Caso",
+              controller.historicoCtrl,
+              readOnly: readOnly,
+              maxLines: null,
+            ),
 
             Row(
               children: [
-                Expanded(child: _buildTextField("Data do Óbito", controller.dataObitoCtrl, readOnly: readOnly)),
+                Expanded(
+                  child: _buildDatePickerField(
+                    context: context,
+                    label: "Data do Óbito",
+                    ctrl: controller.dataObitoCtrl,
+                    readOnly: readOnly,
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField("Hora do Óbito", controller.horaObitoCtrl, readOnly: readOnly)),
+                Expanded(
+                  child: _buildTimePickerField(
+                    context: context,
+                    label: "Hora do Óbito",
+                    ctrl: controller.horaObitoCtrl,
+                    readOnly: readOnly,
+                  ),
+                ),
               ],
             ),
-            
+
             DropdownButtonFormField<String>(
-              value: ['Pericialmente Estimadas', 'Atestadas em documento médico'].contains(controller.tipoEstimativaHoraObitoCtrl.text) ? controller.tipoEstimativaHoraObitoCtrl.text : null,
-              decoration: const InputDecoration(labelText: 'Tipo de Estimativa (Hora)', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              initialValue:
+                  [
+                    'Pericialmente Estimadas',
+                    'Atestadas em documento médico',
+                  ].contains(controller.tipoEstimativaHoraObitoCtrl.text)
+                  ? controller.tipoEstimativaHoraObitoCtrl.text
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Tipo de Estimativa (Hora)',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
               items: const [
-                DropdownMenuItem(value: 'Pericialmente Estimadas', child: Text('Pericialmente Estimadas')),
-                DropdownMenuItem(value: 'Atestadas em documento médico', child: Text('Atestadas em documento médico')),
+                DropdownMenuItem(
+                  value: 'Pericialmente Estimadas',
+                  child: Text('Pericialmente Estimadas'),
+                ),
+                DropdownMenuItem(
+                  value: 'Atestadas em documento médico',
+                  child: Text('Atestadas em documento médico'),
+                ),
               ],
-              onChanged: readOnly ? null : (val) {
-                if (val != null) controller.tipoEstimativaHoraObitoCtrl.text = val;
-              },
+              onChanged: readOnly
+                  ? null
+                  : (val) {
+                      if (val != null) {
+                        controller.tipoEstimativaHoraObitoCtrl.text = val;
+                        controller.sincronizarDadosEmMemoria(null, false);
+                        controller.scheduleAutoSave();
+                      }
+                    },
             ),
             const SizedBox(height: 16),
-            
+
             DropdownButtonFormField<String>(
-              value: ['Masculino', 'Feminino', 'Indeterminado'].contains(controller.sexoBiologicoEstimadoCtrl.text) ? controller.sexoBiologicoEstimadoCtrl.text : null,
-              decoration: const InputDecoration(labelText: 'Sexo Biológico Estimado', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              initialValue:
+                  [
+                    'Masculino',
+                    'Feminino',
+                    'Indeterminado',
+                  ].contains(controller.sexoBiologicoEstimadoCtrl.text)
+                  ? controller.sexoBiologicoEstimadoCtrl.text
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Sexo Biológico Estimado',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
               items: const [
                 DropdownMenuItem(value: 'Masculino', child: Text('Masculino')),
                 DropdownMenuItem(value: 'Feminino', child: Text('Feminino')),
-                DropdownMenuItem(value: 'Indeterminado', child: Text('Indeterminado')),
+                DropdownMenuItem(
+                  value: 'Indeterminado',
+                  child: Text('Indeterminado'),
+                ),
               ],
-              onChanged: readOnly ? null : (val) {
-                if (val != null) controller.sexoBiologicoEstimadoCtrl.text = val;
-              },
+              onChanged: readOnly
+                  ? null
+                  : (val) {
+                      if (val != null) {
+                        controller.sexoBiologicoEstimadoCtrl.text = val;
+                        controller.sincronizarDadosEmMemoria(null, false);
+                        controller.scheduleAutoSave();
+                      }
+                    },
             ),
             const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
-              value: ['Fresco', 'Esqueletizado', 'Putrefato', 'Carbonizado', 'Mumificado', 'Fragmentado', 'Decapitado', 'Esquartejado'].contains(controller.corpoEstadoCtrl.text) ? controller.corpoEstadoCtrl.text : null,
-              decoration: const InputDecoration(labelText: 'Estado do Corpo', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              initialValue:
+                  [
+                    'Fresco',
+                    'Esqueletizado',
+                    'Putrefato',
+                    'Carbonizado',
+                    'Mumificado',
+                    'Fragmentado',
+                    'Decapitado',
+                    'Esquartejado',
+                    'Outros',
+                  ].contains(controller.corpoEstadoCtrl.text)
+                  ? controller.corpoEstadoCtrl.text
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Estado do Corpo',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
               items: const [
                 DropdownMenuItem(value: 'Fresco', child: Text('Fresco')),
-                DropdownMenuItem(value: 'Esqueletizado', child: Text('Esqueletizado')),
+                DropdownMenuItem(
+                  value: 'Esqueletizado',
+                  child: Text('Esqueletizado'),
+                ),
                 DropdownMenuItem(value: 'Putrefato', child: Text('Putrefato')),
-                DropdownMenuItem(value: 'Carbonizado', child: Text('Carbonizado')),
-                DropdownMenuItem(value: 'Mumificado', child: Text('Mumificado')),
-                DropdownMenuItem(value: 'Fragmentado', child: Text('Fragmentado')),
-                DropdownMenuItem(value: 'Decapitado', child: Text('Decapitado')),
-                DropdownMenuItem(value: 'Esquartejado', child: Text('Esquartejado')),
+                DropdownMenuItem(
+                  value: 'Carbonizado',
+                  child: Text('Carbonizado'),
+                ),
+                DropdownMenuItem(
+                  value: 'Mumificado',
+                  child: Text('Mumificado'),
+                ),
+                DropdownMenuItem(
+                  value: 'Fragmentado',
+                  child: Text('Fragmentado'),
+                ),
+                DropdownMenuItem(
+                  value: 'Decapitado',
+                  child: Text('Decapitado'),
+                ),
+                DropdownMenuItem(
+                  value: 'Esquartejado',
+                  child: Text('Esquartejado'),
+                ),
+                DropdownMenuItem(value: 'Outros', child: Text('Outros')),
               ],
-              onChanged: readOnly ? null : (val) {
-                if (val != null) {
-                  controller.corpoEstadoCtrl.text = val;
-                  // Chama um método no controller conforme instruído
-                  controller.setCorpoEstado(val); 
-                }
-              },
+              onChanged: readOnly
+                  ? null
+                  : (val) {
+                      if (val != null) {
+                        controller.corpoEstadoCtrl.text = val;
+                        controller.setCorpoEstado(val);
+                        controller.sincronizarDadosEmMemoria(null, false);
+                        controller.scheduleAutoSave();
+                      }
+                    },
             ),
             const SizedBox(height: 16),
+            if (controller.corpoEstadoCtrl.text == 'Outros') ...[
+              _buildTextField(
+                "Especificar outro estado do corpo",
+                controller.corpoEstadoOutrosCtrl,
+                readOnly: readOnly,
+              ),
+              const SizedBox(height: 16),
+            ],
 
-            _buildTextField("Vestes", controller.vestesCtrl, readOnly: readOnly, maxLines: null),
-            _buildTextField("Características de Identificação", controller.caracteristicasCtrl, readOnly: readOnly, maxLines: null),
-            
+            _buildTextField(
+              "Vestes",
+              controller.vestesCtrl,
+              readOnly: readOnly,
+              maxLines: null,
+            ),
+            _buildTextField(
+              "Características de Identificação",
+              controller.caracteristicasCtrl,
+              readOnly: readOnly,
+              maxLines: null,
+            ),
+
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
@@ -330,19 +596,50 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Dados Tanatológicos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey)),
+                  const Text(
+                    "Dados Tanatológicos",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Text("A morte está evidenciada pela presença dos seguintes sinais:", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                  const Text(
+                    "A morte está evidenciada pela presença dos seguintes sinais:",
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  _buildTextField("A) Imediatos", controller.tanatoImediatoCtrl, readOnly: readOnly, maxLines: null),
-                  _buildTextField("B) Consecutivos", controller.tanatoConsecutivoCtrl, readOnly: readOnly, maxLines: null),
-                  _buildTextField("C) Comentários Adicionais", controller.tanatoObservacaoCtrl, readOnly: readOnly, maxLines: null),
+                  _buildTextField(
+                    "A) Imediatos",
+                    controller.tanatoImediatoCtrl,
+                    readOnly: readOnly,
+                    maxLines: null,
+                  ),
+                  _buildTextField(
+                    "B) Consecutivos",
+                    controller.tanatoConsecutivoCtrl,
+                    readOnly: readOnly,
+                    maxLines: null,
+                  ),
+                  _buildTextField(
+                    "C) Comentários Adicionais",
+                    controller.tanatoObservacaoCtrl,
+                    readOnly: readOnly,
+                    maxLines: null,
+                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 24),
-            const _SectionHeader(title: "Fotos de Identificação", icon: Icons.camera_alt),
+            const _SectionHeader(
+              title: "Fotos de Identificação",
+              icon: Icons.camera_alt,
+            ),
             const SizedBox(height: 16),
             if (!readOnly)
               ElevatedButton.icon(
@@ -363,10 +660,14 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     child: EvidenciaFotoCard(
                       key: ValueKey(ev.uuid),
                       path: ev.caminhoArquivoEncriptado ?? '',
+                      evidenciaUuid: ev.uuid,
                       descricao: ev.descricao,
                       readOnly: readOnly,
                       onDescriptionChanged: (val) async {
-                        await controller.salvarDescricaoFotoGeral(ev.uuid, val.trim());
+                        await controller.salvarDescricaoFotoGeral(
+                          ev.uuid,
+                          val.trim(),
+                        );
                       },
                       onDelete: () async {
                         await controller.removerFotoGeral(ev.uuid);
@@ -376,55 +677,34 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 },
               ),
             ),
-            
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            const _SectionHeader(title: "3. Balística / Objetos Retirados", icon: Icons.gps_fixed),
-            const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: controller.descricaoObjetoCtrls.length,
-              itemBuilder: (context, index) {
-                final objCtrl = controller.descricaoObjetoCtrls[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildTextField("Objeto / Lacre #${index + 1}", objCtrl, readOnly: readOnly, maxLines: null)),
-                      if (!readOnly && controller.descricaoObjetoCtrls.length > 1)
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => controller.removerObjeto(index),
-                        )
-                    ],
-                  ),
-                );
-              },
-            ),
-            if (!readOnly)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text("Adicionar Objeto/Lacre"),
-                  style: TextButton.styleFrom(foregroundColor: Colors.indigo),
-                  onPressed: () => controller.adicionarObjeto(),
-                ),
-              ),
 
             const SizedBox(height: 32),
-            const _SectionHeader(title: "4. Discussão / Comentário Forense", icon: Icons.chat),
+            const SizedBox(height: 32),
+            const _SectionHeader(
+              title: "3. Discussão / Comentário Forense",
+              icon: Icons.chat,
+            ),
             const SizedBox(height: 16),
-            _buildTextField("Comentário Médico Forense", controller.discussaoCtrl, readOnly: readOnly, maxLines: null),
-            
+            _buildTextField(
+              "Comentário Médico Forense",
+              controller.discussaoCtrl,
+              readOnly: readOnly,
+              maxLines: null,
+            ),
+
             const SizedBox(height: 24),
-            const _SectionHeader(title: "5. Conclusão", icon: Icons.assignment_turned_in),
+            const _SectionHeader(
+              title: "4. Conclusão",
+              icon: Icons.assignment_turned_in,
+            ),
             const SizedBox(height: 16),
-            _buildTextField("Conclusão Final", controller.conclusaoCtrl, readOnly: readOnly, maxLines: null),
-            
+            _buildTextField(
+              "Conclusão Final",
+              controller.conclusaoCtrl,
+              readOnly: readOnly,
+              maxLines: null,
+            ),
+
             const SizedBox(height: 32),
             Container(
               padding: const EdgeInsets.all(20),
@@ -442,15 +722,34 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                       SizedBox(width: 10),
                       Text(
                         "Respostas aos Quesitos (Obrigatório)",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
-                      )
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.indigo,
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(),
                   const SizedBox(height: 10),
-                  _buildTextField("1. Houve Morte?", controller.quesito1Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField(
+                    "1. Houve Morte?",
+                    controller.quesito1Ctrl,
+                    readOnly: readOnly,
+                    required: true,
+                    validator: (v) => (v == null || v.trim().length < 3)
+                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                        : null,
+                  ),
                   const SizedBox(height: 16),
-                  const Text("2. Qual a Causa?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.indigo)),
+                  const Text(
+                    "2. Qual a Causa?",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.indigo,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   ListView.builder(
                     shrinkWrap: true,
@@ -463,7 +762,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         elevation: 1,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: Colors.grey.shade300)
+                          side: BorderSide(color: Colors.grey.shade300),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
@@ -471,21 +770,60 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text("Causa #${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                                  if (!readOnly && controller.causasMorteCtrls.length > 1)
+                                  Text(
+                                    "Causa #${index + 1}",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
+                                  if (!readOnly &&
+                                      controller.causasMorteCtrls.length > 1)
                                     IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                      onPressed: () => controller.removerCausaMorte(index),
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () =>
+                                          controller.removerCausaMorte(index),
                                       tooltip: "Remover esta causa",
                                     ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              _buildTextField("Imediata", causaCtrl.imediataCtrl, readOnly: readOnly, required: true),
-                              _buildTextField("Devido a", causaCtrl.devidoACtrl, readOnly: readOnly, required: true),
-                              _buildTextField("Consequência", causaCtrl.consequenciaCtrl, readOnly: readOnly, required: true),
+                              _buildTextField(
+                                "Imediata",
+                                causaCtrl.imediataCtrl,
+                                readOnly: readOnly,
+                                required: true,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                    ? 'Resposta deve ter no mínimo 3 caracteres'
+                                    : null,
+                              ),
+                              _buildTextField(
+                                "Devido a",
+                                causaCtrl.devidoACtrl,
+                                readOnly: readOnly,
+                                required: true,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                    ? 'Resposta deve ter no mínimo 3 caracteres'
+                                    : null,
+                              ),
+                              _buildTextField(
+                                "Consequência",
+                                causaCtrl.consequenciaCtrl,
+                                readOnly: readOnly,
+                                required: true,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                    ? 'Resposta deve ter no mínimo 3 caracteres'
+                                    : null,
+                              ),
                             ],
                           ),
                         ),
@@ -498,17 +836,35 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                       child: TextButton.icon(
                         icon: const Icon(Icons.add),
                         label: const Text("Adicionar Causa da Morte"),
-                        style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.indigo,
+                        ),
                         onPressed: () => controller.adicionarCausaMorte(),
                       ),
                     ),
                   const SizedBox(height: 16),
-                  _buildTextField("3. Qual o Instrumento?", controller.quesito3Ctrl, readOnly: readOnly, required: true),
-                  _buildTextField("4. Qual o Meio?", controller.quesito4Ctrl, readOnly: readOnly, required: true),
+                  _buildTextField(
+                    "3. Qual o Instrumento?",
+                    controller.quesito3Ctrl,
+                    readOnly: readOnly,
+                    required: true,
+                    validator: (v) => (v == null || v.trim().length < 3)
+                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                        : null,
+                  ),
+                  _buildTextField(
+                    "4. Qual o Meio?",
+                    controller.quesito4Ctrl,
+                    readOnly: readOnly,
+                    required: true,
+                    validator: (v) => (v == null || v.trim().length < 3)
+                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                        : null,
+                  ),
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 40),
             if (!readOnly)
               SizedBox(
@@ -517,46 +873,65 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.check_circle_outline),
                   label: _isSaving
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                       : const Text(
                           "SALVAR DADOS E FINALIZAR EXAME",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[700],
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                  onPressed: _isSaving ? null : () async {
-                    _sincronizarDadosNaMemoria();
-                    if (_formKey.currentState!.validate()) {
-                      setState(() => _isSaving = true);
-                      await handleCroquiFinalization(context, controller);
-                      if (mounted) {
-                        setState(() => _isSaving = false);
-                      }
-                    } else {
-                      globalMessengerKey.currentState?.showSnackBar(
-                        const SnackBar(
-                          content: Text("Por favor, responda todos os quesitos obrigatórios."),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _isSaving
+                      ? null
+                      : () async {
+                          _sincronizarDadosNaMemoria();
+                          if (_formKey.currentState!.validate()) {
+                            setState(() => _isSaving = true);
+                            await handleCroquiFinalization(context, controller);
+                            if (mounted) {
+                              setState(() => _isSaving = false);
+                            }
+                          } else {
+                            globalMessengerKey.currentState?.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Por favor, responda todos os quesitos obrigatórios.",
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
+                        },
                 ),
               ),
             if (readOnly) ...[
               Builder(
                 builder: (context) {
-                  final auditoria = controller.casoAtual.dadosLaudo['auditoria'];
-                  final nomePerito = auditoria?['perito_responsavel'] ?? "Perito não identificado";
-                  final dataIso = auditoria?['data_finalizacao'];
-                  
+                  final auditoria = controller.casoAtual.dadosLaudo.auditoria;
+                  final nomePerito =
+                      auditoria.peritoResponsavel ?? "Perito não identificado";
+                  final dataIso = auditoria.dataFinalizacao;
+
                   String dataFormatada = "Data não registrada";
                   if (dataIso != null) {
                     final dataHora = DateTime.parse(dataIso);
-                    dataFormatada = DateFormat('dd/MM/yyyy HH:mm').format(dataHora);
+                    dataFormatada = DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).format(dataHora);
                   }
 
                   return Container(
@@ -569,32 +944,52 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.verified_user, color: Colors.green, size: 40),
+                        const Icon(
+                          Icons.verified_user,
+                          color: Colors.green,
+                          size: 40,
+                        ),
                         const SizedBox(height: 16),
                         const Text(
                           "LAUDO FINALIZADO E BLOQUEADO",
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           nomePerito,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           "Em $dataFormatada",
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.indigo),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.indigo,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           "Assinado digitalmente. Nenhuma alteração permitida.",
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ],
                     ),
                   );
-                }
+                },
               ),
             ],
             const SizedBox(height: 40),
@@ -604,12 +999,222 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController ctrl, {
+  Widget _buildDatePickerField({
+    required BuildContext context,
+    required String label,
+    required TextEditingController ctrl,
+    required bool readOnly,
+  }) {
+    if (readOnly) {
+      return _buildTextField(label, ctrl, readOnly: true);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () async {
+          DateTime initial = DateTime.now();
+          final currentText = ctrl.text.trim();
+          if (currentText.isNotEmpty) {
+            try {
+              if (currentText.contains('/')) {
+                final parts = currentText.split('/');
+                if (parts.length == 3) {
+                  initial = DateTime(
+                    int.parse(parts[2]),
+                    int.parse(parts[1]),
+                    int.parse(parts[0]),
+                  );
+                }
+              } else if (currentText.contains('-')) {
+                final parts = currentText.split('-');
+                if (parts.length == 3) {
+                  initial = DateTime(
+                    int.parse(parts[0]),
+                    int.parse(parts[1]),
+                    int.parse(parts[2]),
+                  );
+                }
+              }
+            } catch (_) {}
+          }
+
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: initial,
+            firstDate: DateTime(1900),
+            lastDate: DateTime.now().add(const Duration(days: 365)),
+          );
+
+          if (picked != null) {
+            final formatted =
+                '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+            ctrl.text = formatted;
+            _croquiController.sincronizarDadosEmMemoria(null, false);
+            _croquiController.scheduleAutoSave();
+            if (mounted) setState(() {});
+          }
+        },
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: ctrl,
+          builder: (context, value, _) {
+            return InputDecorator(
+              decoration: InputDecoration(
+                labelText: label,
+                filled: true,
+                fillColor: Colors.white,
+                border: const OutlineInputBorder(),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (value.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          ctrl.clear();
+                          _croquiController.sincronizarDadosEmMemoria(
+                            null,
+                            false,
+                          );
+                          _croquiController.scheduleAutoSave();
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Icon(Icons.calendar_today, size: 20),
+                    ),
+                  ],
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              child: Text(
+                value.text.isEmpty ? 'DD/MM/AAAA' : value.text,
+                style: TextStyle(
+                  color: value.text.isEmpty
+                      ? Colors.grey.shade500
+                      : Colors.black87,
+                  fontSize: 16,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimePickerField({
+    required BuildContext context,
+    required String label,
+    required TextEditingController ctrl,
+    required bool readOnly,
+  }) {
+    if (readOnly) {
+      return _buildTextField(label, ctrl, readOnly: true);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () async {
+          TimeOfDay initial = TimeOfDay.now();
+          final currentText = ctrl.text.trim();
+          if (currentText.isNotEmpty) {
+            try {
+              final parts = currentText.split(':');
+              if (parts.length >= 2) {
+                initial = TimeOfDay(
+                  hour: int.parse(parts[0]),
+                  minute: int.parse(parts[1]),
+                );
+              }
+            } catch (_) {}
+          }
+
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: initial,
+          );
+
+          if (picked != null) {
+            final formatted =
+                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+            ctrl.text = formatted;
+            _croquiController.sincronizarDadosEmMemoria(null, false);
+            _croquiController.scheduleAutoSave();
+            if (mounted) setState(() {});
+          }
+        },
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: ctrl,
+          builder: (context, value, _) {
+            return InputDecorator(
+              decoration: InputDecoration(
+                labelText: label,
+                filled: true,
+                fillColor: Colors.white,
+                border: const OutlineInputBorder(),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (value.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          ctrl.clear();
+                          _croquiController.sincronizarDadosEmMemoria(
+                            null,
+                            false,
+                          );
+                          _croquiController.scheduleAutoSave();
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Icon(Icons.access_time, size: 20),
+                    ),
+                  ],
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              child: Text(
+                value.text.isEmpty ? 'HH:MM' : value.text,
+                style: TextStyle(
+                  color: value.text.isEmpty
+                      ? Colors.grey.shade500
+                      : Colors.black87,
+                  fontSize: 16,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    String label,
+    TextEditingController ctrl, {
     bool readOnly = false,
     int? maxLines = 1,
     String? hint,
     bool required = false,
     bool isBold = false,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+    Widget? suffixIcon,
+    ValueChanged<String>? onChanged,
   }) {
     if (readOnly) {
       return Container(
@@ -623,9 +1228,25 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo.withAlpha(178), letterSpacing: 0.5)),
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.withAlpha(178),
+                letterSpacing: 0.5,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(ctrl.text.isEmpty ? "-" : ctrl.text, style: TextStyle(fontSize: 15, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: Colors.black87, height: 1.3)),
+            Text(
+              ctrl.text.isEmpty ? "-" : ctrl.text,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                color: Colors.black87,
+                height: 1.3,
+              ),
+            ),
           ],
         ),
       );
@@ -637,9 +1258,31 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
         controller: ctrl,
         maxLines: maxLines,
         minLines: maxLines == null ? 3 : null,
-        keyboardType: maxLines == null ? TextInputType.multiline : TextInputType.text,
+        keyboardType: maxLines == null
+            ? TextInputType.multiline
+            : TextInputType.text,
         textCapitalization: TextCapitalization.sentences,
-        validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null : null,
+        onChanged: (val) {
+          final c = context.read<CroquiController>();
+          c.sincronizarDadosEmMemoria(null, false);
+          c.scheduleAutoSave();
+          if (label.contains("CD") ||
+              label.contains("Requisição") ||
+              label.contains("PIC")) {
+            c.salvarRascunhoImediato();
+          }
+          if (onChanged != null) {
+            onChanged(val);
+          }
+        },
+        inputFormatters: inputFormatters,
+        validator:
+            validator ??
+            (required
+                ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Campo obrigatório'
+                      : null
+                : null),
         style: isBold ? const TextStyle(fontWeight: FontWeight.bold) : null,
         decoration: InputDecoration(
           labelText: label,
@@ -648,7 +1291,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           filled: true,
           fillColor: Colors.white,
           border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          suffixIcon: suffixIcon,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
         ),
       ),
     );
@@ -666,9 +1313,15 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Icon(icon, color: Colors.blueGrey, size: 28),
         const SizedBox(width: 12),
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.blueGrey,
+          ),
+        ),
       ],
     );
   }
 }
-

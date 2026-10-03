@@ -47,14 +47,22 @@ class AuthService {
   final IRemoteDataSource _remoteDataSource;
 
   Usuario? _usuarioLogado;
+  bool _isOfflineSession = false;
 
   /// Inicializa o serviço de autenticação injetando os repositórios de dados locais,
   /// o provedor de armazenamento seguro de chaves e a fonte de dados remota.
-  AuthService(this._usuarioRepository, this._keyStorage, this._remoteDataSource);
+  AuthService(
+    this._usuarioRepository,
+    this._keyStorage,
+    this._remoteDataSource,
+  );
 
   /// Retorna o [Usuario] pericial autenticado na sessão ativa do dispositivo,
   /// ou `null` caso nenhuma sessão válida esteja inicializada.
   Usuario? get usuario => _usuarioLogado;
+
+  /// Indica se a sessão atual foi estabelecida em modo offline através do cache local.
+  bool get isOfflineSession => _isOfflineSession;
 
   /// Indica se existe uma sessão ativa de usuário autenticado no dispositivo.
   bool get isLogged => _usuarioLogado != null;
@@ -95,45 +103,59 @@ class AuthService {
   ///    validar as credenciais offline do último usuário autenticado no dispositivo.
   Future<void> login(String login, String senha) async {
     try {
-      final Map<String, dynamic> rawResponse = await _remoteDataSource.login(login, senha);
-      final Map<String, Object?> responseData = Map<String, Object?>.from(rawResponse);
+      final Map<String, dynamic> rawResponse = await _remoteDataSource.login(
+        login,
+        senha,
+      );
+      final Map<String, Object?> responseData = Map<String, Object?>.from(
+        rawResponse,
+      );
 
       final Object? rawPerfil = responseData['user'] ?? responseData['usuario'];
       final Map<String, Object?> perfil = rawPerfil is Map
           ? (rawPerfil is Map<String, Object?>
-              ? rawPerfil
-              : Map<String, Object?>.from(rawPerfil))
+                ? rawPerfil
+                : Map<String, Object?>.from(rawPerfil))
           : responseData;
 
-      final String? accessToken = responseData['access_token']?.toString() ??
+      final String? accessToken =
+          responseData['access_token']?.toString() ??
           responseData['token']?.toString();
       final String? refreshToken = responseData['refresh_token']?.toString();
 
       if (accessToken == null || accessToken.trim().isEmpty) {
-        throw const AuthException('Token de autenticação ausente na resposta do servidor.');
+        throw const AuthException(
+          'Token de autenticação ausente na resposta do servidor.',
+        );
       }
 
-      final String userId = perfil['usuario_id']?.toString() ??
+      final String userId =
+          perfil['usuario_id']?.toString() ??
           perfil['id']?.toString() ??
           responseData['usuario_id']?.toString() ??
           responseData['id']?.toString() ??
           '';
 
-      final String nomeCompleto = perfil['usuario_nome']?.toString() ??
+      final String nomeCompleto =
+          perfil['usuario_nome']?.toString() ??
           perfil['nome_completo']?.toString() ??
           perfil['nome']?.toString() ??
           responseData['usuario_nome']?.toString() ??
           '';
 
-      final String matriculaFuncional = perfil['matricula_funcional']?.toString() ??
+      final String matriculaFuncional =
+          perfil['matricula_funcional']?.toString() ??
           perfil['matricula']?.toString() ??
           login;
 
       if (userId.trim().isEmpty) {
-        throw const AuthException('Identificador de usuário não fornecido pela API.');
+        throw const AuthException(
+          'Identificador de usuário não fornecido pela API.',
+        );
       }
 
-      final Object? rawRoles = perfil['roles'] ?? perfil['role'] ?? responseData['roles'];
+      final Object? rawRoles =
+          perfil['roles'] ?? perfil['role'] ?? responseData['roles'];
       final List<String> roles = <String>[];
       if (rawRoles is List) {
         for (final Object? item in rawRoles) {
@@ -187,7 +209,9 @@ class AuthService {
       await _keyStorage.save(key: 'user_id', value: userId);
       await _keyStorage.save(key: 'last_user_id', value: userId);
 
-      final Map<String, String> credenciais = _gerarCredenciaisEmBackground(senha);
+      final Map<String, String> credenciais = _gerarCredenciaisEmBackground(
+        senha,
+      );
 
       final Usuario novoUsuario = Usuario(
         id: userId,
@@ -203,6 +227,7 @@ class AuthService {
 
       await _usuarioRepository.createUsuario(novoUsuario);
       _usuarioLogado = novoUsuario;
+      _isOfflineSession = false;
 
       developer.log(
         '[AUTH] Login online e validação RBAC concluídos com sucesso (ID: $userId)',
@@ -210,14 +235,19 @@ class AuthService {
       );
     } on Object catch (e) {
       if (_isConnectivityError(e)) {
-        final Usuario? localUsuario = await _usuarioRepository.getUsuarioByMatricula(login);
+        final Usuario? localUsuario = await _usuarioRepository
+            .getUsuarioByMatricula(login);
         if (localUsuario == null) {
-          throw const AuthException('Dispositivo offline e sem dados locais armazenados para este usuário.');
+          throw const AuthException(
+            'Dispositivo offline e sem dados locais armazenados para este usuário.',
+          );
         }
 
         final String? lastUserId = await _keyStorage.read(key: 'last_user_id');
         if (lastUserId == null || localUsuario.id != lastUserId) {
-          throw const AuthException('O login offline só é permitido para o último usuário autenticado neste dispositivo.');
+          throw const AuthException(
+            'O login offline só é permitido para o último usuário autenticado neste dispositivo.',
+          );
         }
 
         if (localUsuario.ativo == false) {
@@ -225,7 +255,8 @@ class AuthService {
         }
 
         final bool hasOfflineRole = localUsuario.roles.any(
-          (String role) => _perfisAutorizados.contains(role.trim().toUpperCase()),
+          (String role) =>
+              _perfisAutorizados.contains(role.trim().toUpperCase()),
         );
         if (!hasOfflineRole) {
           throw const AuthException(
@@ -234,23 +265,30 @@ class AuthService {
         }
 
         if (localUsuario.hashPinOffline == null || localUsuario.salt == null) {
-          throw const AuthException('Erro de integridade nas credenciais locais.');
+          throw const AuthException(
+            'Erro de integridade nas credenciais locais.',
+          );
         }
 
-        final bool isPinValido = await compute(_verificarPinEmBackground, <String, String>{
-          'pin': senha,
-          'hash': localUsuario.hashPinOffline ?? '',
-          'salt': localUsuario.salt ?? '',
-        });
+        final bool isPinValido =
+            await compute(_verificarPinEmBackground, <String, String>{
+              'pin': senha,
+              'hash': localUsuario.hashPinOffline ?? '',
+              'salt': localUsuario.salt ?? '',
+            });
 
         if (!isPinValido) {
           throw const AuthException('Senha ou PIN incorreto');
         }
 
         _usuarioLogado = localUsuario;
+        _isOfflineSession = true;
         await _keyStorage.save(key: 'user_id', value: localUsuario.id);
 
-        developer.log('[AUTH] Sem internet: Login via cache local autorizado', name: 'AuthService');
+        developer.log(
+          '[AUTH] Sem internet: Login via cache local autorizado',
+          name: 'AuthService',
+        );
         return;
       }
 
@@ -268,6 +306,7 @@ class AuthService {
   /// criptografado local para prevenir o acesso indevido aos laudos periciais.
   Future<void> logout() async {
     _usuarioLogado = null;
+    _isOfflineSession = false;
     await _keyStorage.delete(key: 'access_token');
     await _keyStorage.delete(key: 'refresh_token');
     await _keyStorage.delete(key: 'user_id');
@@ -279,6 +318,7 @@ class AuthService {
   /// (refresh tokens) falham no servidor central, forçando o perito a se autenticar novamente.
   void forceExpireSession() {
     _usuarioLogado = null;
+    _isOfflineSession = false;
   }
 
   /// Verifica e recupera uma sessão persistente para este dispositivo.
@@ -303,7 +343,8 @@ class AuthService {
       final Usuario? usuario = await _usuarioRepository.getUsuarioById(id);
       if (usuario != null && usuario.ativo) {
         final bool isAutorizado = usuario.roles.any(
-          (String role) => _perfisAutorizados.contains(role.trim().toUpperCase()),
+          (String role) =>
+              _perfisAutorizados.contains(role.trim().toUpperCase()),
         );
         if (isAutorizado) {
           _usuarioLogado = usuario;

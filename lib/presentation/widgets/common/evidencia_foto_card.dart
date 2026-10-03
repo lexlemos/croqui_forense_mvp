@@ -3,6 +3,7 @@ import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 
 class EvidenciaFotoCard extends StatelessWidget {
   final String path;
+  final String? evidenciaUuid;
   final String? descricao;
   final bool readOnly;
   final ValueChanged<String>? onDescriptionChanged;
@@ -12,6 +13,7 @@ class EvidenciaFotoCard extends StatelessWidget {
   const EvidenciaFotoCard({
     super.key,
     required this.path,
+    this.evidenciaUuid,
     this.descricao,
     required this.readOnly,
     this.onDescriptionChanged,
@@ -34,7 +36,9 @@ class EvidenciaFotoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (path.isEmpty) return const SizedBox.shrink();
+    if (path.isEmpty && (evidenciaUuid == null || evidenciaUuid!.isEmpty)) {
+      return const SizedBox.shrink();
+    }
 
     final temDescricao = descricao != null && descricao!.isNotEmpty;
 
@@ -51,7 +55,11 @@ class EvidenciaFotoCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: ImageResolver.buildImage(path, fit: BoxFit.cover),
+                    child: ImageResolver.buildImage(
+                      path,
+                      evidenciaUuid: evidenciaUuid,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   if (!readOnly && onDelete != null)
                     Positioned(
@@ -62,7 +70,11 @@ class EvidenciaFotoCard extends StatelessWidget {
                         backgroundColor: Colors.black.withValues(alpha: 0.6),
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.close, size: 14, color: Colors.white),
+                          icon: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                           onPressed: onDelete,
                         ),
                       ),
@@ -73,7 +85,10 @@ class EvidenciaFotoCard extends StatelessWidget {
             InkWell(
               onTap: () => _abrirModalLegenda(context),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 10,
+                ),
                 color: Colors.white,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -176,7 +191,8 @@ class _LegendaDialogContentState extends State<_LegendaDialogContent> {
           readOnly: widget.readOnly,
           style: const TextStyle(fontSize: 16),
           decoration: const InputDecoration(
-            hintText: "Digite a legenda ou observação detalhada para esta foto...",
+            hintText:
+                "Digite a legenda ou observação detalhada para esta foto...",
             border: OutlineInputBorder(),
           ),
         ),

@@ -9,6 +9,6 @@ abstract class IDatabaseFactory {
     OnDatabaseVersionChangeFn? onUpgrade,
     String? password,
   });
-  
+
   Future<String> getDatabasesPath();
 }

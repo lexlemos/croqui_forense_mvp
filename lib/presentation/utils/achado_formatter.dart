@@ -24,10 +24,12 @@ extension AchadoUiFormatter on Achado {
     }
 
     if (achadoRelacionadoUuid != null && achadoRelacionadoUuid!.isNotEmpty) {
-      String valorVinculo = 'Vinculado (ID: ${achadoRelacionadoUuid!.length >= 8 ? achadoRelacionadoUuid!.substring(0, 8) : achadoRelacionadoUuid})';
+      String valorVinculo =
+          'Vinculado (ID: ${achadoRelacionadoUuid!.length >= 8 ? achadoRelacionadoUuid!.substring(0, 8) : achadoRelacionadoUuid})';
       if (achadosMap != null && achadosMap.containsKey(achadoRelacionadoUuid)) {
         final achadoEncontrado = achadosMap[achadoRelacionadoUuid]!;
-        valorVinculo = 'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
+        valorVinculo =
+            'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
       }
       campos.add({
         'label': 'Orifício de Entrada Vinculado',
@@ -35,7 +37,9 @@ extension AchadoUiFormatter on Achado {
       });
     }
 
-    final rawFields = dadosPreenchidos['dados_dinamicos_json'] ?? dadosPreenchidos['dynamicFields'];
+    final rawFields =
+        dadosPreenchidos['dados_dinamicos_json'] ??
+        dadosPreenchidos['dynamicFields'];
     Map<String, dynamic>? dynamicFields;
     if (rawFields is Map) {
       dynamicFields = Map<String, dynamic>.from(rawFields);
@@ -62,18 +66,27 @@ extension AchadoUiFormatter on Achado {
       }
 
       const Set<String> chavesIgnoradas = {
-        'photo_path', 'photoPath', 'view', 'local_anatomico_id', 
-        'local_anatomico_nome', 'type_label', 'typeId', 'is_interno', 
-        'isInterno', 'achadoRelacionadoUuid',
+        'photo_path',
+        'photoPath',
+        'view',
+        'local_anatomico_id',
+        'local_anatomico_nome',
+        'type_label',
+        'typeId',
+        'is_interno',
+        'isInterno',
+        'achadoRelacionadoUuid',
       };
 
       dynamicFields.forEach((key, val) {
         final keyStr = key.toString();
-        
-        if (keyStr.startsWith('_') || val == null || (val is String && val.trim().isEmpty)) {
+
+        if (keyStr.startsWith('_') ||
+            val == null ||
+            (val is String && val.trim().isEmpty)) {
           return;
         }
-        
+
         if (chavesIgnoradas.contains(keyStr)) {
           return;
         }
@@ -91,10 +104,12 @@ extension AchadoUiFormatter on Achado {
 
         if (label.isEmpty) {
           final words = keyStr.split('_');
-          label = words.map((w) {
-            if (w.isEmpty) return '';
-            return w[0].toUpperCase() + w.substring(1);
-          }).join(' ');
+          label = words
+              .map((w) {
+                if (w.isEmpty) return '';
+                return w[0].toUpperCase() + w.substring(1);
+              })
+              .join(' ');
         }
 
         String valorStr = '';
@@ -105,7 +120,8 @@ extension AchadoUiFormatter on Achado {
           bool traduzido = false;
           if (achadosMap != null && achadosMap.containsKey(valStr)) {
             final achadoEncontrado = achadosMap[valStr]!;
-            valorStr = 'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
+            valorStr =
+                'Achado nº ${achadoEncontrado.numeroSequencial} (${achadoEncontrado.type})';
             traduzido = true;
           }
           if (!traduzido) {
