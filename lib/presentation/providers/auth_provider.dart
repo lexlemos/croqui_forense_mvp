@@ -34,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
   Usuario? get usuario => _usuario;
   bool get isLogged => _isLogged; 
   bool get isLoading => _isLoading;
+  bool get isOfflineSession => _authService.isOfflineSession;
 
   Future<void> checkLoginStatus() async {
     _isLoading = true;

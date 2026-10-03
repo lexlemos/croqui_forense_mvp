@@ -771,12 +771,33 @@ children: [
         pw.Text(
           nomeResponsavel.toUpperCase(),
           style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+          textAlign: pw.TextAlign.center,
         ),
         pw.Text(
-          "Perito Médico Legal",
+          "Perito Médico-Legal",
           style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+          textAlign: pw.TextAlign.center,
         ),
-        
+        if (perito.crm != null && perito.crm!.trim().isNotEmpty) ...[
+          pw.SizedBox(height: 1),
+          pw.Text(
+            perito.crm!.trim().toUpperCase().startsWith('CRM')
+                ? perito.crm!.trim()
+                : 'CRM: ${perito.crm!.trim()}',
+            style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+            textAlign: pw.TextAlign.center,
+          ),
+        ],
+        if (perito.classe != null && perito.classe!.trim().isNotEmpty) ...[
+          pw.SizedBox(height: 1),
+          pw.Text(
+            perito.classe!.trim().toLowerCase().startsWith('classe')
+                ? perito.classe!.trim()
+                : 'Classe: ${perito.classe!.trim()}',
+            style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+            textAlign: pw.TextAlign.center,
+          ),
+        ],
         pw.SizedBox(height: 40),
 
         pw.Container(

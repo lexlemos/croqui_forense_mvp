@@ -1,5 +1,54 @@
 import 'package:uuid/uuid.dart';
 
+enum TipoFerimento {
+  entrada('Entrada'),
+  saida('Saída'),
+  raspao('Raspão'),
+  indeterminado('Indeterminado');
+
+  final String valor;
+  const TipoFerimento(this.valor);
+
+  static TipoFerimento? fromString(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final norm = value.trim().toLowerCase();
+    for (final v in TipoFerimento.values) {
+      if (v.valor.toLowerCase() == norm || v.name.toLowerCase() == norm) {
+        return v;
+      }
+    }
+    return TipoFerimento.indeterminado;
+  }
+
+  static List<String> get valores => TipoFerimento.values.map((e) => e.valor).toList();
+}
+
+enum TipoObjeto {
+  projetil('Projétil'),
+  estojo('Estojo'),
+  fragmento('Fragmento'),
+  balote('Balote'),
+  chumboGrosso('Chumbo Grosso'),
+  chumboFino('Chumbo Fino'),
+  outro('Outro');
+
+  final String valor;
+  const TipoObjeto(this.valor);
+
+  static TipoObjeto? fromString(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final norm = value.trim().toLowerCase();
+    for (final v in TipoObjeto.values) {
+      if (v.valor.toLowerCase() == norm || v.name.toLowerCase() == norm) {
+        return v;
+      }
+    }
+    return TipoObjeto.outro;
+  }
+
+  static List<String> get valores => TipoObjeto.values.map((e) => e.valor).toList();
+}
+
 class BalisticaModel {
   final String id;
   final String exameId;
@@ -62,3 +111,4 @@ class BalisticaModel {
     );
   }
 }
+

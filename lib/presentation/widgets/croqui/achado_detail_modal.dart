@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
@@ -30,7 +31,10 @@ class AchadoDetailModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = achado.dadosPreenchidos;
-    final String tipo = (d['type_label'] ?? 'Indefinido').toString().toUpperCase();
+    final String tipoLabel =
+        (d['type_label'] ?? (achado.type.isNotEmpty ? achado.type : null) ?? 'Indefinido')
+            .toString();
+    final String tipoHeader = tipoLabel.toUpperCase();
     final String local = d['local_anatomico_nome'] ?? d['local_anatomico_id'] ?? '-';
     final String? photoPath = d['photo_path'];
     final Color tagColor = achado.isInterno ? Colors.orange : Colors.green;
@@ -47,6 +51,8 @@ class AchadoDetailModal extends StatelessWidget {
         (achado.comentarioAdicional != null &&
             achado.comentarioAdicional!.isNotEmpty);
 
+    final dynamicFields = _extractDynamicFields(d);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
@@ -56,9 +62,9 @@ class AchadoDetailModal extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildHeader(tipo, local, tagColor),
-              _buildTechnicalInfo(d),
-              _buildDynamicFields(d['dynamicFields'] is Map ? Map<String, dynamic>.from(d['dynamicFields']) : null),
+              _buildHeader(tipoHeader, local, tagColor),
+              _buildTechnicalInfo(d, tipoLabel),
+              _buildDynamicFields(dynamicFields),
               if (temBalistica) _buildBalisticaSection(),
               if (achado.observacoesTexto?.isNotEmpty == true) _buildObservations(achado.observacoesTexto!),
               if (deveExibirFoto) _buildPhoto(),
@@ -192,16 +198,64 @@ class AchadoDetailModal extends StatelessWidget {
         ),
       );
 
-  Widget _buildTechnicalInfo(Map d) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Row(
+  Widget _buildTechnicalInfo(Map d, String natureza) {
+    final tam = achado.tamanho.trim().isNotEmpty
+        ? achado.tamanho.trim()
+        : (d['size']?.toString().trim().isNotEmpty == true
+            ? d['size'].toString().trim()
+            : '-');
+    final prof = achado.profundidade.trim().isNotEmpty
+        ? achado.profundidade.trim()
+        : (d['depth']?.toString().trim().isNotEmpty == true
+            ? d['depth'].toString().trim()
+            : '-');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.indigo.shade50.withAlpha(128),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.indigo.shade100),
+        ),
+        child: Column(
           children: [
-            _buildDetailItem(Icons.straighten, "TAMANHO", "${d['size'] ?? '-'} cm"),
-            const SizedBox(width: 24),
-            _buildDetailItem(Icons.vertical_align_bottom, "PROFUNDIDADE", "${d['depth'] ?? '-'}"),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDetailItem(
+                    Icons.healing,
+                    "NATUREZA DA LESÃO",
+                    natureza,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDetailItem(
+                    Icons.straighten,
+                    "TAMANHO",
+                    tam.endsWith('cm') ? tam : '$tam cm',
+                  ),
+                ),
+                Expanded(
+                  child: _buildDetailItem(
+                    Icons.vertical_align_bottom,
+                    "PROFUNDIDADE",
+                    prof,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-      );
+      ),
+    );
+  }
 
   Widget _buildObservations(String obs) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -277,7 +331,6 @@ class AchadoDetailModal extends StatelessWidget {
         ),
       );
 
-
   Widget _buildTag(String label, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -301,33 +354,84 @@ class AchadoDetailModal extends StatelessWidget {
         ],
       );
 
+  Map<String, dynamic> _extractDynamicFields(Map d) {
+    final Map<String, dynamic> result = {};
+
+    final rawFields = d['dados_dinamicos_json'] ?? d['dynamicFields'];
+    if (rawFields is Map) {
+      result.addAll(Map<String, dynamic>.from(rawFields));
+    } else if (rawFields is String && rawFields.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawFields);
+        if (decoded is Map) {
+          result.addAll(Map<String, dynamic>.from(decoded));
+        }
+      } catch (_) {}
+    }
+
+    d.forEach((k, v) {
+      final keyStr = k.toString();
+      if (!result.containsKey(keyStr)) {
+        result[keyStr] = v;
+      }
+    });
+
+    const Set<String> chavesIgnoradas = {
+      'photo_path',
+      'photoPath',
+      'view',
+      'local_anatomico_id',
+      'local_anatomico_nome',
+      'type_label',
+      'typeId',
+      'type',
+      'size',
+      'depth',
+      'tamanho',
+      'profundidade',
+      'is_interno',
+      'isInterno',
+      'achadoRelacionadoUuid',
+      'dados_dinamicos_json',
+      'dynamicFields',
+      'created_at',
+      'updated_at',
+      'tipoFerimento',
+      'tipoObjeto',
+      'numeroLacre',
+      'comentarioAdicional',
+    };
+
+    result.removeWhere((key, value) =>
+        key.startsWith('_') ||
+        chavesIgnoradas.contains(key) ||
+        value == null ||
+        (value is String && value.trim().isEmpty));
+
+    if (achado.achadoRelacionadoUuid != null &&
+        achado.achadoRelacionadoUuid!.isNotEmpty) {
+      final uuid = achado.achadoRelacionadoUuid!;
+      result['orificio_entrada_vinculo'] =
+          'Vinculado (ID: ${uuid.length >= 8 ? uuid.substring(0, 8) : uuid})';
+    }
+
+    return result;
+  }
+
   Widget _buildDynamicFields(Map<String, dynamic>? dynamicFields) {
     final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(dynamicFields ?? {});
-
-    mapToShow.removeWhere((key, value) =>
-      key.startsWith('_') ||
-      value == null ||
-      (value is String && value.trim().isEmpty) ||
-      key == 'photo_path' ||
-      key == 'photoPath' ||
-      key == 'view' ||
-      key == 'local_anatomico_id' ||
-      key == 'local_anatomico_nome' ||
-      key == 'type_label' ||
-      key == 'typeId' ||
-      key == 'is_interno' ||
-      key == 'isInterno' ||
-      key == 'achadoRelacionadoUuid'
-    );
-
-    if (achado.achadoRelacionadoUuid != null && achado.achadoRelacionadoUuid!.isNotEmpty) {
-      final uuid = achado.achadoRelacionadoUuid!;
-      mapToShow['orificio_entrada_vinculo'] = 'Vinculado (ID: ${uuid.length >= 8 ? uuid.substring(0, 8) : uuid})';
-    }
 
     if (mapToShow.isEmpty) return const SizedBox.shrink();
 
     final Map<String, String> keyLabels = {
+      'instrumento': 'Instrumento / Meio',
+      'formato': 'Formato',
+      'coloracao': 'Coloração',
+      'reacao_vital': 'Reação Vital',
+      'bordas': 'Bordas',
+      'fundo': 'Fundo da Lesão',
+      'crosta': 'Tipo de Crosta',
+      'infiltracao_hemorragica': 'Infiltração Hemorrágica',
       'tipo_orificio': 'Tipo de Orifício',
       'orificio_entrada_vinculo': 'Orifício de Entrada Vinculado',
       'numero_orificios': 'Quantidade de Orifícios',
@@ -338,6 +442,8 @@ class AchadoDetailModal extends StatelessWidget {
       'zona_esfumacamento': 'Zona de Esfumaçamento',
       'efeitos_secundarios': 'Efeitos Secundários',
       'vestigios': 'Vestígios de Pólvora/Chumbo',
+      'parte_corpo': 'Parte do Corpo',
+      'local_especifico': 'Local Específico',
     };
 
     String formatKey(String key) {

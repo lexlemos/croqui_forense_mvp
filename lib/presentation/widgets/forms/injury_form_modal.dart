@@ -780,11 +780,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
-            items: [
-              'Entrada',
-              'Saída',
-              'Raspão',
-            ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+            items: TipoFerimento.valores
+                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                .toList(),
             onChanged: (v) => setState(() => _selectedTipoFerimento = v),
           ),
           const SizedBox(height: 12),
@@ -795,12 +793,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
-            items: [
-              'Projétil',
-              'Estojo',
-              'Fragmento',
-              'Outro',
-            ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+            items: TipoObjeto.valores
+                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                .toList(),
             onChanged: (v) => setState(() => _selectedTipoObjeto = v),
           ),
           const SizedBox(height: 12),

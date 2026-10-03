@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
@@ -10,8 +11,15 @@ import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
+import 'package:croqui_forense_mvp/presentation/pages/controllers/home_controller.dart';
+
 class NewCaseDialog extends StatefulWidget {
-  const NewCaseDialog({super.key});
+  final HomeController? controller;
+
+  const NewCaseDialog({
+    super.key,
+    this.controller,
+  });
 
   @override
   State<NewCaseDialog> createState() => _NewCaseDialogState();
@@ -21,10 +29,12 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   int _currentStep = 0;
   final _formKey = GlobalKey<FormState>();
 
+  final _picController = TextEditingController();
   final _reqController = TextEditingController();
   final _boController = TextEditingController();
-  final _picController = TextEditingController(); 
   final _requisitanteController = TextEditingController();
+  final _delegaciaController = TextEditingController();
+  final _declaracaoObitoController = TextEditingController();
   final _destinoController = TextEditingController();
   final _vitimaController = TextEditingController();
 
@@ -41,10 +51,12 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
 
   @override
   void dispose() {
+    _picController.dispose();
     _reqController.dispose();
-    _boController.dispose(); 
-    _picController.dispose(); 
+    _boController.dispose();
     _requisitanteController.dispose();
+    _delegaciaController.dispose();
+    _declaracaoObitoController.dispose();
     _destinoController.dispose();
     _vitimaController.dispose();
     _vestesController.dispose();
@@ -218,9 +230,11 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'numero_pic': _picController.text.trim(),
         'numero_bo': _boController.text.trim(),
         'numero_requisicao': _reqController.text.trim(),
+        'requisitante': _requisitanteController.text.trim(),
+        'delegacia_solicitante': _delegaciaController.text.trim(),
+        'numero_declaracao_obito': _declaracaoObitoController.text.trim(),
         'nome_vitima': _vitimaController.text.trim().isEmpty ? 'Não Identificado' : _vitimaController.text.trim(),
         'destino': _destinoController.text.trim(),
-        'requisitante': _requisitanteController.text.trim(),
         'atns_ids': _selectedAtns,
         'dados_laudo': dadosLaudo,
         'fotos_gerais': _fotosIdentificacao,
@@ -302,20 +316,80 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               children: [
                 Expanded(
                   child: _buildTextField(
-                    controller: _reqController, 
-                    label: "Nº Requisição", 
-                    icon: Icons.assignment, 
+                    controller: _picController, 
+                    label: "Nº. PIC", 
+                    icon: Icons.gavel,
                     required: true,
-                    keyboardType: TextInputType.text,
+                    suffixIcon: ListenableBuilder(
+                      listenable: widget.controller ?? ChangeNotifier(),
+                      builder: (context, _) {
+                        final isFetching = widget.controller?.isFetchingPic ?? false;
+                        if (isFetching) {
+                          return const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        return IconButton(
+                          icon: const Icon(Icons.search, size: 20),
+                          tooltip: 'Buscar dados por PIC',
+                          onPressed: () {
+                            widget.controller?.buscarDadosIniciais(
+                              _picController.text,
+                              context: context,
+                              requisicaoCtrl: _reqController,
+                              boCtrl: _boController,
+                              autoridadeCtrl: _requisitanteController,
+                              delegaciaCtrl: _delegaciaController,
+                              declaracaoCtrl: _declaracaoObitoController,
+                              forcar: true,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    onChanged: (val) {
+                      if (val.trim().length == 9) {
+                        widget.controller?.buscarDadosIniciais(
+                          val,
+                          context: context,
+                          requisicaoCtrl: _reqController,
+                          boCtrl: _boController,
+                          autoridadeCtrl: _requisitanteController,
+                          delegaciaCtrl: _delegaciaController,
+                          declaracaoCtrl: _declaracaoObitoController,
+                        );
+                      }
+                    },
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.isEmpty) return 'Campo obrigatório';
+                      if (v.length != 9) {
+                        return 'Nº PIC deve ter exatamente 9 caracteres';
+                      }
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildTextField(
-                    controller: _boController,
-                    label: "Nº B.O.",
-                    icon: Icons.receipt_long,
-                    keyboardType: TextInputType.text,
+                    controller: _reqController, 
+                    label: "Nº. Requisição (CD)", 
+                    icon: Icons.assignment, 
+                    required: true,
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.isEmpty) return 'Campo obrigatório';
+                      if (!RegExp(r'^\d{4}/\d{4}$').hasMatch(v)) {
+                        return 'Formato inválido (ex: 1015/2026)';
+                      }
+                      return null;
+                    },
                   ),
                 ),
               ],
@@ -325,11 +399,17 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               children: [
                 Expanded(
                   child: _buildTextField(
-                    controller: _picController, 
-                    label: "Nº PIC", 
-                    icon: Icons.gavel,
-                    required: true,
-                    keyboardType: TextInputType.text,
+                    controller: _boController,
+                    label: "Nº. do B.O",
+                    icon: Icons.receipt_long,
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.isEmpty) return null;
+                      if (!RegExp(r'^\d+/\d{4}$').hasMatch(v)) {
+                        return 'Formato inválido (ex: 12345/2026)';
+                      }
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -338,6 +418,38 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     controller: _requisitanteController, 
                     label: "Autoridade Requisitante", 
                     icon: Icons.account_balance,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _delegaciaController,
+                    label: "Delegacia Solicitante",
+                    icon: Icons.local_police,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _declaracaoObitoController,
+                    label: "Nº.R Declaração de Óbito",
+                    icon: Icons.description,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.isEmpty) return null;
+                      if (!RegExp(r'^\d{9}$').hasMatch(v)) {
+                        return 'Nº D.O. deve ter exatamente 9 dígitos numéricos';
+                      }
+                      return null;
+                    },
                   ),
                 ),
               ],
@@ -545,24 +657,31 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
     int? maxLines = 1,
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.sentences,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+    Widget? suffixIcon,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType ?? (maxLines == null ? TextInputType.multiline : TextInputType.text),
       textCapitalization: textCapitalization,
+      inputFormatters: inputFormatters,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
         border: const OutlineInputBorder(),
         isDense: true,
-        suffixIcon: required 
-          ? const Icon(Icons.star, size: 8, color: Colors.red) 
-          : null,
+        suffixIcon: suffixIcon ??
+            (required
+                ? const Icon(Icons.star, size: 8, color: Colors.red)
+                : null),
       ),
-      validator: required 
+      validator: validator ?? (required 
         ? (val) => (val == null || val.trim().isEmpty) ? 'Obrigatório' : null 
-        : null,
+        : null),
     );
   }
 }

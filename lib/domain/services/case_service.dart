@@ -10,6 +10,8 @@ import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 
+import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
+
 Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> params) async {
   final Map<String, dynamic> dadosBase = params['dados_json'];
   
@@ -59,8 +61,20 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
 class CaseService {
   final CasoRepository _repository;
   final UsuarioRepository _usuarioRepository;
+  final IRemoteDataSource? _remoteDataSource;
 
-  CaseService(this._repository, this._usuarioRepository);
+  CaseService(
+    this._repository, 
+    this._usuarioRepository, [
+    this._remoteDataSource,
+  ]);
+
+  /// Consulta os dados cadastrais prévios de um procedimento pericial
+  /// no servidor central a partir do PIC.
+  Future<Map<String, dynamic>?> getDadosPorPic(String pic) async {
+    if (_remoteDataSource == null) return null;
+    return await _remoteDataSource.getDadosPorPic(pic);
+  }
 
   /// Inicializa e registra um novo [Caso] (Laudo Pericial Oficial) no repositório do dispositivo.
   ///
@@ -77,6 +91,8 @@ class CaseService {
     String nomeVitima = '',
     String destino = '',
     String requisitante = '',
+    String? delegaciaSolicitante,
+    String? numeroDeclaracaoObito,
     List<String> atnsIds = const [],
   }) async {
     final novoCaso = Caso.novo(
@@ -89,6 +105,8 @@ class CaseService {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
+      delegaciaSolicitante: delegaciaSolicitante,
+      numeroDeclaracaoObito: numeroDeclaracaoObito,
       atnsIds: atnsIds,
     );
     await _repository.insertCase(novoCaso);
@@ -186,7 +204,7 @@ class CaseService {
     if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
 
     final casoReaberto = casoAtual.copyWith(
-      status: StatusCaso.rascunho,
+      status: StatusCaso.em_andamento,
       hashIntegridade: null,
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now(),

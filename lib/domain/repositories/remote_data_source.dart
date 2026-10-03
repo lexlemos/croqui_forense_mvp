@@ -15,6 +15,12 @@ abstract interface class IRemoteDataSource {
   /// inválidas ou haja falha na conectividade.
   Future<Map<String, dynamic>> login(String login, String senha);
 
+  /// Verifica a conectividade e disponibilidade do servidor central do IML.
+  ///
+  /// Retorna `true` se o servidor responder com status 200 ao endpoint de integridade operacional,
+  /// ou `false` se houver recusa de conexão, tempo esgotado ou indisponibilidade de rede.
+  Future<bool> checkHealth();
+
 
   /// Sincroniza os esquemas de formulários dinâmicos e templates anatômicos
   /// atualizados e aprovados pela central para uso nos Laudos Periciais.
@@ -22,6 +28,12 @@ abstract interface class IRemoteDataSource {
   /// @throws [Exception] caso o formato da resposta (JSON) seja inválido ou
   /// a comunicação com a API falhe.
   Future<List<Map<String, dynamic>>> getTiposAchados();
+
+  /// Consulta os dados cadastrais prévios de um procedimento a partir do PIC.
+  ///
+  /// Retorna um [Map] com os metadados do procedimento ou `null` caso ocorra
+  /// falha de rede, timeout ou o protocolo não seja localizado.
+  Future<Map<String, dynamic>?> getDadosPorPic(String pic);
 
   /// Obtém a lista oficial de Auxiliares Técnicos de Necropsia (A.T.N.s) cadastrados no backend.
   Future<List<Map<String, dynamic>>> getAtns();

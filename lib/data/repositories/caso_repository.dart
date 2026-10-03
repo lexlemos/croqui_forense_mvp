@@ -17,11 +17,11 @@ import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart'
 import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
-/// Repositório central de domínio pericial responsável pela persistência atômica no SQLite (SQLCipher).
+/// RepositÃ³rio central de domÃ­nio pericial responsÃ¡vel pela persistÃªncia atÃ´mica no SQLite (SQLCipher).
 ///
-/// Implementa a interface [ISyncRepository] para garantir que todas as transações
-/// mantenham a integridade da Cadeia de Custódia. Suporta exclusão lógica (tombstones),
-/// isolamento de dados por usuário e reconciliação Offline-First utilizando Optimistic Concurrency Control (OCC).
+/// Implementa a interface [ISyncRepository] para garantir que todas as transaÃ§Ãµes
+/// mantenham a integridade da Cadeia de CustÃ³dia. Suporta exclusÃ£o lÃ³gica (tombstones),
+/// isolamento de dados por usuÃ¡rio e reconciliaÃ§Ã£o Offline-First utilizando Optimistic Concurrency Control (OCC).
 class CasoRepository implements ISyncRepository {
   final DatabaseHelper _dbHelper;
 
@@ -32,9 +32,9 @@ class CasoRepository implements ISyncRepository {
 
   /// Insere um novo laudo pericial (Caso) no banco local garantindo estado inicial.
   ///
-  /// Transação atômica. Se o `uuid` já existir, ele sobrescreve os dados base
-  /// e define `is_draft_synced` como 0, forçando re-sincronização no próximo loop.
-  /// Throws [Exception] em caso de falha de persistência atômica.
+  /// TransaÃ§Ã£o atÃ´mica. Se o `uuid` jÃ¡ existir, ele sobrescreve os dados base
+  /// e define `is_draft_synced` como 0, forÃ§ando re-sincronizaÃ§Ã£o no prÃ³ximo loop.
+  /// Throws [Exception] em caso de falha de persistÃªncia atÃ´mica.
   Future<void> insertCase(Caso novoCaso) async {
     final db = await database;
     try {
@@ -75,7 +75,7 @@ class CasoRepository implements ISyncRepository {
         await salvarExames(novoCaso.uuid, novoCaso.exames, executor: txn);
       });
     } catch (e) {
-      throw Exception('Erro de persistência ao inserir caso: $e');
+      throw Exception('Erro de persistÃªncia ao inserir caso: $e');
     }
   }
 
@@ -128,12 +128,12 @@ class CasoRepository implements ISyncRepository {
       });
     } catch (e) {
       throw Exception(
-        'Erro de persistência atômica ao inserir caso e evidências em lote: $e',
+        'Erro de persistÃªncia atÃ´mica ao inserir caso e evidÃªncias em lote: $e',
       );
     }
   }
 
-  /// Motor de Upsert (Sincronização Pull). Resolve conflitos verificando o [atualizado_em] e lida com Tombstones.
+  /// Motor de Upsert (SincronizaÃ§Ã£o Pull). Resolve conflitos verificando o [atualizado_em] e lida com Tombstones.
   @override
   Future<void> upsertCasoTransaction(ParsedSyncPayload payload) async {
     final db = await database;
@@ -159,8 +159,8 @@ class CasoRepository implements ISyncRepository {
               : null;
           final backendAtualizadoEm = casoBackend.atualizadoEm;
 
-          // Só rejeita a versão remota se houver rascunho local PENDENTE de sincronização (is_draft_synced == 0)
-          // e o dado remoto for temporalmente mais antigo que a alteração local.
+          // SÃ³ rejeita a versÃ£o remota se houver rascunho local PENDENTE de sincronizaÃ§Ã£o (is_draft_synced == 0)
+          // e o dado remoto for temporalmente mais antigo que a alteraÃ§Ã£o local.
           if (isDraftSynced == 0 && localAtualizadoEm != null && backendAtualizadoEm != null) {
             if (!backendAtualizadoEm.isAfter(localAtualizadoEm)) {
               deveAtualizarCaso = false;
@@ -187,6 +187,44 @@ class CasoRepository implements ISyncRepository {
               conflictAlgorithm: ConflictAlgorithm.replace,
             );
           } else {
+            final localMap = localRow.first;
+            // Preserva id_usuario_criador se o payload remoto vier vazio
+            final localCriador = localMap['id_usuario_criador']?.toString();
+            if ((mapParaSalvar['id_usuario_criador'] == null ||
+                 mapParaSalvar['id_usuario_criador'].toString().isEmpty) &&
+                localCriador != null && localCriador.isNotEmpty) {
+              mapParaSalvar['id_usuario_criador'] = localCriador;
+            }
+
+            // Preserva pdf_local_path local se o backend vier sem
+            final localPdfPath = localMap['pdf_local_path']?.toString();
+            if ((mapParaSalvar['pdf_local_path'] == null ||
+                 mapParaSalvar['pdf_local_path'].toString().isEmpty) &&
+                localPdfPath != null && localPdfPath.isNotEmpty) {
+              mapParaSalvar['pdf_local_path'] = localPdfPath;
+            }
+
+            // Blindagem contra regressão de status: se já está finalizado ou sincronizado localmente,
+            // não regride para NAO_INICIADO ou EM_ANDAMENTO
+            final localStatus = (localMap['status']?.toString() ?? '').toUpperCase();
+            final backendStatus = (mapParaSalvar['status']?.toString() ?? '').toUpperCase();
+            if ((localStatus == 'FINALIZADO' || localStatus == 'SINCRONIZADO' || localStatus == 'CONCLUIDO') &&
+                (backendStatus == 'NAO_INICIADO' || backendStatus == 'EM_ANDAMENTO' || backendStatus == 'RASCUNHO')) {
+              mapParaSalvar['status'] = localStatus;
+            }
+
+            // Preserva finalizado_em se o backend vier sem
+            final localFinalizadoEm = localMap['finalizado_em']?.toString();
+            if (mapParaSalvar['finalizado_em'] == null && localFinalizadoEm != null) {
+              mapParaSalvar['finalizado_em'] = localFinalizadoEm;
+            }
+
+            // Preserva data de criação original no dispositivo
+            final localCriadoEm = localMap['criado_em_dispositivo']?.toString();
+            if (localCriadoEm != null && localCriadoEm.isNotEmpty) {
+              mapParaSalvar['criado_em_dispositivo'] = localCriadoEm;
+            }
+
             batch.update(
               tableCasos,
               mapParaSalvar,
@@ -195,7 +233,7 @@ class CasoRepository implements ISyncRepository {
             );
           }
 
-          // Coleta todas as balísticas do caso (tanto de casoBackend quanto do rawJson)
+          // Coleta todas as balÃ­sticas do caso (tanto de casoBackend quanto do rawJson)
           final List<BalisticaModel> todasBalisticas = [];
           todasBalisticas.addAll(casoBackend.balisticas);
 
@@ -269,11 +307,11 @@ class CasoRepository implements ISyncRepository {
                 deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
             final achadoUuidLower = achado.uuid.trim().toLowerCase();
 
-            // Heurística de match:
-            // 1. ID determinístico V5 (e fallback V4 legado)
-            // 2. achado_uuid / achado_id vínculo
+            // HeurÃ­stica de match:
+            // 1. ID determinÃ­stico V5 (e fallback V4 legado)
+            // 2. achado_uuid / achado_id vÃ­nculo
             // 3. exame_id == achado.uuid
-            // 4. ID direto da balística == achado.uuid
+            // 4. ID direto da balÃ­stica == achado.uuid
             BalisticaModel? matchedBalistica =
                 (detId.isNotEmpty ? balisticasById[detId] : null) ??
                 (legacyDetId.isNotEmpty ? balisticasById[legacyDetId] : null);
@@ -316,7 +354,7 @@ class CasoRepository implements ISyncRepository {
             );
           }
 
-          // Busca evidências locais existentes para o caso para preservar fotos pendentes
+          // Busca evidÃªncias locais existentes para o caso para preservar fotos pendentes
           final localEvidenciasRows = await txn.query(
             tableEvidenciasMultimidia,
             where: 'caso_uuid = ?',
@@ -343,7 +381,7 @@ class CasoRepository implements ISyncRepository {
               final int localSincronizada = (localRow['foto_sincronizada'] as int?) ?? 0;
               final String? localPath = localRow['caminho_arquivo_encriptado']?.toString();
 
-              // Se a foto local existe e NÃO está sincronizada (foto_sincronizada == 0)
+              // Se a foto local existe e NÃƒO estÃ¡ sincronizada (foto_sincronizada == 0)
               if (localSincronizada == 0) {
                 evMap['foto_sincronizada'] = 0;
                 if (localRow['uuid'] != null) {
@@ -356,7 +394,7 @@ class CasoRepository implements ISyncRepository {
                   evMap['caminho_arquivo_encriptado'] = localPath;
                 }
                 debugPrint(
-                  '[CasoRepository] 🛡️ Preservando foto pendente local: '
+                  '[CasoRepository] ðŸ›¡ï¸ Preservando foto pendente local: '
                   'uuid=${evMap['uuid']} achado=${evMap['achado_uuid']} com foto_sincronizada = 0',
                 );
               }
@@ -383,9 +421,9 @@ class CasoRepository implements ISyncRepository {
       });
     } catch (e, stackTrace) {
       debugPrint(
-        '[CasoRepository] ❌ Erro na transação de upsertCasoTransaction (caso uuid: ${payload.caso.uuid}): $e\n$stackTrace',
+        '[CasoRepository] âŒ Erro na transaÃ§Ã£o de upsertCasoTransaction (caso uuid: ${payload.caso.uuid}): $e\n$stackTrace',
       );
-      throw Exception('Erro de persistência atômica no Upsert: $e');
+      throw Exception('Erro de persistÃªncia atÃ´mica no Upsert: $e');
     }
   }
 
@@ -423,7 +461,7 @@ class CasoRepository implements ISyncRepository {
         await salvarExames(caso.uuid, caso.exames, executor: txn);
       });
     } catch (e) {
-      throw Exception('Erro de persistência ao atualizar caso: $e');
+      throw Exception('Erro de persistÃªncia ao atualizar caso: $e');
     }
   }
 
@@ -444,7 +482,7 @@ class CasoRepository implements ISyncRepository {
         whereArgs: [caso.uuid],
       );
     } catch (e) {
-      throw Exception('Erro de persistência ao reabrir caso: $e');
+      throw Exception('Erro de persistÃªncia ao reabrir caso: $e');
     }
   }
 
@@ -597,7 +635,7 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       tableCasos,
-      where: 'id_usuario_criador = ? AND removido = 0',
+      where: '(id_usuario_criador = ? OR id_usuario_criador IS NULL OR id_usuario_criador = "") AND removido = 0',
       whereArgs: [usuarioId],
       orderBy: 'atualizado_em DESC, criado_em_dispositivo DESC',
     );
@@ -649,13 +687,13 @@ class CasoRepository implements ISyncRepository {
   }
 
   @override
-  Future<List<Caso>> getCasosNaoSincronizados(String usuarioId) async {
+  Future<List<Caso>> getCasosPendentesSync(String usuarioId) async {
     if (usuarioId.isEmpty) return [];
     final db = await database;
     final maps = await db.query(
       tableCasos,
       where:
-          "id_usuario_criador = ? AND status = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+          "id_usuario_criador = ? AND UPPER(status) IN ('EM_ANDAMENTO', 'RASCUNHO', 'LAUDO_PENDENTE', 'FINALIZADO') AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
       whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
@@ -672,6 +710,39 @@ class CasoRepository implements ISyncRepository {
       mutableMap['balisticas'] = balisticas;
       final exames = await getExamesPorCaso(uuidStr);
       mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias.map((e) => e.toMap()).toList();
+      casos.add(Caso.fromMap(mutableMap));
+    }
+    return casos;
+  }
+
+  @override
+  Future<List<Caso>> getCasosNaoSincronizados(String usuarioId) async {
+    if (usuarioId.isEmpty) return [];
+    final db = await database;
+    final maps = await db.query(
+      tableCasos,
+      where:
+          "id_usuario_criador = ? AND UPPER(status) = 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+      whereArgs: [usuarioId],
+      orderBy: 'criado_em_dispositivo ASC',
+    );
+
+    final List<Caso> casos = [];
+    for (final map in maps) {
+      final mutableMap = Map<String, dynamic>.from(map);
+      final uuidStr = mutableMap['uuid'].toString();
+      final balisticas = await db.query(
+        tableBalisticas,
+        where: 'exame_id = ?',
+        whereArgs: [uuidStr],
+      );
+      mutableMap['balisticas'] = balisticas;
+      final exames = await getExamesPorCaso(uuidStr);
+      mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias.map((e) => e.toMap()).toList();
       casos.add(Caso.fromMap(mutableMap));
     }
     return casos;
@@ -684,7 +755,7 @@ class CasoRepository implements ISyncRepository {
     final maps = await db.query(
       tableCasos,
       where:
-          "id_usuario_criador = ? AND UPPER(status) != 'FINALIZADO' AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+          "id_usuario_criador = ? AND UPPER(status) IN ('EM_ANDAMENTO', 'RASCUNHO', 'LAUDO_PENDENTE') AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
       whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
@@ -701,6 +772,8 @@ class CasoRepository implements ISyncRepository {
       mutableMap['balisticas'] = balisticas;
       final exames = await getExamesPorCaso(uuidStr);
       mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
+      final evidencias = await getEvidenciasPorCaso(uuidStr);
+      mutableMap['evidencias_multimidia'] = evidencias.map((e) => e.toMap()).toList();
       casos.add(Caso.fromMap(mutableMap));
     }
     return casos;
@@ -761,7 +834,7 @@ class CasoRepository implements ISyncRepository {
       }
     } catch (e) {
       debugPrint(
-        '[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (GERAL): $e',
+        '[CasoRepository] âŒ getAchadosComFotosPendentesEmLote (GERAL): $e',
       );
     }
 
@@ -804,7 +877,7 @@ class CasoRepository implements ISyncRepository {
       }
     } catch (e) {
       debugPrint(
-        '[CasoRepository] ❌ getAchadosComFotosPendentesEmLote (SQL): $e',
+        '[CasoRepository] âŒ getAchadosComFotosPendentesEmLote (SQL): $e',
       );
     }
 
@@ -837,7 +910,7 @@ class CasoRepository implements ISyncRepository {
       );
       return rows;
     } catch (e) {
-      debugPrint('[CasoRepository] ❌ getEvidenciasPendentesPorCaso: $e');
+      debugPrint('[CasoRepository] âŒ getEvidenciasPendentesPorCaso: $e');
       return [];
     }
   }
@@ -930,6 +1003,21 @@ class CasoRepository implements ISyncRepository {
     );
   }
 
+  @override
+  Future<void> atualizarPdfUrl(String casoUuid, String pdfUrl) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE $tableCasos
+         SET pdf_url       = ?,
+             atualizado_em = ?
+       WHERE uuid     = ?
+         AND removido = 0
+      ''',
+      [pdfUrl, DateTime.now().toIso8601String(), casoUuid],
+    );
+  }
+
   Future<EvidenciaMultimidia?> getEvidenciaByUuid(String uuid) async {
     final db = await database;
     final maps = await db.query(
@@ -952,7 +1040,7 @@ class CasoRepository implements ISyncRepository {
     return maps.map((m) => EvidenciaMultimidia.fromMap(m)).toList();
   }
 
-  /// Recupera todas as evidências multimídia associadas a um caso (tanto gerais quanto de achados).
+  /// Recupera todas as evidÃªncias multimÃ­dia associadas a um caso (tanto gerais quanto de achados).
   Future<List<EvidenciaMultimidia>> getEvidenciasPorCaso(String casoUuid) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -1076,31 +1164,15 @@ class CasoRepository implements ISyncRepository {
 
   String _encodeJson(Map<String, dynamic> map) => jsonEncode(map);
 
-  /// Persiste a lista de exames solicitados e suas filhas polimórficas de forma atômica.
-  /// [executor]: Permite rodar dentro de uma transação existente (txn) garantindo atomicidade real.
-  /// [isSyncPull]: Se true, ignora a trava de finalizado e não remarca o caso como pendente de sync.
+  /// Persiste a lista de exames solicitados e suas filhas polimÃ³rficas de forma atÃ´mica.
+  /// [executor]: Permite rodar dentro de uma transaÃ§Ã£o existente (txn) garantindo atomicidade real.
+  /// [isSyncPull]: Se true, ignora a trava de finalizado e nÃ£o remarca o caso como pendente de sync.
   Future<void> salvarExames(
     String casoUuid,
     List<ExameSolicitadoModel> exames, {
     DatabaseExecutor? executor,
     bool isSyncPull = false,
   }) async {
-    if (!isSyncPull) {
-      final targetDb = executor ?? await database;
-      final res = await targetDb.query(
-        tableCasos,
-        columns: ['status'],
-        where: 'uuid = ?',
-        whereArgs: [casoUuid],
-        limit: 1,
-      );
-      if (res.isNotEmpty &&
-          res.first['status']?.toString().toUpperCase() == 'FINALIZADO') {
-        throw Exception(
-          "Segurança Jurídica: Este laudo já está finalizado e é imutável.",
-        );
-      }
-    }
 
     Future<void> executarOperacoes(DatabaseExecutor targetDb) async {
       final batch = targetDb.batch();
@@ -1130,8 +1202,8 @@ class CasoRepository implements ISyncRepository {
 
       for (final exame in exames) {
         final mapExame = exame.toMap();
-        // Remover todas as chaves polimórficas que toSyncMap injeta —
-        // a tabela exames_solicitados só aceita colunas simples (flat schema).
+        // Remover todas as chaves polimÃ³rficas que toSyncMap injeta â€”
+        // a tabela exames_solicitados sÃ³ aceita colunas simples (flat schema).
         mapExame.remove('detalhes');
         mapExame.remove('amostras_genetica');
         mapExame.remove('frascos_anatomo');
@@ -1204,7 +1276,7 @@ class CasoRepository implements ISyncRepository {
     }
   }
 
-  /// Recupera todos os exames solicitados e suas tabelas filhas polimórficas para um caso específico.
+  /// Recupera todos os exames solicitados e suas tabelas filhas polimÃ³rficas para um caso especÃ­fico.
   Future<List<ExameSolicitadoModel>> getExamesPorCaso(String casoUuid) async {
     final db = await database;
     try {
@@ -1380,31 +1452,31 @@ class CasoRepository implements ISyncRepository {
       }).toList();
     } catch (e) {
       debugPrint(
-        '[CasoRepository] ❌ Erro ao obter exames para o caso $casoUuid: $e',
+        '[CasoRepository] âŒ Erro ao obter exames para o caso $casoUuid: $e',
       );
       return [];
     }
   }
 
-  /// Executa a exclusão de casos locais para evitar o esgotamento do armazenamento (SQLite).
+  /// Executa a exclusÃ£o de casos locais para evitar o esgotamento do armazenamento (SQLite).
   ///
-  /// Regra de Retenção Forense:
-  /// - Apenas casos com status 'FINALIZADO' são removidos.
-  /// - O caso deve ter sido atualizado há mais de 30 dias.
-  /// - Casos em RASCUNHO ou LAUDO_PENDENTE são blindados e jamais excluídos por esta rotina.
-  /// - A exclusão em cascata das tabelas filhas (Achados, Evidências, Exames) é feita explicitamente
+  /// Regra de RetenÃ§Ã£o Forense:
+  /// - Apenas casos com status 'FINALIZADO' sÃ£o removidos.
+  /// - O caso deve ter sido atualizado hÃ¡ mais de 30 dias.
+  /// - Casos em RASCUNHO ou LAUDO_PENDENTE sÃ£o blindados e jamais excluÃ­dos por esta rotina.
+  /// - A exclusÃ£o em cascata das tabelas filhas (Achados, EvidÃªncias, Exames) Ã© feita explicitamente
   ///   para garantir a limpeza estrutural sem depender exclusivamente de chaves estrangeiras SQLite.
   Future<void> expurgarCasosAntigos() async {
     final db = await database;
     try {
       final dataLimite = DateTime.now()
-          .subtract(const Duration(days: 30))
+          .subtract(const Duration(days: 15))
           .toIso8601String();
 
       final casosParaExcluir = await db.query(
         tableCasos,
         columns: ['uuid'],
-        where: "status = 'FINALIZADO' AND atualizado_em < ?",
+        where: "status IN ('FINALIZADO', 'SINCRONIZADO', 'CONCLUIDO') AND atualizado_em < ?",
         whereArgs: [dataLimite],
       );
 
@@ -1461,11 +1533,11 @@ class CasoRepository implements ISyncRepository {
       });
 
       debugPrint(
-        '[CasoRepository] Expurgados ${uuids.length} casos finalizados mais antigos que 30 dias e suas dependências.',
+        '[CasoRepository] Expurgados ${uuids.length} casos finalizados mais antigos que 30 dias e suas dependÃªncias.',
       );
     } catch (e, stackTrace) {
       debugPrint(
-        '[CasoRepository] ❌ Falha na transação de expurgo de casos antigos: $e\\n$stackTrace',
+        '[CasoRepository] âŒ Falha na transaÃ§Ã£o de expurgo de casos antigos: $e\\n$stackTrace',
       );
     }
   }

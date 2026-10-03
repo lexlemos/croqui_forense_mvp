@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -90,6 +89,11 @@ class CroquiController extends ChangeNotifier {
 
   bool _isProcessing = false;
   bool get isProcessing => _isProcessing;
+
+  bool _isFetchingPic = false;
+  bool get isFetchingPic => _isFetchingPic;
+
+  String _lastSearchedPic = '';
 
   bool _isDisposed = false;
 
@@ -748,8 +752,8 @@ class CroquiController extends ChangeNotifier {
 
       final statusAtual = casoAtual.status;
 
-      // Cenário A: Se o status for RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
-      if (statusAtual == StatusCaso.rascunho) {
+      // Cenário A: Se o status for EM_ANDAMENTO/RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
+      if (statusAtual == StatusCaso.em_andamento || statusAtual == StatusCaso.rascunho) {
         final confirmExame = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -971,7 +975,7 @@ class CroquiController extends ChangeNotifier {
         casoAtual = casoAtualizado;
       } else {
         casoAtual = casoAtual.copyWith(
-          status: StatusCaso.rascunho,
+          status: StatusCaso.em_andamento,
           atualizadoEm: DateTime.now(),
           versao: casoAtual.versao + 1,
         );
@@ -1114,16 +1118,13 @@ class CroquiController extends ChangeNotifier {
       );
     }
     novaCarac = novaCarac.copyWith(identificacao: caracteristicas);
+    caracteristicasCtrl.text = caracteristicas;
 
     final novosDados = casoAtual.dadosLaudo.copyWith(
       identificacao: novaId,
       caracteristicas: novaCarac,
     );
     atualizarDadosLaudoMemoria(novosDados);
-
-    if (!isReadOnly) {
-      scheduleAutoSave();
-    }
   }
 
   String _resolveBodyPartName(String view, String partId) {
@@ -1199,6 +1200,8 @@ class CroquiController extends ChangeNotifier {
       numeroBo: numeroBo,
       numeroPic: numeroPic,
       numeroRequisicao: numeroRequisicao,
+      numeroLaudoExterno: numeroRequisicao.isNotEmpty ? numeroRequisicao : casoAtual.numeroLaudoExterno,
+      isDraftSynced: false,
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
@@ -1245,8 +1248,16 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  Timer? _autoSaveTimer;
+
   void scheduleAutoSave() {
-    salvarRascunhoImediato();
+    if (isReadOnly || _isDisposed) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (!_isDisposed && !isReadOnly) {
+        salvarRascunhoImediato();
+      }
+    });
   }
 
   Future<void> salvarRascunhoImediato() async {
@@ -1268,6 +1279,7 @@ class CroquiController extends ChangeNotifier {
   }
 
   Future<void> flushAutoSave() async {
+    _autoSaveTimer?.cancel();
     // Agora o flushAutoSave apenas garante a sincronização e o salvamento síncrono.
     if (!isReadOnly) {
       try {
@@ -1287,6 +1299,7 @@ class CroquiController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _autoSaveTimer?.cancel();
 
     // Sincroniza os controllers de texto com o casoAtual ANTES de liberar
     // os recursos e sem chamar notifyListeners (pois estamos no dispose).
@@ -1385,6 +1398,7 @@ class CroquiController extends ChangeNotifier {
     novosDados['identificacao'] = {
       'vestes': vestesCtrl.text,
       'historico': historicoCtrl.text,
+      'sexo': casoAtual.dadosLaudo.identificacao.sexo,
     };
 
     novosDados['caracteristicas'] = {
@@ -1444,17 +1458,97 @@ class CroquiController extends ChangeNotifier {
   }
 
   bool validarCamposObrigatorios() {
-    if (quesito1Ctrl.text.trim().isEmpty) return false;
+    if (quesito1Ctrl.text.trim().length < 3) return false;
 
     for (var ctrl in causasMorteCtrls) {
-      if (ctrl.imediataCtrl.text.trim().isEmpty) return false;
-      if (ctrl.devidoACtrl.text.trim().isEmpty) return false;
-      if (ctrl.consequenciaCtrl.text.trim().isEmpty) return false;
+      if (ctrl.imediataCtrl.text.trim().length < 3) return false;
+      if (ctrl.devidoACtrl.text.trim().length < 3) return false;
+      if (ctrl.consequenciaCtrl.text.trim().length < 3) return false;
     }
 
-    if (quesito3Ctrl.text.trim().isEmpty) return false;
-    if (quesito4Ctrl.text.trim().isEmpty) return false;
+    if (quesito3Ctrl.text.trim().length < 3) return false;
+    if (quesito4Ctrl.text.trim().length < 3) return false;
     return true;
+  }
+
+  /// Busca dados burocráticos associados ao número do PIC no serviço remoto.
+  ///
+  /// Executa o autopreenchimento seguro sem sobrescrever valores já preenchidos
+  /// pelo perito e sem bloquear a interação do usuário.
+  ///
+  /// O guarda de ciclo de vida é `_isDisposed` (e não o `BuildContext` da aba),
+  /// pois os `TextEditingController`s pertencem a este controller: trocar de aba
+  /// não deve descartar o resultado, mas sair do croqui sim.
+  ///
+  /// Em caso de falha, o cache `_lastSearchedPic` é liberado para permitir
+  /// nova tentativa pela lupa sem precisar alterar o PIC.
+  Future<void> buscarDadosPorPic({bool forcar = false}) async {
+    final sanitizedPic = picCtrl.text.trim();
+    if (_isDisposed ||
+        sanitizedPic.isEmpty ||
+        _isFetchingPic ||
+        (!forcar && sanitizedPic == _lastSearchedPic)) {
+      return;
+    }
+
+    _isFetchingPic = true;
+    _lastSearchedPic = sanitizedPic;
+    notifyListeners();
+
+    try {
+      final res = await _caseService.getDadosPorPic(sanitizedPic);
+
+      if (_isDisposed) return;
+
+      if (res == null) {
+        _lastSearchedPic = '';
+        _snack(
+          'Rede instável ou PIC não localizado. Continue o preenchimento manual.',
+          color: Colors.orange,
+        );
+        return;
+      }
+
+      bool altered = false;
+
+      final boValue = res['numero_bo'] ?? res['bo'];
+      if (boCtrl.text.isEmpty && boValue != null) {
+        boCtrl.text = boValue.toString();
+        altered = true;
+      }
+
+      final reqValue = res['numero_requisicao'] ?? res['requisicao'] ?? res['cd'] ?? res['numero_laudo'];
+      if (numeroLaudoCtrl.text.isEmpty && reqValue != null) {
+        numeroLaudoCtrl.text = reqValue.toString();
+        altered = true;
+      }
+
+      final autoridadeValue = res['requisitante'] ?? res['autoridade'] ?? res['autoridade_requisitante'];
+      if (reqOrigemCtrl.text.isEmpty && autoridadeValue != null) {
+        reqOrigemCtrl.text = autoridadeValue.toString();
+        altered = true;
+      }
+
+      final delegaciaValue = res['delegacia_solicitante'] ?? res['delegacia'] ?? res['delegacia_origem'];
+      if (delegaciaSolicitanteCtrl.text.isEmpty && delegaciaValue != null) {
+        delegaciaSolicitanteCtrl.text = delegaciaValue.toString();
+        altered = true;
+      }
+
+      final declaracaoValue = res['numero_declaracao_obito'] ?? res['declaracao_obito'] ?? res['numero_do'];
+      if (numeroDeclaracaoObitoCtrl.text.isEmpty && declaracaoValue != null) {
+        numeroDeclaracaoObitoCtrl.text = declaracaoValue.toString();
+        altered = true;
+      }
+
+      if (altered) {
+        sincronizarDadosEmMemoria(null, false);
+        scheduleAutoSave();
+      }
+    } finally {
+      _isFetchingPic = false;
+      if (!_isDisposed) notifyListeners();
+    }
   }
 
   void _snack(String msg, {Color? color}) {

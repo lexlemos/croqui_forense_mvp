@@ -13,6 +13,7 @@ enum SortCriteria { numero, data }
 enum SortOrder { asc, desc }
 
 enum StatusCaso {
+  em_andamento,
   rascunho,
   laudo_pendente,
   finalizado,
@@ -78,7 +79,7 @@ class Caso {
     required this.uuid,
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
-    this.status = StatusCaso.rascunho,
+    this.status = StatusCaso.em_andamento,
     this.hashIntegridade,
     required this.removido,
     required this.versao,
@@ -149,7 +150,7 @@ class Caso {
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
   }) : uuid = const Uuid().v4(),
-       status = StatusCaso.rascunho,
+       status = StatusCaso.em_andamento,
        hashIntegridade = null,
        removido = false,
        versao = 1,
@@ -322,12 +323,18 @@ class Caso {
       uuid: map['uuid']?.toString() ?? '',
       idUsuarioCriador: map['id_usuario_criador']?.toString() ?? '',
       numeroLaudoExterno: map['numero_laudo_externo']?.toString(),
-      status: StatusCaso.values.firstWhere(
-        (e) =>
-            e.name.toUpperCase() ==
-            (map['status']?.toString() ?? '').toUpperCase(),
-        orElse: () => StatusCaso.rascunho,
-      ),
+      status: () {
+        final rawStatus = (map['status_pericia']?.toString() ?? map['status']?.toString() ?? '').toUpperCase();
+        if (rawStatus == 'CONCLUIDO' || rawStatus == 'SINCRONIZADO') return StatusCaso.sincronizado;
+        if (rawStatus == 'FINALIZADO') return StatusCaso.finalizado;
+        if (rawStatus == 'EM_ANDAMENTO' || rawStatus == 'NAO_INICIADO' || rawStatus == 'RASCUNHO') {
+          return StatusCaso.em_andamento;
+        }
+        return StatusCaso.values.firstWhere(
+          (e) => e.name.toUpperCase() == rawStatus,
+          orElse: () => StatusCaso.em_andamento,
+        );
+      }(),
       dadosLaudo: modelDadosLaudo,
 
       hashIntegridade: map['hash_integridade']?.toString(),
@@ -603,7 +610,11 @@ class Caso {
       'delegacia_solicitante': delegaciaSolicitante,
       'destino': destino,
       'nome_vitima': nomeVitima,
-      'dados_laudo_json': dadosLaudo.toMap(),
+      'dados_laudo_json': {
+        ...dadosLaudo.toMap(),
+        if (delegaciaSolicitante != null)
+          'delegacia_solicitante': delegaciaSolicitante,
+      },
       'pdf_url': pdfUrl,
       'corpo_estado': (corpoEstado?.trim().isEmpty ?? true) ? null : corpoEstado,
       'corpo_estado_outros': corpoEstadoOutros,
@@ -616,6 +627,7 @@ class Caso {
       'descricao_exames': descricaoExames,
       'exames_solicitados': exames.map((e) => e.toSyncMap()).toList(),
       'balisticas': balisticas.map((e) => e.toMap()).toList(),
+      'evidencias_multimidia': evidenciasMultimidia.map((e) => e.toSyncMap()).toList(),
       'data_necropsia': _formatDateToSync(dataNecropsia),
       'hora_necropsia': _formatTimeToSync(horaNecropsia),
       'numero_declaracao_obito': numeroDeclaracaoObito,
@@ -624,6 +636,7 @@ class Caso {
 
   String _mapearStatusParaApi(StatusCaso statusLocal) {
     switch (statusLocal) {
+      case StatusCaso.em_andamento:
       case StatusCaso.rascunho:
         return 'EM_ANDAMENTO';
       case StatusCaso.laudo_pendente:
@@ -632,8 +645,6 @@ class Caso {
       case StatusCaso.sincronizado:
       case StatusCaso.arquivado:
         return 'CONCLUIDO';
-      default:
-        return 'EM_ANDAMENTO';
     }
   }
 }

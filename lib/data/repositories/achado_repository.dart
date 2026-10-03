@@ -108,9 +108,6 @@ class AchadoRepository {
   }
 
   Future<void> updateAchado(Achado achado) async {
-    if (await isCasoFinalizado(achado.casoUuid)) {
-      throw Exception('Segurança Jurídica: Impossível atualizar achado de laudo finalizado.');
-    }
     final db = await _db;
     try {
       await db.transaction((txn) async {
@@ -189,9 +186,6 @@ class AchadoRepository {
 
   Future<void> deleteAchado(String uuid) async {
     final achado = await getAchadoByUuid(uuid);
-    if (achado != null && await isCasoFinalizado(achado.casoUuid)) {
-      throw Exception('Segurança Jurídica: Impossível remover achado de laudo finalizado.');
-    }
     final db = await _db;
     try {
       await db.rawUpdate(

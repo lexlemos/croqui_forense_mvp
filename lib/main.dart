@@ -70,7 +70,7 @@ void main() async {
   }
 
   // Garbage Collection: remove arquivos órfãos e expurga arquivos físicos e
-  // registros SQLite de laudos finalizados, sincronizados na nuvem e com mais de 30 dias.
+  // registros SQLite de laudos finalizados, sincronizados na nuvem e com mais de 15 dias.
   // O bloco try/catch garante que uma falha na limpeza nunca impeça o app de abrir.
   try {
     final storageGcService = LocalStorageGcService(
@@ -193,8 +193,8 @@ class AppRoot extends StatelessWidget {
           update: (_, repo, remoteDS, prev) =>
               prev ?? AuthService(repo, keyStorage, remoteDS),
         ),
-        ProxyProvider2<CasoRepository, UsuarioRepository, CaseService>(
-          update: (_, casoRepo, usuarioRepo, __) => CaseService(casoRepo, usuarioRepo),
+        ProxyProvider3<CasoRepository, UsuarioRepository, IRemoteDataSource, CaseService>(
+          update: (_, casoRepo, usuarioRepo, remoteDS, __) => CaseService(casoRepo, usuarioRepo, remoteDS),
         ),
         ProxyProvider<UsuarioRepository, UserService>(
           update: (_, repo, __) => UserService(repo),

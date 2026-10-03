@@ -9,15 +9,17 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 
 final String _kBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.15.88:8000/api/v1/';
-const Duration _kConnectTimeout = Duration(seconds: 30);
-const Duration _kDataTimeout = Duration(seconds: 30);
+final int _kConnectTimeoutSec = int.tryParse(dotenv.env['API_CONNECT_TIMEOUT_SEC'] ?? '') ?? 4;
+final int _kDataTimeoutSec = int.tryParse(dotenv.env['API_DATA_TIMEOUT_SEC'] ?? '') ?? 15;
+final Duration _kConnectTimeout = Duration(seconds: _kConnectTimeoutSec);
+final Duration _kDataTimeout = Duration(seconds: _kDataTimeoutSec);
 
 class SessionExpiredException implements Exception {
   @override
   String toString() => 'SessÃ£o expirada. FaÃ§a login novamente.';
 }
 
-// TODO (Next Sprint): Adicionar Interceptor de Retry com Exponential Backoff (ex: pacote retry) para blindar requisições contra flutuações de rede transientes (SocketException, 502).
+// TODO (Next Sprint): Adicionar Interceptor de Retry com Exponential Backoff (ex: pacote retry) para blindar requisiï¿½ï¿½es contra flutuaï¿½ï¿½es de rede transientes (SocketException, 502).
 class AuthInterceptor extends QueuedInterceptor {
   final KeyStorageInterface _keyStorage;
   final Dio _dio;

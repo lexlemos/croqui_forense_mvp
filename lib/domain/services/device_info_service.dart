@@ -38,4 +38,9 @@ class DeviceInfoService {
     _cachedDeviceId = stored;
     return stored;
   }
+
+  /// Define o identificador em cache de memória do dispositivo para testes de unidade e isolamento de plataforma.
+  static void setMockDeviceId(String? deviceId) {
+    _cachedDeviceId = deviceId;
+  }
 }

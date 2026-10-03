@@ -47,6 +47,7 @@ class AuthService {
   final IRemoteDataSource _remoteDataSource;
 
   Usuario? _usuarioLogado;
+  bool _isOfflineSession = false;
 
   /// Inicializa o serviço de autenticação injetando os repositórios de dados locais,
   /// o provedor de armazenamento seguro de chaves e a fonte de dados remota.
@@ -55,6 +56,9 @@ class AuthService {
   /// Retorna o [Usuario] pericial autenticado na sessão ativa do dispositivo,
   /// ou `null` caso nenhuma sessão válida esteja inicializada.
   Usuario? get usuario => _usuarioLogado;
+
+  /// Indica se a sessão atual foi estabelecida em modo offline através do cache local.
+  bool get isOfflineSession => _isOfflineSession;
 
   /// Indica se existe uma sessão ativa de usuário autenticado no dispositivo.
   bool get isLogged => _usuarioLogado != null;
@@ -203,6 +207,7 @@ class AuthService {
 
       await _usuarioRepository.createUsuario(novoUsuario);
       _usuarioLogado = novoUsuario;
+      _isOfflineSession = false;
 
       developer.log(
         '[AUTH] Login online e validação RBAC concluídos com sucesso (ID: $userId)',
@@ -248,6 +253,7 @@ class AuthService {
         }
 
         _usuarioLogado = localUsuario;
+        _isOfflineSession = true;
         await _keyStorage.save(key: 'user_id', value: localUsuario.id);
 
         developer.log('[AUTH] Sem internet: Login via cache local autorizado', name: 'AuthService');
@@ -268,6 +274,7 @@ class AuthService {
   /// criptografado local para prevenir o acesso indevido aos laudos periciais.
   Future<void> logout() async {
     _usuarioLogado = null;
+    _isOfflineSession = false;
     await _keyStorage.delete(key: 'access_token');
     await _keyStorage.delete(key: 'refresh_token');
     await _keyStorage.delete(key: 'user_id');
@@ -279,6 +286,7 @@ class AuthService {
   /// (refresh tokens) falham no servidor central, forçando o perito a se autenticar novamente.
   void forceExpireSession() {
     _usuarioLogado = null;
+    _isOfflineSession = false;
   }
 
   /// Verifica e recupera uma sessão persistente para este dispositivo.

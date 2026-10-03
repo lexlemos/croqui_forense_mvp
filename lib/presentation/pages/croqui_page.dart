@@ -99,32 +99,48 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
         child: Scaffold(
           appBar: AppBar(
             title: Consumer<CroquiController>(
-            builder: (context, c, _) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text("Exame Corporal", style: TextStyle(fontSize: 16)),
-                    if (c.isReadOnly)
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
-                        child: const Text("CONCLUÍDO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                      )
-                    else if (c.casoAtual.status == StatusCaso.laudo_pendente)
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.orange[800], borderRadius: BorderRadius.circular(4)),
-                        child: const Text("LAUDO PENDENTE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
-                  ],
-                ),
-                Text("Laudo: ${c.casoAtual.numeroLaudoExterno ?? 'Novo'}",
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300)),
-              ],
-            ),
+            builder: (context, c, _) {
+              final pic = c.casoAtual.numeroPic.trim();
+              final req = c.casoAtual.numeroRequisicao.trim();
+              final laudo = (c.casoAtual.numeroLaudoExterno ?? '').trim();
+
+              final String identificador = pic.isNotEmpty
+                  ? 'PIC $pic'
+                  : (req.isNotEmpty
+                      ? 'Req $req'
+                      : (laudo.isNotEmpty
+                          ? 'Laudo $laudo'
+                          : 'Novo Caso'));
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text("Exame Corporal - $identificador", style: const TextStyle(fontSize: 16)),
+                      if (c.isReadOnly)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
+                          child: const Text("CONCLUÍDO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        )
+                      else if (c.casoAtual.status == StatusCaso.laudo_pendente)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.orange[800], borderRadius: BorderRadius.circular(4)),
+                          child: const Text("LAUDO PENDENTE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                    ],
+                  ),
+                  Text(
+                    "Laudo: ${laudo.isNotEmpty ? laudo : (req.isNotEmpty ? 'Req: $req' : 'Pendente')}",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300),
+                  ),
+                ],
+              );
+            },
           ),
           backgroundColor: controller.isReadOnly ? Colors.blueGrey[800] : Colors.indigo,
           foregroundColor: Colors.white,

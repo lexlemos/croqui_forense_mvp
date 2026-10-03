@@ -56,10 +56,28 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
 
   void _toggleStatus(StatusCaso status) {
     setState(() {
-      if (_selectedStatuses.contains(status)) {
-        _selectedStatuses.remove(status);
+      if (status == StatusCaso.em_andamento || status == StatusCaso.rascunho) {
+        if (_selectedStatuses.contains(StatusCaso.em_andamento) || _selectedStatuses.contains(StatusCaso.rascunho)) {
+          _selectedStatuses.remove(StatusCaso.em_andamento);
+          _selectedStatuses.remove(StatusCaso.rascunho);
+        } else {
+          _selectedStatuses.add(StatusCaso.em_andamento);
+          _selectedStatuses.add(StatusCaso.rascunho);
+        }
+      } else if (status == StatusCaso.finalizado || status == StatusCaso.sincronizado) {
+        if (_selectedStatuses.contains(StatusCaso.finalizado) || _selectedStatuses.contains(StatusCaso.sincronizado)) {
+          _selectedStatuses.remove(StatusCaso.finalizado);
+          _selectedStatuses.remove(StatusCaso.sincronizado);
+        } else {
+          _selectedStatuses.add(StatusCaso.finalizado);
+          _selectedStatuses.add(StatusCaso.sincronizado);
+        }
       } else {
-        _selectedStatuses.add(status);
+        if (_selectedStatuses.contains(status)) {
+          _selectedStatuses.remove(status);
+        } else {
+          _selectedStatuses.add(status);
+        }
       }
     });
   }
@@ -117,7 +135,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _buildFilterChip('Em Andamento', StatusCaso.rascunho, Colors.cyan),
+                _buildFilterChip('Em Andamento', StatusCaso.em_andamento, Colors.cyan),
                 _buildFilterChip('Laudo Pendente', StatusCaso.laudo_pendente, Colors.orange),
                 _buildFilterChip('Finalizado', StatusCaso.finalizado, Colors.green),
                 _buildFilterChip('Arquivado', StatusCaso.arquivado, Colors.grey),
@@ -134,7 +152,13 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                     setState(() {
                       _criteria = SortCriteria.data;
                       _order = SortOrder.desc;
-                      _selectedStatuses = {StatusCaso.rascunho, StatusCaso.laudo_pendente, StatusCaso.finalizado}; 
+                      _selectedStatuses = {
+                        StatusCaso.em_andamento,
+                        StatusCaso.rascunho,
+                        StatusCaso.laudo_pendente,
+                        StatusCaso.finalizado,
+                        StatusCaso.sincronizado,
+                      }; 
                     });
                   },
                   child: const Text('Limpar'),

@@ -22,7 +22,7 @@ class LocalStorageGcService {
 
   LocalStorageGcService({
     required DatabaseHelper dbHelper,
-    this.retentionDays = 30,
+    this.retentionDays = 15,
   }) : _dbHelper = dbHelper;
 
   Future<Database> get _db async => _dbHelper.database;
@@ -133,7 +133,7 @@ class LocalStorageGcService {
         pdf_local_path,
         finalizado_em
       FROM $tableCasos
-      WHERE status          = 'FINALIZADO'
+      WHERE status IN ('FINALIZADO', 'SINCRONIZADO', 'CONCLUIDO')
         AND is_draft_synced  = 1
         AND finalizado_em   IS NOT NULL
         AND finalizado_em   <= ?

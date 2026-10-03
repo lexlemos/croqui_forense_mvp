@@ -21,6 +21,7 @@ class CaseListProvider extends ChangeNotifier {
   SortCriteria _sortCriteria = SortCriteria.data;
   SortOrder _sortOrder = SortOrder.desc;
   Set<StatusCaso> _statusFilter = {
+    StatusCaso.em_andamento,
     StatusCaso.rascunho,
     StatusCaso.laudo_pendente,
     StatusCaso.finalizado,
@@ -86,6 +87,8 @@ class CaseListProvider extends ChangeNotifier {
     required String nomeVitima,
     required String destino,
     required String requisitante,
+    String? delegaciaSolicitante,
+    String? numeroDeclaracaoObito,
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
@@ -99,6 +102,8 @@ class CaseListProvider extends ChangeNotifier {
       nomeVitima: nomeVitima,
       destino: destino,
       requisitante: requisitante,
+      delegaciaSolicitante: delegaciaSolicitante,
+      numeroDeclaracaoObito: numeroDeclaracaoObito,
       atnsIds: atnsIds,
     );
 

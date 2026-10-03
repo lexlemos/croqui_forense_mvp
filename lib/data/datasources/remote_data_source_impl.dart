@@ -1,7 +1,6 @@
 import 'dart:developer' as developer;
-import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
+
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as p;
@@ -22,6 +21,10 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       final response = await _apiClient.dio.post(
         'auth/login',
         data: {'login': login, 'senha': senha},
+        options: Options(
+          sendTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+        ),
       );
       if (response.statusCode != 200 || response.data == null) {
         throw const AuthException('Resposta inesperada do servidor.');
@@ -44,6 +47,21 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     }
   }
 
+  @override
+  Future<bool> checkHealth() async {
+    try {
+      final response = await _apiClient.dio.get(
+        'health/',
+        options: Options(
+          sendTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+        ),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<List<Map<String, dynamic>>> getTiposAchados() async {
@@ -59,6 +77,26 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       return list.map((e) => e as Map<String, dynamic>).toList();
     } on DioException catch (e) {
       throw Exception('Falha ao sincronizar tipos de achados: ${e.message}');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getDadosPorPic(String pic) async {
+    try {
+      final response = await _apiClient.dio.get(
+        'croqui/exames/protocolo/$pic',
+        options: Options(
+          sendTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      );
+      if (response.statusCode == 200 && response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[RemoteDataSourceImpl] Falha tolerada ao buscar dados por PIC ($pic): $e');
+      return null;
     }
   }
 
@@ -107,10 +145,8 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       final queryParams = lastSyncTimestamp != null ? {'last_sync': lastSyncTimestamp} : null;
       final response = await _apiClient.dio.get('croqui/sync/pull', queryParameters: queryParams);
       if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Resposta inesperada do servidor ao tentar puxar os casos.');
+        throw const SyncNetworkException('Resposta inesperada do servidor ao tentar puxar os casos.');
       }
-      
-
       
       final data = response.data;
       if (data is Map && data.containsKey('casos')) {
@@ -124,7 +160,10 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         throw const AuthException('Sessão expirada. Autentique-se novamente.');
       }
-      throw Exception('Falha na rede ao sincronizar casos (pull): ${e.message}');
+      throw SyncNetworkException(
+        'Falha na rede ao sincronizar casos (pull): ${e.message ?? 'conexão recusada'}',
+        statusCode: e.response?.statusCode,
+      );
     }
   }
 
@@ -165,6 +204,10 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       final response = await _apiClient.dio.post(
         'croqui/sync/evidencias',
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 120),
+        ),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -211,7 +254,11 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       final response = await _apiClient.dio.post(
         'croqui/sync/laudo-pdf',
         data: formData,
-        options: Options(contentType: 'multipart/form-data'),
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 120),
+        ),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -232,9 +279,4 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 }
 
-void _printCompleto(String prefixo, String texto) {
-  debugPrint('=== INICIO $prefixo ===');
-  final pattern = RegExp('.{1,800}'); 
-  pattern.allMatches(texto).forEach((match) => debugPrint(match.group(0)));
-  debugPrint('=== FIM $prefixo ===');
-}
+

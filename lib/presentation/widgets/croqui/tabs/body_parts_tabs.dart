@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
@@ -295,7 +294,7 @@ class _RostosTabContentState extends State<RostosTabContent> {
                 ),
                 segments: const [
                   ButtonSegment(value: 'face_dir', label: Text('Rosto Direito'), icon: Icon(Icons.face, size: 18)),
-                  ButtonSegment(value: 'face_esq', label: Text('Rosto Esquerdo / Frente'), icon: Icon(Icons.face_5, size: 18)),
+                  ButtonSegment(value: 'face_esq', label: Text('Rosto Esquerdo'), icon: Icon(Icons.face_5, size: 18)),
                 ],
                 selected: {_activeFaceView},
                 onSelectionChanged: (newSelection) {
@@ -334,7 +333,7 @@ class _RostosTabContentState extends State<RostosTabContent> {
   }
 }
 
-class PerineoTabContent extends StatelessWidget {
+class PerineoTabContent extends StatefulWidget {
   final CroquiController controller;
   final BuildCroquiTabCallback buildCroquiTab;
 
@@ -345,66 +344,98 @@ class PerineoTabContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<CroquiController>(
-      builder: (context, controllerState, child) {
-        final sexo = controllerState.sexoDoExaminado;
-        final isMale = !sexo.toLowerCase().startsWith('f');
-        final segmentedValue = (sexo == 'Feminino' || sexo == 'Masculino') ? sexo : 'Masculino';
-        
-        final activeColors = Map<int, String>.fromEntries(
-          perineal.kColorToIdPerinealMap.entries.where((e) => e.value.startsWith(isMale ? 'male_' : 'female_'))
-        );
-        final activeDefs = Map<String, BodyPartDefinition>.fromEntries(
-          perineal.kIdToDefinitionPerinealMap.entries.where((e) => e.key.startsWith(isMale ? 'male_' : 'female_'))
-        );
+  State<PerineoTabContent> createState() => _PerineoTabContentState();
+}
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Sexo do Examinado: ",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blueGrey),
-                  ),
-                  const SizedBox(width: 12),
-                  SegmentedButton<String>(
-                    style: SegmentedButton.styleFrom(
-                      selectedBackgroundColor: Colors.indigo,
-                      selectedForegroundColor: Colors.white,
-                    ),
-                    segments: const [
-                      ButtonSegment(value: 'Masculino', label: Text('Masculino'), icon: Icon(Icons.male, size: 18)),
-                      ButtonSegment(value: 'Feminino', label: Text('Feminino'), icon: Icon(Icons.female, size: 18)),
-                    ],
-                    selected: {segmentedValue},
-                    onSelectionChanged: controllerState.isReadOnly 
-                      ? null 
-                      : (newSelection) {
-                          controllerState.alterarSexoExaminado(context, newSelection.first);
-                        },
-                  ),
+class _PerineoTabContentState extends State<PerineoTabContent> {
+  late String _currentSexo;
+  late Map<int, String> _activeColors;
+  late Map<String, BodyPartDefinition> _activeDefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSexo = widget.controller.sexoDoExaminado;
+    if (_currentSexo != 'Feminino' && _currentSexo != 'Masculino') {
+      _currentSexo = 'Masculino';
+    }
+    _recomputeMaps();
+  }
+
+  void _recomputeMaps() {
+    final isMale = !_currentSexo.toLowerCase().startsWith('f');
+    _activeColors = Map<int, String>.fromEntries(
+      perineal.kColorToIdPerinealMap.entries.where(
+        (e) => e.value.startsWith(isMale ? 'male_' : 'female_'),
+      ),
+    );
+    _activeDefs = Map<String, BodyPartDefinition>.fromEntries(
+      perineal.kIdToDefinitionPerinealMap.entries.where(
+        (e) => e.key.startsWith(isMale ? 'male_' : 'female_'),
+      ),
+    );
+  }
+
+  void _onSexoChanged(String novoSexo) {
+    if (widget.controller.isReadOnly || _currentSexo == novoSexo) return;
+    setState(() {
+      _currentSexo = novoSexo;
+      _recomputeMaps();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.controller.alterarSexoExaminado(context, novoSexo);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMale = !_currentSexo.toLowerCase().startsWith('f');
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Sexo do Examinado: ",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blueGrey),
+              ),
+              const SizedBox(width: 12),
+              SegmentedButton<String>(
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: Colors.indigo,
+                  selectedForegroundColor: Colors.white,
+                ),
+                segments: const [
+                  ButtonSegment(value: 'Masculino', label: Text('Masculino'), icon: Icon(Icons.male, size: 18)),
+                  ButtonSegment(value: 'Feminino', label: Text('Feminino'), icon: Icon(Icons.female, size: 18)),
                 ],
+                selected: {_currentSexo},
+                onSelectionChanged: widget.controller.isReadOnly
+                    ? null
+                    : (newSelection) => _onSexoChanged(newSelection.first),
               ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: buildCroquiTab(
-                context,
-                controllerState,
-                'perineal',
-                isMale ? 'assets/images/perineo_masculino.svg' : 'assets/images/perineo_feminino.svg',
-                isMale ? 'assets/images/perineo_masculino.png' : 'assets/images/perineo_feminino.png',
-                activeColors,
-                activeDefs,
-              ),
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: widget.buildCroquiTab(
+            context,
+            widget.controller,
+            'perineal',
+            isMale ? 'assets/images/perineo_masculino.svg' : 'assets/images/perineo_feminino.svg',
+            isMale ? 'assets/images/perineo_masculino.png' : 'assets/images/perineo_feminino.png',
+            _activeColors,
+            _activeDefs,
+          ),
+        ),
+      ],
     );
   }
 }

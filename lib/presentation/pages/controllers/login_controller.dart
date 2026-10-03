@@ -66,11 +66,20 @@ class LoginController {
       );
       await provider.saveSavedLogin(loginText);
 
-      try {
-        await syncService.pullCasos();
-        await caseListProvider.carregarCasos();
-      } on Object catch (e, stackTrace) {
-        debugPrint('Falha ao realizar pullCasos pós-login: $e\n$stackTrace');
+      await caseListProvider.carregarCasos();
+
+      if (provider.isOfflineSession) {
+        _showSnack(
+          'Dispositivo sem conexão com o servidor. Acesso liberado via credenciais offline.',
+          isWarning: true,
+        );
+      } else {
+        try {
+          await syncService.pullCasos();
+          await caseListProvider.carregarCasos();
+        } on Object catch (e, stackTrace) {
+          debugPrint('Falha ao realizar pullCasos pós-login: $e\n$stackTrace');
+        }
       }
     } on AuthException catch (e) {
       final bool isRestricaoAcesso = e.message.toLowerCase().contains('acesso restrito');

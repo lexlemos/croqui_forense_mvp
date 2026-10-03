@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalization_flow.dart';
@@ -238,12 +237,40 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               controller.picCtrl,
               readOnly: readOnly,
               isBold: true,
+              suffixIcon: readOnly
+                  ? null
+                  : ListenableBuilder(
+                      listenable: controller,
+                      builder: (context, _) {
+                        final isFetching = controller.isFetchingPic;
+                        if (isFetching) {
+                          return const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        return IconButton(
+                          icon: const Icon(Icons.search, size: 20),
+                          tooltip: 'Buscar dados por PIC',
+                          onPressed: () => controller.buscarDadosPorPic(forcar: true),
+                        );
+                      },
+                    ),
+              onChanged: (val) {
+                if (val.trim().length == 9) {
+                  controller.buscarDadosPorPic();
+                }
+              },
             ),
 
             _buildTextField(
               "Número da Requisição / CD",
               controller.numeroLaudoCtrl,
-              readOnly: true,
+              readOnly: readOnly,
             ),
 
             _buildTextField(
@@ -384,42 +411,20 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             Row(
               children: [
                 Expanded(
-                  child: _buildTextField(
-                    "Data do Óbito",
-                    controller.dataObitoCtrl,
+                  child: _buildDatePickerField(
+                    context: context,
+                    label: "Data do Óbito",
+                    ctrl: controller.dataObitoCtrl,
                     readOnly: readOnly,
-                    hint: "DD/MM/AAAA",
-                    inputFormatters: [
-                      MaskTextInputFormatter(
-                        mask: '##/##/####',
-                        filter: {"#": RegExp(r'[0-9]')},
-                      ),
-                    ],
-                    validator: (v) {
-                      if (v != null && v.isNotEmpty && v.length < 10)
-                        return 'Data inválida';
-                      return null;
-                    },
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildTextField(
-                    "Hora do Óbito",
-                    controller.horaObitoCtrl,
+                  child: _buildTimePickerField(
+                    context: context,
+                    label: "Hora do Óbito",
+                    ctrl: controller.horaObitoCtrl,
                     readOnly: readOnly,
-                    hint: "HH:MM",
-                    inputFormatters: [
-                      MaskTextInputFormatter(
-                        mask: '##:##',
-                        filter: {"#": RegExp(r'[0-9]')},
-                      ),
-                    ],
-                    validator: (v) {
-                      if (v != null && v.isNotEmpty && v.length < 5)
-                        return 'Hora inválida';
-                      return null;
-                    },
                   ),
                 ),
               ],
@@ -731,6 +736,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     controller.quesito1Ctrl,
                     readOnly: readOnly,
                     required: true,
+                    validator: (v) => (v == null || v.trim().length < 3)
+                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -790,18 +798,30 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                                 causaCtrl.imediataCtrl,
                                 readOnly: readOnly,
                                 required: true,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                                        : null,
                               ),
                               _buildTextField(
                                 "Devido a",
                                 causaCtrl.devidoACtrl,
                                 readOnly: readOnly,
                                 required: true,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                                        : null,
                               ),
                               _buildTextField(
                                 "Consequência",
                                 causaCtrl.consequenciaCtrl,
                                 readOnly: readOnly,
                                 required: true,
+                                validator: (v) =>
+                                    (v == null || v.trim().length < 3)
+                                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                                        : null,
                               ),
                             ],
                           ),
@@ -827,12 +847,18 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                     controller.quesito3Ctrl,
                     readOnly: readOnly,
                     required: true,
+                    validator: (v) => (v == null || v.trim().length < 3)
+                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                        : null,
                   ),
                   _buildTextField(
                     "4. Qual o Meio?",
                     controller.quesito4Ctrl,
                     readOnly: readOnly,
                     required: true,
+                    validator: (v) => (v == null || v.trim().length < 3)
+                        ? 'Resposta deve ter no mínimo 3 caracteres'
+                        : null,
                   ),
                 ],
               ),
@@ -972,6 +998,202 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     );
   }
 
+  Widget _buildDatePickerField({
+    required BuildContext context,
+    required String label,
+    required TextEditingController ctrl,
+    required bool readOnly,
+  }) {
+    if (readOnly) {
+      return _buildTextField(label, ctrl, readOnly: true);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () async {
+          DateTime initial = DateTime.now();
+          final currentText = ctrl.text.trim();
+          if (currentText.isNotEmpty) {
+            try {
+              if (currentText.contains('/')) {
+                final parts = currentText.split('/');
+                if (parts.length == 3) {
+                  initial = DateTime(
+                    int.parse(parts[2]),
+                    int.parse(parts[1]),
+                    int.parse(parts[0]),
+                  );
+                }
+              } else if (currentText.contains('-')) {
+                final parts = currentText.split('-');
+                if (parts.length == 3) {
+                  initial = DateTime(
+                    int.parse(parts[0]),
+                    int.parse(parts[1]),
+                    int.parse(parts[2]),
+                  );
+                }
+              }
+            } catch (_) {}
+          }
+
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: initial,
+            firstDate: DateTime(1900),
+            lastDate: DateTime.now().add(const Duration(days: 365)),
+          );
+
+          if (picked != null) {
+            final formatted =
+                '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+            ctrl.text = formatted;
+            _croquiController.sincronizarDadosEmMemoria(null, false);
+            _croquiController.scheduleAutoSave();
+            if (mounted) setState(() {});
+          }
+        },
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: ctrl,
+          builder: (context, value, _) {
+            return InputDecorator(
+              decoration: InputDecoration(
+                labelText: label,
+                filled: true,
+                fillColor: Colors.white,
+                border: const OutlineInputBorder(),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (value.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          ctrl.clear();
+                          _croquiController.sincronizarDadosEmMemoria(null, false);
+                          _croquiController.scheduleAutoSave();
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Icon(Icons.calendar_today, size: 20),
+                    ),
+                  ],
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              child: Text(
+                value.text.isEmpty ? 'DD/MM/AAAA' : value.text,
+                style: TextStyle(
+                  color:
+                      value.text.isEmpty ? Colors.grey.shade500 : Colors.black87,
+                  fontSize: 16,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimePickerField({
+    required BuildContext context,
+    required String label,
+    required TextEditingController ctrl,
+    required bool readOnly,
+  }) {
+    if (readOnly) {
+      return _buildTextField(label, ctrl, readOnly: true);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () async {
+          TimeOfDay initial = TimeOfDay.now();
+          final currentText = ctrl.text.trim();
+          if (currentText.isNotEmpty) {
+            try {
+              final parts = currentText.split(':');
+              if (parts.length >= 2) {
+                initial = TimeOfDay(
+                  hour: int.parse(parts[0]),
+                  minute: int.parse(parts[1]),
+                );
+              }
+            } catch (_) {}
+          }
+
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: initial,
+          );
+
+          if (picked != null) {
+            final formatted =
+                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+            ctrl.text = formatted;
+            _croquiController.sincronizarDadosEmMemoria(null, false);
+            _croquiController.scheduleAutoSave();
+            if (mounted) setState(() {});
+          }
+        },
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: ctrl,
+          builder: (context, value, _) {
+            return InputDecorator(
+              decoration: InputDecoration(
+                labelText: label,
+                filled: true,
+                fillColor: Colors.white,
+                border: const OutlineInputBorder(),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (value.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          ctrl.clear();
+                          _croquiController.sincronizarDadosEmMemoria(null, false);
+                          _croquiController.scheduleAutoSave();
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Icon(Icons.access_time, size: 20),
+                    ),
+                  ],
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+              child: Text(
+                value.text.isEmpty ? 'HH:MM' : value.text,
+                style: TextStyle(
+                  color:
+                      value.text.isEmpty ? Colors.grey.shade500 : Colors.black87,
+                  fontSize: 16,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextField(
     String label,
     TextEditingController ctrl, {
@@ -982,6 +1204,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
     bool isBold = false,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
+    Widget? suffixIcon,
+    ValueChanged<String>? onChanged,
   }) {
     if (readOnly) {
       return Container(
@@ -1033,6 +1257,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           final c = context.read<CroquiController>();
           c.sincronizarDadosEmMemoria(null, false);
           c.scheduleAutoSave();
+          if (label.contains("CD") || label.contains("Requisição") || label.contains("PIC")) {
+            c.salvarRascunhoImediato();
+          }
+          if (onChanged != null) {
+            onChanged(val);
+          }
         },
         inputFormatters: inputFormatters,
         validator:
@@ -1050,6 +1280,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           filled: true,
           fillColor: Colors.white,
           border: const OutlineInputBorder(),
+          suffixIcon: suffixIcon,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,

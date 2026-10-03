@@ -16,10 +16,10 @@ class CaseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
-      StatusCaso.rascunho => (
+      StatusCaso.em_andamento || StatusCaso.rascunho => (
         AppColors.statusDraftText,
         AppColors.statusDraftBg,
-        'RASCUNHO',
+        'EM ANDAMENTO',
       ),
       StatusCaso.laudo_pendente => (
         AppColors.statusPendingText,
@@ -47,8 +47,12 @@ class CaseCard extends StatelessWidget {
         ? 'N. PIC: ${caso.numeroPic}'
         : 'N. PIC: Não informado';
     
-    final laudoSub = (caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty)
-        ? 'Laudo: ${caso.numeroLaudoExterno}'
+    final cdOrLaudo = caso.numeroRequisicao.isNotEmpty
+        ? caso.numeroRequisicao
+        : (caso.numeroLaudoExterno ?? '');
+
+    final laudoSub = cdOrLaudo.isNotEmpty
+        ? 'CD / Laudo: $cdOrLaudo'
         : 'Laudo: Pendente';
 
     return Container(
