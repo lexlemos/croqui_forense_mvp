@@ -432,7 +432,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
 
             DropdownButtonFormField<String>(
-              value:
+              initialValue:
                   [
                     'Pericialmente Estimadas',
                     'Atestadas em documento médico',
@@ -468,7 +468,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
-              value:
+              initialValue:
                   [
                     'Masculino',
                     'Feminino',
@@ -503,7 +503,7 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
-              value:
+              initialValue:
                   [
                     'Fresco',
                     'Esqueletizado',

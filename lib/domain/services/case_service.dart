@@ -261,8 +261,9 @@ class CaseService {
   /// de um caso finalizado.
   Future<void> atualizarCaminhoPdf(String casoUuid, String pdfPath) async {
     final casoExistente = await _repository.getCaseByUuid(casoUuid);
-    if (casoExistente == null)
+    if (casoExistente == null) {
       throw Exception('Caso não encontrado: $casoUuid');
+    }
 
     final casoAtualizado = casoExistente.copyWith(pdfLocalPath: pdfPath);
     await _repository.updateCase(casoAtualizado);

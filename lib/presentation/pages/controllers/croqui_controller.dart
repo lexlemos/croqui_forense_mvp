@@ -1132,32 +1132,41 @@ class CroquiController extends ChangeNotifier {
 
   String _resolveBodyPartName(String view, String partId) {
     if ((view == 'frente' || view == 'front') &&
-        kIdToDefinitionFrontMap.containsKey(partId))
+        kIdToDefinitionFrontMap.containsKey(partId)) {
       return kIdToDefinitionFrontMap[partId]!.name;
+    }
     if ((view == 'costas' || view == 'back') &&
-        kIdToDefinitionBackMap.containsKey(partId))
+        kIdToDefinitionBackMap.containsKey(partId)) {
       return kIdToDefinitionBackMap[partId]!.name;
+    }
     if (view == 'lateral_dir' &&
-        lat_right.kIdToDefinitionLateralRightMap.containsKey(partId))
+        lat_right.kIdToDefinitionLateralRightMap.containsKey(partId)) {
       return lat_right.kIdToDefinitionLateralRightMap[partId]!.name;
+    }
     if (view == 'lateral_esq' &&
-        lat_left.kIdToDefinitionLateralLeftMap.containsKey(partId))
+        lat_left.kIdToDefinitionLateralLeftMap.containsKey(partId)) {
       return lat_left.kIdToDefinitionLateralLeftMap[partId]!.name;
+    }
     if (view == 'trunk_dir' &&
-        trunk_right.kIdToDefinitionTrunkRightMap.containsKey(partId))
+        trunk_right.kIdToDefinitionTrunkRightMap.containsKey(partId)) {
       return trunk_right.kIdToDefinitionTrunkRightMap[partId]!.name;
+    }
     if (view == 'trunk_esq' &&
-        trunk_left.kIdToDefinitionTrunkLeftMap.containsKey(partId))
+        trunk_left.kIdToDefinitionTrunkLeftMap.containsKey(partId)) {
       return trunk_left.kIdToDefinitionTrunkLeftMap[partId]!.name;
+    }
     if (view == 'perineal' &&
-        perineal.kIdToDefinitionPerinealMap.containsKey(partId))
+        perineal.kIdToDefinitionPerinealMap.containsKey(partId)) {
       return perineal.kIdToDefinitionPerinealMap[partId]!.name;
+    }
     if (view == 'face_dir' &&
-        face_right.kIdToDefinitionLateralRightMap.containsKey(partId))
+        face_right.kIdToDefinitionLateralRightMap.containsKey(partId)) {
       return face_right.kIdToDefinitionLateralRightMap[partId]!.name;
+    }
     if (view == 'face_esq' &&
-        face_left.kIdToDefinitionLateralLeftMap.containsKey(partId))
+        face_left.kIdToDefinitionLateralLeftMap.containsKey(partId)) {
       return face_left.kIdToDefinitionLateralLeftMap[partId]!.name;
+    }
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 

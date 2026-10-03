@@ -101,16 +101,21 @@ class PdfService {
       String view = a.dadosPreenchidos['view'] ?? 'frente';
       if (!result.containsKey(view)) {
         String assetPath = 'assets/images/croqui-frente.svg';
-        if (view == 'costas' || view == 'back')
+        if (view == 'costas' || view == 'back') {
           assetPath = 'assets/images/croqui-costas.svg';
-        if (view == 'lateral_dir')
+        }
+        if (view == 'lateral_dir') {
           assetPath = 'assets/images/face-lateral-direita.svg';
-        if (view == 'lateral_esq')
+        }
+        if (view == 'lateral_esq') {
           assetPath = 'assets/images/face-lateral-esquerda.svg';
-        if (view == 'trunk_dir')
+        }
+        if (view == 'trunk_dir') {
           assetPath = 'assets/images/tronco-direito-contorno.svg';
-        if (view == 'trunk_esq')
+        }
+        if (view == 'trunk_esq') {
           assetPath = 'assets/images/tronco-esquerdo-contorno.svg';
+        }
         if (view == 'perineal') {
           final dadosId = caso.dadosLaudo.identificacao;
           final String sexoNorm = dadosId.sexo.isNotEmpty
@@ -120,10 +125,12 @@ class PdfService {
               ? 'assets/images/perineo_feminino.svg'
               : 'assets/images/perineo_masculino.svg';
         }
-        if (view == 'face_dir')
+        if (view == 'face_dir') {
           assetPath = 'assets/images/croqui-rosto-direito.svg';
-        if (view == 'face_esq')
+        }
+        if (view == 'face_esq') {
           assetPath = 'assets/images/croqui-rosto-frente.svg';
+        }
 
         String svgRaw = await rootBundle.loadString(assetPath);
         svgRaw = svgRaw
@@ -766,8 +773,9 @@ class PdfService {
       final subs = <String>[];
       if (d.materialSgFemoral) subs.add('Veia Femoral');
       if (d.materialSgCardiaca) subs.add('Cavidade Cardíaca');
-      if (d.materialSgOutro?.isNotEmpty == true)
+      if (d.materialSgOutro?.isNotEmpty == true) {
         subs.add('Outro sítio: ${d.materialSgOutro}');
+      }
       final lacreSg = d.numeroLacreSg?.isNotEmpty == true
           ? (d.numeroLacreSg ?? 'Não informado')
           : 'Não informado';
@@ -1336,8 +1344,9 @@ class PdfService {
 
   Future<Uint8List> _comprimirBytesIterativamente(File file) async {
     final rawBytes = await file.readAsBytes();
-    if (rawBytes.lengthInBytes < 500 * 1024)
+    if (rawBytes.lengthInBytes < 500 * 1024) {
       return rawBytes; // Já é pequeno (500KB)
+    }
 
     final decoded = img.decodeImage(rawBytes);
     if (decoded == null) return rawBytes;

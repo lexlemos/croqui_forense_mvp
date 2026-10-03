@@ -12,8 +12,6 @@ import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/presentation/utils/image_resolver.dart';
 import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
-import 'package:provider/provider.dart';
-import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 
 class InjuryFormModal extends StatefulWidget {
@@ -774,7 +772,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         if (_hasBalistica) ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedTipoFerimento,
+            initialValue: _selectedTipoFerimento,
             decoration: const InputDecoration(
               labelText: "Tipo de Ferimento",
               border: OutlineInputBorder(),
@@ -787,7 +785,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedTipoObjeto,
+            initialValue: _selectedTipoObjeto,
             decoration: const InputDecoration(
               labelText: "Tipo de Objeto Recolhido",
               border: OutlineInputBorder(),

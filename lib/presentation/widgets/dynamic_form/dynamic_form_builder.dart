@@ -84,7 +84,7 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       return Map<String, dynamic>.from(raw);
     }
     if (raw is String && raw.trim().isEmpty) return {};
-    throw DatabaseCorruptedException(
+    throw const DatabaseCorruptedException(
       'Formato inválido para os dados do formulário.',
     );
   }
@@ -232,8 +232,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     } on DatabaseCorruptedException catch (e) {
       return _buildDatabaseCorruptedWarning(e.message);
     }
-    if (_parseError != null)
+    if (_parseError != null) {
       return _buildDatabaseCorruptedWarning(_parseError!);
+    }
     if (campos.isEmpty) return const SizedBox.shrink();
 
     return Form(

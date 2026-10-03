@@ -1,21 +1,14 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
-import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_generation_service.dart';
-import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
-import 'package:croqui_forense_mvp/presentation/widgets/forms/injury_form_modal.dart';
 import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -26,7 +19,6 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/exames_tab.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller_result.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalization_flow.dart';
-import 'package:croqui_forense_mvp/core/utils/body_part_mapper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_widgets.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart'

@@ -98,7 +98,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
       );
 
       // O codec não é mais necessário depois que os bytes da imagem foram extraídos.
-      codec?.dispose();
+      codec.dispose();
       codec = null;
 
       if (!mounted || widget.maskPath != currentLoadPath) return;
@@ -147,8 +147,9 @@ class _CroquiViewerState extends State<CroquiViewer> {
     final int imgX = (xPercent * _maskWidth).floor();
     final int imgY = (yPercent * _maskHeight).floor();
 
-    if (imgX < 0 || imgX >= _maskWidth || imgY < 0 || imgY >= _maskHeight)
+    if (imgX < 0 || imgX >= _maskWidth || imgY < 0 || imgY >= _maskHeight) {
       return;
+    }
 
     final int pixelOffset = (imgY * _maskWidth + imgX) * 4;
     final ByteData rawBytes = _rawMaskBytes!;
@@ -165,8 +166,9 @@ class _CroquiViewerState extends State<CroquiViewer> {
     if (foundId == null) return; // early return for unmapped color
 
     final def = widget.idToDefMap[foundId];
-    if (def == null)
+    if (def == null) {
       return; // early return if definition is not in currently active dictionary (e.g. wrong sex)
+    }
 
     widget.onPartTap(foundId, def.name, xPercent, yPercent);
   }

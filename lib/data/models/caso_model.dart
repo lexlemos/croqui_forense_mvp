@@ -13,8 +13,10 @@ enum SortCriteria { numero, data }
 enum SortOrder { asc, desc }
 
 enum StatusCaso {
+  // ignore: constant_identifier_names
   em_andamento,
   rascunho,
+  // ignore: constant_identifier_names
   laudo_pendente,
   finalizado,
   sincronizado,
@@ -160,14 +162,14 @@ class Caso {
        finalizadoEm = null;
 
   factory Caso.fromMap(Map<String, dynamic> map) {
-    String? _toTitleCase(String? text) {
+    String? toTitleCase(String? text) {
       if (text == null || text.trim().isEmpty) return text;
       final trimmed = text.trim();
       return trimmed.substring(0, 1).toUpperCase() +
           trimmed.substring(1).toLowerCase();
     }
 
-    String? _parseEstimativa(String? raw) {
+    String? parseEstimativa(String? raw) {
       if (raw == null) return null;
       final val = raw.toUpperCase();
       if (val.contains('PERICIAL')) return 'Pericialmente Estimadas';
@@ -327,8 +329,9 @@ class Caso {
                     map['status']?.toString() ??
                     '')
                 .toUpperCase();
-        if (rawStatus == 'CONCLUIDO' || rawStatus == 'SINCRONIZADO')
+        if (rawStatus == 'CONCLUIDO' || rawStatus == 'SINCRONIZADO') {
           return StatusCaso.sincronizado;
+        }
         if (rawStatus == 'FINALIZADO') return StatusCaso.finalizado;
         if (rawStatus == 'EM_ANDAMENTO' ||
             rawStatus == 'NAO_INICIADO' ||
@@ -375,14 +378,14 @@ class Caso {
           ? map['sync_error'] as bool
           : (map['sync_error'] as int? ?? 0) == 1,
       evidenciasMultimidia: parsedEvidencias,
-      corpoEstado: _toTitleCase(map['corpo_estado']?.toString()),
+      corpoEstado: toTitleCase(map['corpo_estado']?.toString()),
       corpoEstadoOutros: map['corpo_estado_outros']?.toString(),
-      sexoBiologicoEstimado: _toTitleCase(
+      sexoBiologicoEstimado: toTitleCase(
         map['sexo_biologico_estimado']?.toString(),
       ),
       dataObito: map['data_obito']?.toString(),
       horaObito: map['hora_obito']?.toString(),
-      tipoEstimativaHoraObito: _parseEstimativa(
+      tipoEstimativaHoraObito: parseEstimativa(
         map['tipo_estimativa_hora_obito']?.toString(),
       ),
 

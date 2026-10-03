@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:croqui_forense_mvp/data/models/auditoria_model.dart';
 
 /// Abstrai os dados dinâmicos do laudo em um objeto estritamente tipado.

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
@@ -94,8 +93,8 @@ void main() {
     test(
       '3. Reconciliação com UUID determinístico V5 idêntica ao payload real do backend',
       () {
-        final achado1Uuid = '49cc9dd0-3e0b-4df3-99f8-3f7cee6e7e18';
-        final achado2Uuid = '7c50d3f1-f96f-47f9-888a-24b093ef2090';
+        const achado1Uuid = '49cc9dd0-3e0b-4df3-99f8-3f7cee6e7e18';
+        const achado2Uuid = '7c50d3f1-f96f-47f9-888a-24b093ef2090';
 
         final balistica1DetId = deterministicUuidV5(achado1Uuid, 'balistica');
         final balistica2DetId = deterministicUuidV5(achado2Uuid, 'balistica');

@@ -32,12 +32,13 @@ class ExamesTab extends StatelessWidget {
     ExameSolicitadoModel? anatomoExam;
 
     for (final e in examesList) {
-      if (e.tipoExame == 'TOXICOLOGICO')
+      if (e.tipoExame == 'TOXICOLOGICO') {
         toxicologicoExam = e;
-      else if (e.tipoExame == 'GENETICA')
+      } else if (e.tipoExame == 'GENETICA') {
         geneticaExam = e;
-      else if (e.tipoExame == 'ANATOMO')
+      } else if (e.tipoExame == 'ANATOMO') {
         anatomoExam = e;
+      }
     }
 
     final bool solicitarToxicologico = toxicologicoExam != null;
@@ -150,7 +151,7 @@ class ExamesTab extends StatelessWidget {
                       vertical: 8.0,
                     ),
                     child: TextFormField(
-                      key: ValueKey('lacre_tox_${toxicologicoExam!.uuid}'),
+                      key: ValueKey('lacre_tox_${toxicologicoExam.uuid}'),
                       initialValue: toxicologicoExam.numeroLacre ?? '',
                       enabled: !readOnly,
                       decoration: const InputDecoration(
@@ -217,8 +218,9 @@ class ExamesTab extends StatelessWidget {
                           debugPrint(
                             'Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}',
                           );
-                          if (e.detalhes != null)
+                          if (e.detalhes != null) {
                             debugPrint('Conteudo: ${e.detalhes}');
+                          }
                         }
                         debugPrint(
                           '🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [TOXICOLOGICO]! Detalhes nulo? ${newList.firstWhere(
@@ -294,7 +296,7 @@ class ExamesTab extends StatelessWidget {
                       vertical: 8.0,
                     ),
                     child: TextFormField(
-                      key: ValueKey('lacre_gen_${geneticaExam!.uuid}'),
+                      key: ValueKey('lacre_gen_${geneticaExam.uuid}'),
                       initialValue: geneticaExam.numeroLacre ?? '',
                       enabled: !readOnly,
                       decoration: const InputDecoration(
@@ -360,8 +362,9 @@ class ExamesTab extends StatelessWidget {
                           debugPrint(
                             'Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}',
                           );
-                          if (e.detalhes != null)
+                          if (e.detalhes != null) {
                             debugPrint('Conteudo: ${e.detalhes}');
+                          }
                         }
                         debugPrint(
                           '🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [GENETICA]! Detalhes nulo? ${newList.firstWhere(
@@ -437,7 +440,7 @@ class ExamesTab extends StatelessWidget {
                       vertical: 8.0,
                     ),
                     child: TextFormField(
-                      key: ValueKey('lacre_ana_${anatomoExam!.uuid}'),
+                      key: ValueKey('lacre_ana_${anatomoExam.uuid}'),
                       initialValue: anatomoExam.numeroLacre ?? '',
                       enabled: !readOnly,
                       decoration: const InputDecoration(
@@ -503,8 +506,9 @@ class ExamesTab extends StatelessWidget {
                           debugPrint(
                             'Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}',
                           );
-                          if (e.detalhes != null)
+                          if (e.detalhes != null) {
                             debugPrint('Conteudo: ${e.detalhes}');
+                          }
                         }
                         debugPrint(
                           '🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [ANATOMO]! Detalhes nulo? ${newList.firstWhere(

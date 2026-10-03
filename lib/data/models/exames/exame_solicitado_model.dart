@@ -110,8 +110,9 @@ class ExameSolicitadoModel {
 
   int get quantidadeAmostras {
     if (detalhes == null) return 1;
-    if (detalhes is List && (detalhes as List).isNotEmpty)
+    if (detalhes is List && (detalhes as List).isNotEmpty) {
       return (detalhes as List).length;
+    }
     return 1;
   }
 

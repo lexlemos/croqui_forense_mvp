@@ -38,10 +38,12 @@ class LaudoParserService {
         ?.toString()
         .trim()
         .toLowerCase();
-    if (sexoEstruturado == 'feminino' || sexoEstruturado == 'f')
+    if (sexoEstruturado == 'feminino' || sexoEstruturado == 'f') {
       return 'Feminino';
-    if (sexoEstruturado == 'masculino' || sexoEstruturado == 'm')
+    }
+    if (sexoEstruturado == 'masculino' || sexoEstruturado == 'm') {
       return 'Masculino';
+    }
     return 'Indeterminado';
   }
 

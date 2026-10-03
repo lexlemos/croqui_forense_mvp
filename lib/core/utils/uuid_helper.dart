@@ -14,12 +14,12 @@ String deterministicUuidV4(String namespace, String name) {
   }
 }
 
-/// Gera um UUIDv5 determinístico puro usando Uuid.NAMESPACE_URL.
+/// Gera um UUIDv5 determinístico puro usando Namespace.url.
 String deterministicUuidV5(String sourceUuid, String namespaceName) {
   const uuid = Uuid();
   try {
     return uuid.v5(
-      Uuid.NAMESPACE_URL,
+      Namespace.url.value,
       '${sourceUuid.trim().toLowerCase()}-${namespaceName.trim().toLowerCase()}',
     );
   } catch (e) {
