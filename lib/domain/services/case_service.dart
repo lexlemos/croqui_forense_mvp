@@ -217,10 +217,12 @@ class CaseService {
   /// @throws [Exception] se o laudo com o [casoUuid] fornecido não for localizado.
   Future<void> reabrirCaso(String casoUuid) async {
     final casoAtual = await _repository.getCaseByUuid(casoUuid);
-    if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
+    if (casoAtual == null) {
+      throw Exception('Caso não encontrado: $casoUuid');
+    }
 
     final casoReaberto = casoAtual.copyWith(
-      status: StatusCaso.em_andamento,
+      status: StatusCaso.emAndamento,
       hashIntegridade: null,
       versao: casoAtual.versao + 1,
       atualizadoEm: DateTime.now(),

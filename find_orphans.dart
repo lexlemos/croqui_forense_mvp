@@ -1,5 +1,5 @@
-// ignore_for_file: avoid_print
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 void main() {
   final libDir = Directory('lib');
@@ -31,8 +31,8 @@ void main() {
   final orphans = importPatterns.entries
       .where((e) => e.value == 0 && !e.key.endsWith('main.dart'))
       .toList();
-  print('Orphan files:');
+  debugPrint('Orphan files:');
   for (final orphan in orphans) {
-    print(orphan.key);
+    debugPrint(orphan.key);
   }
 }

@@ -153,7 +153,9 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
     final int pixelOffset = (imgY * _maskWidth + imgX) * 4;
     final ByteData rawBytes = _rawMaskBytes!;
-    if (pixelOffset < 0 || pixelOffset + 4 > rawBytes.lengthInBytes) return;
+    if (pixelOffset < 0 || pixelOffset + 4 > rawBytes.lengthInBytes) {
+      return;
+    }
 
     final int r = rawBytes.getUint8(pixelOffset);
     final int g = rawBytes.getUint8(pixelOffset + 1);
@@ -163,7 +165,9 @@ class _CroquiViewerState extends State<CroquiViewer> {
     int colorInt = (a << 24) | (r << 16) | (g << 8) | b;
 
     final String? foundId = widget.colorToIdMap[colorInt];
-    if (foundId == null) return; // early return for unmapped color
+    if (foundId == null) {
+      return; // early return for unmapped color
+    }
 
     final def = widget.idToDefMap[foundId];
     if (def == null) {

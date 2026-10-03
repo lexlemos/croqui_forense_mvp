@@ -13,11 +13,9 @@ enum SortCriteria { numero, data }
 enum SortOrder { asc, desc }
 
 enum StatusCaso {
-  // ignore: constant_identifier_names
-  em_andamento,
+  emAndamento,
   rascunho,
-  // ignore: constant_identifier_names
-  laudo_pendente,
+  laudoPendente,
   finalizado,
   sincronizado,
   arquivado,
@@ -81,7 +79,7 @@ class Caso {
     required this.uuid,
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
-    this.status = StatusCaso.em_andamento,
+    this.status = StatusCaso.emAndamento,
     this.hashIntegridade,
     required this.removido,
     required this.versao,
@@ -152,7 +150,7 @@ class Caso {
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
   }) : uuid = const Uuid().v4(),
-       status = StatusCaso.em_andamento,
+       status = StatusCaso.emAndamento,
        hashIntegridade = null,
        removido = false,
        versao = 1,
@@ -332,15 +330,24 @@ class Caso {
         if (rawStatus == 'CONCLUIDO' || rawStatus == 'SINCRONIZADO') {
           return StatusCaso.sincronizado;
         }
-        if (rawStatus == 'FINALIZADO') return StatusCaso.finalizado;
+        if (rawStatus == 'FINALIZADO') {
+          return StatusCaso.finalizado;
+        }
+        if (rawStatus == 'LAUDO_PENDENTE' || rawStatus == 'LAUDOPENDENTE') {
+          return StatusCaso.laudoPendente;
+        }
         if (rawStatus == 'EM_ANDAMENTO' ||
+            rawStatus == 'EMANDAMENTO' ||
             rawStatus == 'NAO_INICIADO' ||
             rawStatus == 'RASCUNHO') {
-          return StatusCaso.em_andamento;
+          return StatusCaso.emAndamento;
         }
         return StatusCaso.values.firstWhere(
-          (e) => e.name.toUpperCase() == rawStatus,
-          orElse: () => StatusCaso.em_andamento,
+          (e) =>
+              e.name.toUpperCase() == rawStatus ||
+              (e == StatusCaso.emAndamento && rawStatus == 'EM_ANDAMENTO') ||
+              (e == StatusCaso.laudoPendente && rawStatus == 'LAUDO_PENDENTE'),
+          orElse: () => StatusCaso.emAndamento,
         );
       }(),
       dadosLaudo: modelDadosLaudo,
@@ -657,10 +664,10 @@ class Caso {
 
   String _mapearStatusParaApi(StatusCaso statusLocal) {
     switch (statusLocal) {
-      case StatusCaso.em_andamento:
+      case StatusCaso.emAndamento:
       case StatusCaso.rascunho:
         return 'EM_ANDAMENTO';
-      case StatusCaso.laudo_pendente:
+      case StatusCaso.laudoPendente:
         return 'LAUDO_PENDENTE';
       case StatusCaso.finalizado:
       case StatusCaso.sincronizado:

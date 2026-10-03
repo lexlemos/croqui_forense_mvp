@@ -21,9 +21,9 @@ class CaseListProvider extends ChangeNotifier {
   SortCriteria _sortCriteria = SortCriteria.data;
   SortOrder _sortOrder = SortOrder.desc;
   Set<StatusCaso> _statusFilter = {
-    StatusCaso.em_andamento,
+    StatusCaso.emAndamento,
     StatusCaso.rascunho,
-    StatusCaso.laudo_pendente,
+    StatusCaso.laudoPendente,
     StatusCaso.finalizado,
     StatusCaso.sincronizado,
   };

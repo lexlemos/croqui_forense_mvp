@@ -16,12 +16,12 @@ class CaseCard extends StatelessWidget {
       Color statusBg,
       String statusLabel,
     ) = switch (caso.status) {
-      StatusCaso.em_andamento || StatusCaso.rascunho => (
+      StatusCaso.emAndamento || StatusCaso.rascunho => (
         AppColors.statusDraftText,
         AppColors.statusDraftBg,
         'EM ANDAMENTO',
       ),
-      StatusCaso.laudo_pendente => (
+      StatusCaso.laudoPendente => (
         AppColors.statusPendingText,
         AppColors.statusPendingBg,
         'LAUDO PENDENTE',

@@ -755,7 +755,7 @@ class CroquiController extends ChangeNotifier {
       final statusAtual = casoAtual.status;
 
       // Cenário A: Se o status for EM_ANDAMENTO/RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
-      if (statusAtual == StatusCaso.em_andamento ||
+      if (statusAtual == StatusCaso.emAndamento ||
           statusAtual == StatusCaso.rascunho) {
         final confirmExame = await showDialog<bool>(
           context: context,
@@ -852,7 +852,7 @@ class CroquiController extends ChangeNotifier {
     try {
       final now = DateTime.now();
       final casoAtualizado = casoAtual.copyWith(
-        status: StatusCaso.laudo_pendente,
+        status: StatusCaso.laudoPendente,
         atualizadoEm: now,
         isDraftSynced: false,
         versao: casoAtual.versao + 1,
@@ -978,7 +978,7 @@ class CroquiController extends ChangeNotifier {
         casoAtual = casoAtualizado;
       } else {
         casoAtual = casoAtual.copyWith(
-          status: StatusCaso.em_andamento,
+          status: StatusCaso.emAndamento,
           atualizadoEm: DateTime.now(),
           versao: casoAtual.versao + 1,
         );

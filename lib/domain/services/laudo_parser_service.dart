@@ -30,8 +30,12 @@ class LaudoParserService {
   String obterSexoExaminado(Map<String, dynamic> dadosLaudo) {
     final identificacao = _mapOrEmpty(dadosLaudo['identificacao']);
     final sexo = identificacao['sexo']?.toString().trim().toLowerCase();
-    if (sexo == 'feminino' || sexo == 'f') return 'Feminino';
-    if (sexo == 'masculino' || sexo == 'm') return 'Masculino';
+    if (sexo == 'feminino' || sexo == 'f') {
+      return 'Feminino';
+    }
+    if (sexo == 'masculino' || sexo == 'm') {
+      return 'Masculino';
+    }
 
     final caracteristicas = _mapOrEmpty(dadosLaudo['caracteristicas']);
     final sexoEstruturado = caracteristicas['sexo']

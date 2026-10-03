@@ -235,7 +235,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     if (_parseError != null) {
       return _buildDatabaseCorruptedWarning(_parseError!);
     }
-    if (campos.isEmpty) return const SizedBox.shrink();
+    if (campos.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Form(
       key: _formKey,

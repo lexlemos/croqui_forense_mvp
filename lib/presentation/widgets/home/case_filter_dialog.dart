@@ -57,13 +57,13 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
 
   void _toggleStatus(StatusCaso status) {
     setState(() {
-      if (status == StatusCaso.em_andamento || status == StatusCaso.rascunho) {
-        if (_selectedStatuses.contains(StatusCaso.em_andamento) ||
+      if (status == StatusCaso.emAndamento || status == StatusCaso.rascunho) {
+        if (_selectedStatuses.contains(StatusCaso.emAndamento) ||
             _selectedStatuses.contains(StatusCaso.rascunho)) {
-          _selectedStatuses.remove(StatusCaso.em_andamento);
+          _selectedStatuses.remove(StatusCaso.emAndamento);
           _selectedStatuses.remove(StatusCaso.rascunho);
         } else {
-          _selectedStatuses.add(StatusCaso.em_andamento);
+          _selectedStatuses.add(StatusCaso.emAndamento);
           _selectedStatuses.add(StatusCaso.rascunho);
         }
       } else if (status == StatusCaso.finalizado ||
@@ -147,12 +147,12 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
               children: [
                 _buildFilterChip(
                   'Em Andamento',
-                  StatusCaso.em_andamento,
+                  StatusCaso.emAndamento,
                   Colors.cyan,
                 ),
                 _buildFilterChip(
                   'Laudo Pendente',
-                  StatusCaso.laudo_pendente,
+                  StatusCaso.laudoPendente,
                   Colors.orange,
                 ),
                 _buildFilterChip(
@@ -179,9 +179,9 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                       _criteria = SortCriteria.data;
                       _order = SortOrder.desc;
                       _selectedStatuses = {
-                        StatusCaso.em_andamento,
+                        StatusCaso.emAndamento,
                         StatusCaso.rascunho,
-                        StatusCaso.laudo_pendente,
+                        StatusCaso.laudoPendente,
                         StatusCaso.finalizado,
                         StatusCaso.sincronizado,
                       };

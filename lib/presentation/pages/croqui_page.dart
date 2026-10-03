@@ -133,7 +133,7 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                             ),
                           ),
                         )
-                      else if (c.casoAtual.status == StatusCaso.laudo_pendente)
+                      else if (c.casoAtual.status == StatusCaso.laudoPendente)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(
@@ -191,13 +191,13 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
                   icon: Icon(
-                    controller.casoAtual.status == StatusCaso.laudo_pendente
+                    controller.casoAtual.status == StatusCaso.laudoPendente
                         ? Icons.check_circle_outline
                         : Icons.assignment_turned_in,
                     size: 20,
                   ),
                   label: Text(
-                    controller.casoAtual.status == StatusCaso.laudo_pendente
+                    controller.casoAtual.status == StatusCaso.laudoPendente
                         ? "CONCLUIR LAUDO"
                         : "FINALIZAR EXAME",
                     style: const TextStyle(
