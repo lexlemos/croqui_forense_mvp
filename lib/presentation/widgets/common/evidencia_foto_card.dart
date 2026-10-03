@@ -70,7 +70,11 @@ class EvidenciaFotoCard extends StatelessWidget {
                         backgroundColor: Colors.black.withValues(alpha: 0.6),
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.close, size: 14, color: Colors.white),
+                          icon: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                           onPressed: onDelete,
                         ),
                       ),
@@ -81,7 +85,10 @@ class EvidenciaFotoCard extends StatelessWidget {
             InkWell(
               onTap: () => _abrirModalLegenda(context),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 10,
+                ),
                 color: Colors.white,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -184,7 +191,8 @@ class _LegendaDialogContentState extends State<_LegendaDialogContent> {
           readOnly: widget.readOnly,
           style: const TextStyle(fontSize: 16),
           decoration: const InputDecoration(
-            hintText: "Digite a legenda ou observação detalhada para esta foto...",
+            hintText:
+                "Digite a legenda ou observação detalhada para esta foto...",
             border: OutlineInputBorder(),
           ),
         ),

@@ -32,7 +32,7 @@ class EmptyState extends StatelessWidget {
                 style: const TextStyle(color: Colors.red),
                 textAlign: TextAlign.center,
               ),
-            )
+            ),
         ],
       ),
     );

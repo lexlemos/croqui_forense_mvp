@@ -16,7 +16,9 @@ class AchadoService {
   /// @throws [Exception] se o laudo associado já estiver finalizado e assinado (bloqueado para edições).
   Future<void> salvarAchado(Achado achado) async {
     if (await _repository.isCasoFinalizado(achado.casoUuid)) {
-      throw Exception('Segurança Jurídica: Este laudo já está finalizado e é imutável.');
+      throw Exception(
+        'Segurança Jurídica: Este laudo já está finalizado e é imutável.',
+      );
     }
     await _repository.insertAchado(achado);
   }
@@ -27,7 +29,9 @@ class AchadoService {
   /// retroativas sem a devida reabertura formal e auditoria do caso.
   Future<void> atualizarAchado(Achado achado) async {
     if (await _repository.isCasoFinalizado(achado.casoUuid)) {
-      throw Exception('Segurança Jurídica: Este laudo já está finalizado e é imutável.');
+      throw Exception(
+        'Segurança Jurídica: Este laudo já está finalizado e é imutável.',
+      );
     }
     await _repository.updateAchado(achado);
   }
@@ -43,7 +47,9 @@ class AchadoService {
   Future<void> removerAchado(String uuid) async {
     final achado = await _repository.getAchadoByUuid(uuid);
     if (achado != null && await _repository.isCasoFinalizado(achado.casoUuid)) {
-      throw Exception('Segurança Jurídica: Este laudo já está finalizado e é imutável.');
+      throw Exception(
+        'Segurança Jurídica: Este laudo já está finalizado e é imutável.',
+      );
     }
     await _repository.deleteAchado(uuid);
   }

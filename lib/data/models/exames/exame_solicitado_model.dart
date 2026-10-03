@@ -71,14 +71,22 @@ class ExameSolicitadoModel {
         final listData = getList('amostras_genetica');
         if (listData != null && listData.isNotEmpty) {
           parsedDetalhes = listData
-              .map((e) => AmostraGeneticaModel.fromMap(Map<String, dynamic>.from(e as Map)))
+              .map(
+                (e) => AmostraGeneticaModel.fromMap(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
               .toList();
         }
       } else if (tipo == 'ANATOMO') {
         final listData = getList('frascos_anatomo');
         if (listData != null && listData.isNotEmpty) {
           parsedDetalhes = listData
-              .map((e) => FrascoAnatomoModel.fromMap(Map<String, dynamic>.from(e as Map)))
+              .map(
+                (e) => FrascoAnatomoModel.fromMap(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
               .toList();
         }
       }
@@ -88,18 +96,22 @@ class ExameSolicitadoModel {
 
     return ExameSolicitadoModel(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
+      casoUuid:
+          map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
       tipoExame: map['tipo_exame']?.toString() ?? '',
       numeroLacre: map['numero_lacre']?.toString(),
       status: map['status']?.toString() ?? 'aguardando',
-      criadoEm: map['criado_em'] != null ? (DateTime.tryParse(map['criado_em'].toString()) ?? DateTime.now()) : DateTime.now(),
+      criadoEm: map['criado_em'] != null
+          ? (DateTime.tryParse(map['criado_em'].toString()) ?? DateTime.now())
+          : DateTime.now(),
       detalhes: parsedDetalhes,
     );
   }
 
   int get quantidadeAmostras {
     if (detalhes == null) return 1;
-    if (detalhes is List && (detalhes as List).isNotEmpty) return (detalhes as List).length;
+    if (detalhes is List && (detalhes as List).isNotEmpty)
+      return (detalhes as List).length;
     return 1;
   }
 
@@ -125,7 +137,9 @@ class ExameSolicitadoModel {
       // Normalização agressiva: remove espaços e garante uppercase
       final tipoNormalizado = tipoExame.trim().toUpperCase();
 
-      final List detalhesList = detalhes is List ? detalhes as List : [detalhes];
+      final List detalhesList = detalhes is List
+          ? detalhes as List
+          : [detalhes];
       final mappedDetalhes = detalhesList.map((e) => e.toMap()).toList();
 
       if (tipoNormalizado == 'TOXICOLOGICO') {
@@ -138,7 +152,9 @@ class ExameSolicitadoModel {
         // FALLBACK EXPLORATÓRIO: tipo_exame está com valor inesperado.
         map['debug_unmatched_detalhes'] = mappedDetalhes;
         map['debug_tipo_recebido'] = tipoNormalizado;
-        debugPrint('🚨 [toSyncMap] tipo_exame não reconhecido: "$tipoNormalizado"');
+        debugPrint(
+          '🚨 [toSyncMap] tipo_exame não reconhecido: "$tipoNormalizado"',
+        );
       }
     }
     return map;

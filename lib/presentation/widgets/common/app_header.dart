@@ -92,7 +92,11 @@ class AppHeader extends StatelessWidget {
                     height: 48,
                     child: Row(
                       children: [
-                        Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                        Icon(
+                          Icons.logout_rounded,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         SizedBox(width: 12),
                         Text(
                           'Sair',
@@ -125,11 +129,13 @@ class AppHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          
+
           // --- ALTERAÇÃO AQUI: Botão Sync movido para antes das informações do usuário ---
           if (isHome) ...[
             const SyncButtonWidget(),
-            const SizedBox(width: 24), // Espaçamento para afastar o botão do nome do perito
+            const SizedBox(
+              width: 24,
+            ), // Espaçamento para afastar o botão do nome do perito
           ],
 
           // --- Bloco de Informações do Usuário ancorado no lado direito ---
@@ -138,7 +144,8 @@ class AppHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  usuario?.nomeCompleto.split(' ').first.toUpperCase() ?? "PERITO",
+                  usuario?.nomeCompleto.split(' ').first.toUpperCase() ??
+                      "PERITO",
                   style: const TextStyle(
                     color: Colors.black87,
                     fontSize: 14,

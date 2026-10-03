@@ -23,16 +23,21 @@ class ExamesTab extends StatelessWidget {
     final bool readOnly = controller.isReadOnly;
 
     // DIAGNÓSTICO: verificar se readOnly está travando a aba
-    debugPrint('🔍 [EXAMES_TAB BUILD] readOnly=$readOnly | exames=${examesList.length} | status=${controller.casoAtual.status}');
+    debugPrint(
+      '🔍 [EXAMES_TAB BUILD] readOnly=$readOnly | exames=${examesList.length} | status=${controller.casoAtual.status}',
+    );
 
     ExameSolicitadoModel? toxicologicoExam;
     ExameSolicitadoModel? geneticaExam;
     ExameSolicitadoModel? anatomoExam;
 
     for (final e in examesList) {
-      if (e.tipoExame == 'TOXICOLOGICO') toxicologicoExam = e;
-      else if (e.tipoExame == 'GENETICA') geneticaExam = e;
-      else if (e.tipoExame == 'ANATOMO') anatomoExam = e;
+      if (e.tipoExame == 'TOXICOLOGICO')
+        toxicologicoExam = e;
+      else if (e.tipoExame == 'GENETICA')
+        geneticaExam = e;
+      else if (e.tipoExame == 'ANATOMO')
+        anatomoExam = e;
     }
 
     final bool solicitarToxicologico = toxicologicoExam != null;
@@ -175,8 +180,10 @@ class ExamesTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: ToxicologicoFormWidget(
                       readOnly: readOnly,
-                      initialData: toxicologicoExam.detalhes is DetalhesToxicologicoModel
-                          ? toxicologicoExam.detalhes as DetalhesToxicologicoModel
+                      initialData:
+                          toxicologicoExam.detalhes is DetalhesToxicologicoModel
+                          ? toxicologicoExam.detalhes
+                                as DetalhesToxicologicoModel
                           : null,
                       onChanged: (novosDetalhes) {
                         final newList = List<ExameSolicitadoModel>.from(
@@ -207,10 +214,18 @@ class ExamesTab extends StatelessWidget {
                         }
                         debugPrint('--- DUMB TEST UI [TOXICOLOGICO] ---');
                         for (final e in newList) {
-                          debugPrint('Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}');
-                          if (e.detalhes != null) debugPrint('Conteudo: ${e.detalhes}');
+                          debugPrint(
+                            'Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}',
+                          );
+                          if (e.detalhes != null)
+                            debugPrint('Conteudo: ${e.detalhes}');
                         }
-                        debugPrint('🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [TOXICOLOGICO]! Detalhes nulo? ${newList.firstWhere((e) => e.tipoExame == "TOXICOLOGICO", orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: "")).detalhes == null}');
+                        debugPrint(
+                          '🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [TOXICOLOGICO]! Detalhes nulo? ${newList.firstWhere(
+                                (e) => e.tipoExame == "TOXICOLOGICO",
+                                orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: ""),
+                              ).detalhes == null}',
+                        );
                         controller.salvarExamesModel(newList);
                       },
                     ),
@@ -309,7 +324,8 @@ class ExamesTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: GeneticaFormWidget(
                       readOnly: readOnly,
-                      initialData: geneticaExam.detalhes is List<AmostraGeneticaModel>
+                      initialData:
+                          geneticaExam.detalhes is List<AmostraGeneticaModel>
                           ? geneticaExam.detalhes as List<AmostraGeneticaModel>
                           : <AmostraGeneticaModel>[],
                       onChanged: (novasAmostras) {
@@ -341,10 +357,18 @@ class ExamesTab extends StatelessWidget {
                         }
                         debugPrint('--- DUMB TEST UI [GENETICA] ---');
                         for (final e in newList) {
-                          debugPrint('Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}');
-                          if (e.detalhes != null) debugPrint('Conteudo: ${e.detalhes}');
+                          debugPrint(
+                            'Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}',
+                          );
+                          if (e.detalhes != null)
+                            debugPrint('Conteudo: ${e.detalhes}');
                         }
-                        debugPrint('🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [GENETICA]! Detalhes nulo? ${newList.firstWhere((e) => e.tipoExame == "GENETICA", orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: "")).detalhes == null}');
+                        debugPrint(
+                          '🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [GENETICA]! Detalhes nulo? ${newList.firstWhere(
+                                (e) => e.tipoExame == "GENETICA",
+                                orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: ""),
+                              ).detalhes == null}',
+                        );
                         controller.salvarExamesModel(newList);
                       },
                     ),
@@ -443,7 +467,8 @@ class ExamesTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: AnatomoFormWidget(
                       readOnly: readOnly,
-                      initialData: anatomoExam.detalhes is List<FrascoAnatomoModel>
+                      initialData:
+                          anatomoExam.detalhes is List<FrascoAnatomoModel>
                           ? anatomoExam.detalhes as List<FrascoAnatomoModel>
                           : <FrascoAnatomoModel>[],
                       onChanged: (novosFrascos) {
@@ -475,10 +500,18 @@ class ExamesTab extends StatelessWidget {
                         }
                         debugPrint('--- DUMB TEST UI [ANATOMO] ---');
                         for (final e in newList) {
-                          debugPrint('Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}');
-                          if (e.detalhes != null) debugPrint('Conteudo: ${e.detalhes}');
+                          debugPrint(
+                            'Tipo: ${e.tipoExame} | Detalhes is null? ${e.detalhes == null}',
+                          );
+                          if (e.detalhes != null)
+                            debugPrint('Conteudo: ${e.detalhes}');
                         }
-                        debugPrint('🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [ANATOMO]! Detalhes nulo? ${newList.firstWhere((e) => e.tipoExame == "ANATOMO", orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: "")).detalhes == null}');
+                        debugPrint(
+                          '🚨🚨🚨 ON_CHANGED ACIONADO NA TAB [ANATOMO]! Detalhes nulo? ${newList.firstWhere(
+                                (e) => e.tipoExame == "ANATOMO",
+                                orElse: () => ExameSolicitadoModel.novo(casoUuid: "", tipoExame: ""),
+                              ).detalhes == null}',
+                        );
                         controller.salvarExamesModel(newList);
                       },
                     ),

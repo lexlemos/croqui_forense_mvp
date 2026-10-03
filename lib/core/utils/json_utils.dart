@@ -1,6 +1,7 @@
 Map<String, dynamic> deepCopyMap(Map<String, dynamic> source) {
   return {
-    for (final entry in source.entries) entry.key: deepCopyJsonValue(entry.value),
+    for (final entry in source.entries)
+      entry.key: deepCopyJsonValue(entry.value),
   };
 }
 

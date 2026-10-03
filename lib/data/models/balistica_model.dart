@@ -20,7 +20,8 @@ enum TipoFerimento {
     return TipoFerimento.indeterminado;
   }
 
-  static List<String> get valores => TipoFerimento.values.map((e) => e.valor).toList();
+  static List<String> get valores =>
+      TipoFerimento.values.map((e) => e.valor).toList();
 }
 
 enum TipoObjeto {
@@ -46,7 +47,8 @@ enum TipoObjeto {
     return TipoObjeto.outro;
   }
 
-  static List<String> get valores => TipoObjeto.values.map((e) => e.valor).toList();
+  static List<String> get valores =>
+      TipoObjeto.values.map((e) => e.valor).toList();
 }
 
 class BalisticaModel {
@@ -95,20 +97,25 @@ class BalisticaModel {
       if (tipoFerimento != null) 'tipo_ferimento': tipoFerimento,
       if (tipoObjeto != null) 'tipo_objeto': tipoObjeto,
       if (numeroLacre != null) 'numero_lacre': numeroLacre,
-      if (comentarioAdicional != null) 'comentario_adicional': comentarioAdicional,
+      if (comentarioAdicional != null)
+        'comentario_adicional': comentarioAdicional,
     };
   }
 
   factory BalisticaModel.fromMap(Map<String, dynamic> map) {
     return BalisticaModel(
       id: map['id']?.toString() ?? map['uuid']?.toString(),
-      exameId: map['exame_id']?.toString() ?? map['caso_uuid']?.toString() ?? '',
-      achadoUuid: (map['achado_uuid'] ?? map['achado_id'] ?? map['achadoUuid'])?.toString(),
-      tipoFerimento: (map['tipo_ferimento'] ?? map['tipoFerimento'])?.toString(),
+      exameId:
+          map['exame_id']?.toString() ?? map['caso_uuid']?.toString() ?? '',
+      achadoUuid: (map['achado_uuid'] ?? map['achado_id'] ?? map['achadoUuid'])
+          ?.toString(),
+      tipoFerimento: (map['tipo_ferimento'] ?? map['tipoFerimento'])
+          ?.toString(),
       tipoObjeto: (map['tipo_objeto'] ?? map['tipoObjeto'])?.toString(),
       numeroLacre: (map['numero_lacre'] ?? map['numeroLacre'])?.toString(),
-      comentarioAdicional: (map['comentario_adicional'] ?? map['comentarioAdicional'])?.toString(),
+      comentarioAdicional:
+          (map['comentario_adicional'] ?? map['comentarioAdicional'])
+              ?.toString(),
     );
   }
 }
-

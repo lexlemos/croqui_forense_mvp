@@ -39,18 +39,22 @@ class EvidenciaMultimidia {
     this.caminhoArquivoEncriptado,
     this.hashArquivo,
     this.descricao,
-  })  : uuid = (caminhoArquivoEncriptado != null && caminhoArquivoEncriptado.isNotEmpty && !caminhoArquivoEncriptado.startsWith('http')) 
-            ? p.basenameWithoutExtension(caminhoArquivoEncriptado) 
-            : const Uuid().v4(),
-        substituidaPor = null,
-        fotoSincronizada = false,
-        removido = false,
-        versao = 1,
-        criadoEm = DateTime.now(),
-        atualizadoEm = null;
+  }) : uuid =
+           (caminhoArquivoEncriptado != null &&
+               caminhoArquivoEncriptado.isNotEmpty &&
+               !caminhoArquivoEncriptado.startsWith('http'))
+           ? p.basenameWithoutExtension(caminhoArquivoEncriptado)
+           : const Uuid().v4(),
+       substituidaPor = null,
+       fotoSincronizada = false,
+       removido = false,
+       versao = 1,
+       criadoEm = DateTime.now(),
+       atualizadoEm = null;
 
   factory EvidenciaMultimidia.fromMap(Map<String, dynamic> map) {
-    final pathOrUrl = map['caminho_arquivo_encriptado']?.toString() ??
+    final pathOrUrl =
+        map['caminho_arquivo_encriptado']?.toString() ??
         map['url']?.toString() ??
         map['path']?.toString() ??
         map['url_foto']?.toString() ??
@@ -58,7 +62,8 @@ class EvidenciaMultimidia {
 
     return EvidenciaMultimidia(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
+      casoUuid:
+          map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
       achadoUuid: map['achado_uuid']?.toString(),
       substituidaPor: map['substituida_por']?.toString(),
       tipo: map['tipo']?.toString() ?? 'ACHADO',
@@ -71,8 +76,12 @@ class EvidenciaMultimidia {
           ? map['removido'] as bool
           : (map['removido'] as int? ?? 0) == 1,
       versao: map['versao'] as int? ?? 1,
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
-      atualizadoEm: map['atualizado_em'] != null ? DateTime.tryParse(map['atualizado_em'].toString()) : null,
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
+      atualizadoEm: map['atualizado_em'] != null
+          ? DateTime.tryParse(map['atualizado_em'].toString())
+          : null,
       descricao: map['descricao']?.toString(),
     );
   }
@@ -136,7 +145,8 @@ class EvidenciaMultimidia {
       achadoUuid: achadoUuid ?? this.achadoUuid,
       substituidaPor: substituidaPor ?? this.substituidaPor,
       tipo: tipo ?? this.tipo,
-      caminhoArquivoEncriptado: caminhoArquivoEncriptado ?? this.caminhoArquivoEncriptado,
+      caminhoArquivoEncriptado:
+          caminhoArquivoEncriptado ?? this.caminhoArquivoEncriptado,
       hashArquivo: hashArquivo ?? this.hashArquivo,
       fotoSincronizada: fotoSincronizada ?? this.fotoSincronizada,
       removido: removido ?? this.removido,

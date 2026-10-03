@@ -40,7 +40,8 @@ class InjuryPin extends StatelessWidget {
       child: Container(
         width: touchTargetSize,
         height: touchTargetSize,
-        color: Colors.transparent, // Garante sensibilidade ao toque em toda a área de 44x44px
+        color: Colors
+            .transparent, // Garante sensibilidade ao toque em toda a área de 44x44px
         alignment: Alignment.center,
         child: Stack(
           alignment: Alignment.center,

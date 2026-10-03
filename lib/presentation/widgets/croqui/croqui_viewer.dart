@@ -6,20 +6,21 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/injury_pin.dart';
 
-typedef OnBodyPartSelected = void Function(
-  String bodyPartId, 
-  String bodyPartName, 
-  double xPercent, 
-  double yPercent
-);
+typedef OnBodyPartSelected =
+    void Function(
+      String bodyPartId,
+      String bodyPartName,
+      double xPercent,
+      double yPercent,
+    );
 
 class CroquiViewer extends StatefulWidget {
   final String svgPath;
   final String maskPath;
-  final Map<int, String> colorToIdMap;     
-  final Map<String, BodyPartDefinition> idToDefMap;   
-  final List<Achado> markers;     
-  final OnBodyPartSelected onPartTap;      
+  final Map<int, String> colorToIdMap;
+  final Map<String, BodyPartDefinition> idToDefMap;
+  final List<Achado> markers;
+  final OnBodyPartSelected onPartTap;
 
   const CroquiViewer({
     super.key,
@@ -72,7 +73,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
 
   Future<void> _loadMask() async {
     if (!mounted) return;
-    
+
     final String currentLoadPath = widget.maskPath;
 
     setState(() {
@@ -92,7 +93,9 @@ class _CroquiViewerState extends State<CroquiViewer> {
       final ui.FrameInfo frameInfo = await loadedCodec.getNextFrame();
       uiImage = frameInfo.image;
 
-      final ByteData? rawBytes = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final ByteData? rawBytes = await uiImage.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
 
       // O codec não é mais necessário depois que os bytes da imagem foram extraídos.
       codec?.dispose();
@@ -101,7 +104,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
       if (!mounted || widget.maskPath != currentLoadPath) return;
 
       if (rawBytes == null) {
-        throw Exception("Falha ao obter bytes da máscara"); 
+        throw Exception("Falha ao obter bytes da máscara");
       }
 
       final int width = uiImage.width;
@@ -131,7 +134,8 @@ class _CroquiViewerState extends State<CroquiViewer> {
   void _handleTap(TapUpDetails details) {
     if (_rawMaskBytes == null || _maskWidth <= 0 || _maskHeight <= 0) return;
 
-    final RenderBox? box = _imageKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? box =
+        _imageKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final Size widgetSize = box.size;
@@ -143,7 +147,8 @@ class _CroquiViewerState extends State<CroquiViewer> {
     final int imgX = (xPercent * _maskWidth).floor();
     final int imgY = (yPercent * _maskHeight).floor();
 
-    if (imgX < 0 || imgX >= _maskWidth || imgY < 0 || imgY >= _maskHeight) return;
+    if (imgX < 0 || imgX >= _maskWidth || imgY < 0 || imgY >= _maskHeight)
+      return;
 
     final int pixelOffset = (imgY * _maskWidth + imgX) * 4;
     final ByteData rawBytes = _rawMaskBytes!;
@@ -160,7 +165,8 @@ class _CroquiViewerState extends State<CroquiViewer> {
     if (foundId == null) return; // early return for unmapped color
 
     final def = widget.idToDefMap[foundId];
-    if (def == null) return; // early return if definition is not in currently active dictionary (e.g. wrong sex)
+    if (def == null)
+      return; // early return if definition is not in currently active dictionary (e.g. wrong sex)
 
     widget.onPartTap(foundId, def.name, xPercent, yPercent);
   }
@@ -168,14 +174,8 @@ class _CroquiViewerState extends State<CroquiViewer> {
   Widget _getSvgBackground() {
     _cachedSvg ??= RepaintBoundary(
       child: widget.svgPath.toLowerCase().endsWith('.svg')
-          ? SvgPicture.asset(
-              widget.svgPath,
-              fit: BoxFit.fill,
-            )
-          : Image.asset(
-              widget.svgPath,
-              fit: BoxFit.fill,
-            ),
+          ? SvgPicture.asset(widget.svgPath, fit: BoxFit.fill)
+          : Image.asset(widget.svgPath, fit: BoxFit.fill),
     );
     return _cachedSvg!;
   }
@@ -216,9 +216,7 @@ class _CroquiViewerState extends State<CroquiViewer> {
                 return Stack(
                   key: _imageKey,
                   children: [
-                    Positioned.fill(
-                      child: _getSvgBackground(),
-                    ),
+                    Positioned.fill(child: _getSvgBackground()),
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.translucent,
@@ -226,26 +224,39 @@ class _CroquiViewerState extends State<CroquiViewer> {
                       ),
                     ),
 
-                    ...widget.markers.where((marker) {
-                      final String? bodyPartId = marker.dadosPreenchidos['local_anatomico_id']?.toString();
-                      if (bodyPartId == null) return false;
-                      return widget.idToDefMap.containsKey(bodyPartId);
-                    }).map((marker) {
-                      double left = (marker.posX.isNaN ? 0.5 : marker.posX) * containerWidth;
-                      double top = (marker.posY.isNaN ? 0.5 : marker.posY) * containerHeight;
-                      const double touchTargetSize = 44.0;
+                    ...widget.markers
+                        .where((marker) {
+                          final String? bodyPartId = marker
+                              .dadosPreenchidos['local_anatomico_id']
+                              ?.toString();
+                          if (bodyPartId == null) return false;
+                          return widget.idToDefMap.containsKey(bodyPartId);
+                        })
+                        .map((marker) {
+                          double left =
+                              (marker.posX.isNaN ? 0.5 : marker.posX) *
+                              containerWidth;
+                          double top =
+                              (marker.posY.isNaN ? 0.5 : marker.posY) *
+                              containerHeight;
+                          const double touchTargetSize = 44.0;
 
-                      return Positioned(
-                        left: left - (touchTargetSize / 2),
-                        top: top - (touchTargetSize / 2),
-                        child: InjuryPin(
-                          touchTargetSize: touchTargetSize,
-                          visualSize: 15.0, // Redução visual de ~37.5% (de 24px para 15px)
-                          color: marker.isInterno ? Colors.orange : Colors.red,
-                          label: marker.numeroSequencial > 0 ? marker.numeroSequencial.toString() : null,
-                        ),
-                      );
-                    }),
+                          return Positioned(
+                            left: left - (touchTargetSize / 2),
+                            top: top - (touchTargetSize / 2),
+                            child: InjuryPin(
+                              touchTargetSize: touchTargetSize,
+                              visualSize:
+                                  15.0, // Redução visual de ~37.5% (de 24px para 15px)
+                              color: marker.isInterno
+                                  ? Colors.orange
+                                  : Colors.red,
+                              label: marker.numeroSequencial > 0
+                                  ? marker.numeroSequencial.toString()
+                                  : null,
+                            ),
+                          );
+                        }),
 
                     if (_isLoadingMask)
                       Positioned.fill(

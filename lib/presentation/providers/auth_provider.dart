@@ -32,14 +32,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Usuario? get usuario => _usuario;
-  bool get isLogged => _isLogged; 
+  bool get isLogged => _isLogged;
   bool get isLoading => _isLoading;
   bool get isOfflineSession => _authService.isOfflineSession;
 
   Future<void> checkLoginStatus() async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       _usuario = await _authService.checkSession();
       _isLogged = _usuario != null;
@@ -84,17 +84,24 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _limparMemoriaEController(BuildContext? context) {
-    final ctx = globalNavigatorKey.currentContext ?? context ?? globalMessengerKey.currentContext;
+    final ctx =
+        globalNavigatorKey.currentContext ??
+        context ??
+        globalMessengerKey.currentContext;
     if (ctx != null && ctx.mounted) {
       try {
         ctx.read<CaseListProvider>().clear();
       } catch (e) {
-        debugPrint('[AuthProvider] Erro ao limpar CaseListProvider no logout: $e');
+        debugPrint(
+          '[AuthProvider] Erro ao limpar CaseListProvider no logout: $e',
+        );
       }
       try {
         ctx.read<UserManagementProvider>().clear();
       } catch (e) {
-        debugPrint('[AuthProvider] Erro ao limpar UserManagementProvider no logout: $e');
+        debugPrint(
+          '[AuthProvider] Erro ao limpar UserManagementProvider no logout: $e',
+        );
       }
       try {
         ctx.read<SyncProvider>().clear();
@@ -109,10 +116,11 @@ class AuthProvider extends ChangeNotifier {
     if (nav != null) {
       nav.pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
     } else if (context != null && context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
     }
   }
-
 
   Future<void> saveSavedLogin(String login) async {
     await _authService.saveSavedLogin(login);

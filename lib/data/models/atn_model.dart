@@ -7,16 +7,10 @@ class AtnModel {
   final String nome;
   final bool ativo;
 
-  AtnModel({
-    required this.id,
-    required this.nome,
-    this.ativo = true,
-  });
+  AtnModel({required this.id, required this.nome, this.ativo = true});
 
-  AtnModel.novo({
-    required this.nome,
-    this.ativo = true,
-  }) : id = const Uuid().v4();
+  AtnModel.novo({required this.nome, this.ativo = true})
+    : id = const Uuid().v4();
 
   factory AtnModel.fromMap(Map<String, dynamic> map) {
     final id = map['id']?.toString().trim() ?? '';
@@ -38,18 +32,10 @@ class AtnModel {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'nome': nome,
-      'ativo': ativo ? 1 : 0,
-    };
+    return {'id': id, 'nome': nome, 'ativo': ativo ? 1 : 0};
   }
 
-  AtnModel copyWith({
-    String? id,
-    String? nome,
-    bool? ativo,
-  }) {
+  AtnModel copyWith({String? id, String? nome, bool? ativo}) {
     return AtnModel(
       id: id ?? this.id,
       nome: nome ?? this.nome,

@@ -3,23 +3,31 @@ import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart';
 import 'package:croqui_forense_mvp/core/constants/back_body_data.dart';
-import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart' as face_right;
-import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart' as face_left;
-import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart' as lat_right;
-import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart' as lat_left;
-import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart' as trunk_right;
-import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart' as trunk_left;
-import 'package:croqui_forense_mvp/core/constants/perineal_data.dart' as perineal;
+import 'package:croqui_forense_mvp/core/constants/lateral_right_data.dart'
+    as face_right;
+import 'package:croqui_forense_mvp/core/constants/lateral_left_data.dart'
+    as face_left;
+import 'package:croqui_forense_mvp/core/constants/lateral_right_body_data.dart'
+    as lat_right;
+import 'package:croqui_forense_mvp/core/constants/lateral_left_body_data.dart'
+    as lat_left;
+import 'package:croqui_forense_mvp/core/constants/trunk_right_data.dart'
+    as trunk_right;
+import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart'
+    as trunk_left;
+import 'package:croqui_forense_mvp/core/constants/perineal_data.dart'
+    as perineal;
 
-typedef BuildCroquiTabCallback = Widget Function(
-  BuildContext context,
-  CroquiController controller,
-  String view,
-  String svg,
-  String mask,
-  Map<int, String> colors,
-  Map<String, BodyPartDefinition> defs,
-);
+typedef BuildCroquiTabCallback =
+    Widget Function(
+      BuildContext context,
+      CroquiController controller,
+      String view,
+      String svg,
+      String mask,
+      Map<int, String> colors,
+      Map<String, BodyPartDefinition> defs,
+    );
 
 class FrenteCostasTabContent extends StatefulWidget {
   final CroquiController controller;
@@ -276,7 +284,7 @@ class RostosTabContent extends StatefulWidget {
 }
 
 class _RostosTabContentState extends State<RostosTabContent> {
-  String _activeFaceView = 'face_dir'; 
+  String _activeFaceView = 'face_dir';
 
   @override
   Widget build(BuildContext context) {
@@ -293,8 +301,16 @@ class _RostosTabContentState extends State<RostosTabContent> {
                   selectedForegroundColor: Colors.white,
                 ),
                 segments: const [
-                  ButtonSegment(value: 'face_dir', label: Text('Rosto Direito'), icon: Icon(Icons.face, size: 18)),
-                  ButtonSegment(value: 'face_esq', label: Text('Rosto Esquerdo'), icon: Icon(Icons.face_5, size: 18)),
+                  ButtonSegment(
+                    value: 'face_dir',
+                    label: Text('Rosto Direito'),
+                    icon: Icon(Icons.face, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: 'face_esq',
+                    label: Text('Rosto Esquerdo'),
+                    icon: Icon(Icons.face_5, size: 18),
+                  ),
                 ],
                 selected: {_activeFaceView},
                 onSelectionChanged: (newSelection) {
@@ -403,7 +419,11 @@ class _PerineoTabContentState extends State<PerineoTabContent> {
             children: [
               const Text(
                 "Sexo do Examinado: ",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blueGrey),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Colors.blueGrey,
+                ),
               ),
               const SizedBox(width: 12),
               SegmentedButton<String>(
@@ -412,8 +432,16 @@ class _PerineoTabContentState extends State<PerineoTabContent> {
                   selectedForegroundColor: Colors.white,
                 ),
                 segments: const [
-                  ButtonSegment(value: 'Masculino', label: Text('Masculino'), icon: Icon(Icons.male, size: 18)),
-                  ButtonSegment(value: 'Feminino', label: Text('Feminino'), icon: Icon(Icons.female, size: 18)),
+                  ButtonSegment(
+                    value: 'Masculino',
+                    label: Text('Masculino'),
+                    icon: Icon(Icons.male, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: 'Feminino',
+                    label: Text('Feminino'),
+                    icon: Icon(Icons.female, size: 18),
+                  ),
                 ],
                 selected: {_currentSexo},
                 onSelectionChanged: widget.controller.isReadOnly
@@ -429,8 +457,12 @@ class _PerineoTabContentState extends State<PerineoTabContent> {
             context,
             widget.controller,
             'perineal',
-            isMale ? 'assets/images/perineo_masculino.svg' : 'assets/images/perineo_feminino.svg',
-            isMale ? 'assets/images/perineo_masculino.png' : 'assets/images/perineo_feminino.png',
+            isMale
+                ? 'assets/images/perineo_masculino.svg'
+                : 'assets/images/perineo_feminino.svg',
+            isMale
+                ? 'assets/images/perineo_masculino.png'
+                : 'assets/images/perineo_feminino.png',
             _activeColors,
             _activeDefs,
           ),

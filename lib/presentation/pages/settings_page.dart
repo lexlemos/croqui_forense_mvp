@@ -38,12 +38,8 @@ class _SettingsPageState extends State<SettingsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            AppHeader(
-              usuario: usuario,
-              title: 'Configurações',
-              isHome: false,
-            ),
-            
+            AppHeader(usuario: usuario, title: 'Configurações', isHome: false),
+
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(24),
@@ -76,7 +72,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             context,
                             icon: Icons.badge,
                             label: 'Matrícula Funcional',
-                            value: usuario?.matriculaFuncional ?? 'Não disponível',
+                            value:
+                                usuario?.matriculaFuncional ?? 'Não disponível',
                           ),
                           const SizedBox(height: 12),
                           _buildProfileRow(
@@ -99,7 +96,9 @@ class _SettingsPageState extends State<SettingsPage> {
                             label: 'Perfil / Função',
                             value: (usuario?.hasRole('ADMIN') ?? false)
                                 ? 'Administrador'
-                                : (usuario?.roles.isNotEmpty == true ? usuario!.roles.join(', ') : 'Médico Legista / Perito'),
+                                : (usuario?.roles.isNotEmpty == true
+                                      ? usuario!.roles.join(', ')
+                                      : 'Médico Legista / Perito'),
                           ),
                         ],
                       ),
@@ -107,7 +106,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 16),
                   ListTile(
-                    leading: const Icon(Icons.info_outline, color: Colors.indigo),
+                    leading: const Icon(
+                      Icons.info_outline,
+                      color: Colors.indigo,
+                    ),
                     title: const Text('Sobre o App'),
                     subtitle: Text('Versão $_appVersion (Build $_buildNumber)'),
                     onTap: () {
@@ -115,7 +117,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         context: context,
                         applicationName: 'Necropsia Digital',
                         applicationVersion: '$_appVersion+$_buildNumber',
-                        applicationIcon: const FlutterLogo(size: 40), 
+                        applicationIcon: const FlutterLogo(size: 40),
                         applicationLegalese: '© 2026 - IML-SE',
                         children: [
                           const Divider(),
@@ -130,7 +132,9 @@ class _SettingsPageState extends State<SettingsPage> {
                             'Instituição:',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          const Text('Instituto Médico Legal de Sergipe (IML-SE)'),
+                          const Text(
+                            'Instituto Médico Legal de Sergipe (IML-SE)',
+                          ),
                         ],
                       );
                     },
@@ -140,7 +144,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   Center(
                     child: Text(
                       'Desenvolvido por Allex Lemos',
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],

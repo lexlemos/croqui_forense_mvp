@@ -268,8 +268,9 @@ class CroquiController extends ChangeNotifier {
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
-      final todasEvidencias =
-          await _casoRepository.getEvidenciasPorCaso(casoAtual.uuid);
+      final todasEvidencias = await _casoRepository.getEvidenciasPorCaso(
+        casoAtual.uuid,
+      );
       casoAtual = casoAtual.copyWith(evidenciasMultimidia: todasEvidencias);
       examesSolicitados = await _caseService.getExamesSolicitados(
         casoAtual.uuid,
@@ -296,7 +297,6 @@ class CroquiController extends ChangeNotifier {
       '[CroquiController] 🔄 ATNs Atualizados na RAIZ do Caso: atns_ids=${casoAtual.atnsIds}',
     );
 
-
     notifyListeners();
     scheduleAutoSave();
   }
@@ -313,7 +313,9 @@ class CroquiController extends ChangeNotifier {
   Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
     debugPrint('--- CONTROLLER TEST (RECEBIMENTO) ---');
     for (var e in exames) {
-      debugPrint('Recebido Exame: ${e.tipoExame} | Detalhes nulo: ${e.detalhes == null}');
+      debugPrint(
+        'Recebido Exame: ${e.tipoExame} | Detalhes nulo: ${e.detalhes == null}',
+      );
       if (e.detalhes != null) debugPrint('  Detalhes: ${e.detalhes}');
     }
 
@@ -753,7 +755,8 @@ class CroquiController extends ChangeNotifier {
       final statusAtual = casoAtual.status;
 
       // Cenário A: Se o status for EM_ANDAMENTO/RASCUNHO, exibe o Modal 1 ("Finalizar Exame Físico?")
-      if (statusAtual == StatusCaso.em_andamento || statusAtual == StatusCaso.rascunho) {
+      if (statusAtual == StatusCaso.em_andamento ||
+          statusAtual == StatusCaso.rascunho) {
         final confirmExame = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -1200,7 +1203,9 @@ class CroquiController extends ChangeNotifier {
       numeroBo: numeroBo,
       numeroPic: numeroPic,
       numeroRequisicao: numeroRequisicao,
-      numeroLaudoExterno: numeroRequisicao.isNotEmpty ? numeroRequisicao : casoAtual.numeroLaudoExterno,
+      numeroLaudoExterno: numeroRequisicao.isNotEmpty
+          ? numeroRequisicao
+          : casoAtual.numeroLaudoExterno,
       isDraftSynced: false,
       nomeVitima: nomeVitima,
       destino: destino,
@@ -1517,25 +1522,38 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
-      final reqValue = res['numero_requisicao'] ?? res['requisicao'] ?? res['cd'] ?? res['numero_laudo'];
+      final reqValue =
+          res['numero_requisicao'] ??
+          res['requisicao'] ??
+          res['cd'] ??
+          res['numero_laudo'];
       if (numeroLaudoCtrl.text.isEmpty && reqValue != null) {
         numeroLaudoCtrl.text = reqValue.toString();
         altered = true;
       }
 
-      final autoridadeValue = res['requisitante'] ?? res['autoridade'] ?? res['autoridade_requisitante'];
+      final autoridadeValue =
+          res['requisitante'] ??
+          res['autoridade'] ??
+          res['autoridade_requisitante'];
       if (reqOrigemCtrl.text.isEmpty && autoridadeValue != null) {
         reqOrigemCtrl.text = autoridadeValue.toString();
         altered = true;
       }
 
-      final delegaciaValue = res['delegacia_solicitante'] ?? res['delegacia'] ?? res['delegacia_origem'];
+      final delegaciaValue =
+          res['delegacia_solicitante'] ??
+          res['delegacia'] ??
+          res['delegacia_origem'];
       if (delegaciaSolicitanteCtrl.text.isEmpty && delegaciaValue != null) {
         delegaciaSolicitanteCtrl.text = delegaciaValue.toString();
         altered = true;
       }
 
-      final declaracaoValue = res['numero_declaracao_obito'] ?? res['declaracao_obito'] ?? res['numero_do'];
+      final declaracaoValue =
+          res['numero_declaracao_obito'] ??
+          res['declaracao_obito'] ??
+          res['numero_do'];
       if (numeroDeclaracaoObitoCtrl.text.isEmpty && declaracaoValue != null) {
         numeroDeclaracaoObitoCtrl.text = declaracaoValue.toString();
         altered = true;

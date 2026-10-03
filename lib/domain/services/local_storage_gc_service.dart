@@ -57,14 +57,17 @@ class LocalStorageGcService {
       whereArgs: [''],
     );
     for (final caso in casos) {
-      final caminho = normalizarCaminho(caso['pdf_local_path']?.toString() ?? '');
+      final caminho = normalizarCaminho(
+        caso['pdf_local_path']?.toString() ?? '',
+      );
       if (caminho.isNotEmpty) arquivosRegistrados.add(caminho);
     }
 
     final evidencias = await db.query(
       tableEvidenciasMultimidia,
       columns: ['caminho_arquivo_encriptado'],
-      where: 'caminho_arquivo_encriptado IS NOT NULL AND caminho_arquivo_encriptado != ?',
+      where:
+          'caminho_arquivo_encriptado IS NOT NULL AND caminho_arquivo_encriptado != ?',
       whereArgs: [''],
     );
     for (final evidencia in evidencias) {
@@ -83,7 +86,10 @@ class LocalStorageGcService {
     for (final diretorio in diretoriosGerenciados) {
       if (!diretorio.existsSync()) continue;
 
-      for (final entity in diretorio.listSync(recursive: true, followLinks: false)) {
+      for (final entity in diretorio.listSync(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
 
         final caminho = normalizarCaminho(entity.path);
@@ -95,12 +101,16 @@ class LocalStorageGcService {
           arquivosRemovidos++;
           debugPrint('[GC] 🧹 Arquivo órfão removido: ${entity.path}');
         } catch (e) {
-          debugPrint('[GC] ⚠️ Falha ao remover arquivo órfão ${entity.path}: $e');
+          debugPrint(
+            '[GC] ⚠️ Falha ao remover arquivo órfão ${entity.path}: $e',
+          );
         }
       }
     }
 
-    debugPrint('[GC] Limpeza de arquivos órfãos concluída: $arquivosRemovidos removido(s).');
+    debugPrint(
+      '[GC] Limpeza de arquivos órfãos concluída: $arquivosRemovidos removido(s).',
+    );
     return arquivosRemovidos;
   }
 
@@ -143,11 +153,15 @@ class LocalStorageGcService {
     );
 
     if (casosElegiveis.isEmpty) {
-      debugPrint('[GC] ✅ Nenhum caso elegível para expurgo. Armazenamento limpo.');
+      debugPrint(
+        '[GC] ✅ Nenhum caso elegível para expurgo. Armazenamento limpo.',
+      );
       return 0;
     }
 
-    debugPrint('[GC] 📋 ${casosElegiveis.length} caso(s) elegível(is) para expurgo.');
+    debugPrint(
+      '[GC] 📋 ${casosElegiveis.length} caso(s) elegível(is) para expurgo.',
+    );
     int casosExpurgados = 0;
 
     for (final casoRow in casosElegiveis) {
@@ -182,7 +196,9 @@ class LocalStorageGcService {
             }
           } catch (e) {
             arquivosFalha++;
-            debugPrint('[GC] ⚠️ Falha ao apagar evidência ($casoUuid): $filePath — $e');
+            debugPrint(
+              '[GC] ⚠️ Falha ao apagar evidência ($casoUuid): $filePath — $e',
+            );
           }
         }
 
@@ -197,7 +213,9 @@ class LocalStorageGcService {
             }
           } catch (e) {
             arquivosFalha++;
-            debugPrint('[GC] ⚠️ Falha ao apagar PDF ($casoUuid): $pdfPath — $e');
+            debugPrint(
+              '[GC] ⚠️ Falha ao apagar PDF ($casoUuid): $pdfPath — $e',
+            );
           }
         }
 
@@ -215,11 +233,7 @@ class LocalStorageGcService {
         // 4. Apagar registros do SQLite em cascata
         // evidencias_multimidia, achados e exames_solicitados são removidos
         // automaticamente via ON DELETE CASCADE definido no schema.
-        await db.delete(
-          tableCasos,
-          where: 'uuid = ?',
-          whereArgs: [casoUuid],
-        );
+        await db.delete(tableCasos, where: 'uuid = ?', whereArgs: [casoUuid]);
 
         casosExpurgados++;
         debugPrint(

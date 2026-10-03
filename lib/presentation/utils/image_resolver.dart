@@ -48,7 +48,8 @@ class ImageResolver {
     final trimmedPath = path?.trim() ?? '';
 
     if (trimmedPath.isNotEmpty) {
-      final isAbsoluteLocalPath = trimmedPath.startsWith('/data/user/') ||
+      final isAbsoluteLocalPath =
+          trimmedPath.startsWith('/data/user/') ||
           trimmedPath.startsWith('/data/data/') ||
           trimmedPath.startsWith('/storage/') ||
           trimmedPath.startsWith('file://') ||
@@ -147,7 +148,9 @@ class ImageResolver {
         future: _buscarEvidenciaNoBanco(achado.uuid),
         builder: (context, snapshot) {
           final data = snapshot.data;
-          if (data != null && data['uuid'] != null && data['uuid']!.isNotEmpty) {
+          if (data != null &&
+              data['uuid'] != null &&
+              data['uuid']!.isNotEmpty) {
             final localPath = data['caminho'];
             if (localPath != null && localPath.trim().isNotEmpty) {
               final cleanPath = localPath.trim().replaceFirst('file://', '');
@@ -225,7 +228,8 @@ class ImageResolver {
 
     final serverBase = _serverBaseUrl;
 
-    final isAbsoluteLocalPath = inputPath.startsWith('/data/user/') ||
+    final isAbsoluteLocalPath =
+        inputPath.startsWith('/data/user/') ||
         inputPath.startsWith('/data/data/') ||
         inputPath.startsWith('/storage/') ||
         inputPath.startsWith('file://') ||
@@ -251,8 +255,9 @@ class ImageResolver {
   }
 
   static String _joinUrl(String base, String relativePath) {
-    final cleanBase =
-        base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+    final cleanBase = base.endsWith('/')
+        ? base.substring(0, base.length - 1)
+        : base;
     final cleanRelative = relativePath.startsWith('/')
         ? relativePath.substring(1)
         : relativePath;

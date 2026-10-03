@@ -9,8 +9,8 @@ import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 import 'package:croqui_forense_mvp/data/local/database_seeder.dart';
 
 class DatabaseHelper {
-  static const String _kDbName = kDatabaseName; 
-  static const int _kVersion = kDatabaseVersion; 
+  static const String _kDbName = kDatabaseName;
+  static const int _kVersion = kDatabaseVersion;
 
   static const String _kEncKey = 'db_encryption_key';
 
@@ -30,7 +30,8 @@ class DatabaseHelper {
   static DatabaseHelper get instance {
     if (_instance == null) {
       throw Exception(
-          "DatabaseHelper não inicializado. Chame DatabaseHelper.init() no main.dart.");
+        "DatabaseHelper não inicializado. Chame DatabaseHelper.init() no main.dart.",
+      );
     }
     return _instance!;
   }
@@ -80,7 +81,7 @@ class DatabaseHelper {
           for (var sql in kFullDatabaseCreationScripts) {
             await txn.execute(sql);
           }
-          
+
           final seeder = DatabaseSeeder(txn);
           await seeder.seedAll();
         });
@@ -101,32 +102,74 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
-    await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
-    await _addColumnIfNotExists(txn, 'casos', 'sync_error', 'INTEGER NOT NULL DEFAULT 0');
+    await _addColumnIfNotExists(
+      txn,
+      'casos',
+      'is_draft_synced',
+      'INTEGER DEFAULT 0',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'casos',
+      'sync_error',
+      'INTEGER NOT NULL DEFAULT 0',
+    );
     await txn.execute(kCreateAtnsSql);
     await txn.execute(kCreateBalisticasSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
     await DatabaseSeeder(txn).seedAtns();
-    await _addColumnIfNotExists(txn, 'amostras_genetica', 'numero_lacre', 'TEXT');
+    await _addColumnIfNotExists(
+      txn,
+      'amostras_genetica',
+      'numero_lacre',
+      'TEXT',
+    );
     await _addColumnIfNotExists(txn, 'frascos_anatomo', 'numero_lacre', 'TEXT');
-    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_sg', 'TEXT');
-    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ur', 'TEXT');
-    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_hv', 'TEXT');
-    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ce', 'TEXT');
-    await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
+    await _addColumnIfNotExists(
+      txn,
+      'detalhes_toxicologico',
+      'numero_lacre_sg',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'detalhes_toxicologico',
+      'numero_lacre_ur',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'detalhes_toxicologico',
+      'numero_lacre_hv',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'detalhes_toxicologico',
+      'numero_lacre_ce',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'detalhes_toxicologico',
+      'numero_lacre_pm',
+      'TEXT',
+    );
     await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'roles', 'TEXT');
-    await txn.execute('CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);');
+    await txn.execute(
+      'CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);',
+    );
   }
 
   Future<void> close() async {
     await _db?.close();
     _db = null;
   }
-  
+
   /// Executa o upgrade do banco de dados em cascata de forma estritamente sequencial.
-  /// 
+  ///
   /// NOTA TÉCNICA DE ARQUITETURA DE MIGRAÇÃO:
   /// O laço `for (int i = oldVersion + 1; i <= newVersion; i++)` garante a execução
   /// ordenada de cada versão intermediária (ex: v9 -> v10 -> v11 -> v12) em uma única transação atômica.
@@ -135,14 +178,16 @@ class DatabaseHelper {
   /// acidentais e garante que usuários que atualizarem de versões legadas distantes recebam todas as
   /// alterações de schema sem pular nenhuma versão.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    debugPrint('[DatabaseHelper] 🔄 Iniciando migração do banco (v$oldVersion para v$newVersion)...');
+    debugPrint(
+      '[DatabaseHelper] 🔄 Iniciando migração do banco (v$oldVersion para v$newVersion)...',
+    );
 
     await db.transaction((txn) async {
       for (int i = oldVersion + 1; i <= newVersion; i++) {
         await _executeMigration(txn, i);
       }
     });
-    
+
     debugPrint('[DatabaseHelper] ✅ Migração concluída com sucesso!');
   }
 
@@ -151,9 +196,14 @@ class DatabaseHelper {
     switch (version) {
       case 2:
         debugPrint('[DatabaseHelper] Executando migração para a versão 2...');
-        await _addColumnIfNotExists(txn, 'tipos_achados', 'is_interno', 'INTEGER DEFAULT 0');
+        await _addColumnIfNotExists(
+          txn,
+          'tipos_achados',
+          'is_interno',
+          'INTEGER DEFAULT 0',
+        );
         break;
-        
+
       case 3:
         debugPrint('[DatabaseHelper] Executando migração para a versão 3...');
         await _addColumnIfNotExists(txn, 'casos', 'numero_pic', 'TEXT');
@@ -165,7 +215,12 @@ class DatabaseHelper {
         await _addColumnIfNotExists(txn, 'achados', 'tamanho', 'TEXT');
         await _addColumnIfNotExists(txn, 'achados', 'vista_anatomica', 'TEXT');
         await _addColumnIfNotExists(txn, 'achados', 'local_anatomico', 'TEXT');
-        await _addColumnIfNotExists(txn, 'achados', 'diagrama_caso_uuid', "TEXT DEFAULT ''");
+        await _addColumnIfNotExists(
+          txn,
+          'achados',
+          'diagrama_caso_uuid',
+          "TEXT DEFAULT ''",
+        );
 
         await txn.execute('''
           CREATE TABLE IF NOT EXISTS exames_solicitados (
@@ -180,7 +235,9 @@ class DatabaseHelper {
         ''');
 
         try {
-          await txn.execute('ALTER TABLE evidencias_multimidia RENAME TO old_evidencias_multimidia;');
+          await txn.execute(
+            'ALTER TABLE evidencias_multimidia RENAME TO old_evidencias_multimidia;',
+          );
           await txn.execute('''
             CREATE TABLE evidencias_multimidia (
                 uuid TEXT PRIMARY KEY,
@@ -225,25 +282,41 @@ class DatabaseHelper {
           ''');
           await txn.execute('DROP TABLE IF EXISTS old_evidencias_multimidia;');
         } catch (e) {
-          debugPrint('[DatabaseHelper] Falha ao alterar/migrar tabela evidencias_multimidia: $e');
+          debugPrint(
+            '[DatabaseHelper] Falha ao alterar/migrar tabela evidencias_multimidia: $e',
+          );
         }
         break;
 
       case 4:
         debugPrint('[DatabaseHelper] Executando migração para a versão 4...');
-        await _addColumnIfNotExists(txn, 'evidencias_multimidia', 'descricao', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'evidencias_multimidia',
+          'descricao',
+          'TEXT',
+        );
         break;
 
       case 5:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 5 (Limpeza de Tabelas Obsoletas)...');
-        await _addColumnIfNotExists(txn, 'evidencias_multimidia', 'descricao', 'TEXT');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 5 (Limpeza de Tabelas Obsoletas)...',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'evidencias_multimidia',
+          'descricao',
+          'TEXT',
+        );
         // Limpeza de dívida técnica / remoção segura de tabelas descontinuadas
         await txn.execute('DROP TABLE IF EXISTS diagramas_do_caso;');
         await txn.execute('DROP TABLE IF EXISTS old_evidencias_multimidia;');
         break;
 
       case 6:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 6 (Exames Complementares Polimórficos)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 6 (Exames Complementares Polimórficos)...',
+        );
         await txn.execute('DROP TABLE IF EXISTS exames_solicitados;');
         await txn.execute(kCreateExamesSolicitadosSql);
         await txn.execute(kCreateDetalhesToxicologicoSql);
@@ -252,113 +325,229 @@ class DatabaseHelper {
         break;
 
       case 7:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 7 (Lacre por Amostra / Frasco)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 7 (Lacre por Amostra / Frasco)...',
+        );
         // Cadeia de Custódia (Lei 13.964/19): cada amostra/frasco possui seu próprio lacre.
-        await _addColumnIfNotExists(txn, 'amostras_genetica', 'numero_lacre', 'TEXT');
-        await _addColumnIfNotExists(txn, 'frascos_anatomo', 'numero_lacre', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'amostras_genetica',
+          'numero_lacre',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'frascos_anatomo',
+          'numero_lacre',
+          'TEXT',
+        );
         break;
 
       case 8:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 8 (Lacre por Material Toxicológico)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 8 (Lacre por Material Toxicológico)...',
+        );
         // Cada material biológico coletado tem seu próprio recipiente/lacre.
-        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_sg', 'TEXT');
-        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ur', 'TEXT');
-        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_hv', 'TEXT');
-        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_ce', 'TEXT');
-        await _addColumnIfNotExists(txn, 'detalhes_toxicologico', 'numero_lacre_pm', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'detalhes_toxicologico',
+          'numero_lacre_sg',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'detalhes_toxicologico',
+          'numero_lacre_ur',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'detalhes_toxicologico',
+          'numero_lacre_hv',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'detalhes_toxicologico',
+          'numero_lacre_ce',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'detalhes_toxicologico',
+          'numero_lacre_pm',
+          'TEXT',
+        );
         break;
 
       case 9:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 9 (Campo finalizado_em para Casos)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 9 (Campo finalizado_em para Casos)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'finalizado_em', 'TEXT');
         break;
 
       case 10:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 10 (Tabela atns e atn_responsavel)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 10 (Tabela atns e atn_responsavel)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'atn_responsavel', 'TEXT');
         await txn.execute(kCreateAtnsSql);
         await DatabaseSeeder(txn).seedAtns();
         break;
 
       case 11:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 11 (Campo pdf_local_path em casos)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 11 (Campo pdf_local_path em casos)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
         break;
 
       case 12:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 12 (Campo is_draft_synced em casos)...');
-        await _addColumnIfNotExists(txn, 'casos', 'is_draft_synced', 'INTEGER DEFAULT 0');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 12 (Campo is_draft_synced em casos)...',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'is_draft_synced',
+          'INTEGER DEFAULT 0',
+        );
         break;
 
       case 13:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 13 (Campo atn_id em casos)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 13 (Campo atn_id em casos)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'atn_id', 'TEXT');
         break;
 
       case 14:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 14 (Campos classe e crm na tabela usuarios)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 14 (Campos classe e crm na tabela usuarios)...',
+        );
         await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
         await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
         break;
-        
+
       case 15:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 15 (Campo pdf_url na tabela casos)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 15 (Campo pdf_url na tabela casos)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
         break;
 
       case 16:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 16 (Campo atns_ids na tabela casos)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 16 (Campo atns_ids na tabela casos)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
         break;
 
       case 17:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 17 (Índice idx_casos_usuario_criador)...');
-        await txn.execute('CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 17 (Índice idx_casos_usuario_criador)...',
+        );
+        await txn.execute(
+          'CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);',
+        );
         break;
 
       case 18:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 18 (Flag sync_error em casos)...');
-        await _addColumnIfNotExists(txn, 'casos', 'sync_error', 'INTEGER NOT NULL DEFAULT 0');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 18 (Flag sync_error em casos)...',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'sync_error',
+          'INTEGER NOT NULL DEFAULT 0',
+        );
         break;
 
       case 19:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 19 (Campos Pericia Medico Legal)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 19 (Campos Pericia Medico Legal)...',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'corpo_estado', 'TEXT');
-        await _addColumnIfNotExists(txn, 'casos', 'corpo_estado_outros', 'TEXT');
-        await _addColumnIfNotExists(txn, 'casos', 'sexo_biologico_estimado', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'corpo_estado_outros',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'sexo_biologico_estimado',
+          'TEXT',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'data_obito', 'TEXT');
         await _addColumnIfNotExists(txn, 'casos', 'hora_obito', 'TEXT');
-        await _addColumnIfNotExists(txn, 'casos', 'tipo_estimativa_hora_obito', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'tipo_estimativa_hora_obito',
+          'TEXT',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'causa_morte', 'TEXT');
-        await _addColumnIfNotExists(txn, 'casos', 'exames_solicitados', 'INTEGER');
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'exames_solicitados',
+          'INTEGER',
+        );
         await _addColumnIfNotExists(txn, 'casos', 'descricao_exames', 'TEXT');
         await _addColumnIfNotExists(txn, 'casos', 'objeto_retirado', 'INTEGER');
         await _addColumnIfNotExists(txn, 'casos', 'descricao_objeto', 'TEXT');
         await _addColumnIfNotExists(txn, 'casos', 'data_necropsia', 'TEXT');
         await _addColumnIfNotExists(txn, 'casos', 'hora_necropsia', 'TEXT');
-        await _addColumnIfNotExists(txn, 'casos', 'numero_declaracao_obito', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'casos',
+          'numero_declaracao_obito',
+          'TEXT',
+        );
         break;
-        
+
       case 20:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 20 (Campos de Balística e Cadeia de Custódia em Achados)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 20 (Campos de Balística e Cadeia de Custódia em Achados)...',
+        );
         await _addColumnIfNotExists(txn, 'achados', 'tipo_ferimento', 'TEXT');
         await _addColumnIfNotExists(txn, 'achados', 'numero_lacre', 'TEXT');
         await _addColumnIfNotExists(txn, 'achados', 'tipo_objeto', 'TEXT');
-        await _addColumnIfNotExists(txn, 'achados', 'comentario_adicional', 'TEXT');
+        await _addColumnIfNotExists(
+          txn,
+          'achados',
+          'comentario_adicional',
+          'TEXT',
+        );
         break;
-        
+
       case 21:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 21 (Trava processual e status de exames)...');
-        await _addColumnIfNotExists(txn, 'exames_solicitados', 'status', "TEXT DEFAULT 'aguardando'");
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 21 (Trava processual e status de exames)...',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'exames_solicitados',
+          'status',
+          "TEXT DEFAULT 'aguardando'",
+        );
         break;
-        
+
       case 22:
-        debugPrint('[DatabaseHelper] Executando migração para a versão 22 (Tabela Balística 1:N)...');
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 22 (Tabela Balística 1:N)...',
+        );
         await txn.execute(kCreateBalisticasSql);
         break;
-        
+
       default:
-        debugPrint('[DatabaseHelper] Nenhuma migração específica definida para a versão $version');
+        debugPrint(
+          '[DatabaseHelper] Nenhuma migração específica definida para a versão $version',
+        );
     }
   }
 
@@ -372,7 +561,9 @@ class DatabaseHelper {
     final info = await txn.rawQuery("PRAGMA table_info($tableName);");
     final exists = info.any((row) => row['name']?.toString() == columnName);
     if (!exists) {
-      await txn.execute("ALTER TABLE $tableName ADD COLUMN $columnName $columnTypeDef;");
+      await txn.execute(
+        "ALTER TABLE $tableName ADD COLUMN $columnName $columnTypeDef;",
+      );
     }
   }
 }

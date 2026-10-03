@@ -1,7 +1,7 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
 const int kDatabaseVersion = 22;
 
-const String tableUsuarios = 'usuarios'; 
+const String tableUsuarios = 'usuarios';
 const String tablePapeis = 'papeis';
 const String tablePermissoes = 'permissoes';
 const String tablePapelPermissoes = 'papel_permissoes';
@@ -82,7 +82,6 @@ CREATE TABLE tipos_achados (
     atualizado_em TEXT
 );
 ''';
-
 
 const String _kCreateCasos = '''
 CREATE TABLE casos (

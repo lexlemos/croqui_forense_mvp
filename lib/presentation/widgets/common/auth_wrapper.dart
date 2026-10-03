@@ -11,18 +11,13 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (:isLoading, :isLogged) = context.select(
-      (AuthProvider p) => (
-        isLoading: p.isLoading,
-        isLogged: p.isLogged,
-      ),
+      (AuthProvider p) => (isLoading: p.isLoading, isLogged: p.isLogged),
     );
 
     if (isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.primary,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 

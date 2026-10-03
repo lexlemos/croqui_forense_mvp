@@ -8,10 +8,10 @@ class UserManagementProvider extends ChangeNotifier {
 
   List<Usuario> _usuarios = [];
   List<Papel> _papeis = [];
-  
+
   bool _isLoading = false;
   String? _erro;
-  
+
   int _currentPage = 0;
   int _totalItems = 0;
   String _searchQuery = '';
@@ -45,17 +45,19 @@ class UserManagementProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
   void setSearchQuery(String query) {
     if (_searchQuery == query) return;
     _searchQuery = query;
-    inicializar(); 
+    inicializar();
   }
+
   Future<void> carregarMais() async {
     if (_isLoading || !temMaisPaginas) return;
-    
+
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       _currentPage++;
       await _carregarPagina(reset: false);
@@ -112,11 +114,12 @@ class UserManagementProvider extends ChangeNotifier {
       rethrow;
     }
   }
+
   Future<void> toggleStatusUsuario(Usuario usuario, String idLogado) async {
     try {
       await _userService.alternarStatusUsuario(
-        usuarioAlvo: usuario, 
-        idUsuarioLogado: idLogado
+        usuarioAlvo: usuario,
+        idUsuarioLogado: idLogado,
       );
       final index = _usuarios.indexWhere((u) => u.id == usuario.id);
       if (index != -1) {

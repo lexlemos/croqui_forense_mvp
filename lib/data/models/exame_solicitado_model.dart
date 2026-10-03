@@ -25,8 +25,8 @@ class ExameSolicitado {
     this.quantidadeAmostras = 1,
     required this.numeroLacre,
     this.status = 'aguardando',
-  })  : uuid = const Uuid().v4(),
-        criadoEm = DateTime.now();
+  }) : uuid = const Uuid().v4(),
+       criadoEm = DateTime.now();
 
   factory ExameSolicitado.fromMap(Map<String, dynamic> map) {
     return ExameSolicitado(
@@ -35,7 +35,9 @@ class ExameSolicitado {
       tipoExame: map['tipo_exame']?.toString() ?? '',
       quantidadeAmostras: map['quantidade_amostras'] as int? ?? 1,
       numeroLacre: map['numero_lacre']?.toString() ?? '',
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
       status: map['status']?.toString() ?? 'aguardando',
     );
   }

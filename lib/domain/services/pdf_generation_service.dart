@@ -4,7 +4,8 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
-import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart' as em;
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart'
+    as em;
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
@@ -18,9 +19,11 @@ class PdfGenerationService {
   final PdfService _pdfService;
   final PdfReportService _reportService;
 
-  PdfGenerationService({PdfService? pdfService, PdfReportService? reportService})
-      : _pdfService = pdfService ?? PdfService(),
-        _reportService = reportService ?? PdfReportService();
+  PdfGenerationService({
+    PdfService? pdfService,
+    PdfReportService? reportService,
+  }) : _pdfService = pdfService ?? PdfService(),
+       _reportService = reportService ?? PdfReportService();
 
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,

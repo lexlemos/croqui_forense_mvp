@@ -19,53 +19,96 @@ class DatabaseSeeder {
   Future<void> seedAll() async {
     await _seedRoles();
     await _seedPermissions();
-    await _seedRolePermissions(); 
+    await _seedRolePermissions();
     await _seedDefaultUser();
     await seedAtns();
   }
 
   Future<void> seedAtns() async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM atns'));
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM atns'),
+    );
     if (count != null && count > 0) return;
 
     await db.insert('atns', {'id': 'atn-001', 'nome': 'ATN João'});
     await db.insert('atns', {'id': 'atn-002', 'nome': 'ATN Maria'});
   }
-  
+
   Future<void> _seedRoles() async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papeis'));
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM papeis'),
+    );
     if (count != null && count > 0) return;
 
     await db.insert('papeis', {
-      'id': roleAdminId, 'nome': 'ADMIN', 'descricao': 'Administrador do Sistema', 'e_padrao': 0
+      'id': roleAdminId,
+      'nome': 'ADMIN',
+      'descricao': 'Administrador do Sistema',
+      'e_padrao': 0,
     });
     await db.insert('papeis', {
-      'id': roleLegistaId, 'nome': 'PERITO_GERAL', 'descricao': 'Médico Perito', 'e_padrao': 1
+      'id': roleLegistaId,
+      'nome': 'PERITO_GERAL',
+      'descricao': 'Médico Perito',
+      'e_padrao': 1,
     });
   }
 
   Future<void> _seedPermissions() async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM permissoes'));
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM permissoes'),
+    );
     if (count != null && count > 0) return;
 
-    await db.insert('permissoes', {'id': permCriarId, 'codigo': 'CASO_CRIAR', 'descricao': 'Permite iniciar um novo caso.'});
-    await db.insert('permissoes', {'id': permExportarId, 'codigo': 'CASO_EXPORTAR', 'descricao': 'Permite gerar o pacote ZIP final.'});
-    await db.insert('permissoes', {'id': permGestaoId, 'codigo': 'GESTAO_USUARIOS', 'descricao': 'Permite gerenciar usuários e papéis.'});
+    await db.insert('permissoes', {
+      'id': permCriarId,
+      'codigo': 'CASO_CRIAR',
+      'descricao': 'Permite iniciar um novo caso.',
+    });
+    await db.insert('permissoes', {
+      'id': permExportarId,
+      'codigo': 'CASO_EXPORTAR',
+      'descricao': 'Permite gerar o pacote ZIP final.',
+    });
+    await db.insert('permissoes', {
+      'id': permGestaoId,
+      'codigo': 'GESTAO_USUARIOS',
+      'descricao': 'Permite gerenciar usuários e papéis.',
+    });
   }
 
   Future<void> _seedRolePermissions() async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM papel_permissoes'));
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM papel_permissoes'),
+    );
     if (count != null && count > 0) return;
 
-    await db.insert('papel_permissoes', {'papel_id': roleAdminId, 'permissao_id': permCriarId});
-    await db.insert('papel_permissoes', {'papel_id': roleAdminId, 'permissao_id': permExportarId});
-    await db.insert('papel_permissoes', {'papel_id': roleAdminId, 'permissao_id': permGestaoId});
-    await db.insert('papel_permissoes', {'papel_id': roleLegistaId, 'permissao_id': permCriarId});
-    await db.insert('papel_permissoes', {'papel_id': roleLegistaId, 'permissao_id': permExportarId});
+    await db.insert('papel_permissoes', {
+      'papel_id': roleAdminId,
+      'permissao_id': permCriarId,
+    });
+    await db.insert('papel_permissoes', {
+      'papel_id': roleAdminId,
+      'permissao_id': permExportarId,
+    });
+    await db.insert('papel_permissoes', {
+      'papel_id': roleAdminId,
+      'permissao_id': permGestaoId,
+    });
+    await db.insert('papel_permissoes', {
+      'papel_id': roleLegistaId,
+      'permissao_id': permCriarId,
+    });
+    await db.insert('papel_permissoes', {
+      'papel_id': roleLegistaId,
+      'permissao_id': permExportarId,
+    });
   }
 
   Future<void> _seedDefaultUser() async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM usuarios'));
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM usuarios'),
+    );
     if (count != null && count > 0) return;
 
     const String defaultPin = '1234';
@@ -74,7 +117,7 @@ class DatabaseSeeder {
     const String adminUserId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
 
     await db.insert('usuarios', {
-      'id': adminUserId, 
+      'id': adminUserId,
       'matricula_funcional': 'ADMIN002',
       'nome_completo': 'Administrador Padrao',
       'papel_id': roleAdminId,
@@ -85,5 +128,4 @@ class DatabaseSeeder {
       'criado_em': fixedDate,
     });
   }
-
 }

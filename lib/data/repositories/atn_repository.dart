@@ -33,13 +33,15 @@ class AtnRepository {
   }
 
   /// Sincroniza em lote os ATNs recebidos do servidor backend.
-  /// 
+  ///
   /// REGRA DE SEGURANÇA (Guard Clause): Se a lista recebida do servidor estiver vazia,
   /// o método aborta imediatamente para evitar apagar (*wipe-out*) o cache local do SQLite.
   Future<void> sincronizarAtns(List<AtnModel> atnsServidor) async {
     // 🛡️ Guard Clause contra Wipe-out do cache local
     if (atnsServidor.isEmpty) {
-      debugPrint('[AtnRepository] ⚠️ Lista de ATNs do servidor vazia. Sincronização ignorada para preservar o cache local.');
+      debugPrint(
+        '[AtnRepository] ⚠️ Lista de ATNs do servidor vazia. Sincronização ignorada para preservar o cache local.',
+      );
       return;
     }
 
@@ -57,7 +59,9 @@ class AtnRepository {
         }
         await batch.commit(noResult: true);
       });
-      debugPrint('[AtnRepository] ✅ Sincronizados ${atnsServidor.length} ATN(s) no banco local com sucesso.');
+      debugPrint(
+        '[AtnRepository] ✅ Sincronizados ${atnsServidor.length} ATN(s) no banco local com sucesso.',
+      );
     } catch (e) {
       debugPrint('[AtnRepository] ❌ Erro ao sincronizar ATNs: $e');
       rethrow;

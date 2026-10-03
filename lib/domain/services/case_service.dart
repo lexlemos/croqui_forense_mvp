@@ -12,9 +12,11 @@ import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
-Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> params) async {
+Future<Map<String, dynamic>> _gerarJsonBase64Background(
+  Map<String, dynamic> params,
+) async {
   final Map<String, dynamic> dadosBase = params['dados_json'];
-  
+
   List<dynamic> anexosOriginais = dadosBase['6_anexos_fotograficos'] ?? [];
   List<Map<String, dynamic>> anexosComImagem = [];
 
@@ -36,12 +38,12 @@ Future<Map<String, dynamic>> _gerarJsonBase64Background(Map<String, dynamic> par
         base64Input.close();
 
         final String base64String = base64Buffer.toString();
-        
+
         Map<String, dynamic> novoAnexo = Map.from(anexo);
-        novoAnexo.remove('caminho_arquivo'); 
+        novoAnexo.remove('caminho_arquivo');
         novoAnexo['mime_type'] = 'image/jpeg';
         novoAnexo['conteudo_base64'] = base64String;
-        
+
         anexosComImagem.add(novoAnexo);
       } catch (e) {
         Map<String, dynamic> anexoErro = Map.from(anexo);
@@ -64,7 +66,7 @@ class CaseService {
   final IRemoteDataSource? _remoteDataSource;
 
   CaseService(
-    this._repository, 
+    this._repository,
     this._usuarioRepository, [
     this._remoteDataSource,
   ]);
@@ -82,8 +84,8 @@ class CaseService {
   ///
   /// @throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
   Future<Caso> createNewCase({
-    required Usuario criador, 
-    required String numeroLaudo, 
+    required Usuario criador,
+    required String numeroLaudo,
     Map<String, dynamic> dadosIniciais = const {},
     String numeroPic = '',
     String numeroBo = '',
@@ -96,8 +98,8 @@ class CaseService {
     List<String> atnsIds = const [],
   }) async {
     final novoCaso = Caso.novo(
-      idUsuarioCriador: criador.id, 
-      numeroLaudoExterno: numeroLaudo, 
+      idUsuarioCriador: criador.id,
+      numeroLaudoExterno: numeroLaudo,
       dadosLaudo: DadosLaudoModel.fromMap(dadosIniciais),
       numeroPic: numeroPic,
       numeroBo: numeroBo,
@@ -113,15 +115,20 @@ class CaseService {
     return novoCaso;
   }
 
-  Future<void> salvarCasoComEvidenciasLote(Caso caso, List<EvidenciaMultimidia> evidencias) async {
+  Future<void> salvarCasoComEvidenciasLote(
+    Caso caso,
+    List<EvidenciaMultimidia> evidencias,
+  ) async {
     await _repository.insertCaseComEvidenciasLote(caso, evidencias);
   }
 
   /// Retorna todos os [Caso]s (Laudos) do usuário logado gravados no repositório local.
-  Future<List<Caso>> listarCasos(String usuarioId) async => await _repository.getAllCases(usuarioId);
+  Future<List<Caso>> listarCasos(String usuarioId) async =>
+      await _repository.getAllCases(usuarioId);
 
   /// Localiza um [Caso] (Laudo) específico com base em seu identificador universal único ([uuid]).
-  Future<Caso?> buscarCasoPorUuid(String uuid) async => _repository.getCaseByUuid(uuid);
+  Future<Caso?> buscarCasoPorUuid(String uuid) async =>
+      _repository.getCaseByUuid(uuid);
 
   /// Finaliza e congela o [Caso] (Laudo) para auditoria e assinatura eletrônica do [Perito].
   ///
@@ -129,7 +136,10 @@ class CaseService {
   /// em lesões e fotos associadas a fim de manter a inalterabilidade da prova técnica.
   ///
   /// @throws [Exception] se o laudo com o [casoUuid] fornecido não for localizado no banco local.
-  Future<void> finalizarCaso(String casoUuid, Map<String, dynamic> dadosConclusao) async {
+  Future<void> finalizarCaso(
+    String casoUuid,
+    Map<String, dynamic> dadosConclusao,
+  ) async {
     final casoAtual = await _repository.getCaseByUuid(casoUuid);
     if (casoAtual == null) throw Exception('Caso não encontrado: $casoUuid');
 
@@ -153,7 +163,9 @@ class CaseService {
   Future<void> salvarEvidenciaGeral(EvidenciaMultimidia ev) async {
     final caso = await _repository.getCaseByUuid(ev.casoUuid);
     if (caso != null && caso.status == StatusCaso.finalizado) {
-      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+      throw Exception(
+        "Segurança Jurídica: Este laudo já está finalizado e é imutável.",
+      );
     }
     await _repository.insertEvidenciaGeral(ev);
   }
@@ -164,7 +176,9 @@ class CaseService {
     if (ev != null) {
       final caso = await _repository.getCaseByUuid(ev.casoUuid);
       if (caso != null && caso.status == StatusCaso.finalizado) {
-        throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+        throw Exception(
+          "Segurança Jurídica: Este laudo já está finalizado e é imutável.",
+        );
       }
     }
     await _repository.deleteEvidenciaGeral(uuid);
@@ -182,7 +196,9 @@ class CaseService {
   }) async {
     final caso = await _repository.getCaseByUuid(casoUuid);
     if (caso != null && caso.status == StatusCaso.finalizado) {
-      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+      throw Exception(
+        "Segurança Jurídica: Este laudo já está finalizado e é imutável.",
+      );
     }
     await _repository.salvarExamesSolicitados(
       casoUuid: casoUuid,
@@ -218,11 +234,16 @@ class CaseService {
   /// o perito tente salvar alterações sem antes realizar a reabertura formal.
   Future<void> salvarRascunho(Caso caso) async {
     final casoExistente = await _repository.getCaseByUuid(caso.uuid);
-    if (casoExistente != null && casoExistente.status == StatusCaso.finalizado) {
+    if (casoExistente != null &&
+        casoExistente.status == StatusCaso.finalizado) {
       if (caso.status != StatusCaso.finalizado) {
-        throw Exception("Segurança Jurídica: Para alterar um laudo finalizado, utilize a reabertura formal.");
+        throw Exception(
+          "Segurança Jurídica: Para alterar um laudo finalizado, utilize a reabertura formal.",
+        );
       }
-      throw Exception("Segurança Jurídica: Este laudo já está finalizado e é imutável.");
+      throw Exception(
+        "Segurança Jurídica: Este laudo já está finalizado e é imutável.",
+      );
     }
 
     final casoAtualizado = caso.copyWith(
@@ -233,14 +254,15 @@ class CaseService {
   }
 
   /// Atualiza exclusivamente o caminho físico local do PDF gerado.
-  /// 
+  ///
   /// Utilizado pelo PdfReportService para registrar onde o arquivo PDF final foi salvo no disco.
   /// Isso contorna a trava de 'rascunho' intencionalmente, visto que gerar/exportar
   /// o PDF não altera as respostas periciais e, logo, não fere a segurança jurídica
   /// de um caso finalizado.
   Future<void> atualizarCaminhoPdf(String casoUuid, String pdfPath) async {
     final casoExistente = await _repository.getCaseByUuid(casoUuid);
-    if (casoExistente == null) throw Exception('Caso não encontrado: $casoUuid');
+    if (casoExistente == null)
+      throw Exception('Caso não encontrado: $casoUuid');
 
     final casoAtualizado = casoExistente.copyWith(pdfLocalPath: pdfPath);
     await _repository.updateCase(casoAtualizado);
@@ -263,54 +285,79 @@ class CaseService {
     if (caso == null) throw Exception('Caso não encontrado: $casoUuid');
     final achados = await _repository.getAchadosPorCaso(casoUuid);
 
-    final usuarioCriador = await _usuarioRepository.getUsuarioById(caso.idUsuarioCriador);
-    final String nomeRealCriador = usuarioCriador?.nomeCompleto ?? "Perito Desconhecido (ID: ${caso.idUsuarioCriador})";
+    final usuarioCriador = await _usuarioRepository.getUsuarioById(
+      caso.idUsuarioCriador,
+    );
+    final String nomeRealCriador =
+        usuarioCriador?.nomeCompleto ??
+        "Perito Desconhecido (ID: ${caso.idUsuarioCriador})";
     final Map<String, dynamic> dadosBase = _montarMapaBase(
-      caso, 
-      achados, 
-      nomeRealCriador, 
-      nomeExportador
+      caso,
+      achados,
+      nomeRealCriador,
+      nomeExportador,
     );
 
-    final Map<String, dynamic> jsonFinalMap = await compute(_gerarJsonBase64Background, {'dados_json': dadosBase});
+    final Map<String, dynamic> jsonFinalMap = await compute(
+      _gerarJsonBase64Background,
+      {'dados_json': dadosBase},
+    );
 
-    final String safeLaudoNum = (caso.numeroLaudoExterno ?? 'sem_numero').replaceAll('/', '-');
+    final String safeLaudoNum = (caso.numeroLaudoExterno ?? 'sem_numero')
+        .replaceAll('/', '-');
     final String fileName = 'laudo_completo_$safeLaudoNum.json';
     final File file = File('$diretorioTemp/$fileName');
-    final String jsonString = const JsonEncoder.withIndent('  ').convert(jsonFinalMap);
+    final String jsonString = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(jsonFinalMap);
     await file.writeAsString(jsonString, flush: true);
 
-    return file; 
+    return file;
   }
 
-  Map<String, dynamic> _montarMapaBase(Caso caso, List<Achado> achados, String nomeCriador, String nomeExportador) {
+  Map<String, dynamic> _montarMapaBase(
+    Caso caso,
+    List<Achado> achados,
+    String nomeCriador,
+    String nomeExportador,
+  ) {
     return {
-      'documento': {'titulo': 'Laudo Pericial Cadavérico', 'versao_schema': '2.0'},
+      'documento': {
+        'titulo': 'Laudo Pericial Cadavérico',
+        'versao_schema': '2.0',
+      },
       '1_cabecalho': _buildCabecalho(caso, nomeCriador),
       '2_descritivo_lesoes': _buildListaAchados(achados),
-      '3_exames_complementares': _buildExamesComplementares(caso.dadosLaudo.toMap()),
-      '4_analise_medico_legal': _buildAnaliseMedicoLegal(caso.dadosLaudo.toMap()),
+      '3_exames_complementares': _buildExamesComplementares(
+        caso.dadosLaudo.toMap(),
+      ),
+      '4_analise_medico_legal': _buildAnaliseMedicoLegal(
+        caso.dadosLaudo.toMap(),
+      ),
       '5_respostas_quesitos': _buildRespostasQuesitos(caso.dadosLaudo.toMap()),
-      '6_anexos_fotograficos': _buildGaleriaFotos(caso.dadosLaudo.toMap(), achados),
-      '7_auditoria_exportacao': _buildAuditoria(nomeExportador)
+      '6_anexos_fotograficos': _buildGaleriaFotos(
+        caso.dadosLaudo.toMap(),
+        achados,
+      ),
+      '7_auditoria_exportacao': _buildAuditoria(nomeExportador),
     };
   }
 
   Map<String, dynamic> _buildCabecalho(Caso caso, String nomeCriador) {
     final cabecalho = caso.dadosLaudo.cabecalho.toMap();
     final identificacao = caso.dadosLaudo.identificacao.toMap();
-    
+
     return {
       'meta_info': {
         'uuid': caso.uuid,
         'data_criacao': caso.criadoEmDispositivo.toIso8601String(),
         'data_exportacao': DateTime.now().toIso8601String(),
-        'perito_responsavel': nomeCriador, 
+        'perito_responsavel': nomeCriador,
         'numero_laudo': caso.numeroLaudoExterno,
-        'versao_app': '1.1.0'
+        'versao_app': '1.1.0',
       },
       'dados_requisicao': cabecalho,
-      'dados_identificacao': identificacao
+      'dados_identificacao': identificacao,
     };
   }
 
@@ -356,10 +403,13 @@ class CaseService {
     };
   }
 
-  List<Map<String, dynamic>> _buildGaleriaFotos(Map<String, dynamic> dados, List<Achado> achados) {
+  List<Map<String, dynamic>> _buildGaleriaFotos(
+    Map<String, dynamic> dados,
+    List<Achado> achados,
+  ) {
     List<Map<String, dynamic>> galeria = [];
     final identificacao = dados['identificacao'] ?? {};
-    
+
     if (identificacao['fotos'] != null && identificacao['fotos'] is List) {
       List<dynamic> fotosId = identificacao['fotos'];
       for (int i = 0; i < fotosId.length; i++) {
@@ -385,9 +435,11 @@ class CaseService {
         galeria.add({
           'contexto': 'LESÃO',
           'ordem': 'ACHADO_${a.numeroSequencial}',
-          'titulo': "Foto do Achado #${a.numeroSequencial} - ${d['type_label']}",
-          'descricao': "Local: ${d['local_anatomico_nome']}. Obs: ${a.observacoesTexto ?? ''}",
-          'caminho_arquivo': fotos[i]
+          'titulo':
+              "Foto do Achado #${a.numeroSequencial} - ${d['type_label']}",
+          'descricao':
+              "Local: ${d['local_anatomico_nome']}. Obs: ${a.observacoesTexto ?? ''}",
+          'caminho_arquivo': fotos[i],
         });
       }
     }
@@ -396,9 +448,9 @@ class CaseService {
 
   Map<String, dynamic> _buildAuditoria(String nomeExportador) {
     return {
-      'responsavel_pela_exportacao': nomeExportador, 
-      'data_hora_exportado': DateTime.now().toIso8601String(), 
-      'software_origem': 'Necropsia Digital App v1.1'
+      'responsavel_pela_exportacao': nomeExportador,
+      'data_hora_exportado': DateTime.now().toIso8601String(),
+      'software_origem': 'Necropsia Digital App v1.1',
     };
   }
 }

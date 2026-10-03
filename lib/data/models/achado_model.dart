@@ -150,8 +150,12 @@ class Achado {
 
     return Achado(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
-      diagramaCasoUuid: map['diagrama_caso_uuid']?.toString() ?? map['diagrama_uuid']?.toString() ?? '',
+      casoUuid:
+          map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
+      diagramaCasoUuid:
+          map['diagrama_caso_uuid']?.toString() ??
+          map['diagrama_uuid']?.toString() ??
+          '',
       diagramaNome: map['diagrama_nome']?.toString() ?? '',
       tipoAchadoId: map['tipo_achado_id']?.toString() ?? '',
       achadoRelacionadoUuid: map['achado_relacionado_uuid']?.toString(),
@@ -177,19 +181,23 @@ class Achado {
       tamanho: map['tamanho']?.toString() ?? '',
       vistaAnatomica: map['vista_anatomica']?.toString() ?? '',
       localAnatomico: map['local_anatomico']?.toString() ?? '',
-      tipoFerimento: map['tipo_ferimento']?.toString() ??
+      tipoFerimento:
+          map['tipo_ferimento']?.toString() ??
           map['tipoFerimento']?.toString() ??
           dados['tipo_ferimento']?.toString() ??
           dados['tipoFerimento']?.toString(),
-      numeroLacre: map['numero_lacre']?.toString() ??
+      numeroLacre:
+          map['numero_lacre']?.toString() ??
           map['numeroLacre']?.toString() ??
           dados['numero_lacre']?.toString() ??
           dados['numeroLacre']?.toString(),
-      tipoObjeto: map['tipo_objeto']?.toString() ??
+      tipoObjeto:
+          map['tipo_objeto']?.toString() ??
           map['tipoObjeto']?.toString() ??
           dados['tipo_objeto']?.toString() ??
           dados['tipoObjeto']?.toString(),
-      comentarioAdicional: map['comentario_adicional']?.toString() ??
+      comentarioAdicional:
+          map['comentario_adicional']?.toString() ??
           map['comentarioAdicional']?.toString() ??
           dados['comentario_adicional']?.toString() ??
           dados['comentarioAdicional']?.toString(),

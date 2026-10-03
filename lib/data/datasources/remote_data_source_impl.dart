@@ -95,7 +95,9 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       }
       return null;
     } catch (e) {
-      debugPrint('[RemoteDataSourceImpl] Falha tolerada ao buscar dados por PIC ($pic): $e');
+      debugPrint(
+        '[RemoteDataSourceImpl] Falha tolerada ao buscar dados por PIC ($pic): $e',
+      );
       return null;
     }
   }
@@ -140,14 +142,23 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> pullCasos({String? lastSyncTimestamp}) async {
+  Future<List<Map<String, dynamic>>> pullCasos({
+    String? lastSyncTimestamp,
+  }) async {
     try {
-      final queryParams = lastSyncTimestamp != null ? {'last_sync': lastSyncTimestamp} : null;
-      final response = await _apiClient.dio.get('croqui/sync/pull', queryParameters: queryParams);
+      final queryParams = lastSyncTimestamp != null
+          ? {'last_sync': lastSyncTimestamp}
+          : null;
+      final response = await _apiClient.dio.get(
+        'croqui/sync/pull',
+        queryParameters: queryParams,
+      );
       if (response.statusCode != 200 || response.data == null) {
-        throw const SyncNetworkException('Resposta inesperada do servidor ao tentar puxar os casos.');
+        throw const SyncNetworkException(
+          'Resposta inesperada do servidor ao tentar puxar os casos.',
+        );
       }
-      
+
       final data = response.data;
       if (data is Map && data.containsKey('casos')) {
         final list = data['casos'] as List<dynamic>;
@@ -262,7 +273,9 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Backend retornou status inesperado no upload do PDF: ${response.statusCode}');
+        throw Exception(
+          'Backend retornou status inesperado no upload do PDF: ${response.statusCode}',
+        );
       }
 
       return response.data['pdf_url']?.toString() ?? '';
@@ -278,5 +291,3 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     _apiClient.setBearerToken(token);
   }
 }
-
-

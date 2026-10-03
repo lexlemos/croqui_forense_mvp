@@ -208,7 +208,8 @@ class SyncResult {
     if (casosEnviados == 0 && casosRecebidos == 0) {
       msg = 'Tudo atualizado. Nenhum laudo pendente de sincronização.';
     } else if (casosEnviados > 0 && casosRecebidos > 0) {
-      msg = '$casosEnviados laudo(s) sincronizado(s) e $casosRecebidos recebido(s).';
+      msg =
+          '$casosEnviados laudo(s) sincronizado(s) e $casosRecebidos recebido(s).';
     } else if (casosEnviados > 0) {
       msg = casosEnviados == 1
           ? '1 laudo sincronizado com sucesso!'
@@ -305,7 +306,9 @@ class SyncService {
   /// em lote dos laudos pendentes (JSON, mídias e relatórios PDF).
   Future<SyncResult> execute() async {
     if (_isSyncing) {
-      debugPrint('[SyncService] Sincronização já em andamento. Abortando duplo-clique.');
+      debugPrint(
+        '[SyncService] Sincronização já em andamento. Abortando duplo-clique.',
+      );
       return const SyncResult(
         casosEnviados: 0,
         casosRecebidos: 0,
@@ -336,11 +339,13 @@ class SyncService {
 
       final int casosRecebidos = await _pullCasosInternal();
 
-      final List<Caso> casosParaEnviar =
-          await _repository.getCasosPendentesSync(usuarioId);
+      final List<Caso> casosParaEnviar = await _repository
+          .getCasosPendentesSync(usuarioId);
 
       if (casosParaEnviar.isEmpty) {
-        debugPrint('[SyncService] Nenhum caso pendente de sincronização para envio.');
+        debugPrint(
+          '[SyncService] Nenhum caso pendente de sincronização para envio.',
+        );
         return SyncResult.sucesso(casosRecebidos: casosRecebidos);
       }
 
@@ -401,13 +406,12 @@ class SyncService {
 
         bool falhaNoCaso = false;
 
-        final List<Map<String, dynamic>> evidenciasPendentes =
-            await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
+        final List<Map<String, dynamic>> evidenciasPendentes = await _repository
+            .getEvidenciasPendentesPorCaso(caso.uuid);
 
         for (final ev in evidenciasPendentes) {
           try {
-            final filePath =
-                ev['caminho_arquivo_encriptado'] as String? ?? '';
+            final filePath = ev['caminho_arquivo_encriptado'] as String? ?? '';
             if (filePath.isEmpty) continue;
 
             final file = File(filePath);
@@ -531,7 +535,9 @@ class SyncService {
   /// Baixa casos da base central e sincroniza localmente através de Upsert com resolução de conflito.
   Future<void> pullCasos() async {
     if (_isSyncing) {
-      debugPrint('[SyncService] Sincronização já em andamento. Abortando pullCasos.');
+      debugPrint(
+        '[SyncService] Sincronização já em andamento. Abortando pullCasos.',
+      );
       return;
     }
     _isSyncing = true;
@@ -596,9 +602,7 @@ class SyncService {
         );
       }
 
-      debugPrint(
-        '[SyncService] Pull Synchronization concluído com sucesso.',
-      );
+      debugPrint('[SyncService] Pull Synchronization concluído com sucesso.');
       onPullCompleted?.call();
       return casosRemotos.length;
     } on DioException catch (e, stackTrace) {
@@ -647,18 +651,23 @@ class SyncService {
 
       final response = await _remoteDataSource.pushTextual(payload);
 
-      final salvosUuids = Set<String>.from(response['casos_salvos'] ?? const <String>[]);
-      final conflitosUuids = Set<String>.from(response['conflitos'] ?? const <String>[]);
+      final salvosUuids = Set<String>.from(
+        response['casos_salvos'] ?? const <String>[],
+      );
+      final conflitosUuids = Set<String>.from(
+        response['conflitos'] ?? const <String>[],
+      );
 
-      if (!salvosUuids.contains(caso.uuid) || conflitosUuids.contains(caso.uuid)) {
+      if (!salvosUuids.contains(caso.uuid) ||
+          conflitosUuids.contains(caso.uuid)) {
         debugPrint(
           '[SyncService] ⚠️ Caso ${caso.uuid} em conflito ou rejeitado no Passo 1 (JSON). Pulando mídias e PDFs (Fail-Fast).',
         );
         return;
       }
 
-      final evidenciasPendentes =
-          await _repository.getEvidenciasPendentesPorCaso(caso.uuid);
+      final evidenciasPendentes = await _repository
+          .getEvidenciasPendentesPorCaso(caso.uuid);
       for (final ev in evidenciasPendentes) {
         try {
           final filePath = ev['caminho_arquivo_encriptado'] as String? ?? '';
@@ -889,7 +898,10 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
           final bMap = Map<String, dynamic>.from(rawB);
           final bModel = BalisticaModel.fromMap(bMap);
           if (bModel.id.isNotEmpty &&
-              !todasBalisticas.any((b) => b.id.trim().toLowerCase() == bModel.id.trim().toLowerCase())) {
+              !todasBalisticas.any(
+                (b) =>
+                    b.id.trim().toLowerCase() == bModel.id.trim().toLowerCase(),
+              )) {
             todasBalisticas.add(bModel);
           }
         }
@@ -971,16 +983,22 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
           if (achadoBackend.uuid.isEmpty) continue;
 
           final achadoUuidLower = achadoBackend.uuid.trim().toLowerCase();
-          final detBalisticaId =
-              deterministicUuidV5(achadoBackend.uuid, 'balistica')
-                  .toLowerCase();
-          final legacyDetBalisticaId =
-              deterministicUuidV4(achadoBackend.uuid, 'balistica')
-                  .toLowerCase();
+          final detBalisticaId = deterministicUuidV5(
+            achadoBackend.uuid,
+            'balistica',
+          ).toLowerCase();
+          final legacyDetBalisticaId = deterministicUuidV4(
+            achadoBackend.uuid,
+            'balistica',
+          ).toLowerCase();
 
           BalisticaModel? matchedBalistica =
-              (detBalisticaId.isNotEmpty ? balisticasById[detBalisticaId] : null) ??
-              (legacyDetBalisticaId.isNotEmpty ? balisticasById[legacyDetBalisticaId] : null);
+              (detBalisticaId.isNotEmpty
+                  ? balisticasById[detBalisticaId]
+                  : null) ??
+              (legacyDetBalisticaId.isNotEmpty
+                  ? balisticasById[legacyDetBalisticaId]
+                  : null);
           matchedBalistica ??= balisticasByAchadoUuid[achadoUuidLower];
           matchedBalistica ??= balisticasByExameId[achadoUuidLower];
           matchedBalistica ??= balisticasById[achadoUuidLower];
@@ -990,7 +1008,8 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
               final bAchado = b.achadoUuid?.trim().toLowerCase();
               final bExame = b.exameId.trim().toLowerCase();
               if ((detBalisticaId.isNotEmpty && bId == detBalisticaId) ||
-                  (legacyDetBalisticaId.isNotEmpty && bId == legacyDetBalisticaId) ||
+                  (legacyDetBalisticaId.isNotEmpty &&
+                      bId == legacyDetBalisticaId) ||
                   (bAchado != null && bAchado == achadoUuidLower) ||
                   bExame == achadoUuidLower ||
                   bId == achadoUuidLower) {
@@ -1008,8 +1027,7 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
                   tipoObjeto:
                       matchedBalistica.tipoObjeto ?? achadoBackend.tipoObjeto,
                   numeroLacre:
-                      matchedBalistica.numeroLacre ??
-                      achadoBackend.numeroLacre,
+                      matchedBalistica.numeroLacre ?? achadoBackend.numeroLacre,
                   comentarioAdicional:
                       matchedBalistica.comentarioAdicional ??
                       achadoBackend.comentarioAdicional,

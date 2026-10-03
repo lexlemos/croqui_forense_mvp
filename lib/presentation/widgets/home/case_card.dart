@@ -7,15 +7,15 @@ class CaseCard extends StatelessWidget {
   final Caso caso;
   final VoidCallback onTap;
 
-  const CaseCard({
-    super.key,
-    required this.caso,
-    required this.onTap,
-  });
+  const CaseCard({super.key, required this.caso, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final (Color statusColor, Color statusBg, String statusLabel) = switch (caso.status) {
+    final (
+      Color statusColor,
+      Color statusBg,
+      String statusLabel,
+    ) = switch (caso.status) {
       StatusCaso.em_andamento || StatusCaso.rascunho => (
         AppColors.statusDraftText,
         AppColors.statusDraftBg,
@@ -43,10 +43,10 @@ class CaseCard extends StatelessWidget {
       ),
     };
 
-    final mainTitle = (caso.numeroPic.isNotEmpty) 
+    final mainTitle = (caso.numeroPic.isNotEmpty)
         ? 'N. PIC: ${caso.numeroPic}'
         : 'N. PIC: Não informado';
-    
+
     final cdOrLaudo = caso.numeroRequisicao.isNotEmpty
         ? caso.numeroRequisicao
         : (caso.numeroLaudoExterno ?? '');
@@ -132,7 +132,10 @@ class CaseCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: statusBg,
                               borderRadius: BorderRadius.circular(20),
@@ -171,7 +174,9 @@ class CaseCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          DateFormat('dd/MM/yyyy').format(caso.criadoEmDispositivo),
+                          DateFormat(
+                            'dd/MM/yyyy',
+                          ).format(caso.criadoEmDispositivo),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,

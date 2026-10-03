@@ -63,7 +63,8 @@ class CasoRepository implements ISyncRepository {
           whereArgs: [novoCaso.uuid],
         );
         for (final b in novoCaso.balisticas) {
-          final balisticaFinal = (b.exameId.isEmpty || b.exameId != novoCaso.uuid)
+          final balisticaFinal =
+              (b.exameId.isEmpty || b.exameId != novoCaso.uuid)
               ? b.copyWith(exameId: novoCaso.uuid)
               : b;
           await txn.insert(
@@ -151,7 +152,8 @@ class CasoRepository implements ISyncRepository {
         bool deveAtualizarCaso = true;
 
         if (localRow.isNotEmpty) {
-          final int isDraftSynced = (localRow.first['is_draft_synced'] as int?) ?? 1;
+          final int isDraftSynced =
+              (localRow.first['is_draft_synced'] as int?) ?? 1;
           final localAtualizadoEmStr = localRow.first['atualizado_em']
               ?.toString();
           final localAtualizadoEm = localAtualizadoEmStr != null
@@ -161,7 +163,9 @@ class CasoRepository implements ISyncRepository {
 
           // SÃ³ rejeita a versÃ£o remota se houver rascunho local PENDENTE de sincronizaÃ§Ã£o (is_draft_synced == 0)
           // e o dado remoto for temporalmente mais antigo que a alteraÃ§Ã£o local.
-          if (isDraftSynced == 0 && localAtualizadoEm != null && backendAtualizadoEm != null) {
+          if (isDraftSynced == 0 &&
+              localAtualizadoEm != null &&
+              backendAtualizadoEm != null) {
             if (!backendAtualizadoEm.isAfter(localAtualizadoEm)) {
               deveAtualizarCaso = false;
               debugPrint(
@@ -191,31 +195,40 @@ class CasoRepository implements ISyncRepository {
             // Preserva id_usuario_criador se o payload remoto vier vazio
             final localCriador = localMap['id_usuario_criador']?.toString();
             if ((mapParaSalvar['id_usuario_criador'] == null ||
-                 mapParaSalvar['id_usuario_criador'].toString().isEmpty) &&
-                localCriador != null && localCriador.isNotEmpty) {
+                    mapParaSalvar['id_usuario_criador'].toString().isEmpty) &&
+                localCriador != null &&
+                localCriador.isNotEmpty) {
               mapParaSalvar['id_usuario_criador'] = localCriador;
             }
 
             // Preserva pdf_local_path local se o backend vier sem
             final localPdfPath = localMap['pdf_local_path']?.toString();
             if ((mapParaSalvar['pdf_local_path'] == null ||
-                 mapParaSalvar['pdf_local_path'].toString().isEmpty) &&
-                localPdfPath != null && localPdfPath.isNotEmpty) {
+                    mapParaSalvar['pdf_local_path'].toString().isEmpty) &&
+                localPdfPath != null &&
+                localPdfPath.isNotEmpty) {
               mapParaSalvar['pdf_local_path'] = localPdfPath;
             }
 
             // Blindagem contra regressão de status: se já está finalizado ou sincronizado localmente,
             // não regride para NAO_INICIADO ou EM_ANDAMENTO
-            final localStatus = (localMap['status']?.toString() ?? '').toUpperCase();
-            final backendStatus = (mapParaSalvar['status']?.toString() ?? '').toUpperCase();
-            if ((localStatus == 'FINALIZADO' || localStatus == 'SINCRONIZADO' || localStatus == 'CONCLUIDO') &&
-                (backendStatus == 'NAO_INICIADO' || backendStatus == 'EM_ANDAMENTO' || backendStatus == 'RASCUNHO')) {
+            final localStatus = (localMap['status']?.toString() ?? '')
+                .toUpperCase();
+            final backendStatus = (mapParaSalvar['status']?.toString() ?? '')
+                .toUpperCase();
+            if ((localStatus == 'FINALIZADO' ||
+                    localStatus == 'SINCRONIZADO' ||
+                    localStatus == 'CONCLUIDO') &&
+                (backendStatus == 'NAO_INICIADO' ||
+                    backendStatus == 'EM_ANDAMENTO' ||
+                    backendStatus == 'RASCUNHO')) {
               mapParaSalvar['status'] = localStatus;
             }
 
             // Preserva finalizado_em se o backend vier sem
             final localFinalizadoEm = localMap['finalizado_em']?.toString();
-            if (mapParaSalvar['finalizado_em'] == null && localFinalizadoEm != null) {
+            if (mapParaSalvar['finalizado_em'] == null &&
+                localFinalizadoEm != null) {
               mapParaSalvar['finalizado_em'] = localFinalizadoEm;
             }
 
@@ -243,7 +256,11 @@ class CasoRepository implements ISyncRepository {
               final bMap = Map<String, dynamic>.from(rawB);
               final bModel = BalisticaModel.fromMap(bMap);
               if (bModel.id.isNotEmpty &&
-                  !todasBalisticas.any((b) => b.id.trim().toLowerCase() == bModel.id.trim().toLowerCase())) {
+                  !todasBalisticas.any(
+                    (b) =>
+                        b.id.trim().toLowerCase() ==
+                        bModel.id.trim().toLowerCase(),
+                  )) {
                 todasBalisticas.add(bModel);
               }
             }
@@ -255,7 +272,8 @@ class CasoRepository implements ISyncRepository {
             whereArgs: [casoBackend.uuid],
           );
           for (final b in todasBalisticas) {
-            final balisticaFinal = (b.exameId.isEmpty || b.exameId != casoBackend.uuid)
+            final balisticaFinal =
+                (b.exameId.isEmpty || b.exameId != casoBackend.uuid)
                 ? b.copyWith(exameId: casoBackend.uuid)
                 : b;
             batch.insert(
@@ -287,24 +305,32 @@ class CasoRepository implements ISyncRepository {
             for (final rawB in (payload.rawJson['balisticas'] as List)) {
               if (rawB is! Map) continue;
               final achadoId =
-                  rawB['achado_uuid']?.toString() ?? rawB['achado_id']?.toString();
+                  rawB['achado_uuid']?.toString() ??
+                  rawB['achado_id']?.toString();
               final bId = (rawB['id']?.toString() ?? rawB['uuid']?.toString())
                   ?.trim()
                   .toLowerCase();
-              if (achadoId != null && achadoId.trim().isNotEmpty && bId != null) {
+              if (achadoId != null &&
+                  achadoId.trim().isNotEmpty &&
+                  bId != null) {
                 final bModel = balisticasById[bId];
                 if (bModel != null) {
-                  balisticasByAchadoUuid[achadoId.trim().toLowerCase()] = bModel;
+                  balisticasByAchadoUuid[achadoId.trim().toLowerCase()] =
+                      bModel;
                 }
               }
             }
           }
 
           for (final achado in payload.achados) {
-            final detId =
-                deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
-            final legacyDetId =
-                deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+            final detId = deterministicUuidV5(
+              achado.uuid,
+              'balistica',
+            ).toLowerCase();
+            final legacyDetId = deterministicUuidV4(
+              achado.uuid,
+              'balistica',
+            ).toLowerCase();
             final achadoUuidLower = achado.uuid.trim().toLowerCase();
 
             // HeurÃ­stica de match:
@@ -365,21 +391,25 @@ class CasoRepository implements ISyncRepository {
           };
           final Map<String, Map<String, dynamic>> localEvidenciasByAchado = {
             for (final r in localEvidenciasRows)
-              if (r['achado_uuid'] != null && r['achado_uuid'].toString().isNotEmpty)
+              if (r['achado_uuid'] != null &&
+                  r['achado_uuid'].toString().isNotEmpty)
                 r['achado_uuid'].toString(): r,
           };
 
           for (final evidencia in payload.evidencias) {
             final evMap = Map<String, dynamic>.from(evidencia.toMap());
 
-            final localRow = localEvidenciasByUuid[evidencia.uuid] ??
+            final localRow =
+                localEvidenciasByUuid[evidencia.uuid] ??
                 (evidencia.achadoUuid != null
                     ? localEvidenciasByAchado[evidencia.achadoUuid]
                     : null);
 
             if (localRow != null) {
-              final int localSincronizada = (localRow['foto_sincronizada'] as int?) ?? 0;
-              final String? localPath = localRow['caminho_arquivo_encriptado']?.toString();
+              final int localSincronizada =
+                  (localRow['foto_sincronizada'] as int?) ?? 0;
+              final String? localPath = localRow['caminho_arquivo_encriptado']
+                  ?.toString();
 
               // Se a foto local existe e NÃƒO estÃ¡ sincronizada (foto_sincronizada == 0)
               if (localSincronizada == 0) {
@@ -525,28 +555,30 @@ class CasoRepository implements ISyncRepository {
 
       if (hasBalistica) return achado;
 
-      final detId =
-          deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
-      final legacyDetId =
-          deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+      final detId = deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
+      final legacyDetId = deterministicUuidV4(
+        achado.uuid,
+        'balistica',
+      ).toLowerCase();
       final achadoUuidLower = achado.uuid.trim().toLowerCase();
-      final bRow = (detId.isNotEmpty ? balisticaById[detId] : null) ??
+      final bRow =
+          (detId.isNotEmpty ? balisticaById[detId] : null) ??
           (legacyDetId.isNotEmpty ? balisticaById[legacyDetId] : null) ??
           balisticaById[achadoUuidLower] ??
           balisticasRows
-              .where((r) =>
-                  r['exame_id']?.toString().trim().toLowerCase() ==
-                  achadoUuidLower)
+              .where(
+                (r) =>
+                    r['exame_id']?.toString().trim().toLowerCase() ==
+                    achadoUuidLower,
+              )
               .firstOrNull;
 
       if (bRow != null) {
         return achado.copyWith(
           tipoFerimento:
               bRow['tipo_ferimento']?.toString() ?? achado.tipoFerimento,
-          tipoObjeto:
-              bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
-          numeroLacre:
-              bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
+          tipoObjeto: bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
+          numeroLacre: bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
           comentarioAdicional:
               bRow['comentario_adicional']?.toString() ??
               achado.comentarioAdicional,
@@ -596,28 +628,33 @@ class CasoRepository implements ISyncRepository {
               achado.comentarioAdicional!.isNotEmpty);
 
       if (!hasBalistica && balisticasRows.isNotEmpty) {
-        final detId =
-            deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
-        final legacyDetId =
-            deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+        final detId = deterministicUuidV5(
+          achado.uuid,
+          'balistica',
+        ).toLowerCase();
+        final legacyDetId = deterministicUuidV4(
+          achado.uuid,
+          'balistica',
+        ).toLowerCase();
         final achadoUuidLower = achado.uuid.trim().toLowerCase();
-        final bRow = (detId.isNotEmpty ? balisticaById[detId] : null) ??
+        final bRow =
+            (detId.isNotEmpty ? balisticaById[detId] : null) ??
             (legacyDetId.isNotEmpty ? balisticaById[legacyDetId] : null) ??
             balisticaById[achadoUuidLower] ??
             balisticasRows
-                .where((r) =>
-                    r['exame_id']?.toString().trim().toLowerCase() ==
-                    achadoUuidLower)
+                .where(
+                  (r) =>
+                      r['exame_id']?.toString().trim().toLowerCase() ==
+                      achadoUuidLower,
+                )
                 .firstOrNull;
 
         if (bRow != null) {
           achado = achado.copyWith(
             tipoFerimento:
                 bRow['tipo_ferimento']?.toString() ?? achado.tipoFerimento,
-            tipoObjeto:
-                bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
-            numeroLacre:
-                bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
+            tipoObjeto: bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
+            numeroLacre: bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
             comentarioAdicional:
                 bRow['comentario_adicional']?.toString() ??
                 achado.comentarioAdicional,
@@ -635,7 +672,8 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       tableCasos,
-      where: '(id_usuario_criador = ? OR id_usuario_criador IS NULL OR id_usuario_criador = "") AND removido = 0',
+      where:
+          '(id_usuario_criador = ? OR id_usuario_criador IS NULL OR id_usuario_criador = "") AND removido = 0',
       whereArgs: [usuarioId],
       orderBy: 'atualizado_em DESC, criado_em_dispositivo DESC',
     );
@@ -653,8 +691,9 @@ class CasoRepository implements ISyncRepository {
       final exames = await getExamesPorCaso(uuidStr);
       mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
       final evidencias = await getEvidenciasPorCaso(uuidStr);
-      mutableMap['evidencias_multimidia'] =
-          evidencias.map((e) => e.toMap()).toList();
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
       casos.add(Caso.fromMap(mutableMap));
     }
     return casos;
@@ -680,8 +719,9 @@ class CasoRepository implements ISyncRepository {
     final exames = await getExamesPorCaso(uuid);
     mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
     final evidencias = await getEvidenciasPorCaso(uuid);
-    mutableMap['evidencias_multimidia'] =
-        evidencias.map((e) => e.toMap()).toList();
+    mutableMap['evidencias_multimidia'] = evidencias
+        .map((e) => e.toMap())
+        .toList();
 
     return Caso.fromMap(mutableMap);
   }
@@ -711,7 +751,9 @@ class CasoRepository implements ISyncRepository {
       final exames = await getExamesPorCaso(uuidStr);
       mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
       final evidencias = await getEvidenciasPorCaso(uuidStr);
-      mutableMap['evidencias_multimidia'] = evidencias.map((e) => e.toMap()).toList();
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
       casos.add(Caso.fromMap(mutableMap));
     }
     return casos;
@@ -742,7 +784,9 @@ class CasoRepository implements ISyncRepository {
       final exames = await getExamesPorCaso(uuidStr);
       mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
       final evidencias = await getEvidenciasPorCaso(uuidStr);
-      mutableMap['evidencias_multimidia'] = evidencias.map((e) => e.toMap()).toList();
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
       casos.add(Caso.fromMap(mutableMap));
     }
     return casos;
@@ -773,7 +817,9 @@ class CasoRepository implements ISyncRepository {
       final exames = await getExamesPorCaso(uuidStr);
       mutableMap['exames'] = exames.map((e) => e.toMap()).toList();
       final evidencias = await getEvidenciasPorCaso(uuidStr);
-      mutableMap['evidencias_multimidia'] = evidencias.map((e) => e.toMap()).toList();
+      mutableMap['evidencias_multimidia'] = evidencias
+          .map((e) => e.toMap())
+          .toList();
       casos.add(Caso.fromMap(mutableMap));
     }
     return casos;
@@ -916,7 +962,8 @@ class CasoRepository implements ISyncRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getTodasEvidenciasPendentesGlobais() async {
+  Future<List<Map<String, dynamic>>>
+  getTodasEvidenciasPendentesGlobais() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT 
@@ -1041,7 +1088,9 @@ class CasoRepository implements ISyncRepository {
   }
 
   /// Recupera todas as evidÃªncias multimÃ­dia associadas a um caso (tanto gerais quanto de achados).
-  Future<List<EvidenciaMultimidia>> getEvidenciasPorCaso(String casoUuid) async {
+  Future<List<EvidenciaMultimidia>> getEvidenciasPorCaso(
+    String casoUuid,
+  ) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       tableEvidenciasMultimidia,
@@ -1173,7 +1222,6 @@ class CasoRepository implements ISyncRepository {
     DatabaseExecutor? executor,
     bool isSyncPull = false,
   }) async {
-
     Future<void> executarOperacoes(DatabaseExecutor targetDb) async {
       final batch = targetDb.batch();
 
@@ -1476,7 +1524,8 @@ class CasoRepository implements ISyncRepository {
       final casosParaExcluir = await db.query(
         tableCasos,
         columns: ['uuid'],
-        where: "status IN ('FINALIZADO', 'SINCRONIZADO', 'CONCLUIDO') AND atualizado_em < ?",
+        where:
+            "status IN ('FINALIZADO', 'SINCRONIZADO', 'CONCLUIDO') AND atualizado_em < ?",
         whereArgs: [dataLimite],
       );
 

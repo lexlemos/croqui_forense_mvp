@@ -85,13 +85,22 @@ class Usuario {
 
     return Usuario(
       id: map['id']?.toString() ?? map['usuario_id']?.toString() ?? '',
-      matriculaFuncional: map['matricula_funcional']?.toString() ?? map['matricula']?.toString() ?? '',
-      nomeCompleto: map['nome_completo']?.toString() ?? map['usuario_nome']?.toString() ?? map['nome']?.toString() ?? '',
+      matriculaFuncional:
+          map['matricula_funcional']?.toString() ??
+          map['matricula']?.toString() ??
+          '',
+      nomeCompleto:
+          map['nome_completo']?.toString() ??
+          map['usuario_nome']?.toString() ??
+          map['nome']?.toString() ??
+          '',
       roles: parsedRoles,
       hashPinOffline: map['hash_pin_offline']?.toString(),
       salt: map['salt']?.toString(),
       ativo: (map['ativo'] as int? ?? 0) == 1 || map['ativo'] == true,
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
       deviceId: map['device_id']?.toString(),
       crm: map['crm']?.toString(),
       classe: map['classe']?.toString(),

@@ -32,17 +32,22 @@ class AchadoDetailModal extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = achado.dadosPreenchidos;
     final String tipoLabel =
-        (d['type_label'] ?? (achado.type.isNotEmpty ? achado.type : null) ?? 'Indefinido')
+        (d['type_label'] ??
+                (achado.type.isNotEmpty ? achado.type : null) ??
+                'Indefinido')
             .toString();
     final String tipoHeader = tipoLabel.toUpperCase();
-    final String local = d['local_anatomico_nome'] ?? d['local_anatomico_id'] ?? '-';
+    final String local =
+        d['local_anatomico_nome'] ?? d['local_anatomico_id'] ?? '-';
     final String? photoPath = d['photo_path'];
     final Color tagColor = achado.isInterno ? Colors.orange : Colors.green;
 
-    final bool temEvidencia = evidencias != null &&
+    final bool temEvidencia =
+        evidencias != null &&
         evidencias!.any((ev) => ev.achadoUuid == achado.uuid && !ev.removido);
     final bool temPhotoPath = photoPath != null && photoPath.trim().isNotEmpty;
-    final bool deveExibirFoto = temEvidencia || temPhotoPath || evidencias == null;
+    final bool deveExibirFoto =
+        temEvidencia || temPhotoPath || evidencias == null;
 
     final bool temBalistica =
         (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty) ||
@@ -66,7 +71,8 @@ class AchadoDetailModal extends StatelessWidget {
               _buildTechnicalInfo(d, tipoLabel),
               _buildDynamicFields(dynamicFields),
               if (temBalistica) _buildBalisticaSection(),
-              if (achado.observacoesTexto?.isNotEmpty == true) _buildObservations(achado.observacoesTexto!),
+              if (achado.observacoesTexto?.isNotEmpty == true)
+                _buildObservations(achado.observacoesTexto!),
               if (deveExibirFoto) _buildPhoto(),
               _buildFooter(context),
             ],
@@ -77,138 +83,167 @@ class AchadoDetailModal extends StatelessWidget {
   }
 
   Widget _buildBalisticaSection() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.amber.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
+              Icon(Icons.gps_fixed, size: 14, color: Colors.amber.shade800),
+              const SizedBox(width: 6),
+              Text(
+                "VESTÍGIO RECOLHIDO / BALÍSTICA",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
                 children: [
-                  Icon(Icons.gps_fixed, size: 14, color: Colors.amber.shade800),
-                  const SizedBox(width: 6),
-                  Text(
-                    "VESTÍGIO RECOLHIDO / BALÍSTICA",
+                  const Text(
+                    "Tipo de Ferimento: ",
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Colors.amber.shade900,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    achado.tipoFerimento!,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          if (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  const Text(
+                    "Objeto Recolhido: ",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    achado.tipoObjeto!,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          if (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  const Text(
+                    "Nº do Lacre: ",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    achado.numeroLacre!,
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          if (achado.comentarioAdicional != null &&
+              achado.comentarioAdicional!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Observações: ",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      achado.comentarioAdicional!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              if (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Text(
-                        "Tipo de Ferimento: ",
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      Text(
-                        achado.tipoFerimento!,
-                        style: const TextStyle(fontSize: 12, color: Colors.black87),
-                      ),
-                    ],
-                  ),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildHeader(String tipo, String local, Color tagColor) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.indigo[50],
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tipo,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.indigo,
                 ),
-              if (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Text(
-                        "Objeto Recolhido: ",
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      Text(
-                        achado.tipoObjeto!,
-                        style: const TextStyle(fontSize: 12, color: Colors.black87),
-                      ),
-                    ],
-                  ),
-                ),
-              if (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Text(
-                        "Nº do Lacre: ",
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      Text(
-                        achado.numeroLacre!,
-                        style: const TextStyle(fontSize: 12, color: Colors.black87),
-                      ),
-                    ],
-                  ),
-                ),
-              if (achado.comentarioAdicional != null && achado.comentarioAdicional!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Observações: ",
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      Expanded(
-                        child: Text(
-                          achado.comentarioAdicional!,
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              ),
+              Text(
+                local,
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              ),
             ],
           ),
         ),
-      );
-
-
-  Widget _buildHeader(String tipo, String local, Color tagColor) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.indigo[50],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tipo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo)),
-                  Text(local, style: const TextStyle(fontSize: 13, color: Colors.black87)),
-                ],
-              ),
-            ),
-            _buildTag(achado.isInterno ? "INTERNO" : "EXTERNO", tagColor),
-          ],
-        ),
-      );
+        _buildTag(achado.isInterno ? "INTERNO" : "EXTERNO", tagColor),
+      ],
+    ),
+  );
 
   Widget _buildTechnicalInfo(Map d, String natureza) {
     final tam = achado.tamanho.trim().isNotEmpty
         ? achado.tamanho.trim()
         : (d['size']?.toString().trim().isNotEmpty == true
-            ? d['size'].toString().trim()
-            : '-');
+              ? d['size'].toString().trim()
+              : '-');
     final prof = achado.profundidade.trim().isNotEmpty
         ? achado.profundidade.trim()
         : (d['depth']?.toString().trim().isNotEmpty == true
-            ? d['depth'].toString().trim()
-            : '-');
+              ? d['depth'].toString().trim()
+              : '-');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -258,24 +293,31 @@ class AchadoDetailModal extends StatelessWidget {
   }
 
   Widget _buildObservations(String obs) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "OBSERVAÇÕES MÉDICAS:",
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("OBSERVAÇÕES MÉDICAS:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 4),
-              Text(obs, style: const TextStyle(fontSize: 13, height: 1.4)),
-            ],
-          ),
-        ),
-      );
+          const SizedBox(height: 4),
+          Text(obs, style: const TextStyle(fontSize: 13, height: 1.4)),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildPhoto() {
     return Padding(
@@ -283,7 +325,14 @@ class AchadoDetailModal extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("REGISTRO FOTOGRÁFICO:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const Text(
+            "REGISTRO FOTOGRÁFICO:",
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -303,56 +352,71 @@ class AchadoDetailModal extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            if (onEdit != null) ...[
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: const Text("EDITAR"),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.indigo),
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo, 
-                  foregroundColor: Colors.white
-                ),
-                child: const Text("FECHAR"),
-              ),
+    padding: const EdgeInsets.all(16),
+    child: Row(
+      children: [
+        if (onEdit != null) ...[
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text("EDITAR"),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.indigo),
             ),
-          ],
+          ),
+          const SizedBox(width: 12),
+        ],
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("FECHAR"),
+          ),
         ),
-      );
+      ],
+    ),
+  );
 
   Widget _buildTag(String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withAlpha(30),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withAlpha(100)),
-        ),
-        child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withAlpha(30),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withAlpha(100)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+    ),
+  );
 
   Widget _buildDetailItem(IconData icon, String label, String value) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(children: [
-            Icon(icon, size: 14, color: Colors.blueGrey),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ]),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          Icon(icon, size: 14, color: Colors.blueGrey),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
         ],
-      );
+      ),
+      const SizedBox(height: 2),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      ),
+    ],
+  );
 
   Map<String, dynamic> _extractDynamicFields(Map d) {
     final Map<String, dynamic> result = {};
@@ -402,11 +466,13 @@ class AchadoDetailModal extends StatelessWidget {
       'comentarioAdicional',
     };
 
-    result.removeWhere((key, value) =>
-        key.startsWith('_') ||
-        chavesIgnoradas.contains(key) ||
-        value == null ||
-        (value is String && value.trim().isEmpty));
+    result.removeWhere(
+      (key, value) =>
+          key.startsWith('_') ||
+          chavesIgnoradas.contains(key) ||
+          value == null ||
+          (value is String && value.trim().isEmpty),
+    );
 
     if (achado.achadoRelacionadoUuid != null &&
         achado.achadoRelacionadoUuid!.isNotEmpty) {
@@ -419,7 +485,9 @@ class AchadoDetailModal extends StatelessWidget {
   }
 
   Widget _buildDynamicFields(Map<String, dynamic>? dynamicFields) {
-    final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(dynamicFields ?? {});
+    final Map<String, dynamic> mapToShow = Map<String, dynamic>.from(
+      dynamicFields ?? {},
+    );
 
     if (mapToShow.isEmpty) return const SizedBox.shrink();
 
@@ -449,10 +517,12 @@ class AchadoDetailModal extends StatelessWidget {
     String formatKey(String key) {
       if (keyLabels.containsKey(key)) return keyLabels[key]!;
       final words = key.split('_');
-      return words.map((w) {
-        if (w.isEmpty) return '';
-        return w[0].toUpperCase() + w.substring(1);
-      }).join(' ');
+      return words
+          .map((w) {
+            if (w.isEmpty) return '';
+            return w[0].toUpperCase() + w.substring(1);
+          })
+          .join(' ');
     }
 
     String formatValue(dynamic val) {
@@ -476,7 +546,11 @@ class AchadoDetailModal extends StatelessWidget {
           children: [
             const Text(
               "CARACTERÍSTICAS DA LESÃO:",
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(height: 8),
             ...mapToShow.entries.map((entry) {
@@ -489,12 +563,19 @@ class AchadoDetailModal extends StatelessWidget {
                   children: [
                     Text(
                       "$label: ",
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
                     Expanded(
                       child: Text(
                         val,
-                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ],

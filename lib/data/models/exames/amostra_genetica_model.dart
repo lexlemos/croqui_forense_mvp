@@ -43,8 +43,8 @@ class AmostraGeneticaModel {
     }
 
     return AmostraGeneticaModel(
-      uuid: (map['uuid'] != null && map['uuid'].toString().isNotEmpty) 
-          ? map['uuid'].toString() 
+      uuid: (map['uuid'] != null && map['uuid'].toString().isNotEmpty)
+          ? map['uuid'].toString()
           : const Uuid().v4(),
       exameUuid: map['exame_uuid']?.toString() ?? '',
       tipoAmostra: map['tipo_amostra']?.toString() ?? '',
@@ -53,8 +53,8 @@ class AmostraGeneticaModel {
       pesquisaDna: boolFromMap(map['pesquisa_dna']),
       quantidadeSwabs: map['quantidade_swabs'] != null
           ? (map['quantidade_swabs'] is int
-              ? map['quantidade_swabs'] as int
-              : int.tryParse(map['quantidade_swabs'].toString()) ?? 1)
+                ? map['quantidade_swabs'] as int
+                : int.tryParse(map['quantidade_swabs'].toString()) ?? 1)
           : 1,
       numeroLacre: map['numero_lacre']?.toString(),
     );

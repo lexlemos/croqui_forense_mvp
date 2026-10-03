@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:croqui_forense_mvp/data/models/caso_model.dart'; 
-import 'package:croqui_forense_mvp/core/theme/app_colors.dart'; 
+import 'package:croqui_forense_mvp/data/models/caso_model.dart';
+import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+
 class FilterResult {
   final SortCriteria sortCriteria;
   final SortOrder sortOrder;
@@ -57,15 +58,18 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
   void _toggleStatus(StatusCaso status) {
     setState(() {
       if (status == StatusCaso.em_andamento || status == StatusCaso.rascunho) {
-        if (_selectedStatuses.contains(StatusCaso.em_andamento) || _selectedStatuses.contains(StatusCaso.rascunho)) {
+        if (_selectedStatuses.contains(StatusCaso.em_andamento) ||
+            _selectedStatuses.contains(StatusCaso.rascunho)) {
           _selectedStatuses.remove(StatusCaso.em_andamento);
           _selectedStatuses.remove(StatusCaso.rascunho);
         } else {
           _selectedStatuses.add(StatusCaso.em_andamento);
           _selectedStatuses.add(StatusCaso.rascunho);
         }
-      } else if (status == StatusCaso.finalizado || status == StatusCaso.sincronizado) {
-        if (_selectedStatuses.contains(StatusCaso.finalizado) || _selectedStatuses.contains(StatusCaso.sincronizado)) {
+      } else if (status == StatusCaso.finalizado ||
+          status == StatusCaso.sincronizado) {
+        if (_selectedStatuses.contains(StatusCaso.finalizado) ||
+            _selectedStatuses.contains(StatusCaso.sincronizado)) {
           _selectedStatuses.remove(StatusCaso.finalizado);
           _selectedStatuses.remove(StatusCaso.sincronizado);
         } else {
@@ -87,7 +91,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 400, 
+        width: 400,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -112,7 +116,10 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
             const Text(
               'ORDENAR POR',
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -128,17 +135,36 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
             const Text(
               'FILTRAR POR STATUS',
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                _buildFilterChip('Em Andamento', StatusCaso.em_andamento, Colors.cyan),
-                _buildFilterChip('Laudo Pendente', StatusCaso.laudo_pendente, Colors.orange),
-                _buildFilterChip('Finalizado', StatusCaso.finalizado, Colors.green),
-                _buildFilterChip('Arquivado', StatusCaso.arquivado, Colors.grey),
+                _buildFilterChip(
+                  'Em Andamento',
+                  StatusCaso.em_andamento,
+                  Colors.cyan,
+                ),
+                _buildFilterChip(
+                  'Laudo Pendente',
+                  StatusCaso.laudo_pendente,
+                  Colors.orange,
+                ),
+                _buildFilterChip(
+                  'Finalizado',
+                  StatusCaso.finalizado,
+                  Colors.green,
+                ),
+                _buildFilterChip(
+                  'Arquivado',
+                  StatusCaso.arquivado,
+                  Colors.grey,
+                ),
               ],
             ),
 
@@ -158,7 +184,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                         StatusCaso.laudo_pendente,
                         StatusCaso.finalizado,
                         StatusCaso.sincronizado,
-                      }; 
+                      };
                     });
                   },
                   child: const Text('Limpar'),
@@ -167,7 +193,10 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   onPressed: () {
                     Navigator.pop(
@@ -198,7 +227,9 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey[100],
+            color: isSelected
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? AppColors.primary : Colors.transparent,
@@ -219,11 +250,13 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
               if (isSelected) ...[
                 const SizedBox(width: 4),
                 Icon(
-                  _order == SortOrder.asc ? Icons.arrow_upward : Icons.arrow_downward,
+                  _order == SortOrder.asc
+                      ? Icons.arrow_upward
+                      : Icons.arrow_downward,
                   size: 16,
                   color: AppColors.primary,
                 ),
-              ]
+              ],
             ],
           ),
         ),
@@ -233,7 +266,7 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
 
   Widget _buildFilterChip(String label, StatusCaso status, Color color) {
     final isSelected = _selectedStatuses.contains(status);
-    
+
     return FilterChip(
       label: Text(label),
       selected: isSelected,
@@ -245,8 +278,8 @@ class _CaseFilterDialogState extends State<CaseFilterDialog> {
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
       backgroundColor: Colors.grey[100],
-      side: isSelected 
-          ? BorderSide(color: color) 
+      side: isSelected
+          ? BorderSide(color: color)
           : BorderSide(color: Colors.grey.shade300),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );

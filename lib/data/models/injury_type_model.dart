@@ -25,7 +25,10 @@ class InjuryType {
       try {
         schema = Map<String, dynamic>.from(jsonDecode(schemaRaw) as Map);
       } catch (e) {
-        throw DatabaseCorruptedException('Schema de tipo de lesão corrompido.', cause: e);
+        throw DatabaseCorruptedException(
+          'Schema de tipo de lesão corrompido.',
+          cause: e,
+        );
       }
     } else if (schemaRaw is Map) {
       schema = Map<String, dynamic>.from(schemaRaw);
@@ -50,7 +53,10 @@ class InjuryType {
       try {
         schema = Map<String, dynamic>.from(jsonDecode(schemaRaw) as Map);
       } catch (e) {
-        throw DatabaseCorruptedException('Schema de tipo de lesão corrompido.', cause: e);
+        throw DatabaseCorruptedException(
+          'Schema de tipo de lesão corrompido.',
+          cause: e,
+        );
       }
     }
 

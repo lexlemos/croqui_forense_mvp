@@ -13,14 +13,15 @@ class Papel {
     required this.criadoEm,
   });
 
-
   factory Papel.fromMap(Map<String, dynamic> map) {
     return Papel(
       id: map['id']?.toString() ?? '',
       nome: map['nome']?.toString() ?? '',
       descricao: map['descricao']?.toString(),
       ePadrao: (map['e_padrao'] as int? ?? 0) == 1,
-      criadoEm: DateTime.tryParse(map['criado_em']?.toString() ?? '') ?? DateTime.now(),
+      criadoEm:
+          DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 
@@ -29,10 +30,10 @@ class Papel {
       'id': id,
       'nome': nome,
       'descricao': descricao,
-      'e_padrao': ePadrao ? 1 : 0, 
+      'e_padrao': ePadrao ? 1 : 0,
       'criado_em': criadoEm.toIso8601String(),
     };
   }
+
   bool get isAdmin => nome == 'ADMIN';
 }
-

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:croqui_forense_mvp/data/models/auditoria_model.dart';
 
 /// Abstrai os dados dinâmicos do laudo em um objeto estritamente tipado.
-/// Substitui o antigo Map<String, dynamic> para garantir a blindagem do 
+/// Substitui o antigo Map<String, dynamic> para garantir a blindagem do
 /// motor Offline-First e a previsibilidade das assinaturas JSON.
 class DadosLaudoModel {
   final IdentificacaoModel identificacao;
@@ -31,11 +31,29 @@ class DadosLaudoModel {
 
   factory DadosLaudoModel.fromMap(Map<String, dynamic> map) {
     return DadosLaudoModel(
-      identificacao: IdentificacaoModel.fromMap(map['identificacao'] is Map ? Map<String, dynamic>.from(map['identificacao']) : {}),
-      caracteristicas: CaracteristicasModel.fromMap(map['caracteristicas'] is Map ? Map<String, dynamic>.from(map['caracteristicas']) : {}),
-      conclusao: ConclusaoModel.fromMap(map['conclusao'] is Map ? Map<String, dynamic>.from(map['conclusao']) : {}),
-      cabecalho: CabecalhoModel.fromMap(map['cabecalho'] is Map ? Map<String, dynamic>.from(map['cabecalho']) : {}),
-      auditoria: map['auditoria'] is Map ? AuditoriaModel.fromJson(Map<String, dynamic>.from(map['auditoria'])) : AuditoriaModel(),
+      identificacao: IdentificacaoModel.fromMap(
+        map['identificacao'] is Map
+            ? Map<String, dynamic>.from(map['identificacao'])
+            : {},
+      ),
+      caracteristicas: CaracteristicasModel.fromMap(
+        map['caracteristicas'] is Map
+            ? Map<String, dynamic>.from(map['caracteristicas'])
+            : {},
+      ),
+      conclusao: ConclusaoModel.fromMap(
+        map['conclusao'] is Map
+            ? Map<String, dynamic>.from(map['conclusao'])
+            : {},
+      ),
+      cabecalho: CabecalhoModel.fromMap(
+        map['cabecalho'] is Map
+            ? Map<String, dynamic>.from(map['cabecalho'])
+            : {},
+      ),
+      auditoria: map['auditoria'] is Map
+          ? AuditoriaModel.fromJson(Map<String, dynamic>.from(map['auditoria']))
+          : AuditoriaModel(),
     );
   }
 
@@ -83,7 +101,9 @@ class IdentificacaoModel {
   factory IdentificacaoModel.fromMap(Map<String, dynamic> map) {
     List<String> parsedFotos = [];
     if (map['fotos'] is List) {
-      parsedFotos = List<String>.from((map['fotos'] as List).map((e) => e.toString()));
+      parsedFotos = List<String>.from(
+        (map['fotos'] as List).map((e) => e.toString()),
+      );
     }
     return IdentificacaoModel(
       historico: map['historico']?.toString() ?? '',
@@ -227,27 +247,17 @@ class ConclusaoModel {
 class CabecalhoModel {
   final String descricao;
 
-  CabecalhoModel({
-    this.descricao = '',
-  });
+  CabecalhoModel({this.descricao = ''});
 
   factory CabecalhoModel.fromMap(Map<String, dynamic> map) {
-    return CabecalhoModel(
-      descricao: map['descricao']?.toString() ?? '',
-    );
+    return CabecalhoModel(descricao: map['descricao']?.toString() ?? '');
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'descricao': descricao,
-    };
+    return {'descricao': descricao};
   }
 
-  CabecalhoModel copyWith({
-    String? descricao,
-  }) {
-    return CabecalhoModel(
-      descricao: descricao ?? this.descricao,
-    );
+  CabecalhoModel copyWith({String? descricao}) {
+    return CabecalhoModel(descricao: descricao ?? this.descricao);
   }
 }

@@ -70,10 +70,11 @@ class AchadoRepository {
             achado.comentarioAdicional!.isNotEmpty);
 
     if (!hasBalistica) {
-      final detId =
-          deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
-      final legacyDetId =
-          deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+      final detId = deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
+      final legacyDetId = deterministicUuidV4(
+        achado.uuid,
+        'balistica',
+      ).toLowerCase();
       final achadoUuidLower = achado.uuid.trim().toLowerCase();
 
       final balisticasRows = await db.rawQuery(
@@ -93,10 +94,8 @@ class AchadoRepository {
         achado = achado.copyWith(
           tipoFerimento:
               bRow['tipo_ferimento']?.toString() ?? achado.tipoFerimento,
-          tipoObjeto:
-              bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
-          numeroLacre:
-              bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
+          tipoObjeto: bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
+          numeroLacre: bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
           comentarioAdicional:
               bRow['comentario_adicional']?.toString() ??
               achado.comentarioAdicional,
@@ -114,12 +113,17 @@ class AchadoRepository {
         final rowsAffected = await txn.update(
           'achados',
           achado.toMap(),
-          where: "uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
+          where:
+              "uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
           whereArgs: [achado.uuid],
         );
-        debugPrint('[AchadoRepository] updateAchado ${achado.uuid}: $rowsAffected row(s) affected');
+        debugPrint(
+          '[AchadoRepository] updateAchado ${achado.uuid}: $rowsAffected row(s) affected',
+        );
         if (rowsAffected == 0) {
-          throw Exception('Achado ${achado.uuid} não encontrado no banco ou laudo finalizado.');
+          throw Exception(
+            'Achado ${achado.uuid} não encontrado no banco ou laudo finalizado.',
+          );
         }
         await _garantirEvidencia(txn, achado);
         await _marcarCasoPendenteSync(txn, achado.casoUuid);
@@ -173,7 +177,9 @@ class AchadoRepository {
           {
             'caminho_arquivo_encriptado': photo,
             'removido': 0,
-            'foto_sincronizada': existingPath == photo ? existing['foto_sincronizada'] : 0,
+            'foto_sincronizada': existingPath == photo
+                ? existing['foto_sincronizada']
+                : 0,
             'atualizado_em': DateTime.now().toUtc().toIso8601String(),
           },
           where: 'achado_uuid = ?',
@@ -200,7 +206,10 @@ class AchadoRepository {
     }
   }
 
-  Future<void> _marcarCasoPendenteSync(DatabaseExecutor db, String casoUuid) async {
+  Future<void> _marcarCasoPendenteSync(
+    DatabaseExecutor db,
+    String casoUuid,
+  ) async {
     await db.rawUpdate(
       '''
       UPDATE casos
@@ -251,28 +260,30 @@ class AchadoRepository {
 
       if (hasBalistica) return achado;
 
-      final detId =
-          deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
-      final legacyDetId =
-          deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+      final detId = deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
+      final legacyDetId = deterministicUuidV4(
+        achado.uuid,
+        'balistica',
+      ).toLowerCase();
       final achadoUuidLower = achado.uuid.trim().toLowerCase();
-      final bRow = (detId.isNotEmpty ? balisticaById[detId] : null) ??
+      final bRow =
+          (detId.isNotEmpty ? balisticaById[detId] : null) ??
           (legacyDetId.isNotEmpty ? balisticaById[legacyDetId] : null) ??
           balisticaById[achadoUuidLower] ??
           balisticasRows
-              .where((r) =>
-                  r['exame_id']?.toString().trim().toLowerCase() ==
-                  achadoUuidLower)
+              .where(
+                (r) =>
+                    r['exame_id']?.toString().trim().toLowerCase() ==
+                    achadoUuidLower,
+              )
               .firstOrNull;
 
       if (bRow != null) {
         return achado.copyWith(
           tipoFerimento:
               bRow['tipo_ferimento']?.toString() ?? achado.tipoFerimento,
-          tipoObjeto:
-              bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
-          numeroLacre:
-              bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
+          tipoObjeto: bRow['tipo_objeto']?.toString() ?? achado.tipoObjeto,
+          numeroLacre: bRow['numero_lacre']?.toString() ?? achado.numeroLacre,
           comentarioAdicional:
               bRow['comentario_adicional']?.toString() ??
               achado.comentarioAdicional,
@@ -286,7 +297,8 @@ class AchadoRepository {
     final db = await _db;
     final result = await db.query(
       'achados',
-      where: r"caso_uuid = ? AND removido = 0 AND (json_extract(dados_preenchidos_json, '$.tipo_orificio') = 'Entrada' OR json_extract(dados_preenchidos_json, '$.dynamicFields.tipo_orificio') = 'Entrada')",
+      where:
+          r"caso_uuid = ? AND removido = 0 AND (json_extract(dados_preenchidos_json, '$.tipo_orificio') = 'Entrada' OR json_extract(dados_preenchidos_json, '$.dynamicFields.tipo_orificio') = 'Entrada')",
       whereArgs: [casoUuid],
       orderBy: 'numero_sequencial ASC',
     );

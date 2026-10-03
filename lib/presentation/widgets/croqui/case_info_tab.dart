@@ -256,7 +256,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         return IconButton(
                           icon: const Icon(Icons.search, size: 20),
                           tooltip: 'Buscar dados por PIC',
-                          onPressed: () => controller.buscarDadosPorPic(forcar: true),
+                          onPressed: () =>
+                              controller.buscarDadosPorPic(forcar: true),
                         );
                       },
                     ),
@@ -800,8 +801,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                                 required: true,
                                 validator: (v) =>
                                     (v == null || v.trim().length < 3)
-                                        ? 'Resposta deve ter no mínimo 3 caracteres'
-                                        : null,
+                                    ? 'Resposta deve ter no mínimo 3 caracteres'
+                                    : null,
                               ),
                               _buildTextField(
                                 "Devido a",
@@ -810,8 +811,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                                 required: true,
                                 validator: (v) =>
                                     (v == null || v.trim().length < 3)
-                                        ? 'Resposta deve ter no mínimo 3 caracteres'
-                                        : null,
+                                    ? 'Resposta deve ter no mínimo 3 caracteres'
+                                    : null,
                               ),
                               _buildTextField(
                                 "Consequência",
@@ -820,8 +821,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                                 required: true,
                                 validator: (v) =>
                                     (v == null || v.trim().length < 3)
-                                        ? 'Resposta deve ter no mínimo 3 caracteres'
-                                        : null,
+                                    ? 'Resposta deve ter no mínimo 3 caracteres'
+                                    : null,
                               ),
                             ],
                           ),
@@ -1072,7 +1073,10 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         icon: const Icon(Icons.clear, size: 18),
                         onPressed: () {
                           ctrl.clear();
-                          _croquiController.sincronizarDadosEmMemoria(null, false);
+                          _croquiController.sincronizarDadosEmMemoria(
+                            null,
+                            false,
+                          );
                           _croquiController.scheduleAutoSave();
                           if (mounted) setState(() {});
                         },
@@ -1091,8 +1095,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               child: Text(
                 value.text.isEmpty ? 'DD/MM/AAAA' : value.text,
                 style: TextStyle(
-                  color:
-                      value.text.isEmpty ? Colors.grey.shade500 : Colors.black87,
+                  color: value.text.isEmpty
+                      ? Colors.grey.shade500
+                      : Colors.black87,
                   fontSize: 16,
                 ),
               ),
@@ -1163,7 +1168,10 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         icon: const Icon(Icons.clear, size: 18),
                         onPressed: () {
                           ctrl.clear();
-                          _croquiController.sincronizarDadosEmMemoria(null, false);
+                          _croquiController.sincronizarDadosEmMemoria(
+                            null,
+                            false,
+                          );
                           _croquiController.scheduleAutoSave();
                           if (mounted) setState(() {});
                         },
@@ -1182,8 +1190,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
               child: Text(
                 value.text.isEmpty ? 'HH:MM' : value.text,
                 style: TextStyle(
-                  color:
-                      value.text.isEmpty ? Colors.grey.shade500 : Colors.black87,
+                  color: value.text.isEmpty
+                      ? Colors.grey.shade500
+                      : Colors.black87,
                   fontSize: 16,
                 ),
               ),
@@ -1257,7 +1266,9 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
           final c = context.read<CroquiController>();
           c.sincronizarDadosEmMemoria(null, false);
           c.scheduleAutoSave();
-          if (label.contains("CD") || label.contains("Requisição") || label.contains("PIC")) {
+          if (label.contains("CD") ||
+              label.contains("Requisição") ||
+              label.contains("PIC")) {
             c.salvarRascunhoImediato();
           }
           if (onChanged != null) {

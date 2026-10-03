@@ -21,9 +21,9 @@ class DomainSyncService {
     required IRemoteDataSource remoteDataSource,
     required InjuryTypeRepository injuryTypeRepository,
     AtnRepository? atnRepository,
-  })  : _remoteDataSource = remoteDataSource,
-        _injuryTypeRepository = injuryTypeRepository,
-        _atnRepository = atnRepository;
+  }) : _remoteDataSource = remoteDataSource,
+       _injuryTypeRepository = injuryTypeRepository,
+       _atnRepository = atnRepository;
 
   /// Sincroniza e atualiza localmente as definições e "Esquemas de Formulários Dinâmicos"
   /// para o mapeamento e tipificação dos achados periciais.
@@ -38,17 +38,18 @@ class DomainSyncService {
   }
 
   /// Sincroniza em lote a lista oficial de A.T.N.s do backend.
-  /// 
+  ///
   /// Caso o dispositivo esteja offline ou ocorra um erro de rede, a requisição falha silenciosamente
   /// mantendo a integridade dos A.T.N.s prévios já armazenados no SQLite local.
   Future<void> syncAtns() async {
     final repo = _atnRepository;
     if (repo == null) return;
-    
+
     final jsonList = await _remoteDataSource.getAtns();
     final atnsList = jsonList.map((e) => AtnModel.fromMap(e)).toList();
     await repo.sincronizarAtns(atnsList);
-    debugPrint('[DomainSync] ATNs sincronizados com sucesso: ${atnsList.length}');
+    debugPrint(
+      '[DomainSync] ATNs sincronizados com sucesso: ${atnsList.length}',
+    );
   }
 }
-

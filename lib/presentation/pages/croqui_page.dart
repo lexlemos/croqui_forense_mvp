@@ -29,7 +29,8 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalizati
 import 'package:croqui_forense_mvp/core/utils/body_part_mapper.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_widgets.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
-import 'package:croqui_forense_mvp/core/constants/front_body_data.dart' show BodyPartDefinition;
+import 'package:croqui_forense_mvp/core/constants/front_body_data.dart'
+    show BodyPartDefinition;
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/tabs/body_parts_tabs.dart';
 
 class CroquiPage extends StatelessWidget {
@@ -83,7 +84,9 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
         state == AppLifecycleState.detached) {
       if (mounted) {
         final controller = context.read<CroquiController>();
-        debugPrint('[AppLifecycleObserver] App minimizado/inativo — forçando flush de rascunho...');
+        debugPrint(
+          '[AppLifecycleObserver] App minimizado/inativo — forçando flush de rascunho...',
+        );
         controller.flushAutoSave();
       }
     }
@@ -96,9 +99,9 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
 
     return DefaultTabController(
       length: 8,
-        child: Scaffold(
-          appBar: AppBar(
-            title: Consumer<CroquiController>(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Consumer<CroquiController>(
             builder: (context, c, _) {
               final pic = c.casoAtual.numeroPic.trim();
               final req = c.casoAtual.numeroRequisicao.trim();
@@ -107,42 +110,72 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               final String identificador = pic.isNotEmpty
                   ? 'PIC $pic'
                   : (req.isNotEmpty
-                      ? 'Req $req'
-                      : (laudo.isNotEmpty
-                          ? 'Laudo $laudo'
-                          : 'Novo Caso'));
+                        ? 'Req $req'
+                        : (laudo.isNotEmpty ? 'Laudo $laudo' : 'Novo Caso'));
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text("Exame Corporal - $identificador", style: const TextStyle(fontSize: 16)),
+                      Text(
+                        "Exame Corporal - $identificador",
+                        style: const TextStyle(fontSize: 16),
+                      ),
                       if (c.isReadOnly)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
-                          child: const Text("CONCLUÍDO", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "CONCLUÍDO",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         )
                       else if (c.casoAtual.status == StatusCaso.laudo_pendente)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.orange[800], borderRadius: BorderRadius.circular(4)),
-                          child: const Text("LAUDO PENDENTE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[800],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "LAUDO PENDENTE",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                     ],
                   ),
                   Text(
                     "Laudo: ${laudo.isNotEmpty ? laudo : (req.isNotEmpty ? 'Req: $req' : 'Pendente')}",
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                    ),
                   ),
                 ],
               );
             },
           ),
-          backgroundColor: controller.isReadOnly ? Colors.blueGrey[800] : Colors.indigo,
+          backgroundColor: controller.isReadOnly
+              ? Colors.blueGrey[800]
+              : Colors.indigo,
           foregroundColor: Colors.white,
           actions: [
             IconButton(
@@ -152,7 +185,8 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PdfPreviewPage(caso: controller.casoAtual),
+                    builder: (context) =>
+                        PdfPreviewPage(caso: controller.casoAtual),
                   ),
                 );
               },
@@ -174,11 +208,15 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                     controller.casoAtual.status == StatusCaso.laudo_pendente
                         ? "CONCLUIR LAUDO"
                         : "FINALIZAR EXAME",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   onPressed: controller.isProcessing
                       ? null
-                      : () => handleCroquiFinalization(innerContext, controller),
+                      : () =>
+                            handleCroquiFinalization(innerContext, controller),
                 ),
               ),
             if (controller.isReadOnly)
@@ -229,7 +267,6 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
           bottom: true,
           child: Column(
             children: [
-
               Expanded(
                 child: Row(
                   children: [
@@ -239,15 +276,34 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                         child: TabBarView(
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
-                            FrenteCostasTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                            LateraisTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                            TroncoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                            PerineoTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
-                            RostosTabContent(controller: controller, buildCroquiTab: _buildCroquiTab),
+                            FrenteCostasTabContent(
+                              controller: controller,
+                              buildCroquiTab: _buildCroquiTab,
+                            ),
+                            LateraisTabContent(
+                              controller: controller,
+                              buildCroquiTab: _buildCroquiTab,
+                            ),
+                            TroncoTabContent(
+                              controller: controller,
+                              buildCroquiTab: _buildCroquiTab,
+                            ),
+                            PerineoTabContent(
+                              controller: controller,
+                              buildCroquiTab: _buildCroquiTab,
+                            ),
+                            RostosTabContent(
+                              controller: controller,
+                              buildCroquiTab: _buildCroquiTab,
+                            ),
                             const ExamesTab(),
                             BalisticaTab(
                               readOnly: controller.isReadOnly,
-                              onEdit: (achado) => _showEditOrDetail(context, controller, achado),
+                              onEdit: (achado) => _showEditOrDetail(
+                                context,
+                                controller,
+                                achado,
+                              ),
                             ),
                             const CaseInfoTab(),
                           ],
@@ -262,7 +318,8 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                           achados: c.achados,
                           evidencias: c.casoAtual.evidenciasMultimidia,
                           isReadOnly: c.isReadOnly,
-                          onEdit: (achado) => _showEditOrDetail(context, c, achado),
+                          onEdit: (achado) =>
+                              _showEditOrDetail(context, c, achado),
                           onDelete: (uuid) async {
                             await c.deleteAchado(context, uuid);
                           },
@@ -279,10 +336,15 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
     );
   }
 
-
-
-  Widget _buildCroquiTab(BuildContext context, CroquiController controller, String view, String svg, String mask,
-      Map<int, String> colors, Map<String, BodyPartDefinition> defs) {
+  Widget _buildCroquiTab(
+    BuildContext context,
+    CroquiController controller,
+    String view,
+    String svg,
+    String mask,
+    Map<int, String> colors,
+    Map<String, BodyPartDefinition> defs,
+  ) {
     return Consumer<CroquiController>(
       builder: (context, c, _) => CroquiViewer(
         svgPath: svg,
@@ -290,7 +352,8 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
         colorToIdMap: colors,
         idToDefMap: defs,
         markers: c.getMarkersForView(view),
-        onPartTap: (id, name, x, y) => _adicionarAchado(context, c, view, id, x, y),
+        onPartTap: (id, name, x, y) =>
+            _adicionarAchado(context, c, view, id, x, y),
       ),
     );
   }
@@ -317,16 +380,24 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
     await controller.addAchado(context, view, partId, x, y);
   }
 
-  Future<void> _reabrirCaso(BuildContext context, CroquiController controller) async {
+  Future<void> _reabrirCaso(
+    BuildContext context,
+    CroquiController controller,
+  ) async {
     await controller.reabrirCaso(context);
-    
   }
 
-  Future<void> _exportarCaso(BuildContext context, CroquiController controller) async {
+  Future<void> _exportarCaso(
+    BuildContext context,
+    CroquiController controller,
+  ) async {
     await controller.exportarCaso(context);
   }
 
-  void _showOperationResult(BuildContext context, CroquiOperationResult result) {
+  void _showOperationResult(
+    BuildContext context,
+    CroquiOperationResult result,
+  ) {
     if (result.message == null) return;
     final color = switch (result.status) {
       CroquiOperationStatus.success => Colors.green,
@@ -335,12 +406,17 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
     };
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(result.message!), backgroundColor: color));
+      ..showSnackBar(
+        SnackBar(content: Text(result.message!), backgroundColor: color),
+      );
   }
 }
 
-
-Future<void> _showEditOrDetail(BuildContext context, CroquiController controller, Achado achado) async {
+Future<void> _showEditOrDetail(
+  BuildContext context,
+  CroquiController controller,
+  Achado achado,
+) async {
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => AchadoDetailModal(
@@ -355,5 +431,3 @@ Future<void> _showEditOrDetail(BuildContext context, CroquiController controller
     ),
   );
 }
-
-

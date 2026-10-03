@@ -26,4 +26,3 @@ String deterministicUuidV5(String sourceUuid, String namespaceName) {
     return uuid.v4(); // Fallback seguro
   }
 }
-

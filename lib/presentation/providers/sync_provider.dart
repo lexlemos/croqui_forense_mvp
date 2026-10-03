@@ -7,13 +7,7 @@ import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 
 /// Estados operacionais do ciclo de sincronização pericial.
-enum SyncState {
-  idle,
-  loading,
-  success,
-  partial,
-  error,
-}
+enum SyncState { idle, loading, success, partial, error }
 
 /// Provedor de apresentação encarregado do controle reativo do ciclo de sincronização pericial.
 class SyncProvider extends ChangeNotifier {
@@ -69,36 +63,18 @@ class SyncProvider extends ChangeNotifier {
       final result = await _syncService.execute();
       _lastResult = result;
       if (result.temPendencias) {
-        _setState(
-          SyncState.partial,
-          feedback: result.mensagem,
-        );
+        _setState(SyncState.partial, feedback: result.mensagem);
       } else {
-        _setState(
-          SyncState.success,
-          feedback: result.mensagem,
-        );
+        _setState(SyncState.success, feedback: result.mensagem);
       }
     } on AuthException catch (e) {
-      _setState(
-        SyncState.error,
-        error: e.message,
-      );
+      _setState(SyncState.error, error: e.message);
     } on SyncNetworkException catch (e) {
-      _setState(
-        SyncState.error,
-        error: e.message,
-      );
+      _setState(SyncState.error, error: e.message);
     } on SyncPushTextualException catch (e) {
-      _setState(
-        SyncState.error,
-        error: e.message,
-      );
+      _setState(SyncState.error, error: e.message);
     } on SyncException catch (e) {
-      _setState(
-        SyncState.error,
-        error: e.message,
-      );
+      _setState(SyncState.error, error: e.message);
     } catch (e) {
       _setState(
         SyncState.error,
@@ -114,7 +90,7 @@ class SyncProvider extends ChangeNotifier {
   /// Atualiza o estado interno e notifica os ouvintes da árvore de widgets.
   void _setState(SyncState newState, {String? feedback, String? error}) {
     if (_disposed) return;
-    
+
     _state = newState;
     _feedbackMessage = feedback;
     _errorMessage = error;
@@ -166,14 +142,17 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
 
     if (provider.state == SyncState.success) {
       _showSnackbar(
-        message: provider.feedbackMessage ?? 'Laudos sincronizados com sucesso!',
+        message:
+            provider.feedbackMessage ?? 'Laudos sincronizados com sucesso!',
         backgroundColor: AppColors.success,
         icon: Icons.check_circle_outline,
       );
       context.read<CaseListProvider>().carregarCasos();
     } else if (provider.state == SyncState.partial) {
       _showSnackbar(
-        message: provider.feedbackMessage ?? 'Sincronização concluída com pendências.',
+        message:
+            provider.feedbackMessage ??
+            'Sincronização concluída com pendências.',
         backgroundColor: AppColors.warning,
         icon: Icons.warning_amber_rounded,
       );
@@ -201,19 +180,14 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
             Icon(icon, color: Colors.white, size: 20),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.white),
-              ),
+              child: Text(message, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -260,4 +234,3 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
     );
   }
 }
-

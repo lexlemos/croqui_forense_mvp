@@ -163,7 +163,8 @@ class Caso {
     String? _toTitleCase(String? text) {
       if (text == null || text.trim().isEmpty) return text;
       final trimmed = text.trim();
-      return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
+      return trimmed.substring(0, 1).toUpperCase() +
+          trimmed.substring(1).toLowerCase();
     }
 
     String? _parseEstimativa(String? raw) {
@@ -237,30 +238,24 @@ class Caso {
     final rawBalisticas = map['balisticas'];
     final casoUuidParsed = map['uuid']?.toString() ?? '';
     if (rawBalisticas is List) {
-      parsedBalisticas = rawBalisticas
-          .whereType<Map>()
-          .map((x) {
+      parsedBalisticas = rawBalisticas.whereType<Map>().map((x) {
+        final m = Map<String, dynamic>.from(x);
+        if (m['exame_id'] == null || m['exame_id'].toString().isEmpty) {
+          m['exame_id'] = m['caso_uuid'] ?? casoUuidParsed;
+        }
+        return BalisticaModel.fromMap(m);
+      }).toList();
+    } else if (rawBalisticas is String && rawBalisticas.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawBalisticas);
+        if (decoded is List) {
+          parsedBalisticas = decoded.whereType<Map>().map((x) {
             final m = Map<String, dynamic>.from(x);
             if (m['exame_id'] == null || m['exame_id'].toString().isEmpty) {
               m['exame_id'] = m['caso_uuid'] ?? casoUuidParsed;
             }
             return BalisticaModel.fromMap(m);
-          })
-          .toList();
-    } else if (rawBalisticas is String && rawBalisticas.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawBalisticas);
-        if (decoded is List) {
-          parsedBalisticas = decoded
-              .whereType<Map>()
-              .map((x) {
-                final m = Map<String, dynamic>.from(x);
-                if (m['exame_id'] == null || m['exame_id'].toString().isEmpty) {
-                  m['exame_id'] = m['caso_uuid'] ?? casoUuidParsed;
-                }
-                return BalisticaModel.fromMap(m);
-              })
-              .toList();
+          }).toList();
         }
       } catch (e) {
         debugPrint(
@@ -295,7 +290,8 @@ class Caso {
       }
     }
 
-    if (parsedExames.isEmpty && dadosLaudoParsed.containsKey('exames_offline_backup')) {
+    if (parsedExames.isEmpty &&
+        dadosLaudoParsed.containsKey('exames_offline_backup')) {
       final rawBackup = dadosLaudoParsed['exames_offline_backup'];
       List<dynamic>? backupList;
       if (rawBackup is List) {
@@ -305,7 +301,9 @@ class Caso {
           final decoded = jsonDecode(rawBackup);
           if (decoded is List) backupList = decoded;
         } catch (e) {
-          debugPrint('[Caso.fromMap] Erro ao decodificar exames_offline_backup: $e');
+          debugPrint(
+            '[Caso.fromMap] Erro ao decodificar exames_offline_backup: $e',
+          );
         }
       }
 
@@ -324,10 +322,17 @@ class Caso {
       idUsuarioCriador: map['id_usuario_criador']?.toString() ?? '',
       numeroLaudoExterno: map['numero_laudo_externo']?.toString(),
       status: () {
-        final rawStatus = (map['status_pericia']?.toString() ?? map['status']?.toString() ?? '').toUpperCase();
-        if (rawStatus == 'CONCLUIDO' || rawStatus == 'SINCRONIZADO') return StatusCaso.sincronizado;
+        final rawStatus =
+            (map['status_pericia']?.toString() ??
+                    map['status']?.toString() ??
+                    '')
+                .toUpperCase();
+        if (rawStatus == 'CONCLUIDO' || rawStatus == 'SINCRONIZADO')
+          return StatusCaso.sincronizado;
         if (rawStatus == 'FINALIZADO') return StatusCaso.finalizado;
-        if (rawStatus == 'EM_ANDAMENTO' || rawStatus == 'NAO_INICIADO' || rawStatus == 'RASCUNHO') {
+        if (rawStatus == 'EM_ANDAMENTO' ||
+            rawStatus == 'NAO_INICIADO' ||
+            rawStatus == 'RASCUNHO') {
           return StatusCaso.em_andamento;
         }
         return StatusCaso.values.firstWhere(
@@ -372,10 +377,14 @@ class Caso {
       evidenciasMultimidia: parsedEvidencias,
       corpoEstado: _toTitleCase(map['corpo_estado']?.toString()),
       corpoEstadoOutros: map['corpo_estado_outros']?.toString(),
-      sexoBiologicoEstimado: _toTitleCase(map['sexo_biologico_estimado']?.toString()),
+      sexoBiologicoEstimado: _toTitleCase(
+        map['sexo_biologico_estimado']?.toString(),
+      ),
       dataObito: map['data_obito']?.toString(),
       horaObito: map['hora_obito']?.toString(),
-      tipoEstimativaHoraObito: _parseEstimativa(map['tipo_estimativa_hora_obito']?.toString()),
+      tipoEstimativaHoraObito: _parseEstimativa(
+        map['tipo_estimativa_hora_obito']?.toString(),
+      ),
 
       /// Valida e converte o payload de causa da morte.
       /// Estruturas compostas nativas da API (Map/List) são aceitas diretamente.
@@ -405,7 +414,8 @@ class Caso {
       })(),
       examesSolicitados: (() {
         // Fallback primário: a chave exata do SQLite ou a antiga chave boolean do backend
-        final raw = map['tem_exames_solicitados'] ?? map['exames_solicitados_flag'];
+        final raw =
+            map['tem_exames_solicitados'] ?? map['exames_solicitados_flag'];
         if (raw != null) {
           if (raw is bool) return raw;
           if (raw is int) return raw == 1;
@@ -419,7 +429,7 @@ class Caso {
 
         // Se for lista JSON do backend ou estiver em branco, usamos a dedução da lista polimórfica já parseada
         if (parsedExames.isNotEmpty) return true;
-        
+
         return false;
       })(),
       descricaoExames: map['descricao_exames']?.toString(),
@@ -497,8 +507,7 @@ class Caso {
       pdfUrl: pdfUrl ?? this.pdfUrl,
       isDraftSynced: isDraftSynced ?? this.isDraftSynced,
       syncError: syncError ?? this.syncError,
-      evidenciasMultimidia:
-          evidenciasMultimidia ?? this.evidenciasMultimidia,
+      evidenciasMultimidia: evidenciasMultimidia ?? this.evidenciasMultimidia,
       corpoEstado: corpoEstado ?? this.corpoEstado,
       corpoEstadoOutros: corpoEstadoOutros ?? this.corpoEstadoOutros,
       sexoBiologicoEstimado:
@@ -616,18 +625,27 @@ class Caso {
           'delegacia_solicitante': delegaciaSolicitante,
       },
       'pdf_url': pdfUrl,
-      'corpo_estado': (corpoEstado?.trim().isEmpty ?? true) ? null : corpoEstado,
+      'corpo_estado': (corpoEstado?.trim().isEmpty ?? true)
+          ? null
+          : corpoEstado,
       'corpo_estado_outros': corpoEstadoOutros,
-      'sexo_biologico_estimado': (sexoBiologicoEstimado?.trim().isEmpty ?? true) ? null : sexoBiologicoEstimado,
+      'sexo_biologico_estimado': (sexoBiologicoEstimado?.trim().isEmpty ?? true)
+          ? null
+          : sexoBiologicoEstimado,
       'data_obito': _formatDateToSync(dataObito),
       'hora_obito': _formatTimeToSync(horaObito),
-      'tipo_estimativa_hora_obito': (tipoEstimativaHoraObito?.trim().isEmpty ?? true) ? null : tipoEstimativaHoraObito,
+      'tipo_estimativa_hora_obito':
+          (tipoEstimativaHoraObito?.trim().isEmpty ?? true)
+          ? null
+          : tipoEstimativaHoraObito,
       'causa_morte': causaMorte?.map((e) => e.toMap()).toList(),
       'exames_solicitados_flag': examesSolicitados,
       'descricao_exames': descricaoExames,
       'exames_solicitados': exames.map((e) => e.toSyncMap()).toList(),
       'balisticas': balisticas.map((e) => e.toMap()).toList(),
-      'evidencias_multimidia': evidenciasMultimidia.map((e) => e.toSyncMap()).toList(),
+      'evidencias_multimidia': evidenciasMultimidia
+          .map((e) => e.toSyncMap())
+          .toList(),
       'data_necropsia': _formatDateToSync(dataNecropsia),
       'hora_necropsia': _formatTimeToSync(horaNecropsia),
       'numero_declaracao_obito': numeroDeclaracaoObito,

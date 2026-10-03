@@ -42,7 +42,8 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
   @override
   void didUpdateWidget(covariant DynamicFormBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialData != widget.initialData || oldWidget.schema != widget.schema) {
+    if (oldWidget.initialData != widget.initialData ||
+        oldWidget.schema != widget.schema) {
       try {
         _formData = _parseMapData(widget.initialData);
         _parseError = null;
@@ -69,7 +70,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is Map) return Map<String, dynamic>.from(decoded);
-        throw const FormatException('O JSON dos dados dinâmicos não é um objeto.');
+        throw const FormatException(
+          'O JSON dos dados dinâmicos não é um objeto.',
+        );
       } catch (e) {
         throw DatabaseCorruptedException(
           'Dados dinâmicos do formulário estão corrompidos.',
@@ -81,7 +84,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       return Map<String, dynamic>.from(raw);
     }
     if (raw is String && raw.trim().isEmpty) return {};
-    throw DatabaseCorruptedException('Formato inválido para os dados do formulário.');
+    throw DatabaseCorruptedException(
+      'Formato inválido para os dados do formulário.',
+    );
   }
 
   List<Map<String, dynamic>> get _campos {
@@ -137,7 +142,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
       return [];
     }
 
-    throw const DatabaseCorruptedException('Schema do formulário possui formato inválido.');
+    throw const DatabaseCorruptedException(
+      'Schema do formulário possui formato inválido.',
+    );
   }
 
   void _syncFieldNotifiers() {
@@ -154,18 +161,26 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     }
 
     for (final id in ids) {
-      _fieldNotifiers.putIfAbsent(id, () => ValueNotifier<dynamic>(_formData[id]));
+      _fieldNotifiers.putIfAbsent(
+        id,
+        () => ValueNotifier<dynamic>(_formData[id]),
+      );
       _fieldNotifiers[id]!.value = _formData[id];
     }
 
-    final obsolete = _fieldNotifiers.keys.where((id) => !ids.contains(id)).toList();
+    final obsolete = _fieldNotifiers.keys
+        .where((id) => !ids.contains(id))
+        .toList();
     for (final id in obsolete) {
       _fieldNotifiers.remove(id)?.dispose();
     }
   }
 
   String _fieldId(Map<String, dynamic> campo) =>
-      campo['id_campo']?.toString() ?? campo['id']?.toString() ?? campo['key']?.toString() ?? '';
+      campo['id_campo']?.toString() ??
+      campo['id']?.toString() ??
+      campo['key']?.toString() ??
+      '';
 
   bool _isVisible(Map<String, dynamic> campo, dynamic dependencyValue) {
     final condicao = campo['condicao_visibilidade'];
@@ -191,9 +206,16 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
         if (decoded is List) return decoded.map((e) => e.toString()).toList();
       } catch (e) {
         if (raw.trimLeft().startsWith('[')) {
-          throw DatabaseCorruptedException('Opções do campo estão corrompidas.', cause: e);
+          throw DatabaseCorruptedException(
+            'Opções do campo estão corrompidas.',
+            cause: e,
+          );
         }
-        return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        return raw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       }
     }
     if (raw is List) {
@@ -210,7 +232,8 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     } on DatabaseCorruptedException catch (e) {
       return _buildDatabaseCorruptedWarning(e.message);
     }
-    if (_parseError != null) return _buildDatabaseCorruptedWarning(_parseError!);
+    if (_parseError != null)
+      return _buildDatabaseCorruptedWarning(_parseError!);
     if (campos.isEmpty) return const SizedBox.shrink();
 
     return Form(
@@ -242,15 +265,18 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     );
 
     final condicao = campo['condicao_visibilidade'];
-    final dependeDe = condicao is Map ? condicao['depende_de']?.toString() : null;
-    final dependencyNotifier = dependeDe == null ? null : _fieldNotifiers[dependeDe];
+    final dependeDe = condicao is Map
+        ? condicao['depende_de']?.toString()
+        : null;
+    final dependencyNotifier = dependeDe == null
+        ? null
+        : _fieldNotifiers[dependeDe];
     if (dependencyNotifier == null) return field;
 
     return ValueListenableBuilder<dynamic>(
       valueListenable: dependencyNotifier,
-      builder: (context, value, child) => _isVisible(campo, value)
-          ? child!
-          : const SizedBox.shrink(),
+      builder: (context, value, child) =>
+          _isVisible(campo, value) ? child! : const SizedBox.shrink(),
       child: field,
     );
   }
@@ -266,8 +292,10 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
   Widget _buildField(Map<String, dynamic> campo) {
     final id = _fieldId(campo);
     final label = campo['label']?.toString() ?? campo['nome']?.toString() ?? id;
-    final tipo = campo['tipo_input']?.toString() ?? campo['tipo']?.toString() ?? 'text';
-    final obrigatorio = campo['obrigatorio'] == true || campo['required'] == true;
+    final tipo =
+        campo['tipo_input']?.toString() ?? campo['tipo']?.toString() ?? 'text';
+    final obrigatorio =
+        campo['obrigatorio'] == true || campo['required'] == true;
     final hint = campo['hint']?.toString() ?? campo['placeholder']?.toString();
     final opcoes = _parseOpcoes(campo['opcoes'] ?? campo['options']);
 
@@ -312,7 +340,10 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
         labelText: label,
         hintText: hint,
         border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
       validator: obrigatorio
           ? (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null
@@ -329,8 +360,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     List<String> opcoes,
   ) {
     final currentValue = _formData[id]?.toString();
-    final validValue =
-        (currentValue != null && opcoes.contains(currentValue)) ? currentValue : null;
+    final validValue = (currentValue != null && opcoes.contains(currentValue))
+        ? currentValue
+        : null;
 
     return DropdownButtonFormField<String>(
       initialValue: validValue,
@@ -338,13 +370,18 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
         labelText: label,
         hintText: hint,
         border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
       items: opcoes
           .map((o) => DropdownMenuItem(value: o, child: Text(o)))
           .toList(),
       onChanged: (v) => _updateField(id, v),
-      validator: obrigatorio ? (v) => (v == null || v.isEmpty) ? 'Campo obrigatório' : null : null,
+      validator: obrigatorio
+          ? (v) => (v == null || v.isEmpty) ? 'Campo obrigatório' : null
+          : null,
     );
   }
 
@@ -358,7 +395,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
 
     return FormField<String>(
       initialValue: currentValue,
-      validator: obrigatorio ? (v) => (v == null || v.isEmpty) ? 'Selecione uma opção' : null : null,
+      validator: obrigatorio
+          ? (v) => (v == null || v.isEmpty) ? 'Selecione uma opção' : null
+          : null,
       builder: (state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +419,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
                 return ChoiceChip(
                   label: Text(opcao),
                   selected: isSelected,
-                  selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                  selectedColor: Theme.of(
+                    context,
+                  ).primaryColor.withValues(alpha: 0.2),
                   onSelected: (selected) {
                     final newValue = selected ? opcao : null;
                     state.didChange(newValue);
@@ -394,7 +435,10 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
                 padding: const EdgeInsets.only(top: 6, left: 8),
                 child: Text(
                   state.errorText!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
                 ),
               ),
           ],
@@ -413,8 +457,8 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
     final currentValue = _formData[id]?.toString();
     final validValue =
         (currentValue != null && entradas.any((a) => a.uuid == currentValue))
-            ? currentValue
-            : null;
+        ? currentValue
+        : null;
 
     return DropdownButtonFormField<String>(
       initialValue: validValue,
@@ -422,16 +466,23 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
         labelText: label,
         hintText: hint ?? 'Selecione o achado de entrada',
         border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
       items: entradas
-          .map((a) => DropdownMenuItem(
-                value: a.uuid,
-                child: Text('Achado #${a.numeroSequencial} - Entrada'),
-              ))
+          .map(
+            (a) => DropdownMenuItem(
+              value: a.uuid,
+              child: Text('Achado #${a.numeroSequencial} - Entrada'),
+            ),
+          )
           .toList(),
       onChanged: (v) => _updateField(id, v),
-      validator: obrigatorio ? (v) => (v == null) ? 'Campo obrigatório' : null : null,
+      validator: obrigatorio
+          ? (v) => (v == null) ? 'Campo obrigatório' : null
+          : null,
     );
   }
 }
