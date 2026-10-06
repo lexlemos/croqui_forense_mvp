@@ -174,6 +174,7 @@ class AppRoot extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        Provider<DatabaseHelper>.value(value: dbHelper),
         Provider<UsuarioRepository>(create: (_) => UsuarioRepository(dbHelper)),
         Provider<CasoRepository>(create: (_) => CasoRepository(dbHelper)),
         Provider<AchadoRepository>(create: (_) => AchadoRepository(dbHelper)),
@@ -241,8 +242,8 @@ class AppRoot extends StatelessWidget {
             activeCaseLockService: lockService,
           ),
         ),
-        ProxyProvider2<ApiClient, DatabaseHelper, IMediaStorageService>(
-          update: (_, apiClient, dbHelper, __) => MediaStorageService(
+        ProxyProvider<ApiClient, IMediaStorageService>(
+          update: (_, apiClient, __) => MediaStorageService(
             apiClient: apiClient,
             dbHelper: dbHelper,
           ),
