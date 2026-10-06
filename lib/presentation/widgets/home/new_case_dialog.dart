@@ -45,6 +45,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final List<String> _selectedAtns = [];
   List<AtnModel> _atnsCache = [];
   final ImagePicker _picker = ImagePicker();
+  String? _exameId;
 
   @override
   void dispose() {
@@ -247,6 +248,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
       };
 
       Navigator.pop(context, {
+        'uuid': _exameId,
         'numero_laudo': _reqController.text.trim(),
         'numero_pic': _picController.text.trim(),
         'numero_bo': _boController.text.trim(),
@@ -363,8 +365,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                         return IconButton(
                           icon: const Icon(Icons.search, size: 20),
                           tooltip: 'Buscar dados por PIC / Protocolo',
-                          onPressed: () {
-                            widget.controller?.buscarDadosIniciais(
+                          onPressed: () async {
+                            final dto = await widget.controller?.buscarDadosIniciais(
                               _picController.text,
                               context: context,
                               requisicaoCtrl: _reqController,
@@ -376,10 +378,18 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                               vitimaCtrl: _vitimaController,
                               forcar: true,
                             );
+                            if (dto != null && dto.exameId != null) {
+                              _exameId = dto.exameId;
+                            }
                           },
                         );
                       },
                     ),
+                    onChanged: (val) {
+                      if (_exameId != null) {
+                        _exameId = null;
+                      }
+                    },
                     validator: (val) {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';

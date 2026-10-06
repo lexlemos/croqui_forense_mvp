@@ -38,7 +38,11 @@ class ProtocoloLookupModel {
   /// Número da Declaração de Óbito (D.O.), se preenchido previamente.
   final String? numeroDeclaracaoObito;
 
+  /// Identificador universal único (UUID) do exame já cadastrado no servidor central.
+  final String? exameId;
+
   const ProtocoloLookupModel({
+    this.exameId,
     this.numeroPic,
     this.numeroRequisicao,
     this.numeroBo,
@@ -73,12 +77,24 @@ class ProtocoloLookupModel {
         ? Map<String, dynamic>.from(map['ocorrencia'] as Map)
         : null;
 
+    final Map<String, dynamic>? exame = map['exame'] is Map
+        ? Map<String, dynamic>.from(map['exame'] as Map)
+        : null;
+
+    final exameIdVal = documento?['id'] ??
+        exame?['id'] ??
+        map['id'] ??
+        map['uuid'] ??
+        map['exame_id'];
+
     final picVal = documento?['protocolo_externo'] ??
+        exame?['pic'] ??
         map['protocolo_externo'] ??
         map['pic'] ??
         map['numero_pic'];
 
     final reqVal = documento?['protocolo_interno'] ??
+        exame?['cd'] ??
         deslocamento?['numero_requisicao'] ??
         map['protocolo_interno'] ??
         map['numero_requisicao'] ??
@@ -134,6 +150,7 @@ class ProtocoloLookupModel {
         map['numero_do'];
 
     return ProtocoloLookupModel(
+      exameId: _asNonEmptyString(exameIdVal),
       numeroPic: _asNonEmptyString(picVal),
       numeroRequisicao: _asNonEmptyString(reqVal),
       numeroBo: _asNonEmptyString(boVal),

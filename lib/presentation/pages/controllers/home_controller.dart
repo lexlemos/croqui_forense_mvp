@@ -9,6 +9,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
+import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
 /// Controlador de apresentação da tela inicial (*Home*), gerenciando busca textual,
@@ -67,7 +68,9 @@ class HomeController extends ChangeNotifier {
   ///
   /// Em caso de falha, o cache `_lastSearchedPic` é liberado para permitir
   /// nova tentativa pela lupa sem precisar alterar o PIC.
-  Future<void> buscarDadosIniciais(
+  /// Realiza a busca inicial de dados pelo PIC e autopreencha os controladores informados.
+  /// Retorna o [ProtocoloLookupModel] recebido ou `null` caso não seja encontrado.
+  Future<ProtocoloLookupModel?> buscarDadosIniciais(
     String pic, {
     required BuildContext context,
     required TextEditingController requisicaoCtrl,
@@ -84,7 +87,7 @@ class HomeController extends ChangeNotifier {
         sanitizedPic.isEmpty ||
         _isFetchingPic ||
         (!forcar && sanitizedPic == _lastSearchedPic)) {
-      return;
+      return null;
     }
 
     _isFetchingPic = true;
@@ -94,7 +97,7 @@ class HomeController extends ChangeNotifier {
     try {
       final dto = await _caseService?.getDadosPorPic(sanitizedPic);
 
-      if (_isDisposed || !context.mounted) return;
+      if (_isDisposed || !context.mounted) return null;
 
       if (dto == null) {
         _lastSearchedPic = '';
@@ -106,7 +109,7 @@ class HomeController extends ChangeNotifier {
             backgroundColor: Colors.orange,
           ),
         );
-        return;
+        return null;
       }
 
       if (boCtrl.text.isEmpty && dto.numeroBo != null) {
@@ -136,6 +139,8 @@ class HomeController extends ChangeNotifier {
       if (vitimaCtrl != null && vitimaCtrl.text.isEmpty && dto.nomeVitima != null) {
         vitimaCtrl.text = dto.nomeVitima!;
       }
+
+      return dto;
     } finally {
       _isFetchingPic = false;
       if (!_isDisposed) notifyListeners();
@@ -160,6 +165,7 @@ class HomeController extends ChangeNotifier {
     );
 
     if (dadosRetornados != null) {
+      final String? uuid = dadosRetornados['uuid'];
       final String numero = dadosRetornados['numero_laudo'] ?? '';
       final String numeroPic = dadosRetornados['numero_pic'] ?? '';
       final String numeroBo = dadosRetornados['numero_bo'] ?? '';
@@ -182,6 +188,7 @@ class HomeController extends ChangeNotifier {
       if (context.mounted) {
         await _criarCaso(
           context: context,
+          uuid: uuid,
           numeroLaudo: numero,
           dadosLaudo: conteudoJson,
           numeroPic: numeroPic,
@@ -226,6 +233,7 @@ class HomeController extends ChangeNotifier {
 
   /// Cria o caso localmente e navega imediatamente para a tela de edição do [CroquiPage].
   Future<void> _criarCaso({
+    String? uuid,
     required BuildContext context,
     required String numeroLaudo,
     required Map<String, dynamic> dadosLaudo,
@@ -244,6 +252,7 @@ class HomeController extends ChangeNotifier {
       final usuario = context.read<AuthProvider>().usuario;
       if (usuario == null) return;
       final novoCaso = await context.read<CaseListProvider>().criarCaso(
+        uuid: uuid,
         criador: usuario,
         numeroLaudo: numeroLaudo,
         dadosIniciais: dadosLaudo,

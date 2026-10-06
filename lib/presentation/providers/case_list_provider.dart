@@ -85,9 +85,10 @@ class CaseListProvider extends ChangeNotifier {
   }
 
   Future<Caso> criarCaso({
+    String? uuid,
     required Usuario criador,
     required String numeroLaudo,
-    required Map<String, dynamic> dadosIniciais,
+    Map<String, dynamic> dadosIniciais = const {},
     required String numeroPic,
     required String numeroBo,
     required String numeroRequisicao,
@@ -100,6 +101,7 @@ class CaseListProvider extends ChangeNotifier {
     required List<String> atnsIds,
   }) async {
     final novoCaso = await _caseService.createNewCase(
+      uuid: uuid,
       criador: criador,
       numeroLaudo: numeroLaudo,
       dadosIniciais: dadosIniciais,

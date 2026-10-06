@@ -87,6 +87,7 @@ class CaseService {
   ///
   /// Throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
   Future<Caso> createNewCase({
+    String? uuid,
     required Usuario criador,
     required String numeroLaudo,
     Map<String, dynamic> dadosIniciais = const {},
@@ -100,7 +101,18 @@ class CaseService {
     String? numeroDeclaracaoObito,
     List<String> atnsIds = const [],
   }) async {
+    if (uuid != null && uuid.isNotEmpty) {
+      final casoExistente = await _repository.getCaseByUuid(uuid);
+      if (casoExistente != null) {
+        debugPrint(
+          '[CaseService] 🔄 Caso com UUID oficial $uuid já existe localmente. Retornando existente sem duplicar.',
+        );
+        return casoExistente;
+      }
+    }
+
     final novoCaso = Caso.novo(
+      uuid: uuid,
       idUsuarioCriador: criador.id,
       numeroLaudoExterno: numeroLaudo,
       dadosLaudo: DadosLaudoModel.fromMap(dadosIniciais),

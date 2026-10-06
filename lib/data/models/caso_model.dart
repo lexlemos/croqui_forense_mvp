@@ -250,6 +250,7 @@ class Caso {
   /// Inicializa o status em [StatusCaso.emAndamento], com versão `1`, `removido = false`
   /// e timestamps de criação e atualização referenciados no momento da chamada.
   Caso.novo({
+    String? uuid,
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
     this.deviceId,
@@ -281,7 +282,7 @@ class Caso {
     this.horaNecropsia,
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
-  }) : uuid = const Uuid().v4(),
+  }) : uuid = (uuid != null && uuid.isNotEmpty) ? uuid : const Uuid().v4(),
        status = StatusCaso.emAndamento,
        hashIntegridade = null,
        removido = false,
