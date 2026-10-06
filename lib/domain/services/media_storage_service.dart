@@ -91,6 +91,25 @@ class MediaStorageService implements IMediaStorageService {
     return null;
   }
 
+  String _getServerBaseUrl() {
+    String? raw;
+    try {
+      raw = _apiClient?.dio.options.baseUrl;
+    } catch (_) {}
+    raw ??= const String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: 'http://192.168.15.88:8000/api/v1/',
+    );
+    var url = raw.trim();
+    if (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    if (url.endsWith('/api/v1')) {
+      url = url.substring(0, url.length - 7);
+    }
+    return url;
+  }
+
   @override
   Future<File?> getLocalMediaFile({
     String? localPath,
@@ -103,39 +122,77 @@ class MediaStorageService implements IMediaStorageService {
       return localFile;
     }
 
-    // 2. Se temos UUID, verifica se o arquivo já existe na pasta evidencias/{uuid}.jpg
     final evidenciasDir = await _getEvidenciasDirectory();
-    if (evidenciaUuid != null && evidenciaUuid.trim().isNotEmpty) {
+
+    // 2. Extrai UUID potencial do caminho local (se for ex: /.../evidencias/<uuid>.jpg)
+    String? extractedUuidFromPath;
+    if (localPath != null && localPath.trim().isNotEmpty) {
+      final nameWithoutExt = p.basenameWithoutExtension(localPath.trim());
+      if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(nameWithoutExt)) {
+        extractedUuidFromPath = nameWithoutExt;
+      }
+    }
+
+    String? effectiveUuid = (evidenciaUuid != null && evidenciaUuid.trim().isNotEmpty)
+        ? evidenciaUuid.trim()
+        : extractedUuidFromPath;
+
+    // 3. Cruzamento SQLite: verifica por uuid de evidência ou achado_uuid
+    if (_dbHelper != null && effectiveUuid != null) {
+      try {
+        final db = await _dbHelper.database;
+        final rows = await db.query(
+          'evidencias_multimidia',
+          columns: ['uuid', 'caminho_arquivo_encriptado'],
+          where: '(uuid = ? OR achado_uuid = ?) AND removido = 0',
+          whereArgs: [effectiveUuid, effectiveUuid],
+          orderBy: 'atualizado_em DESC, criado_em DESC',
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          final row = rows.first;
+          final dbPath = row['caminho_arquivo_encriptado']?.toString();
+          final dbFile = _normalizarArquivoLocal(dbPath);
+          if (dbFile != null) return dbFile;
+
+          final rowUuid = row['uuid']?.toString();
+          if (rowUuid != null && rowUuid.isNotEmpty) {
+            effectiveUuid = rowUuid;
+          }
+        }
+      } catch (e) {
+        debugPrint('[MediaStorageService] Consulta SQLite por evidência: $e');
+      }
+    }
+
+    // 4. Se temos UUID identificado, verifica se o arquivo já existe na pasta evidencias/{uuid}.jpg
+    if (effectiveUuid != null && effectiveUuid.isNotEmpty) {
       final targetFile = File(
-        p.join(evidenciasDir.path, '${evidenciaUuid.trim()}.jpg'),
+        p.join(evidenciasDir.path, '$effectiveUuid.jpg'),
       );
       if (targetFile.existsSync()) {
         return targetFile;
       }
-    }
 
-    // 3. Se não existe localmente, tenta fazer o download via API se houver UUID ou URL
-    if (evidenciaUuid != null && evidenciaUuid.trim().isNotEmpty) {
-      final targetFile = File(
-        p.join(evidenciasDir.path, '${evidenciaUuid.trim()}.jpg'),
-      );
+      // 5. Se não existe no disco local, faz o download via API de mídia
       final downloaded = await _downloadArquivoRemoto(
-        'media/${evidenciaUuid.trim()}.jpg',
+        'media/$effectiveUuid.jpg',
         targetFile,
-        evidenciaUuid: evidenciaUuid.trim(),
+        evidenciaUuid: effectiveUuid,
       );
       if (downloaded != null) return downloaded;
     }
 
+    // 6. Fallback se fornecido fallbackUrl
     if (fallbackUrl != null && fallbackUrl.trim().isNotEmpty) {
-      final String fallbackName = evidenciaUuid != null && evidenciaUuid.trim().isNotEmpty
-          ? '${evidenciaUuid.trim()}.jpg'
+      final String fallbackName = effectiveUuid != null && effectiveUuid.isNotEmpty
+          ? '$effectiveUuid.jpg'
           : p.basename(fallbackUrl.trim());
       final targetFile = File(p.join(evidenciasDir.path, fallbackName));
       final downloaded = await _downloadArquivoRemoto(
         fallbackUrl.trim(),
         targetFile,
-        evidenciaUuid: evidenciaUuid?.trim(),
+        evidenciaUuid: effectiveUuid,
       );
       if (downloaded != null) return downloaded;
     }
@@ -150,8 +207,19 @@ class MediaStorageService implements IMediaStorageService {
   }) async {
     try {
       final dio = _apiClient?.dio ?? Dio();
+      final String fullUrl;
+      if (endpointOuUrl.startsWith('http://') || endpointOuUrl.startsWith('https://')) {
+        fullUrl = endpointOuUrl;
+      } else {
+        final cleanPath = endpointOuUrl.startsWith('/')
+            ? endpointOuUrl.substring(1)
+            : endpointOuUrl;
+        final serverBase = _getServerBaseUrl();
+        fullUrl = '$serverBase/$cleanPath';
+      }
+
       final response = await dio.get<List<int>>(
-        endpointOuUrl,
+        fullUrl,
         options: Options(
           responseType: ResponseType.bytes,
           receiveTimeout: const Duration(seconds: 15),

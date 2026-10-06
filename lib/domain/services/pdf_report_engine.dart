@@ -135,9 +135,24 @@ class PdfReportEngine implements IPdfReportEngine {
       final List<Achado> achadosAtualizados = [];
       for (var a in achados) {
         final path = a.dadosPreenchidos['photo_path']?.toString();
+        EvidenciaMultimidia? evAchado;
+        try {
+          evAchado = caso.evidenciasMultimidia.firstWhere(
+            (e) => e.achadoUuid == a.uuid && !e.removido,
+          );
+        } catch (_) {}
+
+        final bool temFoto =
+            (path != null && path.trim().isNotEmpty) || evAchado != null;
+        if (!temFoto) {
+          // Achado sem foto — não tenta baixar nada e evita 404 desnecessário
+          achadosAtualizados.add(a);
+          continue;
+        }
+
         final file = await _mediaStorageService.getLocalMediaFile(
-          localPath: path,
-          evidenciaUuid: a.uuid,
+          localPath: path ?? evAchado?.caminhoArquivoEncriptado,
+          evidenciaUuid: evAchado?.uuid,
         );
         if (file != null && file.existsSync()) {
           final novosDados = Map<String, dynamic>.from(a.dadosPreenchidos);
