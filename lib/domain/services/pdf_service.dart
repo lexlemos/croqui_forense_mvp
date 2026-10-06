@@ -1348,19 +1348,50 @@ class PdfService {
   ]);
 
   Future<Uint8List> _comprimirBytesIterativamente(File file) async {
-    final rawBytes = await file.readAsBytes();
+    try {
+      final rawBytes = await file.readAsBytes();
+      return _comprimirBytes(rawBytes);
+    } catch (e) {
+      debugPrint('[PdfService] Erro ao ler arquivo para compressão: $e');
+      return _fallbackImageBytes;
+    }
+  }
+
+  Uint8List _comprimirBytes(Uint8List rawBytes) {
     if (rawBytes.lengthInBytes < 500 * 1024) {
-      return rawBytes; // Já é pequeno (500KB)
+      return rawBytes;
     }
 
-    final decoded = img.decodeImage(rawBytes);
-    if (decoded == null) return rawBytes;
+    try {
+      final decoded = img.decodeImage(rawBytes);
+      if (decoded == null) return rawBytes;
 
-    if (decoded.width <= 1200 && decoded.height <= 1200) return rawBytes;
+      if (decoded.width <= 1200 && decoded.height <= 1200) return rawBytes;
 
-    final resized = img.copyResize(decoded, width: 1200, maintainAspect: true);
-    final compressedBytes = img.encodeJpg(resized, quality: 70);
-    return Uint8List.fromList(compressedBytes);
+      final resized = img.copyResize(decoded, width: 1200, maintainAspect: true);
+      final compressedBytes = img.encodeJpg(resized, quality: 70);
+      return Uint8List.fromList(compressedBytes);
+    } catch (_) {
+      return rawBytes;
+    }
+  }
+
+  File? _resolverArquivoLocal(String? rawPath) {
+    if (rawPath == null || rawPath.trim().isEmpty) return null;
+    var clean = rawPath.trim();
+    if (clean.startsWith('file://')) {
+      clean = clean.substring(7);
+    }
+    // Trata URIs codificadas (ex: %20 para espaços)
+    try {
+      clean = Uri.decodeFull(clean);
+    } catch (_) {}
+
+    final f = File(clean);
+    if (f.existsSync()) return f;
+
+    // Em alguns casos do Android, o caminho relativo pode residir sob caminhos normalizados
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> _prepararFotos(
@@ -1368,42 +1399,67 @@ class PdfService {
     List<Achado> achados,
     List<EvidenciaMultimidia> evidenciasGerais,
   ) async {
-    List<Map<String, dynamic>> anexos = [];
+    final List<Map<String, dynamic>> anexos = [];
     int contador = 1;
 
+    // 1. Fotos Gerais do Caso
     for (var ev in evidenciasGerais) {
       final path = ev.caminhoArquivoEncriptado ?? '';
-      if (path.isNotEmpty) {
-        final file = File(path);
-        final bool existe = file.existsSync();
-        final Uint8List bytes = existe
-            ? await _comprimirBytesIterativamente(file)
-            : _fallbackImageBytes;
-        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
-        anexos.add({
-          'numero': contador,
-          'bytes': bytes,
-          'label': 'Fotografia $contador$statusTag - Identificação Geral',
-        });
-        contador++;
+      final file = _resolverArquivoLocal(path);
+      final bool existe = file != null;
+
+      Uint8List bytes = _fallbackImageBytes;
+      if (existe) {
+        bytes = await _comprimirBytesIterativamente(file);
       }
+
+      final String statusTag = existe ? '' : ' [IMAGEM NÃO LOCALIZADA]';
+      anexos.add({
+        'numero': contador,
+        'bytes': bytes,
+        'disponivel': existe,
+        'label': 'Fotografia $contador$statusTag - Identificação Geral',
+      });
+      contador++;
     }
 
+    // Mapeamento auxiliar de evidências por achado_uuid para cruzamento inteligente
+    final todasEvidencias = caso.evidenciasMultimidia;
+    final Map<String, EvidenciaMultimidia> evidenciasPorAchado = {
+      for (var ev in todasEvidencias)
+        if (ev.achadoUuid != null && ev.achadoUuid!.isNotEmpty && !ev.removido)
+          ev.achadoUuid!: ev,
+    };
+
+    // 2. Fotos Específicas de Achados
     for (var a in achados) {
-      final path = a.dadosPreenchidos['photo_path'];
-      if (path != null && path.toString().isNotEmpty) {
-        final file = File(path.toString());
-        final bool existe = file.existsSync();
-        final Uint8List bytes = existe
-            ? await _comprimirBytesIterativamente(file)
-            : _fallbackImageBytes;
-        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
+      String? path = a.dadosPreenchidos['photo_path']?.toString();
+
+      // Cruzamento de fallback: busca na tabela de evidências multimídia se o caminho não estiver no JSON
+      if (path == null || path.trim().isEmpty) {
+        final ev = evidenciasPorAchado[a.uuid];
+        if (ev != null) {
+          path = ev.caminhoArquivoEncriptado;
+        }
+      }
+
+      if (path != null && path.trim().isNotEmpty) {
+        final file = _resolverArquivoLocal(path);
+        final bool existe = file != null;
+
+        Uint8List bytes = _fallbackImageBytes;
+        if (existe) {
+          bytes = await _comprimirBytesIterativamente(file);
+        }
+
+        final String statusTag = existe ? '' : ' [IMAGEM NÃO LOCALIZADA]';
         anexos.add({
           'numero': contador,
           'uuid': a.uuid,
           'bytes': bytes,
+          'disponivel': existe,
           'label':
-              'Fotografia $contador$statusTag - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})',
+              'Fotografia $contador$statusTag - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label'] ?? 'Lesão'})',
         });
         contador++;
       }
@@ -1518,37 +1574,72 @@ class PdfService {
   List<pw.Widget> _buildSecaoFotos(List<Map<String, dynamic>> lista) {
     return lista
         .map(
-          (foto) => pw.Wrap(
-            children: [
-              pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 20, left: 15),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text(
-                      foto['label'],
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 10,
+          (foto) {
+            final bool disponivel = foto['disponivel'] != false;
+            final Uint8List bytes = foto['bytes'] as Uint8List;
+
+            return pw.Wrap(
+              children: [
+                pw.Container(
+                  margin: const pw.EdgeInsets.only(bottom: 20, left: 15),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        foto['label'],
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Container(
-                      height: 400,
-                      width: 350,
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.grey),
+                      pw.SizedBox(height: 5),
+                      pw.Container(
+                        height: 400,
+                        width: 350,
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(
+                            color: disponivel ? PdfColors.grey : PdfColors.amber700,
+                            width: disponivel ? 1 : 1.5,
+                          ),
+                          color: disponivel ? PdfColors.white : PdfColors.grey100,
+                        ),
+                        child: disponivel
+                            ? pw.Image(
+                                pw.MemoryImage(bytes),
+                                fit: pw.BoxFit.contain,
+                              )
+                            : pw.Center(
+                                child: pw.Column(
+                                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                                  children: [
+                                    pw.Text(
+                                      "ARQUIVO FOTOGRÁFICO PENDENTE OU EM SINCRONIZAÇÃO",
+                                      style: pw.TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: pw.FontWeight.bold,
+                                        color: PdfColors.grey800,
+                                      ),
+                                      textAlign: pw.TextAlign.center,
+                                    ),
+                                    pw.SizedBox(height: 8),
+                                    pw.Text(
+                                      "O registro pericial foi autenticado, mas a mídia física não foi localizada no armazenamento local deste dispositivo.",
+                                      style: const pw.TextStyle(
+                                        fontSize: 8,
+                                        color: PdfColors.grey600,
+                                      ),
+                                      textAlign: pw.TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
                       ),
-                      child: pw.Image(
-                        pw.MemoryImage(foto['bytes']),
-                        fit: pw.BoxFit.contain,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
         )
         .toList();
   }
