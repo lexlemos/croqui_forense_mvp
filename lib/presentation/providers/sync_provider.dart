@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
+import 'package:croqui_forense_mvp/core/platform/safe_wakelock.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -33,6 +34,7 @@ enum SyncState {
 /// e recarregamento automático da listagem de laudos.
 class SyncProvider extends ChangeNotifier {
   SyncService _syncService;
+  final IWakelockManager _wakelock;
 
   SyncState _state = SyncState.idle;
   String? _feedbackMessage;
@@ -44,8 +46,12 @@ class SyncProvider extends ChangeNotifier {
 
   static const Duration _kFeedbackDuration = Duration(seconds: 3);
 
-  /// Cria uma nova instância de [SyncProvider].
-  SyncProvider(this._syncService);
+  /// Cria uma nova instância de [SyncProvider], permitindo injetar [wakelockManager]
+  /// para testes ou utilizar [SafeWakelock] por padrão (ADR-0001).
+  SyncProvider(
+    this._syncService, {
+    IWakelockManager? wakelockManager,
+  }) : _wakelock = wakelockManager ?? SafeWakelock();
 
   @override
   void dispose() {
@@ -85,6 +91,7 @@ class SyncProvider extends ChangeNotifier {
 
     _setState(SyncState.loading, feedback: null, error: null);
 
+    await _wakelock.enable();
     try {
       final result = await _syncService.execute();
       _lastResult = result;
@@ -107,6 +114,7 @@ class SyncProvider extends ChangeNotifier {
         error: e.toString().replaceFirst('Exception: ', ''),
       );
     } finally {
+      await _wakelock.disable();
       await Future.delayed(_kFeedbackDuration);
       _setState(SyncState.idle, feedback: null, error: null);
       _isExecuting = false;

@@ -22,6 +22,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_wi
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart'
     show BodyPartDefinition;
+import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/tabs/body_parts_tabs.dart';
 
 class CroquiPage extends StatelessWidget {
@@ -41,6 +42,7 @@ class CroquiPage extends StatelessWidget {
         ctx.read<AchadoRepository>(),
         ctx.read<CasoRepository>(),
         ctx.read<AtnRepository>(),
+        activeCaseLockService: ctx.read<IActiveCaseLockService>(),
         isReadOnly: isReadOnly,
       ),
       child: const _CroquiView(),

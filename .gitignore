@@ -50,5 +50,6 @@ app.*.map.json
 CLAUDE.md
 /docs
 /prompts
+/.agents
 
 sentry.properties

@@ -22,6 +22,7 @@ import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
+import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 
 /// Contrato de repositório local responsável pelas operações de leitura, gravação e integridade
 /// dos [Caso]s (Laudos), [Achado]s e [EvidenciaMultimidia] durante o processo de sincronização.
@@ -275,20 +276,29 @@ class SyncService {
   final ISyncRepository _repository;
   final AuthService? _authService;
   final KeyStorageInterface _keyStorage;
+  final IActiveCaseLockService? _activeCaseLockService;
 
   SyncService({
     required IRemoteDataSource remoteDataSource,
     required ISyncRepository repository,
     AuthService? authService,
     KeyStorageInterface? keyStorage,
+    IActiveCaseLockService? activeCaseLockService,
   }) : _remoteDataSource = remoteDataSource,
        _repository = repository,
        _authService = authService,
-       _keyStorage = keyStorage ?? SecureKeyStorage();
-
+       _keyStorage = keyStorage ?? SecureKeyStorage(),
+       _activeCaseLockService = activeCaseLockService;
 
   final Set<String> _uuidsEmTransito = {};
+  final Set<String> _laudosIgnoradosPorEdicaoAtiva = <String>{};
   bool _isSyncing = false;
+
+  /// Conjunto imutável de identificadores ([Caso.uuid]s) de laudos remotos recebidos
+  /// no ciclo mais recente de Pull que foram ignorados por estarem sob edição ativa
+  /// no dispositivo pelo perito (ADR-0002).
+  Set<String> get laudosIgnoradosPorEdicaoAtiva =>
+      Set.unmodifiable(_laudosIgnoradosPorEdicaoAtiva);
 
   bool _isSessionExpiredError(Object error) {
     if (error is DioException) {
@@ -579,11 +589,23 @@ class SyncService {
       debugPrint(
         '[SyncService] Recebidos ${casosRemotos.length} caso(s) remoto(s) para sincronização local.',
       );
+      _laudosIgnoradosPorEdicaoAtiva.clear();
       String? lastSuccessfulSyncTimestamp;
 
       final payloads = await compute(_parseCasosEmBackground, casosRemotos);
 
       for (final payload in payloads) {
+        final casoUuid = payload.caso.uuid;
+
+        // Proteção contra concorrência: se o laudo estiver em edição ativa na UI, não sobrescreve (ADR-0002).
+        if (_activeCaseLockService != null && _activeCaseLockService.isLocked(casoUuid)) {
+          debugPrint(
+            '[SyncService] ⚠️ Caso $casoUuid está sob edição ativa na UI. Ignorando upsert para evitar sobrescrita (ADR-0002).',
+          );
+          _laudosIgnoradosPorEdicaoAtiva.add(casoUuid);
+          continue;
+        }
+
         try {
           await _repository.upsertCasoTransaction(payload);
           final atualizadoEm = payload.rawJson['atualizado_em']?.toString();

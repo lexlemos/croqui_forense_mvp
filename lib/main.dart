@@ -24,6 +24,7 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_generation_service.dart';
 
@@ -182,6 +183,9 @@ class AppRoot extends StatelessWidget {
           create: (_) => InjuryTypeRepository(dbHelper),
         ),
         Provider<AtnRepository>(create: (_) => AtnRepository(dbHelper)),
+        Provider<IActiveCaseLockService>(
+          create: (_) => ActiveCaseLockService(),
+        ),
 
         Provider<ApiClient>(create: (_) => ApiClient(keyStorage)),
         Provider<IRemoteDataSource>(
@@ -222,16 +226,18 @@ class AppRoot extends StatelessWidget {
                 atnRepository: atnRepo,
               ),
         ),
-        ProxyProvider3<
+        ProxyProvider4<
           IRemoteDataSource,
           CasoRepository,
           AuthService,
+          IActiveCaseLockService,
           SyncService
         >(
-          update: (_, remoteDS, casoRepo, authService, __) => SyncService(
+          update: (_, remoteDS, casoRepo, authService, lockService, __) => SyncService(
             remoteDataSource: remoteDS,
             repository: casoRepo,
             authService: authService,
+            activeCaseLockService: lockService,
           ),
         ),
         Provider<PdfGenerationService>(create: (_) => PdfGenerationService()),

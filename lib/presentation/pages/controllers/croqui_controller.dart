@@ -20,6 +20,7 @@ import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
@@ -90,6 +91,7 @@ class CroquiController extends ChangeNotifier {
   final AchadoRepository _achadoRepository;
   final CasoRepository _casoRepository;
   final AtnRepository _atnRepository;
+  final IActiveCaseLockService? _activeCaseLockService;
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -160,8 +162,11 @@ class CroquiController extends ChangeNotifier {
     this._achadoRepository,
     this._casoRepository,
     this._atnRepository, {
+    IActiveCaseLockService? activeCaseLockService,
     bool? isReadOnly,
-  }) : _isReadOnlyInput = isReadOnly {
+  }) : _activeCaseLockService = activeCaseLockService,
+       _isReadOnlyInput = isReadOnly {
+    _activeCaseLockService?.acquireLock(casoAtual.uuid);
     scheduleMicrotask(() => _loadAchados());
     _initControllers();
   }
@@ -286,9 +291,9 @@ class CroquiController extends ChangeNotifier {
   ///
   /// **Atenção: roda na UI thread.**
   Future<void> _loadAchados() async {
-    if (isLoading) return;
+    if (isLoading || _isDisposed) return;
     isLoading = true;
-    notifyListeners();
+    if (!_isDisposed) notifyListeners();
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
@@ -305,7 +310,7 @@ class CroquiController extends ChangeNotifier {
       atns = await _atnRepository.getAtns();
     } finally {
       isLoading = false;
-      notifyListeners();
+      if (!_isDisposed) notifyListeners();
     }
   }
 
@@ -1399,6 +1404,7 @@ class CroquiController extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _autoSaveTimer?.cancel();
+    _activeCaseLockService?.releaseLock(casoAtual.uuid);
 
     // Sincroniza os controllers de texto com o casoAtual ANTES de liberar
     // os recursos e sem chamar notifyListeners (pois estamos no dispose).
