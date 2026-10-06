@@ -174,6 +174,9 @@ class CroquiController extends ChangeNotifier {
   /// Motor vetorial de PDF injetado no controller.
   IPdfReportEngine get pdfEngine => _pdfEngine;
 
+  /// Repositório de persistência de casos periciais (compatibilidade retroativa).
+  CasoRepository get casoRepository => _casoRepository;
+
   /// Serviço coordenador do ciclo de vida e conclusões do caso pericial.
   ICaseLifecycleService get lifecycleService => _lifecycleService;
 
@@ -196,14 +199,14 @@ class CroquiController extends ChangeNotifier {
     try {
       achados = await _achadoService.listarAchados(casoAtual.uuid);
       evidenciasGerais = await _caseService.getEvidenciasGerais(casoAtual.uuid);
-      final todasEvidencias = await _casoRepository.getEvidenciasPorCaso(
+      final todasEvidencias = await _caseService.getEvidenciasPorCaso(
         casoAtual.uuid,
       );
       casoAtual = casoAtual.copyWith(evidenciasMultimidia: todasEvidencias);
       examesSolicitados = await _caseService.getExamesSolicitados(
         casoAtual.uuid,
       );
-      examesSolicitadosModel = await _casoRepository.getExamesPorCaso(
+      examesSolicitadosModel = await _caseService.getExamesPorCaso(
         casoAtual.uuid,
       );
       atns = await _atnRepository.getAtns();
@@ -257,7 +260,7 @@ class CroquiController extends ChangeNotifier {
     }
 
     examesSolicitadosModel = exames;
-    await _casoRepository.salvarExames(casoAtual.uuid, exames);
+    await _caseService.salvarExames(casoAtual.uuid, exames);
 
     // A MÁGICA DE VERSÃO FICA AQUI:
     // Suja o caso matriz para o backend saber que o pacote de exames mudou

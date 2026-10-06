@@ -9,7 +9,6 @@ import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart'
     as em;
-import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
@@ -47,7 +46,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           achadoService.listarAchados(widget.caso.uuid),
           caseService.getEvidenciasGerais(widget.caso.uuid),
           caseService.getExamesSolicitados(widget.caso.uuid),
-          context.read<CasoRepository>().getExamesPorCaso(widget.caso.uuid),
+          caseService.getExamesPorCaso(widget.caso.uuid),
         ]).then((results) {
           return {
             'achados': results[0] as List<Achado>,

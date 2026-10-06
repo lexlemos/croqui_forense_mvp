@@ -54,9 +54,13 @@ void main() {
           .thenAnswer((_) async => []);
       when(() => mockCaseService.getEvidenciasGerais(any()))
           .thenAnswer((_) async => []);
+      when(() => mockCaseService.getEvidenciasPorCaso(any()))
+          .thenAnswer((_) async => []);
       when(() => mockCasoRepository.getEvidenciasPorCaso(any()))
           .thenAnswer((_) async => []);
       when(() => mockCaseService.getExamesSolicitados(any()))
+          .thenAnswer((_) async => []);
+      when(() => mockCaseService.getExamesPorCaso(any()))
           .thenAnswer((_) async => []);
       when(() => mockCasoRepository.getExamesPorCaso(any()))
           .thenAnswer((_) async => []);

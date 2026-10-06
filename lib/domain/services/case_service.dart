@@ -9,6 +9,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
@@ -100,6 +101,7 @@ class CaseService {
     String? delegaciaSolicitante,
     String? numeroDeclaracaoObito,
     List<String> atnsIds = const [],
+    List<EvidenciaMultimidia> evidencias = const [],
   }) async {
     if (uuid != null && uuid.isNotEmpty) {
       final casoExistente = await _repository.getCaseByUuid(uuid);
@@ -126,7 +128,11 @@ class CaseService {
       numeroDeclaracaoObito: numeroDeclaracaoObito,
       atnsIds: atnsIds,
     );
-    await _repository.insertCase(novoCaso);
+    if (evidencias.isNotEmpty) {
+      await _repository.insertCaseComEvidenciasLote(novoCaso, evidencias);
+    } else {
+      await _repository.insertCase(novoCaso);
+    }
     return novoCaso;
   }
 
@@ -231,6 +237,35 @@ class CaseService {
       geneticaLacre: geneticaLacre,
       outrosLacre: outrosLacre,
     );
+  }
+
+  /// Executa o expurgo de laudos antigos finalizados no banco local SQLite (retenção forense > 15 dias).
+  ///
+  /// Garante que o armazenamento local não se esgote, mantendo a integridade de laudos em andamento.
+  Future<void> expurgarCasosAntigos() => _repository.expurgarCasosAntigos();
+
+  /// Recupera todas as evidências multimídia associadas a um laudo (tanto gerais quanto de lesões).
+  Future<List<EvidenciaMultimidia>> getEvidenciasPorCaso(String casoUuid) =>
+      _repository.getEvidenciasPorCaso(casoUuid);
+
+  /// Recupera a lista completa e estruturada de exames complementares solicitados ([ExameSolicitadoModel]).
+  Future<List<ExameSolicitadoModel>> getExamesPorCaso(String casoUuid) =>
+      _repository.getExamesPorCaso(casoUuid);
+
+  /// Salva ou atualiza a coleção completa de exames complementares ([ExameSolicitadoModel]).
+  ///
+  /// Throws [Exception] caso o laudo já esteja finalizado.
+  Future<void> salvarExames(
+    String casoUuid,
+    List<ExameSolicitadoModel> exames,
+  ) async {
+    final caso = await _repository.getCaseByUuid(casoUuid);
+    if (caso != null && caso.status == StatusCaso.finalizado) {
+      throw Exception(
+        'Segurança Jurídica: Este laudo já está finalizado e é imutável.',
+      );
+    }
+    await _repository.salvarExames(casoUuid, exames);
   }
 
   /// Reabre um [Caso] (Laudo) finalizado, restaurando seu status para rascunho.

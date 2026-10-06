@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/home/new_case_dialog.dart';
@@ -31,14 +30,13 @@ class HomeController extends ChangeNotifier {
   /// Inicializa os listeners de busca e dispara a rotina assíncrona de expurgo de laudos antigos em background.
   void init(BuildContext context) {
     _caseService = context.read<CaseService>();
-    final casoRepo = context.read<CasoRepository>();
     searchController.addListener(() {
       context.read<CaseListProvider>().setSearchQuery(searchController.text);
     });
 
     Future.microtask(() async {
       try {
-        await casoRepo.expurgarCasosAntigos();
+        await _caseService?.expurgarCasosAntigos();
       } catch (e, stackTrace) {
         debugPrint(
           '[HomeController] ❌ Erro ao disparar expurgo em background: $e\n$stackTrace',
