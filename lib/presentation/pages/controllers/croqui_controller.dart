@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
@@ -12,13 +10,11 @@ import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
-import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
-import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
@@ -48,28 +44,11 @@ import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart'
     as trunk_left;
 import 'package:croqui_forense_mvp/core/constants/perineal_data.dart'
     as perineal;
+import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_form_coordinator.dart';
 
-/// Agrupa os [TextEditingController]s correspondentes a uma cadeia de causa mortis
-/// forense (imediata, devida a e consequência de).
-class CausaMorteControllers {
-  final TextEditingController imediataCtrl;
-  final TextEditingController devidoACtrl;
-  final TextEditingController consequenciaCtrl;
-
-  CausaMorteControllers({
-    String imediata = '',
-    String devidoA = '',
-    String consequencia = '',
-  }) : imediataCtrl = TextEditingController(text: imediata),
-       devidoACtrl = TextEditingController(text: devidoA),
-       consequenciaCtrl = TextEditingController(text: consequencia);
-
-  void dispose() {
-    imediataCtrl.dispose();
-    devidoACtrl.dispose();
-    consequenciaCtrl.dispose();
-  }
-}
+export 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_form_coordinator.dart'
+    show CausaMorteControllers;
 
 /// Gerenciador de estado principal da interface de necrópsia digital e croqui forense.
 ///
@@ -80,9 +59,8 @@ class CausaMorteControllers {
 /// - Vínculos de cadeia de custódia e projéteis balísticos ([BalisticaModel]).
 /// - Gestão de exames complementares solicitados ([ExameSolicitadoModel]).
 /// - Atribuição de técnicos/auxiliares de necrópsia ([AtnModel]).
-/// - Registro de tanatologia, histórico policial, vestes e quesitos periciais.
-/// - Estratégia Offline-First: Debounce de AutoSave local (1000ms), controle de concorrência
-///   otimista (OCC) com incremento da propriedade [Caso.versao], e sincronização em segundo plano.
+/// - Delegação de formulários e auto-save para [CroquiFormCoordinator].
+/// - Delegação de ciclo de vida e conclusões de laudo para [ICaseLifecycleService].
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
@@ -92,6 +70,7 @@ class CroquiController extends ChangeNotifier {
   final AtnRepository _atnRepository;
   final IActiveCaseLockService? _activeCaseLockService;
   final IPdfReportEngine _pdfEngine;
+  final ICaseLifecycleService _lifecycleService;
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -119,38 +98,40 @@ class CroquiController extends ChangeNotifier {
       casoAtual.status == StatusCaso.finalizado ||
       casoAtual.status == StatusCaso.sincronizado;
 
-  // Form text controllers
-  late final TextEditingController numeroLaudoCtrl;
-  late final TextEditingController boCtrl;
-  late final TextEditingController picCtrl;
-  late final TextEditingController reqOrigemCtrl;
-  late final TextEditingController reqDestinoCtrl;
-  late final TextEditingController nomeVitimaCtrl;
-  late final TextEditingController historicoCtrl;
-  late final TextEditingController vestesCtrl;
-  late final TextEditingController caracteristicasCtrl;
-  late final TextEditingController tanatoImediatoCtrl;
-  late final TextEditingController tanatoConsecutivoCtrl;
-  late final TextEditingController tanatoObservacaoCtrl;
-  late final TextEditingController discussaoCtrl;
-  late final TextEditingController conclusaoCtrl;
-  late final TextEditingController quesito1Ctrl;
-  List<CausaMorteControllers> causasMorteCtrls = [];
-  late final TextEditingController quesito3Ctrl;
-  late final TextEditingController quesito4Ctrl;
+  late final CroquiFormCoordinator formCoordinator;
 
-  late final TextEditingController numeroDeclaracaoObitoCtrl;
-  late final TextEditingController dataObitoCtrl;
-  late final TextEditingController horaObitoCtrl;
-  late final TextEditingController tipoEstimativaHoraObitoCtrl;
-  late final TextEditingController sexoBiologicoEstimadoCtrl;
-  late final TextEditingController corpoEstadoCtrl;
-  late final TextEditingController corpoEstadoOutrosCtrl;
-  late final TextEditingController delegaciaSolicitanteCtrl;
+  TextEditingController get numeroLaudoCtrl => formCoordinator.numeroLaudoCtrl;
+  TextEditingController get boCtrl => formCoordinator.boCtrl;
+  TextEditingController get picCtrl => formCoordinator.picCtrl;
+  TextEditingController get reqOrigemCtrl => formCoordinator.reqOrigemCtrl;
+  TextEditingController get delegaciaSolicitanteCtrl => formCoordinator.delegaciaSolicitanteCtrl;
+  TextEditingController get reqDestinoCtrl => formCoordinator.reqDestinoCtrl;
+  TextEditingController get nomeVitimaCtrl => formCoordinator.nomeVitimaCtrl;
 
-  /// Atualiza o campo descritivo do estado de conservação do cadáver.
+  TextEditingController get numeroDeclaracaoObitoCtrl => formCoordinator.numeroDeclaracaoObitoCtrl;
+  TextEditingController get dataObitoCtrl => formCoordinator.dataObitoCtrl;
+  TextEditingController get horaObitoCtrl => formCoordinator.horaObitoCtrl;
+  TextEditingController get tipoEstimativaHoraObitoCtrl => formCoordinator.tipoEstimativaHoraObitoCtrl;
+  TextEditingController get sexoBiologicoEstimadoCtrl => formCoordinator.sexoBiologicoEstimadoCtrl;
+  TextEditingController get corpoEstadoCtrl => formCoordinator.corpoEstadoCtrl;
+  TextEditingController get corpoEstadoOutrosCtrl => formCoordinator.corpoEstadoOutrosCtrl;
+
+  TextEditingController get historicoCtrl => formCoordinator.historicoCtrl;
+  TextEditingController get vestesCtrl => formCoordinator.vestesCtrl;
+  TextEditingController get caracteristicasCtrl => formCoordinator.caracteristicasCtrl;
+  TextEditingController get tanatoImediatoCtrl => formCoordinator.tanatoImediatoCtrl;
+  TextEditingController get tanatoConsecutivoCtrl => formCoordinator.tanatoConsecutivoCtrl;
+  TextEditingController get tanatoObservacaoCtrl => formCoordinator.tanatoObservacaoCtrl;
+
+  TextEditingController get discussaoCtrl => formCoordinator.discussaoCtrl;
+  TextEditingController get conclusaoCtrl => formCoordinator.conclusaoCtrl;
+  TextEditingController get quesito1Ctrl => formCoordinator.quesito1Ctrl;
+  List<CausaMorteControllers> get causasMorteCtrls => formCoordinator.causasMorteCtrls;
+  TextEditingController get quesito3Ctrl => formCoordinator.quesito3Ctrl;
+  TextEditingController get quesito4Ctrl => formCoordinator.quesito4Ctrl;
+
   void setCorpoEstado(String value) {
-    corpoEstadoCtrl.text = value;
+    formCoordinator.setCorpoEstado(value);
     notifyListeners();
   }
 
@@ -164,124 +145,40 @@ class CroquiController extends ChangeNotifier {
     this._atnRepository, {
     IActiveCaseLockService? activeCaseLockService,
     IPdfReportEngine? pdfEngine,
+    ICaseLifecycleService? lifecycleService,
     bool? isReadOnly,
   }) : _activeCaseLockService = activeCaseLockService,
        _pdfEngine = pdfEngine ?? PdfReportEngine(),
+       _lifecycleService = lifecycleService ??
+           CaseLifecycleService(
+             caseService: _caseService,
+             pdfEngine: pdfEngine ?? PdfReportEngine(),
+           ),
        _isReadOnlyInput = isReadOnly {
+    formCoordinator = CroquiFormCoordinator(casoAtual);
     _activeCaseLockService?.acquireLock(casoAtual.uuid);
     scheduleMicrotask(() => _loadAchados());
-    _initControllers();
   }
 
-  /// Inicializa os controladores de formulário a partir dos dados do [casoAtual].
-  ///
-  /// **Atenção: roda na UI thread.**
-  void _initControllers() {
-    final caso = casoAtual;
-    final dados = caso.dadosLaudo;
-
-    numeroLaudoCtrl = TextEditingController(
-      text: caso.numeroRequisicao.isNotEmpty
-          ? caso.numeroRequisicao
-          : (caso.numeroLaudoExterno ?? ''),
-    );
-    boCtrl = TextEditingController(text: caso.numeroBo);
-    picCtrl = TextEditingController(text: caso.numeroPic);
-    reqOrigemCtrl = TextEditingController(text: caso.requisitante);
-    delegaciaSolicitanteCtrl = TextEditingController(
-      text: caso.delegaciaSolicitante ?? '',
-    );
-    reqDestinoCtrl = TextEditingController(text: caso.destino);
-    nomeVitimaCtrl = TextEditingController(text: caso.nomeVitima);
-
-    numeroDeclaracaoObitoCtrl = TextEditingController(
-      text: caso.numeroDeclaracaoObito ?? '',
-    );
-    dataObitoCtrl = TextEditingController(text: caso.dataObito ?? '');
-    horaObitoCtrl = TextEditingController(text: caso.horaObito ?? '');
-    tipoEstimativaHoraObitoCtrl = TextEditingController(
-      text: caso.tipoEstimativaHoraObito ?? '',
-    );
-    sexoBiologicoEstimadoCtrl = TextEditingController(
-      text: caso.sexoBiologicoEstimado ?? '',
-    );
-    corpoEstadoCtrl = TextEditingController(text: caso.corpoEstado ?? '');
-    corpoEstadoOutrosCtrl = TextEditingController(
-      text: caso.corpoEstadoOutros ?? '',
-    );
-
-    historicoCtrl = TextEditingController(
-      text: dados.identificacao.historico.isNotEmpty
-          ? dados.identificacao.historico
-          : "Consta em Boletim de Ocorrência de número ${caso.numeroBo} que às XX horas do dia XX de XXX do corrente ano. O fato descrito teria ocorrido na localidade conhecida como XXX.",
-    );
-
-    vestesCtrl = TextEditingController(
-      text: dados.identificacao.vestes.isNotEmpty
-          ? dados.identificacao.vestes
-          : 'Despido no momento da necrópsia.',
-    );
-    caracteristicasCtrl = TextEditingController(
-      text: dados.caracteristicas.identificacao.isNotEmpty
-          ? dados.caracteristicas.identificacao
-          : 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.',
-    );
-    tanatoImediatoCtrl = TextEditingController(
-      text: dados.caracteristicas.tanatoImediato.isNotEmpty
-          ? dados.caracteristicas.tanatoImediato
-          : 'XXX',
-    );
-    tanatoConsecutivoCtrl = TextEditingController(
-      text: dados.caracteristicas.tanatoConsecutivo.isNotEmpty
-          ? dados.caracteristicas.tanatoConsecutivo
-          : 'XXX',
-    );
-    tanatoObservacaoCtrl = TextEditingController(
-      text: dados.caracteristicas.tanatoObservacao.isNotEmpty
-          ? dados.caracteristicas.tanatoObservacao
-          : 'XXX',
-    );
-
-    discussaoCtrl = TextEditingController(text: dados.conclusao.discussao);
-    conclusaoCtrl = TextEditingController(text: dados.conclusao.conclusaoTexto);
-
-    quesito1Ctrl = TextEditingController(text: dados.conclusao.quesito1Morte);
-
-    if (caso.causaMorte != null && caso.causaMorte!.isNotEmpty) {
-      causasMorteCtrls = caso.causaMorte!.map((cm) {
-        return CausaMorteControllers(
-          imediata: cm.imediata,
-          devidoA: cm.devidoA,
-          consequencia: cm.consequencia,
-        );
-      }).toList();
-    } else {
-      // Fallback para o antigo formato
-      String causaAntiga = dados.conclusao.quesito2Causa;
-      causasMorteCtrls = [CausaMorteControllers(imediata: causaAntiga)];
-    }
-
-    quesito3Ctrl = TextEditingController(
-      text: dados.conclusao.quesito3Instrumento,
-    );
-    quesito4Ctrl = TextEditingController(text: dados.conclusao.quesito4Meio);
-  }
-
-  /// Adiciona uma nova linha de causa mortis ao formulário.
   void adicionarCausaMorte() {
-    causasMorteCtrls.add(CausaMorteControllers());
+    formCoordinator.adicionarCausaMorte();
     notifyListeners();
   }
 
-  /// Remove a linha de causa mortis especificada por [index], mantendo ao menos uma ativa.
   void removerCausaMorte(int index) {
-    if (causasMorteCtrls.length > 1) {
-      causasMorteCtrls[index].dispose();
-      causasMorteCtrls.removeAt(index);
-      notifyListeners();
-      scheduleAutoSave();
-    }
+    formCoordinator.removerCausaMorte(index);
+    notifyListeners();
+    scheduleAutoSave();
   }
+
+  /// Motor vetorial de PDF injetado no controller.
+  IPdfReportEngine get pdfEngine => _pdfEngine;
+
+  /// Serviço coordenador do ciclo de vida e conclusões do caso pericial.
+  ICaseLifecycleService get lifecycleService => _lifecycleService;
+
+  /// Valida se todos os quesitos obrigatórios foram respondidos no laudo.
+  bool validarCamposObrigatorios() => formCoordinator.validarCamposObrigatorios();
 
   /// Gera um UUID v4 determinístico baseado em UUID v5 com formato compatível com o backend.
   String _toDeterministicUuidV4(String namespace, String name) {
@@ -917,15 +814,7 @@ class CroquiController extends ChangeNotifier {
   /// Processa a transição de estado para [StatusCaso.laudoPendente], disparando push em background.
   Future<void> _processarDeixarPendente(BuildContext context) async {
     try {
-      final now = DateTime.now();
-      final casoAtualizado = casoAtual.copyWith(
-        status: StatusCaso.laudoPendente,
-        atualizadoEm: now,
-        isDraftSynced: false,
-        versao: casoAtual.versao + 1,
-      );
-
-      await _caseService.salvarRascunho(casoAtualizado);
+      final casoAtualizado = await _lifecycleService.markPending(casoAtual);
       casoAtual = casoAtualizado;
       notifyListeners();
 
@@ -933,13 +822,6 @@ class CroquiController extends ChangeNotifier {
         "Exame finalizado. Laudo mantido em andamento.",
         color: Colors.orange[800],
       );
-
-      if (context.mounted) {
-        final syncService = Provider.of<SyncService>(context, listen: false);
-        syncService.pushCasoRascunho(casoAtual).catchError((e) {
-          debugPrint('[CroquiController] Erro no push em background: $e');
-        });
-      }
     } catch (e) {
       _snack("Erro ao salvar status pendente: $e", color: Colors.red);
     }
@@ -949,8 +831,7 @@ class CroquiController extends ChangeNotifier {
   ///
   /// **Atenção: roda na UI thread.**
   ///
-  /// Invoca [PdfReportService.gerarLaudoPdf] para construção do documento, grava o arquivo
-  /// no armazenamento local e despacha o laudo assinado para a fila de sincronização via [SyncService].
+  /// Delega a compilação do documento, assinatura e agendamento de sincronização para [ICaseLifecycleService].
   Future<void> _processarConcluirLaudoAgora(BuildContext context) async {
     // 1. Exibe indicador de carregamento bloqueante
     showDialog(
@@ -978,59 +859,30 @@ class CroquiController extends ChangeNotifier {
         throw Exception("Usuário não autenticado.");
       }
 
-      await _caseService.salvarRascunho(casoAtual);
-
-      // 2. Geração e gravação física do PDF oficial do laudo em background Isolate
-      final pdfFile = await _pdfEngine.generatePdfFile(
-        casoAtual,
+      final casoFinalizado = await _lifecycleService.concludeCase(
+        caso: casoAtual,
+        perito: usuarioLogado,
         achados: achados,
-        options: PdfReportOptions(
-          perito: usuarioLogado,
-          exames: examesSolicitados,
-          examesModel: examesSolicitadosModel,
-          evidenciasGerais: evidenciasGerais,
-          caseService: _caseService,
-        ),
-      );
-      final pdfFilePath = pdfFile.path;
-
-      // 3. Mudar status para FINALIZADO e gravar pdfLocalPath
-      final now = DateTime.now();
-      final casoFinalizado = casoAtual.copyWith(
-        status: StatusCaso.finalizado,
-        pdfLocalPath: pdfFilePath,
-        finalizadoEm: now,
-        atualizadoEm: now,
-        isDraftSynced: false,
-        versao: casoAtual.versao + 1,
+        examesModel: examesSolicitadosModel,
+        exames: examesSolicitados,
+        evidenciasGerais: evidenciasGerais,
       );
 
-      // 5. Salva no SQLite
-      await _caseService.salvarRascunho(casoFinalizado);
       casoAtual = casoFinalizado;
       notifyListeners();
 
-      // Dispara o push via SyncService (que usará pdfLocalPath para codificar em Base64 no Isolate)
       if (context.mounted) {
-        final syncService = Provider.of<SyncService>(context, listen: false);
-        syncService.pushCasoRascunho(casoFinalizado).catchError((e) {
-          debugPrint('[CroquiController] Erro no push do caso finalizado: $e');
-        });
-
-        // 6. Fecha o loading
         Navigator.pop(context);
         _snack(
           "Laudo concluído com sucesso e PDF gerado!",
           color: Colors.green,
         );
-
-        // Fecha a tela do croqui retornando para a biblioteca
         Navigator.pop(context);
       }
     } catch (e) {
       debugPrint("Erro ao concluir laudo programaticamente: $e");
       if (context.mounted) {
-        Navigator.pop(context); // Fecha dialog de loading em erro
+        Navigator.pop(context);
       }
       _snack("Erro ao concluir laudo: ${e.toString()}", color: Colors.red);
     }
@@ -1039,19 +891,8 @@ class CroquiController extends ChangeNotifier {
   /// Reabre um laudo pericial finalizado para edição corretiva autorizada.
   Future<void> reabrirCaso(BuildContext context) async {
     try {
-      await _caseService.reabrirCaso(casoAtual.uuid);
-      final casoAtualizado = await _caseService.buscarCasoPorUuid(
-        casoAtual.uuid,
-      );
-      if (casoAtualizado != null) {
-        casoAtual = casoAtualizado;
-      } else {
-        casoAtual = casoAtual.copyWith(
-          status: StatusCaso.emAndamento,
-          atualizadoEm: DateTime.now(),
-          versao: casoAtual.versao + 1,
-        );
-      }
+      final casoAtualizado = await _lifecycleService.reopenCase(casoAtual.uuid);
+      casoAtual = casoAtualizado;
       await _loadAchados();
       notifyListeners();
       _snack("Edição habilitada.");
@@ -1091,7 +932,6 @@ class CroquiController extends ChangeNotifier {
 
     _snack("Gerando laudo PDF oficial...");
 
-    File? tempPdfFile;
     try {
       if (!isReadOnly) {
         await _caseService.salvarRascunho(casoAtual);
@@ -1102,31 +942,15 @@ class CroquiController extends ChangeNotifier {
         for (var t in injuryTypes) t.id: t.schemaFormulario,
       };
 
-      final tempDir = await getTemporaryDirectory();
-      final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero')
-          .replaceAll('/', '-');
-      tempPdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
-
-      await _pdfEngine.generatePdfFile(
-        casoAtual,
+      await _lifecycleService.shareTemporaryReport(
+        caso: casoAtual,
+        perito: usuarioLogado,
         achados: achados,
-        destinationFile: tempPdfFile,
-        options: PdfReportOptions(
-          perito: usuarioLogado,
-          schemas: schemas,
-          exames: examesSolicitados,
-          examesModel: examesSolicitadosModel,
-          evidenciasGerais: evidenciasGerais,
-        ),
+        examesModel: examesSolicitadosModel,
+        exames: examesSolicitados,
+        evidenciasGerais: evidenciasGerais,
+        schemas: schemas,
       );
-
-      if (!context.mounted) return;
-      globalMessengerKey.currentState?.hideCurrentSnackBar();
-
-      // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(tempPdfFile.path),
-      ], subject: 'Laudo Pericial PDF - ${casoAtual.numeroLaudoExterno}');
     } catch (e) {
       debugPrint("Erro na exportação do PDF: $e");
       globalMessengerKey.currentState?.hideCurrentSnackBar();
@@ -1137,14 +961,6 @@ class CroquiController extends ChangeNotifier {
         ),
       );
     } finally {
-      if (tempPdfFile != null && tempPdfFile.existsSync()) {
-        try {
-          await tempPdfFile.delete();
-          debugPrint(
-            '[CroquiController] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}',
-          );
-        } catch (_) {}
-      }
       _isProcessing = false;
       notifyListeners();
     }
@@ -1417,35 +1233,7 @@ class CroquiController extends ChangeNotifier {
         !isReadOnly; // Sempre garante que o último estado da memória vai pro banco
 
     // Libera todos os recursos síncronos imediatamente
-    numeroLaudoCtrl.dispose();
-    boCtrl.dispose();
-    picCtrl.dispose();
-    reqOrigemCtrl.dispose();
-    reqDestinoCtrl.dispose();
-    nomeVitimaCtrl.dispose();
-    historicoCtrl.dispose();
-    vestesCtrl.dispose();
-    caracteristicasCtrl.dispose();
-    tanatoImediatoCtrl.dispose();
-    tanatoConsecutivoCtrl.dispose();
-    tanatoObservacaoCtrl.dispose();
-    discussaoCtrl.dispose();
-    conclusaoCtrl.dispose();
-    quesito1Ctrl.dispose();
-    for (var ctrl in causasMorteCtrls) {
-      ctrl.dispose();
-    }
-    quesito3Ctrl.dispose();
-    quesito4Ctrl.dispose();
-
-    numeroDeclaracaoObitoCtrl.dispose();
-    dataObitoCtrl.dispose();
-    horaObitoCtrl.dispose();
-    tipoEstimativaHoraObitoCtrl.dispose();
-    sexoBiologicoEstimadoCtrl.dispose();
-    corpoEstadoCtrl.dispose();
-    corpoEstadoOutrosCtrl.dispose();
-    delegaciaSolicitanteCtrl.dispose();
+    formCoordinator.dispose();
 
     super.dispose();
 
@@ -1471,111 +1259,16 @@ class CroquiController extends ChangeNotifier {
   ]) {
     if (isReadOnly) return;
 
-    final String nomePerito;
-    final String dataFinalizacao;
-    if (authProvider != null) {
-      nomePerito =
-          authProvider.usuario?.nomeCompleto ?? "Perito não identificado";
-      dataFinalizacao = DateTime.now().toIso8601String();
-    } else {
-      nomePerito =
-          casoAtual.dadosLaudo.auditoria.peritoResponsavel ??
-          "Perito não identificado";
-      dataFinalizacao =
-          casoAtual.dadosLaudo.auditoria.dataFinalizacao ??
-          DateTime.now().toIso8601String();
-    }
-
-    final Map<String, dynamic> novosDados = {};
-
-    final nomesAtns = casoAtual.atnsIds
-        .map((id) {
-          final match = atns.where((a) => a.id == id).firstOrNull;
-          return match?.nome ?? id;
-        })
-        .join(", ");
-
-    novosDados['auditoria'] = {
-      'perito_responsavel': nomePerito,
-      'data_finalizacao': dataFinalizacao,
-      'atns_nomes': nomesAtns,
-    };
-
-    novosDados['identificacao'] = {
-      'vestes': vestesCtrl.text,
-      'historico': historicoCtrl.text,
-      'sexo': casoAtual.dadosLaudo.identificacao.sexo,
-    };
-
-    novosDados['caracteristicas'] = {
-      'identificacao': caracteristicasCtrl.text,
-      'tanato_imediato': tanatoImediatoCtrl.text,
-      'tanato_observacao': tanatoObservacaoCtrl.text,
-      'tanato_consecutivo': tanatoConsecutivoCtrl.text,
-    };
-
-    novosDados['conclusao'] = {
-      'discussao': discussaoCtrl.text,
-      'quesito_1_morte': quesito1Ctrl.text,
-      'quesito_3_instrumento': quesito3Ctrl.text,
-      'quesito_4_meio': quesito4Ctrl.text,
-      'conclusao_texto': conclusaoCtrl.text,
-    };
-
-    final String corpoEstOu = corpoEstadoOutrosCtrl.text.trim();
-
-    final now = DateTime.now();
-    final dataNecropsiaFinal =
-        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-    final horaNecropsiaFinal =
-        "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
-
-    final causasMorteList = causasMorteCtrls
-        .map(
-          (ctrl) => CausaMorteModel(
-            imediata: ctrl.imediataCtrl.text,
-            devidoA: ctrl.devidoACtrl.text,
-            consequencia: ctrl.consequenciaCtrl.text,
-          ),
-        )
-        .toList();
-
-    salvarDadosGerais(
-      numeroBo: boCtrl.text,
-      numeroPic: picCtrl.text,
-      numeroRequisicao: numeroLaudoCtrl.text,
-      nomeVitima: nomeVitimaCtrl.text,
-      destino: reqDestinoCtrl.text,
-      requisitante: reqOrigemCtrl.text,
-      delegaciaSolicitante: delegaciaSolicitanteCtrl.text,
-      novosDadosLaudo: DadosLaudoModel.fromMap(novosDados),
-      numeroDeclaracaoObito: numeroDeclaracaoObitoCtrl.text,
-      dataObito: dataObitoCtrl.text,
-      horaObito: horaObitoCtrl.text,
-      tipoEstimativaHoraObito: tipoEstimativaHoraObitoCtrl.text,
-      sexoBiologicoEstimado: sexoBiologicoEstimadoCtrl.text,
-      corpoEstado: corpoEstadoCtrl.text,
-      corpoEstadoOutros: corpoEstOu,
-      dataNecropsia: dataNecropsiaFinal,
-      horaNecropsia: horaNecropsiaFinal,
-      causaMorte: causasMorteList,
-      notify: notify,
+    casoAtual = formCoordinator.extrairCasoAtualizado(
+      casoBase: casoAtual,
+      atns: atns,
+      authProvider: authProvider,
     );
-  }
 
-  /// Valida se os quesitos forenses obrigatórios e cadeias de causa da morte foram devidamente preenchidos.
-  bool validarCamposObrigatorios() {
-    if (quesito1Ctrl.text.trim().length < 3) return false;
-
-    for (var ctrl in causasMorteCtrls) {
-      if (ctrl.imediataCtrl.text.trim().length < 3) return false;
-      if (ctrl.devidoACtrl.text.trim().length < 3) return false;
-      if (ctrl.consequenciaCtrl.text.trim().length < 3) return false;
+    if (notify) {
+      notifyListeners();
+      scheduleAutoSave();
     }
-
-    if (quesito3Ctrl.text.trim().length < 3) return false;
-    if (quesito4Ctrl.text.trim().length < 3) return false;
-    return true;
   }
 
   /// Busca dados burocráticos associados ao número do PIC no serviço remoto.

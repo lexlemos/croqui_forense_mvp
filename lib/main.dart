@@ -28,6 +28,7 @@ import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
 import 'package:croqui_forense_mvp/domain/services/media_storage_service.dart';
+import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -252,6 +253,19 @@ class AppRoot extends StatelessWidget {
           update: (_, mediaService, __) => PdfReportEngine(
             mediaStorageService: mediaService,
           ),
+        ),
+        ProxyProvider3<
+          CaseService,
+          IPdfReportEngine,
+          SyncService,
+          ICaseLifecycleService
+        >(
+          update: (_, caseService, pdfEngine, syncService, __) =>
+              CaseLifecycleService(
+                caseService: caseService,
+                pdfEngine: pdfEngine,
+                syncService: syncService,
+              ),
         ),
         ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
