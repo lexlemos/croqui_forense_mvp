@@ -26,7 +26,7 @@ import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_generation_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -240,7 +240,7 @@ class AppRoot extends StatelessWidget {
             activeCaseLockService: lockService,
           ),
         ),
-        Provider<PdfGenerationService>(create: (_) => PdfGenerationService()),
+        Provider<IPdfReportEngine>(create: (_) => PdfReportEngine()),
         ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, apiClient, previous) {

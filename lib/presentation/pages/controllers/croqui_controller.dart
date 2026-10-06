@@ -17,8 +17,7 @@ import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
@@ -92,6 +91,7 @@ class CroquiController extends ChangeNotifier {
   final CasoRepository _casoRepository;
   final AtnRepository _atnRepository;
   final IActiveCaseLockService? _activeCaseLockService;
+  final IPdfReportEngine _pdfEngine;
 
   Caso casoAtual;
   List<Achado> achados = [];
@@ -163,8 +163,10 @@ class CroquiController extends ChangeNotifier {
     this._casoRepository,
     this._atnRepository, {
     IActiveCaseLockService? activeCaseLockService,
+    IPdfReportEngine? pdfEngine,
     bool? isReadOnly,
   }) : _activeCaseLockService = activeCaseLockService,
+       _pdfEngine = pdfEngine ?? PdfReportEngine(),
        _isReadOnlyInput = isReadOnly {
     _activeCaseLockService?.acquireLock(casoAtual.uuid);
     scheduleMicrotask(() => _loadAchados());
@@ -978,26 +980,21 @@ class CroquiController extends ChangeNotifier {
 
       await _caseService.salvarRascunho(casoAtual);
 
-      final pdfReportService = PdfReportService();
-
-      // 2. Geração automática do PDF em background
-      final pdfBytes = await pdfReportService.gerarLaudoPdf(
-        caso: casoAtual,
+      // 2. Geração e gravação física do PDF oficial do laudo em background Isolate
+      final pdfFile = await _pdfEngine.generatePdfFile(
+        casoAtual,
         achados: achados,
-        perito: usuarioLogado,
-        exames: examesSolicitados,
-        examesModel: examesSolicitadosModel,
-        evidenciasGerais: evidenciasGerais,
+        options: PdfReportOptions(
+          perito: usuarioLogado,
+          exames: examesSolicitados,
+          examesModel: examesSolicitadosModel,
+          evidenciasGerais: evidenciasGerais,
+          caseService: _caseService,
+        ),
       );
+      final pdfFilePath = pdfFile.path;
 
-      // 3. Gravação física do PDF e atualização do pdfLocalPath
-      final pdfFilePath = await pdfReportService.salvarPdfNoDispositivo(
-        caso: casoAtual,
-        pdfBytes: pdfBytes,
-        caseService: _caseService,
-      );
-
-      // 4. Mudar status para FINALIZADO e gravar pdfLocalPath
+      // 3. Mudar status para FINALIZADO e gravar pdfLocalPath
       final now = DateTime.now();
       final casoFinalizado = casoAtual.copyWith(
         status: StatusCaso.finalizado,
@@ -1105,22 +1102,23 @@ class CroquiController extends ChangeNotifier {
         for (var t in injuryTypes) t.id: t.schemaFormulario,
       };
 
-      final pdfBytes = await PdfService().gerarLaudoPdf(
-        caso: casoAtual,
-        achados: achados,
-        perito: usuarioLogado,
-        schemas: schemas,
-        exames: examesSolicitados,
-        examesModel: examesSolicitadosModel,
-        evidenciasGerais: evidenciasGerais,
-      );
-
       final tempDir = await getTemporaryDirectory();
       final String safeNum = (casoAtual.numeroLaudoExterno ?? 'sem-numero')
           .replaceAll('/', '-');
       tempPdfFile = File("${tempDir.path}/laudo_$safeNum.pdf");
 
-      await tempPdfFile.writeAsBytes(pdfBytes, flush: true);
+      await _pdfEngine.generatePdfFile(
+        casoAtual,
+        achados: achados,
+        destinationFile: tempPdfFile,
+        options: PdfReportOptions(
+          perito: usuarioLogado,
+          schemas: schemas,
+          exames: examesSolicitados,
+          examesModel: examesSolicitadosModel,
+          evidenciasGerais: evidenciasGerais,
+        ),
+      );
 
       if (!context.mounted) return;
       globalMessengerKey.currentState?.hideCurrentSnackBar();

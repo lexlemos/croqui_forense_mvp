@@ -11,12 +11,11 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 
-/// Fachada (Facade) de geração e persistência de PDFs do laudo cadavérico.
+/// Fachada (Facade) legada de geração e persistência de PDFs do laudo cadavérico.
 ///
-/// Encapsula o motor de renderização gráfica em background Isolate ([PdfService])
-/// e a camada de gerenciamento de arquivos e sanitização de storage ([PdfReportService]).
-/// Permite que os controllers e telas coordenem a exportação e visualização sem
-/// acoplamento direto às complexidades de I/O e Isolates.
+/// @deprecated Utilize [IPdfReportEngine] e [PdfReportEngine] para operações de compilação
+/// e persistência vetorial de laudos com opções unificadas.
+@Deprecated('Use IPdfReportEngine / PdfReportEngine ao invés de PdfGenerationService')
 class PdfGenerationService {
   final PdfService _pdfService;
   final PdfReportService _reportService;

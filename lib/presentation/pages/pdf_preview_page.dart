@@ -13,7 +13,7 @@ import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
 
 /// Tela de visualização e conferência prévia do Laudo Pericial em PDF.
 ///
@@ -106,28 +106,22 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             return const Center(child: Text('Perito não autenticado.'));
           }
 
-          final reportService = PdfReportService();
+          final engine = context.read<IPdfReportEngine>();
+          final caseService = context.read<CaseService>();
 
           return PdfPreview(
             build: (format) async {
-              final pdfBytes = await reportService.gerarLaudoPdf(
-                caso: widget.caso,
+              return await engine.generatePdfBytes(
+                widget.caso,
                 achados: achados,
-                perito: perito,
-                exames: exames,
-                examesModel: examesModel,
-                evidenciasGerais: evidenciasGerais,
-              );
-
-              if (context.mounted) {
-                final caseService = context.read<CaseService>();
-                await reportService.salvarPdfNoDispositivo(
-                  caso: widget.caso,
-                  pdfBytes: pdfBytes,
+                options: PdfReportOptions(
+                  perito: perito,
+                  exames: exames,
+                  examesModel: examesModel,
+                  evidenciasGerais: evidenciasGerais,
                   caseService: caseService,
-                );
-              }
-              return pdfBytes;
+                ),
+              );
             },
             maxPageWidth: 700,
             dpi: 72,
