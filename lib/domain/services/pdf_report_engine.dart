@@ -9,6 +9,7 @@ import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
+import 'package:croqui_forense_mvp/domain/services/media_storage_service.dart';
 
 /// Opções de configuração e renderização visual para a emissão do laudo em PDF.
 class PdfReportOptions {
@@ -72,12 +73,15 @@ abstract interface class IPdfReportEngine {
 class PdfReportEngine implements IPdfReportEngine {
   final PdfService _pdfService;
   final PdfReportService _reportService;
+  final IMediaStorageService? _mediaStorageService;
 
   PdfReportEngine({
     PdfService? pdfService,
     PdfReportService? reportService,
+    IMediaStorageService? mediaStorageService,
   }) : _pdfService = pdfService ?? PdfService(),
-       _reportService = reportService ?? PdfReportService();
+       _reportService = reportService ?? PdfReportService(),
+       _mediaStorageService = mediaStorageService;
 
   Usuario _obterPeritoPadrao(Caso caso, Usuario? peritoInformado) {
     if (peritoInformado != null) return peritoInformado;
@@ -107,7 +111,44 @@ class PdfReportEngine implements IPdfReportEngine {
   }) async {
     final perito = _obterPeritoPadrao(caso, options.perito);
     final examesModel = options.examesModel ?? caso.exames;
-    final evidenciasGerais = options.evidenciasGerais ?? caso.evidenciasMultimidia;
+    var evidenciasGerais = options.evidenciasGerais ?? caso.evidenciasMultimidia;
+
+    // Se tivermos o IMediaStorageService, asseguramos que todas as fotos necessárias
+    // estejam baixadas no disco local antes de delegar para o Isolate de compilação.
+    if (_mediaStorageService != null) {
+      // 1. Hidrata fotos gerais
+      final List<EvidenciaMultimidia> evidenciasAtualizadas = [];
+      for (var ev in evidenciasGerais) {
+        final file = await _mediaStorageService.getLocalMediaFile(
+          localPath: ev.caminhoArquivoEncriptado,
+          evidenciaUuid: ev.uuid,
+        );
+        if (file != null && file.existsSync()) {
+          evidenciasAtualizadas.add(ev.copyWith(caminhoArquivoEncriptado: file.path));
+        } else {
+          evidenciasAtualizadas.add(ev);
+        }
+      }
+      evidenciasGerais = evidenciasAtualizadas;
+
+      // 2. Hidrata fotos de achados
+      final List<Achado> achadosAtualizados = [];
+      for (var a in achados) {
+        final path = a.dadosPreenchidos['photo_path']?.toString();
+        final file = await _mediaStorageService.getLocalMediaFile(
+          localPath: path,
+          evidenciaUuid: a.uuid,
+        );
+        if (file != null && file.existsSync()) {
+          final novosDados = Map<String, dynamic>.from(a.dadosPreenchidos);
+          novosDados['photo_path'] = file.path;
+          achadosAtualizados.add(a.copyWith(dadosPreenchidos: novosDados));
+        } else {
+          achadosAtualizados.add(a);
+        }
+      }
+      achados = achadosAtualizados;
+    }
 
     return await _pdfService.gerarLaudoPdf(
       caso: caso,
