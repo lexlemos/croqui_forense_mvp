@@ -5,10 +5,14 @@ import 'package:pdf/widgets.dart' as pw;
 /// Este arquivo disponibiliza construtores de widgets e conversores utilitários que asseguram que o
 /// laudo físico gerado em PDF apresente o layout, fontes, espaçamentos e cabeçalhos oficiais
 /// regulamentados, atendendo às formalidades exigidas para relatórios forenses criminais e cíveis.
+///
+/// Todos os métodos utilitários deste helper geram nós de layout para o motor `pdf` (`pdf/widgets.dart`).
 class PdfHelpers {
   /// Constrói um parágrafo justificado contendo o recuo regulamentar inicial na primeira linha.
   ///
   /// Garante a padronização e o rigor visual exigido para o corpo de texto descritivo dos laudos.
+  ///
+  /// **Atenção: roda na UI thread / Isolate síncrono de montagem de árvore de widgets.**
   ///
   /// Parâmetros:
   /// - [texto]: O conteúdo textual a ser exibido no parágrafo.
@@ -28,7 +32,7 @@ class PdfHelpers {
   /// Ideal para a exibição de características de identificação ou dados estruturados (chave-valor).
   ///
   /// Parâmetros:
-  /// - [label]: O rótulo explicativo da informação.
+  /// - [label]: O rótulo explicativo da informação (ex: "Nome da Vítima: ").
   /// - [valor]: O dado/valor correspondente.
   static pw.Widget buildItemComLabel(String label, String valor) {
     return pw.Padding(
@@ -51,7 +55,7 @@ class PdfHelpers {
 
   /// Gera um widget de título estilizado para a demarcação das seções oficiais do laudo pericial.
   ///
-  /// Aplica a formatação em negrito e o tamanho de fonte padronizado para títulos.
+  /// Aplica a formatação em negrito e o tamanho de fonte padronizado para títulos (11pt negrito).
   ///
   /// Parâmetros:
   /// - [title]: O texto identificador da seção (ex: "1. HISTÓRICO").
@@ -67,7 +71,7 @@ class PdfHelpers {
 
   /// Renderiza uma linha horizontal de dados administrativos do laudo.
   ///
-  /// Exibe um rótulo alinhado à esquerda com tamanho fixo e o seu respectivo valor ao lado,
+  /// Exibe um rótulo alinhado à esquerda com tamanho fixo (170pt) e o seu respectivo valor ao lado,
   /// organizando as informações do cabeçalho ou dados cadastrais.
   ///
   /// Parâmetros:
@@ -102,7 +106,7 @@ class PdfHelpers {
   /// de rastreabilidade.
   ///
   /// Parâmetros:
-  /// - [context]: O contexto de renderização do documento PDF.
+  /// - [context]: O contexto de renderização do documento PDF com número de páginas.
   /// - [logo]: A imagem em memória contendo o brasão/logo da corporação.
   /// - [numLaudo]: O número de registro oficial do laudo pericial.
   static pw.Widget buildDynamicHeader(
@@ -210,7 +214,10 @@ class PdfHelpers {
   /// Caso o ano esteja fora da faixa suportada, retorna a representação numérica padrão convertida em String.
   ///
   /// Parâmetros:
-  /// - [ano]: O ano a ser convertido por extenso.
+  /// - [ano]: O ano a ser convertido por extenso (ex: 2026).
+  ///
+  /// Retorno:
+  /// - String formatada por extenso em língua portuguesa.
   static String anoPorExtenso(int ano) {
     if (ano < 2000 || ano > 2099) return ano.toString();
     final unidades = [

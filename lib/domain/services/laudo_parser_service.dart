@@ -1,7 +1,18 @@
 import 'package:croqui_forense_mvp/core/utils/json_utils.dart';
 
-/// Manipula os dados estruturados do laudo sem reescrever texto livre do perito.
+/// Manipula os dados estruturados do laudo pericial sem reescrever texto livre autoral do perito.
+///
+/// Utilitário para ajuste e leitura canônica de campos cadastrais (como sexo biológico do examinado),
+/// preservando a integridade das descrições digitadas manualmente.
 class LaudoParserService {
+  /// Altera o sexo biológico do examinado na estrutura de dados do laudo pericial.
+  ///
+  /// Atualiza o campo estruturado na identificação e sugere a descrição padrão nas características
+  /// caso o campo esteja vazio ou contenha placeholders não preenchidos (`XXX`).
+  ///
+  /// Parâmetros:
+  /// - [dadosLaudo]: Mapa com a estrutura do laudo pericial.
+  /// - [novoSexo]: Novo valor a ser atribuído (ex: 'Masculino', 'Feminino').
   Map<String, dynamic> alterarSexoExaminado({
     required Map<String, dynamic> dadosLaudo,
     required String novoSexo,
@@ -27,6 +38,14 @@ class LaudoParserService {
     return novosDados;
   }
 
+  /// Recupera o sexo biológico normalizado do examinado a partir da estrutura do laudo.
+  ///
+  /// Avalia primeiro o nó de identificação e, em caso de ausência, recorre às características gerais.
+  ///
+  /// Parâmetros:
+  /// - [dadosLaudo]: Mapa com os dados do laudo pericial.
+  ///
+  /// Retorna `'Feminino'`, `'Masculino'` ou `'Indeterminado'`.
   String obterSexoExaminado(Map<String, dynamic> dadosLaudo) {
     final identificacao = _mapOrEmpty(dadosLaudo['identificacao']);
     final sexo = identificacao['sexo']?.toString().trim().toLowerCase();
@@ -54,3 +73,4 @@ class LaudoParserService {
   Map<String, dynamic> _mapOrEmpty(dynamic value) =>
       value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
 }
+

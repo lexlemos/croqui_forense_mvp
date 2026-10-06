@@ -8,73 +8,201 @@ import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 
-enum SortCriteria { numero, data }
+/// Critérios de ordenação para listagem de laudos periciais.
+enum SortCriteria {
+  /// Ordenação pelo número do laudo pericial externo ou PIC.
+  numero,
 
-enum SortOrder { asc, desc }
-
-enum StatusCaso {
-  emAndamento,
-  rascunho,
-  laudoPendente,
-  finalizado,
-  sincronizado,
-  arquivado,
+  /// Ordenação cronológica por data de atualização/criação do laudo.
+  data,
 }
 
-/// Entidade central do domínio de Necrópsia Digital, representando um Laudo Pericial completo.
+/// Direção da ordenação (crescente ou decrescente).
+enum SortOrder {
+  /// Ordem ascendente (A-Z, mais antigo para o mais recente).
+  asc,
+
+  /// Ordem descendente (Z-A, mais recente para o mais antigo).
+  desc,
+}
+
+/// Estados do ciclo de vida processual e pericial de um [Caso] (Laudo Cadavérico).
+enum StatusCaso {
+  /// Laudo em fase de preenchimento e exame necroscópico ativo pelo perito.
+  emAndamento,
+
+  /// Laudo em edição preliminar ou reaberto para correções formais.
+  rascunho,
+
+  /// Exame preliminar concluído, aguardando resultados de exames complementares ou revisão.
+  laudoPendente,
+
+  /// Laudo finalizado formalmente pelo perito, com travas de integridade e imutabilidade ativadas.
+  finalizado,
+
+  /// Laudo cujos dados e evidências foram totalmente reconciliados e persistidos no servidor central.
+  sincronizado,
+
+  /// Laudo arquivado localmente após encerramento do ciclo de custódia no dispositivo.
+  arquivado;
+
+  /// Converte o enum para a representação textual padronizada persistida no banco SQLite local.
+  String toDbString() {
+    switch (this) {
+      case StatusCaso.emAndamento:
+        return 'EM_ANDAMENTO';
+      case StatusCaso.rascunho:
+        return 'RASCUNHO';
+      case StatusCaso.laudoPendente:
+        return 'LAUDO_PENDENTE';
+      case StatusCaso.finalizado:
+        return 'FINALIZADO';
+      case StatusCaso.sincronizado:
+        return 'SINCRONIZADO';
+      case StatusCaso.arquivado:
+        return 'ARQUIVADO';
+    }
+  }
+}
+
+/// Entidade central do domínio de Necrópsia Forense Digital, representando um Laudo Pericial completo.
 ///
-/// Agrupa metadados do defunto, ocorrência (PIC/BO), hierarquia de [Achado]s,
-/// cadeia de custódia da [AuditoriaModel] e a estrutura de [EvidenciaMultimidia].
+/// Agrupa os dados de qualificação da vítima, requisições policiais (PIC, BO, Requisição),
+/// estado do corpo e cronologia de óbito, cadeia de custódia na [AuditoriaModel],
+/// exames solicitados ([ExameSolicitadoModel]), balística forense ([BalisticaModel]),
+/// achados de lesões corporais e evidências multimídia fotográficas ([EvidenciaMultimidia]).
+///
+/// ### Arquitetura Offline-First & Identidade Única
+/// - Cada caso criado no tablet recebe imediatamente um identificador universal [uuid] (UUID v4)
+///   gerado localmente, permitindo criação, edição e amarração de evidências mesmo sem conexão à rede.
+/// - O campo [numeroLaudoExterno] armazena o número do laudo oficial institucional fornecido pela perícia ou backend.
+/// - O controle de concorrência e reconciliação com a API remota é gerido pelos campos
+///   [versao] (controle de concorrência otimista - OCC), [isDraftSynced] (indica se há alterações pendentes de push)
+///   e [atualizadoEm] / [criadoEmDispositivo].
 class Caso {
+  /// Identificador universal único do caso no dispositivo e no ecossistema forense (UUID v4).
   final String uuid;
+
+  /// Matrícula ou UUID do perito responsável que criou o laudo no dispositivo.
   final String idUsuarioCriador;
+
+  /// Número oficial do laudo pericial (ex: "1234/2026").
   final String? numeroLaudoExterno;
+
+  /// Estado atual do processamento pericial do laudo.
   final StatusCaso status;
+
+  /// Bloco com detalhamento estruturado do laudo (cabeçalho, identificação, conclusão, auditoria).
   final DadosLaudoModel dadosLaudo;
+
+  /// Hash criptográfico de integridade para garantia da cadeia de custódia forense.
   final String? hashIntegridade;
+
+  /// Indicador de exclusão lógica (*tombstone*) para sincronização distribuída.
   final bool removido;
+
+  /// Número de versão sequencial para controle de concorrência otimista (OCC).
   final int versao;
+
+  /// Identificador exclusivo do dispositivo físico que realizou a última alteração.
   final String? deviceId;
+
+  /// Timestamp UTC de registro da criação do laudo no dispositivo pericial.
   final DateTime criadoEmDispositivo;
+
+  /// Timestamp UTC da última modificação efetuada nos dados do laudo.
   final DateTime? atualizadoEm;
+
+  /// Timestamp UTC em que o laudo foi finalizado pelo perito.
   final DateTime? finalizadoEm;
+
+  /// Número do Procedimento de Investigação Criminal (PIC) associado.
   final String numeroPic;
+
+  /// Número do Boletim de Ocorrência Policial.
   final String numeroBo;
+
+  /// Número da Requisição Pericial Policial/Judicial.
   final String numeroRequisicao;
+
+  /// Nome completo da vítima ou "Desconhecido" / "Não identificado".
   final String nomeVitima;
+
+  /// Destino final do laudo pericial expedido (ex: Vara do Júri, Delegacia Especializada).
   final String destino;
+
+  /// Autoridade requisitante da perícia (Delegado de Polícia, Magistrado, etc.).
   final String requisitante;
+
+  /// Lista de identificadores de Assistentes Técnicos de Necrópsia vinculados ao plantão.
   final List<String> atnsIds;
+
+  /// Caminho no armazenamento local do dispositivo onde o PDF do laudo foi exportado.
   final String? pdfLocalPath;
+
+  /// URL remota para download do documento PDF consolidado no servidor central.
   final String? pdfUrl;
+
+  /// Flag que sinaliza se as modificações locais deste caso já foram sincronizadas (push) com o backend.
   final bool isDraftSynced;
+
+  /// Flag que indica se houve falha ou conflito no último ciclo de sincronização deste caso.
   final bool syncError;
+
+  /// Lista de evidências multimídia (fotografias gerais do corpo ou anexas a achados).
   final List<EvidenciaMultimidia> evidenciasMultimidia;
 
+  /// Estado de conservação do cadáver (ex: Íntegro, Putrefeito, Carbonizado, Esqueletizado).
   final String? corpoEstado;
+
+  /// Descrição livre quando o estado do corpo for categorizado como 'Outros'.
   final String? corpoEstadoOutros;
+
+  /// Sexo biológico estimado ou confirmado da vítima (Masculino, Feminino, Indeterminado).
   final String? sexoBiologicoEstimado;
+
+  /// Data em que o óbito ocorreu ou foi estimado (formato dd/mm/aaaa ou aaaa-mm-dd).
   final String? dataObito;
+
+  /// Hora do óbito (formato hh:mm).
   final String? horaObito;
+
+  /// Método de definição do horário do óbito (ex: "Pericialmente Estimadas", "Atestadas em documento médico").
   final String? tipoEstimativaHoraObito;
 
-  /// Armazena a estrutura hierárquica das causas da morte.
-  /// Tipado estritamente como Lista para garantir a integridade da árvore
-  /// de dados no ciclo de persistência bidirecional (SQLite ↔ API REST).
+  /// Estrutura hierárquica das causas da morte (causa imediata, causas antecedentes e outras condições).
   final List<CausaMorteModel>? causaMorte;
+
+  /// Indicador de que há requisições de exames laboratoriais complementares.
   final bool? examesSolicitados;
+
+  /// Descritivo textual sucinto dos exames solicitados.
   final String? descricaoExames;
+
+  /// Lista de projéteis e elementos balísticos recuperados no exame necroscópico.
   final List<BalisticaModel> balisticas;
+
+  /// Lista estruturada e detalhada de exames laboratoriais complementares solicitados.
   final List<ExameSolicitadoModel> exames;
+
+  /// Data de realização do procedimento de necropsia.
   final String? dataNecropsia;
+
+  /// Horário de início do procedimento de necropsia.
   final String? horaNecropsia;
+
+  /// Número da Declaração de Óbito (D.O.) oficial emitida.
   final String? numeroDeclaracaoObito;
+
+  /// Delegacia de polícia solicitante do procedimento pericial.
   final String? delegaciaSolicitante;
 
+  /// Acesso facilitado aos dados da cadeia de custódia e auditoria do laudo.
   AuditoriaModel get auditoria {
     return dadosLaudo.auditoria;
   }
 
+  /// Cria uma instância de [Caso] com todas as propriedades especificadas.
   Caso({
     required this.uuid,
     required this.idUsuarioCriador,
@@ -117,6 +245,10 @@ class Caso {
     this.delegaciaSolicitante,
   });
 
+  /// Instancia um novo laudo pericial gerando um [uuid] v4 local inédito.
+  ///
+  /// Inicializa o status em [StatusCaso.emAndamento], com versão `1`, `removido = false`
+  /// e timestamps de criação e atualização referenciados no momento da chamada.
   Caso.novo({
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
@@ -159,6 +291,12 @@ class Caso {
        atualizadoEm = DateTime.now(),
        finalizadoEm = null;
 
+  /// Reconstrói uma instância de [Caso] a partir de um [Map] oriundo do SQLite ou da API REST.
+  ///
+  /// Aplica tolerância e robustez defensiva (*Postel's Law*):
+  /// - Realiza decodificação resiliente de campos aninhados em JSON (`dados_laudo_json`, `atns_ids`, `balisticas`, `exames`, `causa_morte`).
+  /// - Normaliza variações de nomes de chaves e status de sincronização (`status_pericia` vs `status`).
+  /// - Extrai backups de contingência de exames (`exames_offline_backup`) se o payload principal vier vazio.
   factory Caso.fromMap(Map<String, dynamic> map) {
     String? toTitleCase(String? text) {
       if (text == null || text.trim().isEmpty) return text;
@@ -452,6 +590,7 @@ class Caso {
     );
   }
 
+  /// Gera uma cópia da entidade [Caso] aplicando mutações parciais em propriedades específicas.
   Caso copyWith({
     String? uuid,
     String? idUsuarioCriador,
@@ -539,12 +678,16 @@ class Caso {
     );
   }
 
+  /// Serializa a entidade [Caso] para o formato relacional plano do SQLite (`tableCasos`).
+  ///
+  /// Converte coleções e modelos aninhados ([DadosLaudoModel], `exames`, `balisticas`, `atnsIds`)
+  /// em colunas de texto JSON para persistência local segura e de baixa latência.
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,
       'id_usuario_criador': idUsuarioCriador,
       'numero_laudo_externo': numeroLaudoExterno,
-      'status': status.name.toUpperCase(),
+      'status': status.toDbString(),
       'dados_laudo_json': jsonEncode({
         ...dadosLaudo.toMap(),
         if (delegaciaSolicitante != null)
@@ -607,6 +750,10 @@ class Caso {
     return '${parts[0]}:${parts[1]}:00';
   }
 
+  /// Serializa a entidade [Caso] no payload estruturado esperado pelo endpoint de sincronização REST (`POST /api/v1/croqui/sync/push`).
+  ///
+  /// Garante que datas e horas estejam formatadas conforme padrão ISO 8601 UTC,
+  /// converte status periciais para os enums aceitos no backend e mapeia as evidências e achados.
   Map<String, dynamic> toSyncMap() {
     return {
       'uuid': uuid,

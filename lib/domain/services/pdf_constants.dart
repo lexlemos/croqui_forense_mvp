@@ -4,12 +4,12 @@ import 'package:pdf/widgets.dart' as pw;
 ///
 /// Este arquivo armazena os parâmetros geométricos, textuais e de mapeamento anatômico
 /// necessários para assegurar que a formatação e diagramação do Laudo Cadavérico / Lesão Corporal Oficial
-/// atenda rigorosamente às exigências legais de apresentação e legibilidade institucional.
+/// atenda rigorosamente às exigências legais de apresentação e legibilidade institucional da Polícia Científica / IML-SE.
 class PdfConstants {
   /// Margens regulamentares de impressão padrão do documento oficial do IML.
   ///
   /// Definido com recuos adequados (em pontos tipográficos) para permitir a encadernação lateral
-  /// sem prejuízo do conteúdo textual.
+  /// sem prejuízo do conteúdo textual (Esquerda: 85.05pt, Topo: 28.35pt, Direita: 56.7pt, Fundo: 56.7pt).
   static const marginDefault = pw.EdgeInsets.fromLTRB(85.05, 28.35, 56.7, 56.7);
 
   /// Título padrão para a identificação do tipo de documento pericial necroscópico.

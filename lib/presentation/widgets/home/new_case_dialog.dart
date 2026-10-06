@@ -362,7 +362,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                         }
                         return IconButton(
                           icon: const Icon(Icons.search, size: 20),
-                          tooltip: 'Buscar dados por PIC',
+                          tooltip: 'Buscar dados por PIC / Protocolo',
                           onPressed: () {
                             widget.controller?.buscarDadosIniciais(
                               _picController.text,
@@ -372,30 +372,19 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                               autoridadeCtrl: _requisitanteController,
                               delegaciaCtrl: _delegaciaController,
                               declaracaoCtrl: _declaracaoObitoController,
+                              destinoCtrl: _destinoController,
+                              vitimaCtrl: _vitimaController,
                               forcar: true,
                             );
                           },
                         );
                       },
                     ),
-                    onChanged: (val) {
-                      if (val.trim().length == 9) {
-                        widget.controller?.buscarDadosIniciais(
-                          val,
-                          context: context,
-                          requisicaoCtrl: _reqController,
-                          boCtrl: _boController,
-                          autoridadeCtrl: _requisitanteController,
-                          delegaciaCtrl: _delegaciaController,
-                          declaracaoCtrl: _declaracaoObitoController,
-                        );
-                      }
-                    },
                     validator: (val) {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';
-                      if (v.length != 9) {
-                        return 'Nº PIC deve ter exatamente 9 caracteres';
+                      if (v.length < 6 || v.length > 20) {
+                        return 'Protocolo (PIC/CD) deve ter entre 6 e 20 caracteres';
                       }
                       return null;
                     },

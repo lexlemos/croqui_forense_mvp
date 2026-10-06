@@ -49,6 +49,8 @@ import 'package:croqui_forense_mvp/core/constants/trunk_left_data.dart'
 import 'package:croqui_forense_mvp/core/constants/perineal_data.dart'
     as perineal;
 
+/// Agrupa os [TextEditingController]s correspondentes a uma cadeia de causa mortis
+/// forense (imediata, devida a e consequência de).
 class CausaMorteControllers {
   final TextEditingController imediataCtrl;
   final TextEditingController devidoACtrl;
@@ -69,6 +71,18 @@ class CausaMorteControllers {
   }
 }
 
+/// Gerenciador de estado principal da interface de necrópsia digital e croqui forense.
+///
+/// **Atenção: roda na UI thread.**
+///
+/// Coordena o fluxo completo do exame pericial:
+/// - Mapeamento espacial de lesões ([Achado]s) sobre vistas anatômicas SVG e 2D.
+/// - Vínculos de cadeia de custódia e projéteis balísticos ([BalisticaModel]).
+/// - Gestão de exames complementares solicitados ([ExameSolicitadoModel]).
+/// - Atribuição de técnicos/auxiliares de necrópsia ([AtnModel]).
+/// - Registro de tanatologia, histórico policial, vestes e quesitos periciais.
+/// - Estratégia Offline-First: Debounce de AutoSave local (1000ms), controle de concorrência
+///   otimista (OCC) com incremento da propriedade [Caso.versao], e sincronização em segundo plano.
 class CroquiController extends ChangeNotifier {
   final AchadoService _achadoService;
   final CaseService _caseService;
@@ -132,6 +146,7 @@ class CroquiController extends ChangeNotifier {
   late final TextEditingController corpoEstadoOutrosCtrl;
   late final TextEditingController delegaciaSolicitanteCtrl;
 
+  /// Atualiza o campo descritivo do estado de conservação do cadáver.
   void setCorpoEstado(String value) {
     corpoEstadoCtrl.text = value;
     notifyListeners();
@@ -151,6 +166,9 @@ class CroquiController extends ChangeNotifier {
     _initControllers();
   }
 
+  /// Inicializa os controladores de formulário a partir dos dados do [casoAtual].
+  ///
+  /// **Atenção: roda na UI thread.**
   void _initControllers() {
     final caso = casoAtual;
     final dados = caso.dadosLaudo;
@@ -242,11 +260,13 @@ class CroquiController extends ChangeNotifier {
     quesito4Ctrl = TextEditingController(text: dados.conclusao.quesito4Meio);
   }
 
+  /// Adiciona uma nova linha de causa mortis ao formulário.
   void adicionarCausaMorte() {
     causasMorteCtrls.add(CausaMorteControllers());
     notifyListeners();
   }
 
+  /// Remove a linha de causa mortis especificada por [index], mantendo ao menos uma ativa.
   void removerCausaMorte(int index) {
     if (causasMorteCtrls.length > 1) {
       causasMorteCtrls[index].dispose();
@@ -256,11 +276,15 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Gera um UUID v4 determinístico baseado em UUID v5 com formato compatível com o backend.
   String _toDeterministicUuidV4(String namespace, String name) {
     final String uuidV5 = const Uuid().v5(namespace, name);
     return '${uuidV5.substring(0, 14)}4${uuidV5.substring(15, 19)}a${uuidV5.substring(20)}';
   }
 
+  /// Carrega as coleções vinculadas ao caso do banco local SQLite (achados, evidências, exames e ATNs).
+  ///
+  /// **Atenção: roda na UI thread.**
   Future<void> _loadAchados() async {
     if (isLoading) return;
     isLoading = true;
@@ -285,6 +309,9 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Atualiza a lista de identificadores dos Auxiliares Técnicos de Necrópsia ([atnsIdsSelecionados]).
+  ///
+  /// Dispara auto-save e atualização na raiz do [casoAtual].
   Future<void> atualizarAtnsResponsaveis(
     List<String> atnsIdsSelecionados,
   ) async {
@@ -301,6 +328,7 @@ class CroquiController extends ChangeNotifier {
     scheduleAutoSave();
   }
 
+  /// Incrementa a versão OCC do caso e persiste o rascunho no SQLite.
   Future<void> _bumpRootVersion() async {
     casoAtual = casoAtual.copyWith(
       versao: casoAtual.versao + 1,
@@ -310,6 +338,11 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Persiste a lista estruturada de [ExameSolicitadoModel] no banco local e atualiza o estado em memória.
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Incrementa a versão do caso matriz para garantir sincronização no backend.
   Future<void> salvarExamesModel(List<ExameSolicitadoModel> exames) async {
     debugPrint('--- CONTROLLER TEST (RECEBIMENTO) ---');
     for (var e in exames) {
@@ -344,6 +377,7 @@ class CroquiController extends ChangeNotifier {
     scheduleAutoSave(); // Garante que o SQLite salve a versão nova antes do Sync
   }
 
+  /// Adiciona uma nova cadeia balística ([BalisticaModel]) ao caso em memória e salva no banco.
   void adicionarBalistica(BalisticaModel balistica) {
     final novasBalisticas = List<BalisticaModel>.from(casoAtual.balisticas)
       ..add(balistica);
@@ -356,6 +390,7 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Salva as solicitações de exames laboratoriais complementares em formato legível de lacres.
   Future<void> salvarExamesSolicitados({
     required String? anatomoLacre,
     required String? toxicologicoLacre,
@@ -381,12 +416,21 @@ class CroquiController extends ChangeNotifier {
     scheduleAutoSave(); // Garante salvamento no SQLite local
   }
 
+
+  /// Retorna a lista de [Achado]s registrados filtrados pela projeção ou vista anatômica ([view]).
   List<Achado> getMarkersForView(String view) {
     return achados
         .where((a) => (a.dadosPreenchidos['view'] ?? '') == view)
         .toList();
   }
 
+  /// Adiciona uma nova lesão/achado espacial ao croqui corporal a partir das coordenadas normalizadas ([x], [y]).
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Abre o modal interativo [InjuryFormModal], comprime eventuais fotos capturadas via [ImageHelper.compressImage],
+  /// gera o vínculo balístico se houverem dados de PAF, persiste no banco via [AchadoService.salvarAchado]
+  /// e incrementa a versão do caso.
   Future<void> addAchado(
     BuildContext context,
     String viewType,
@@ -558,6 +602,11 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Edita as propriedades clínicas e posicionais de um [Achado] existente.
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Atualiza fotos com recompressão se alteradas, ajusta vínculos balísticos e persiste no SQLite.
   Future<void> editAchado(BuildContext context, Achado achado) async {
     if (isReadOnly) return;
     if (_isProcessing) return;
@@ -694,6 +743,9 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Remove o registro de um [Achado] e suas evidências balísticas correspondentes.
+  ///
+  /// **Atenção: roda na UI thread.**
   Future<void> deleteAchado(BuildContext context, String uuid) async {
     if (isReadOnly) return;
 
@@ -713,6 +765,7 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Atualiza o objeto [DadosLaudoModel] em memória e agenda a persistência via auto-save.
   void atualizarDadosLaudoMemoria(DadosLaudoModel novosDados) {
     casoAtual = casoAtual.copyWith(
       dadosLaudo: novosDados,
@@ -722,6 +775,12 @@ class CroquiController extends ChangeNotifier {
     scheduleAutoSave();
   }
 
+  /// Conduz o fluxo pericial de finalização direta ou transição para laudo pendente.
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Valida os quesitos forenses obrigatórios, bloqueia conclusão definitiva se houverem
+  /// exames laboratoriais pendentes de resultado e dispara os diálogos de confirmação.
   Future<void> finalizarCasoDireto(BuildContext context) async {
     if (_isProcessing) return;
     _isProcessing = true;
@@ -848,6 +907,7 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Processa a transição de estado para [StatusCaso.laudoPendente], disparando push em background.
   Future<void> _processarDeixarPendente(BuildContext context) async {
     try {
       final now = DateTime.now();
@@ -878,6 +938,12 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Executa a geração oficial do documento pericial em PDF e transiciona o status para [StatusCaso.finalizado].
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Invoca [PdfReportService.gerarLaudoPdf] para construção do documento, grava o arquivo
+  /// no armazenamento local e despacha o laudo assinado para a fila de sincronização via [SyncService].
   Future<void> _processarConcluirLaudoAgora(BuildContext context) async {
     // 1. Exibe indicador de carregamento bloqueante
     showDialog(
@@ -968,6 +1034,7 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Reabre um laudo pericial finalizado para edição corretiva autorizada.
   Future<void> reabrirCaso(BuildContext context) async {
     try {
       await _caseService.reabrirCaso(casoAtual.uuid);
@@ -997,6 +1064,9 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Gera e compartilha via Share Intent o arquivo PDF do laudo pericial atual.
+  ///
+  /// **Atenção: roda na UI thread.**
   Future<void> exportarCaso(BuildContext context) async {
     if (_isProcessing) return;
     _isProcessing = true;
@@ -1077,6 +1147,7 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Retorna o sexo biológico inferido do examinado ('Feminino', 'Masculino' ou 'Indeterminado').
   String get sexoDoExaminado {
     final s = casoAtual.dadosLaudo.identificacao.sexo.trim().toLowerCase();
     if (s.isNotEmpty) {
@@ -1095,6 +1166,7 @@ class CroquiController extends ChangeNotifier {
     return 'Indeterminado';
   }
 
+  /// Atualiza o sexo biológico do examinado e ajusta automaticamente o texto padrão da qualificação tanatológica.
   Future<void> alterarSexoExaminado(
     BuildContext context,
     String novoSexo,
@@ -1130,6 +1202,8 @@ class CroquiController extends ChangeNotifier {
     atualizarDadosLaudoMemoria(novosDados);
   }
 
+
+  /// Resolve o nome anatômico da região do corpo a partir da vista e do identificador do polígono.
   String _resolveBodyPartName(String view, String partId) {
     if ((view == 'frente' || view == 'front') &&
         kIdToDefinitionFrontMap.containsKey(partId)) {
@@ -1170,6 +1244,7 @@ class CroquiController extends ChangeNotifier {
     return partId.replaceAll('_', ' ').toUpperCase();
   }
 
+  /// Adiciona uma fotografia geral de necropsia ([EvidenciaMultimidia]) ao caso.
   Future<void> adicionarFotoGeral(String path) async {
     final ev = EvidenciaMultimidia.novo(
       casoUuid: casoAtual.uuid,
@@ -1181,12 +1256,18 @@ class CroquiController extends ChangeNotifier {
     await _loadAchados();
   }
 
+  /// Remove uma fotografia geral de necropsia pelo seu identificador [uuid].
   Future<void> removerFotoGeral(String uuid) async {
     await _caseService.removerEvidenciaGeral(uuid);
     await _bumpRootVersion();
     await _loadAchados();
   }
 
+  /// Atualiza os campos textuais, burocráticos e clínicos do laudo e agenda o salvamento automático.
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Incrementa a propriedade [Caso.versao] e atualiza [Caso.atualizadoEm] em UTC para o motor OCC.
   void salvarDadosGerais({
     String numeroBo = '',
     String numeroPic = '',
@@ -1250,6 +1331,7 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Salva a descrição pericial ou anotação associada a uma foto geral do cadáver.
   Future<void> salvarDescricaoFotoGeral(String uuid, String descricao) async {
     final index = evidenciasGerais.indexWhere((e) => e.uuid == uuid);
     if (index != -1) {
@@ -1264,6 +1346,7 @@ class CroquiController extends ChangeNotifier {
 
   Timer? _autoSaveTimer;
 
+  /// Agenda o salvamento automático com debounce de 1000ms para evitar I/O excessivo durante digitação contínua.
   void scheduleAutoSave() {
     if (isReadOnly || _isDisposed) return;
     _autoSaveTimer?.cancel();
@@ -1274,6 +1357,7 @@ class CroquiController extends ChangeNotifier {
     });
   }
 
+  /// Despacha imediatamente a persistência do estado atual do caso no banco SQLite local.
   Future<void> salvarRascunhoImediato() async {
     if (isReadOnly) return;
     try {
@@ -1292,6 +1376,7 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Cancela qualquer timer de auto-save pendente e executa a persistência síncrona/imediata no SQLite.
   Future<void> flushAutoSave() async {
     _autoSaveTimer?.cancel();
     // Agora o flushAutoSave apenas garante a sincronização e o salvamento síncrono.
@@ -1373,6 +1458,9 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Consolida o texto digitado em todos os controladores de formulário na estrutura [DadosLaudoModel] do caso.
+  ///
+  /// **Atenção: roda na UI thread.**
   void sincronizarDadosEmMemoria([
     AuthProvider? authProvider,
     bool notify = true,
@@ -1471,6 +1559,7 @@ class CroquiController extends ChangeNotifier {
     );
   }
 
+  /// Valida se os quesitos forenses obrigatórios e cadeias de causa da morte foram devidamente preenchidos.
   bool validarCamposObrigatorios() {
     if (quesito1Ctrl.text.trim().length < 3) return false;
 
@@ -1510,11 +1599,11 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await _caseService.getDadosPorPic(sanitizedPic);
+      final dto = await _caseService.getDadosPorPic(sanitizedPic);
 
       if (_isDisposed) return;
 
-      if (res == null) {
+      if (dto == null) {
         _lastSearchedPic = '';
         _snack(
           'Rede instável ou PIC não localizado. Continue o preenchimento manual.',
@@ -1525,52 +1614,60 @@ class CroquiController extends ChangeNotifier {
 
       bool altered = false;
 
-      final boValue = res['numero_bo'] ?? res['bo'];
-      if (boCtrl.text.isEmpty && boValue != null) {
-        boCtrl.text = boValue.toString();
+      if (boCtrl.text.isEmpty && dto.numeroBo != null) {
+        boCtrl.text = dto.numeroBo!;
         altered = true;
       }
 
-      final reqValue =
-          res['numero_requisicao'] ??
-          res['requisicao'] ??
-          res['cd'] ??
-          res['numero_laudo'];
-      if (numeroLaudoCtrl.text.isEmpty && reqValue != null) {
-        numeroLaudoCtrl.text = reqValue.toString();
+      if (numeroLaudoCtrl.text.isEmpty && dto.numeroRequisicao != null) {
+        numeroLaudoCtrl.text = dto.numeroRequisicao!;
         altered = true;
       }
 
-      final autoridadeValue =
-          res['requisitante'] ??
-          res['autoridade'] ??
-          res['autoridade_requisitante'];
-      if (reqOrigemCtrl.text.isEmpty && autoridadeValue != null) {
-        reqOrigemCtrl.text = autoridadeValue.toString();
+      if (reqOrigemCtrl.text.isEmpty && dto.requisitante != null) {
+        reqOrigemCtrl.text = dto.requisitante!;
         altered = true;
       }
 
-      final delegaciaValue =
-          res['delegacia_solicitante'] ??
-          res['delegacia'] ??
-          res['delegacia_origem'];
-      if (delegaciaSolicitanteCtrl.text.isEmpty && delegaciaValue != null) {
-        delegaciaSolicitanteCtrl.text = delegaciaValue.toString();
+      if (delegaciaSolicitanteCtrl.text.isEmpty && dto.delegaciaSolicitante != null) {
+        delegaciaSolicitanteCtrl.text = dto.delegaciaSolicitante!;
         altered = true;
       }
 
-      final declaracaoValue =
-          res['numero_declaracao_obito'] ??
-          res['declaracao_obito'] ??
-          res['numero_do'];
-      if (numeroDeclaracaoObitoCtrl.text.isEmpty && declaracaoValue != null) {
-        numeroDeclaracaoObitoCtrl.text = declaracaoValue.toString();
+      if (numeroDeclaracaoObitoCtrl.text.isEmpty && dto.numeroDeclaracaoObito != null) {
+        numeroDeclaracaoObitoCtrl.text = dto.numeroDeclaracaoObito!;
+        altered = true;
+      }
+
+      if (reqDestinoCtrl.text.isEmpty && dto.destinoLaudo != null) {
+        reqDestinoCtrl.text = dto.destinoLaudo!;
+        altered = true;
+      }
+
+      if (nomeVitimaCtrl.text.isEmpty && dto.nomeVitima != null) {
+        nomeVitimaCtrl.text = dto.nomeVitima!;
+        altered = true;
+      }
+
+      if (sexoBiologicoEstimadoCtrl.text.isEmpty && dto.sexoBiologicoEstimado != null) {
+        sexoBiologicoEstimadoCtrl.text = dto.sexoBiologicoEstimado!;
+        altered = true;
+      }
+
+      if (dataObitoCtrl.text.isEmpty && dto.dataFato != null) {
+        dataObitoCtrl.text = dto.dataFato!;
+        altered = true;
+      }
+
+      if (horaObitoCtrl.text.isEmpty && dto.horaFato != null) {
+        horaObitoCtrl.text = dto.horaFato!;
         altered = true;
       }
 
       if (altered) {
         sincronizarDadosEmMemoria(null, false);
         scheduleAutoSave();
+        _snack("Dados burocráticos autopreenchidos com sucesso!", color: Colors.teal);
       }
     } finally {
       _isFetchingPic = false;
@@ -1591,3 +1688,4 @@ class CroquiController extends ChangeNotifier {
     );
   }
 }
+

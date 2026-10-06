@@ -15,9 +15,16 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
 
+/// Tela de visualização e conferência prévia do Laudo Pericial em PDF.
+///
+/// Apresenta o documento final compilado através do widget [PdfPreview] da biblioteca `printing`,
+/// permitindo a leitura página a página, impressão direta via spooler e compartilhamento nativo.
+/// Ao renderizar, salva automaticamente uma cópia atualizada do documento no sandbox local do dispositivo.
 class PdfPreviewPage extends StatefulWidget {
+  /// O caso pericial cujo laudo está sendo visualizado.
   final Caso caso;
 
+  /// Cria uma instância de [PdfPreviewPage] para o [caso] fornecido.
   const PdfPreviewPage({super.key, required this.caso});
 
   @override
@@ -34,6 +41,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
     final caseService = context.read<CaseService>();
     final authProvider = context.read<AuthProvider>();
 
+    // Carrega em paralelo todos os dados necessários para a composição do laudo
     _dataFuture =
         Future.wait([
           achadoService.listarAchados(widget.caso.uuid),

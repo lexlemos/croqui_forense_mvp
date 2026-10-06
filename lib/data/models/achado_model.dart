@@ -1,31 +1,77 @@
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
+/// Entidade central que representa uma lesão, orifício ou vestígio anatômico mapeado no croqui pericial.
+///
+/// Unifica as coordenadas geométricas relativas ([posX], [posY]) no diagrama anatômico ([diagramaNome]),
+/// a vista corporal examinada ([vistaAnatomica], [localAnatomico]), metadados da cadeia de custódia balística
+/// ([tipoFerimento], [numeroLacre], [tipoObjeto]), o caminho da evidência fotográfica anexada
+/// e os campos dinâmicos da lesão ([dadosPreenchidos]).
+///
+/// ### Vínculo com o Laudo e Diagrama (Chaves UUID)
+/// - [uuid]: Identificador universal único da lesão gerado localmente no dispositivo.
+/// - [casoUuid]: Chave estrangeira que vincula o achado ao [Caso] mestre.
+/// - [diagramaCasoUuid]: Chave de identificação da vista específica do croqui dentro do caso.
+/// - [achadoRelacionadoUuid]: Chave opcional que conecta ferimentos correlacionados (ex: Entrada ↔ Saída de PAF).
 class Achado {
+  /// Identificador universal único do achado (UUID v4).
   final String uuid;
+
+  /// Identificador universal do laudo pericial ([Caso]) ao qual esta lesão pertence.
   final String casoUuid;
+
+  /// Identificador do diagrama específico associado ao caso.
   final String diagramaCasoUuid;
+
+  /// Nome do template de diagrama anatômico utilizado (ex: "FRENTE", "COSTAS", "LATERAL_DIREITA").
   final String diagramaNome;
+
+  /// Identificador do tipo de lesão (ex: "PAF_ENTRADA", "ESCORIACAO", "EQUIMOSE").
   final String tipoAchadoId;
 
+  /// Número sequencial da lesão no laudo pericial (ex: Lesão nº 1, Lesão nº 2).
   final int numeroSequencial;
+
+  /// Coordenada horizontal normalizada (percentual de 0.0 a 1.0) no croqui SVG.
   final double posX;
+
+  /// Coordenada vertical normalizada (percentual de 0.0 a 1.0) no croqui SVG.
   final double posY;
 
+  /// Sinaliza se a lesão afeta cavidades/órgãos internos ou se é estritamente externa.
   final bool isInterno;
 
+  /// UUID do achado relacionado (utilizado para correlacionar orifícios de entrada e saída).
   final String? achadoRelacionadoUuid;
+
+  /// Mapa flexível contendo atributos dinâmicos do formulário pericial (dimensões, profundidade, caminho da foto, etc.).
   final Map<String, dynamic> dadosPreenchidos;
+
+  /// Descrição livre e observações médico-legais detalhadas sobre a lesão.
   final String? observacoesTexto;
 
+  /// Indicador de exclusão lógica (*tombstone*) para integridade do ciclo de sincronização.
   final bool removido;
+
+  /// Versão sequencial da entidade para controle de concorrência otimista (OCC).
   final int versao;
+
+  /// Timestamp UTC de registro da lesão no tablet do perito.
   final DateTime criadoEm;
+
+  /// Timestamp UTC da última edição realizada no registro do achado.
   final DateTime? atualizadoEm;
+
+  /// Identificador do dispositivo físico que realizou a última alteração.
   final String? deviceId;
 
+  /// Dimensões da lesão registradas pelo perito (ex: "2x1 cm", "3 cm").
   final String tamanho;
+
+  /// Vista anatômica de visualização da lesão (ex: "Frente", "Costas", "Face Direita").
   final String vistaAnatomica;
+
+  /// Nome da região anatômica delimitada onde a lesão se localiza (ex: "Tórax Anterior", "Região Frontal").
   final String localAnatomico;
 
   /// Especifica a natureza balística da lesão (ex: Entrada, Saída, Raspão).
@@ -44,6 +90,7 @@ class Achado {
   /// Complementa as evidências materiais garantindo que peculiaridades do objeto sejam registradas.
   final String? comentarioAdicional;
 
+  /// Cria uma instância de [Achado] com todos os parâmetros fornecidos.
   Achado({
     required this.uuid,
     required this.casoUuid,
@@ -71,12 +118,14 @@ class Achado {
     this.comentarioAdicional,
   });
 
+  /// Profundidade da lesão extraída dos atributos dinâmicos do formulário.
   String get profundidade {
     return dadosPreenchidos['depth']?.toString() ??
         dadosPreenchidos['profundidade']?.toString() ??
         '';
   }
 
+  /// Instancia um novo achado gerando um [uuid] v4 inédito e configurando versão inicial `1`.
   Achado.novo({
     required this.casoUuid,
     required this.diagramaCasoUuid,
@@ -103,6 +152,10 @@ class Achado {
        atualizadoEm = null,
        deviceId = null;
 
+  /// Reconstrói um [Achado] a partir do mapa relacional SQLite ou payload de sincronização REST.
+  ///
+  /// Aplica tolerância e extração polimórfica de fotografias anexas (`photo_path`, `evidencias_multimidia`),
+  /// decodificando com segurança o JSON de campos dinâmicos (`dados_preenchidos_json`).
   factory Achado.fromMap(Map<String, dynamic> map) {
     final Map<String, dynamic> dados = map['dados_preenchidos_json'] != null
         ? (map['dados_preenchidos_json'] is Map
@@ -204,6 +257,7 @@ class Achado {
     );
   }
 
+  /// Retorna uma nova instância de [Achado] aplicando mutações seletivas nos campos especificados.
   Achado copyWith({
     String? uuid,
     String? casoUuid,
@@ -259,6 +313,7 @@ class Achado {
     );
   }
 
+  /// Serializa a entidade [Achado] para persistência relacional plana na tabela `achados` do SQLite.
   Map<String, dynamic> toMap() {
     return {
       'uuid': uuid,
@@ -288,6 +343,7 @@ class Achado {
     };
   }
 
+  /// Converte o [Achado] no payload de sincronização REST formatado para envio (push) à API central.
   Map<String, dynamic> toSyncMap() {
     return {
       'uuid': uuid,
@@ -313,14 +369,17 @@ class Achado {
     };
   }
 
+  /// Rótulo legível do tipo da lesão (ex: "Entrada de PAF", "Equimose").
   String get type {
     return dadosPreenchidos['type_label']?.toString() ?? 'Não definido';
   }
 
+  /// Caminho do arquivo físico da foto associada a este achado.
   String? get photoPath {
     return dadosPreenchidos['photo_path']?.toString();
   }
 
+  /// Descrição textual observada da lesão.
   String get description {
     return observacoesTexto ?? '';
   }

@@ -12,9 +12,29 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
+/// Serviço de orquestração, salvamento em disco e ciclo de vida de relatórios PDF.
+///
+/// Responsável por intermediar a geração dos laudos com o [PdfService], gravar os
+/// binários no sandbox de armazenamento do dispositivo (`/laudos/laudo_{uuid}.pdf`),
+/// atualizar o caminho persistido no banco local via [CaseService] e realizar a
+/// higienização periódica de arquivos PDF órfãos ou residuais.
 class PdfReportService {
   final PdfService _pdfService = PdfService();
 
+  /// Orquestra a compilação do laudo pericial em formato PDF.
+  ///
+  /// **Executa em isolate.** A compilação pesada do PDF ocorre em um background worker isolate
+  /// encapsulado pelo [PdfService.gerarLaudoPdf].
+  ///
+  /// Parâmetros:
+  /// - [caso]: Objeto do caso contendo histórico, identificação, causa mortis e quesitos oficiais.
+  /// - [achados]: Lista de achados periciais cadastrados no croqui.
+  /// - [perito]: Perito médico-legista autenticado.
+  /// - [exames]: Lista legada de requisições de exames.
+  /// - [examesModel]: Lista tipada de exames complementares (Toxicológico, Genético, Histopatológico).
+  /// - [evidenciasGerais]: Fotografias e mídias gerais anexadas ao caso.
+  ///
+  /// Retorna o binário [Uint8List] do documento gerado.
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
@@ -34,7 +54,17 @@ class PdfReportService {
   }
 
   /// Salva fisicamente o PDF gerado no armazenamento interno do dispositivo e atualiza o `pdfLocalPath` no [Caso].
-  /// Sanitiza o armazenamento removendo qualquer versão legada do arquivo antes da regeração.
+  ///
+  /// Sanitiza o armazenamento removendo versões residuais apenas se o caso já foi previamente
+  /// sincronizado com o backend ([StatusCaso.sincronizado]), garantindo a proteção contra perda
+  /// de arquivos pendentes em modo offline.
+  ///
+  /// Parâmetros:
+  /// - [caso]: Caso associado ao arquivo.
+  /// - [pdfBytes]: Binário do PDF compilado.
+  /// - [caseService]: Serviço opcional para atualizar o registro local no banco SQLite.
+  ///
+  /// Retorna o caminho absoluto do arquivo salvo.
   Future<String> salvarPdfNoDispositivo({
     required Caso caso,
     required Uint8List pdfBytes,
@@ -86,6 +116,12 @@ class PdfReportService {
   }
 
   /// Varre o diretório de laudos e remove qualquer arquivo PDF que pertença a casos excluídos ou inexistentes.
+  ///
+  /// **Atenção: roda na UI thread.** Operação síncrona de I/O de disco para listagem do diretório.
+  ///
+  /// Parâmetros:
+  /// - [uuidsCasosAtivos]: Lista de UUIDs de casos válidos no banco SQLite local. Qualquer arquivo cujo
+  ///   UUID não conste nesta lista será excluído permanentemente do storage.
   Future<void> limparPdfsOrfaos(List<String> uuidsCasosAtivos) async {
     try {
       final docsDir = await getApplicationDocumentsDirectory();

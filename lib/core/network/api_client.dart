@@ -68,8 +68,8 @@ class AuthInterceptor extends QueuedInterceptor {
     }
 
     final path = err.requestOptions.path;
-    if (path.contains('/auth/login') ||
-        path.contains('/auth/refresh') ||
+    if (path.contains('auth/login') ||
+        path.contains('auth/refresh') ||
         path.contains('tipos-achados')) {
       return handler.next(err);
     }

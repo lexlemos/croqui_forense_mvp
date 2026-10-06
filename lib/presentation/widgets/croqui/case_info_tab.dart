@@ -255,17 +255,12 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                         }
                         return IconButton(
                           icon: const Icon(Icons.search, size: 20),
-                          tooltip: 'Buscar dados por PIC',
+                          tooltip: 'Buscar dados por PIC / Protocolo',
                           onPressed: () =>
                               controller.buscarDadosPorPic(forcar: true),
                         );
                       },
                     ),
-              onChanged: (val) {
-                if (val.trim().length == 9) {
-                  controller.buscarDadosPorPic();
-                }
-              },
             ),
 
             _buildTextField(

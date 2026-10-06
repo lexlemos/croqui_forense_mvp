@@ -1,5 +1,8 @@
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+
+import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
 
 /// Contrato abstrato (Interface) que define a comunicação do dispositivo
 /// do Perito com o servidor central do IML.
@@ -30,9 +33,9 @@ abstract interface class IRemoteDataSource {
 
   /// Consulta os dados cadastrais prévios de um procedimento a partir do PIC.
   ///
-  /// Retorna um [Map] com os metadados do procedimento ou `null` caso ocorra
+  /// Retorna uma instância de [ProtocoloLookupModel] tipada ou `null` caso ocorra
   /// falha de rede, timeout ou o protocolo não seja localizado.
-  Future<Map<String, dynamic>?> getDadosPorPic(String pic);
+  Future<ProtocoloLookupModel?> getDadosPorPic(String pic);
 
   /// Obtém a lista oficial de Auxiliares Técnicos de Necropsia (A.T.N.s) cadastrados no backend.
   Future<List<Map<String, dynamic>>> getAtns();
@@ -70,6 +73,22 @@ abstract interface class IRemoteDataSource {
   Future<String> uploadLaudoPdf({
     required String casoUuid,
     required String filePath,
+  });
+
+  /// Atualiza o status de confirmação do ATN para um exame solicitado.
+  /// Se o status for RECUSADO, a justificativa de recusa é obrigatória.
+  Future<void> atualizarConfirmacaoAtnExameSolicitado({
+    required String exameSolicitadoId,
+    required StatusConfirmacaoATN status,
+    String? justificativaRecusa,
+  });
+
+  /// Atualiza o status de confirmação do ATN para uma balística.
+  /// Se o status for RECUSADO, a justificativa de recusa é obrigatória.
+  Future<void> atualizarConfirmacaoAtnBalistica({
+    required String balisticaId,
+    required StatusConfirmacaoATN status,
+    String? justificativaRecusa,
   });
 
   /// Configura o token Bearer de forma síncrona na memória do cliente HTTP.

@@ -6,10 +6,31 @@ import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
 
-/// Estados operacionais do ciclo de sincronização pericial.
-enum SyncState { idle, loading, success, partial, error }
+/// Estados operacionais do ciclo de sincronização pericial na camada de apresentação.
+enum SyncState {
+  /// O sincronizador está ocioso e disponível para novo ciclo.
+  idle,
+
+  /// O ciclo de sincronização está em processamento ativo (Health Check -> Pull -> Push).
+  loading,
+
+  /// O ciclo de sincronização foi concluído com 100% de sucesso e integridade.
+  success,
+
+  /// O ciclo de sincronização concluiu parcialmente (com fotos pendentes ou laudos em conflito).
+  partial,
+
+  /// O ciclo falhou totalmente (queda de rede, falha de autenticação ou erro no servidor).
+  error,
+}
 
 /// Provedor de apresentação encarregado do controle reativo do ciclo de sincronização pericial.
+///
+/// **Atenção: roda na UI thread.**
+///
+/// Gerencia a máquina de estados (`idle` -> `loading` -> `success`/`partial`/`error` -> `idle`),
+/// garantindo que o perito tenha feedback claro e não-bloqueante através de barras de status
+/// e recarregamento automático da listagem de laudos.
 class SyncProvider extends ChangeNotifier {
   SyncService _syncService;
 
@@ -52,7 +73,12 @@ class SyncProvider extends ChangeNotifier {
   /// Indica se há uma rotina de sincronização em execução no momento.
   bool get isLoading => _state == SyncState.loading;
 
-  /// Dispara a execução da sincronização orquestrada pelo [SyncService].
+  /// Dispara a execução do ciclo de sincronização orquestrado pelo [SyncService].
+  ///
+  /// **Atenção: roda na UI thread.**
+  ///
+  /// Evita execuções concorrentes duplicadas, transiciona o estado para [SyncState.loading],
+  /// captura exceções de rede/autenticação e agenda o retorno suave para [SyncState.idle].
   Future<void> startSync() async {
     if (_isExecuting) return;
     _isExecuting = true;
@@ -97,7 +123,7 @@ class SyncProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Limpa o estado da sincronização durante o logout.
+  /// Limpa o estado da sincronização durante o logout do usuário.
   void clear() {
     _state = SyncState.idle;
     _feedbackMessage = null;
@@ -109,6 +135,13 @@ class SyncProvider extends ChangeNotifier {
 }
 
 /// Botão de acionamento visual da sincronização pericial integrado na barra superior da aplicação.
+///
+/// **Atenção: roda na UI thread.**
+///
+/// Monitora o [SyncProvider] para:
+/// - Exibir indicador de progresso giratório enquanto a sincronização estiver ativa.
+/// - Emitir [SnackBar]s informativos ao término (sucesso, aviso de pendência parcial ou erro).
+/// - Notificar o [CaseListProvider] para recarregar a listagem de laudos locais após a sincronização.
 class SyncButtonWidget extends StatefulWidget {
   const SyncButtonWidget({super.key});
 
@@ -234,3 +267,4 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
     );
   }
 }
+

@@ -21,30 +21,35 @@ import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
 
-/// Serviço responsável pela geração e compilação do Laudo Pericial Oficial
-/// em formato PDF para fins de impressão e armazenamento.
+/// Serviço de baixo nível responsável pela geração e compilação vetorial do Laudo Pericial Oficial
+/// em formato PDF para fins de impressão e custódia digital.
 ///
-/// Este serviço atua como o "Motor de Exportação do Laudo Cadavérico/Lesão Corporal Oficial",
-/// consolidando todas as informações coletadas pelo Perito durante o exame
-/// necroscópico ou clínico, incluindo as lesões registradas graficamente no
-/// croqui, fotos anexadas como evidências físicas e os quesitos respondidos.
-///
-/// O documento PDF resultante serve como uma "Impressão Oficial" dotada de
-/// "Validação Jurídica", contendo os "Metadados do Perito" e a assinatura de
-/// integridade para sua preservação legal.
+/// Atua como o motor de renderização gráfica do laudo cadavérico / lesão corporal,
+/// desenhando o documento página a página, mapeando achados anatômicos sobre matrizes vetoriais SVG,
+/// comprimindo fotografias periciais e calculando hashes de integridade digital.
 class PdfService {
   static Future<Uint8List>? _cachedFontRegularFuture;
   static Future<Uint8List>? _cachedFontBoldFuture;
   static Future<Uint8List?>? _cachedLogoPoliciaFuture;
 
-  /// Compila e gera o documento de "Impressão Oficial" do Laudo Pericial Cadavérico ou
-  /// de Lesão Corporal no formato PDF.
+  /// Compila e gera o documento oficial do Laudo Pericial em formato PDF.
   ///
-  /// Consolida o histórico, a identificação oficial da vítima, os dados tanatológicos,
-  /// as descrições detalhadas dos exames externo e interno, os exames complementares,
-  /// os esquemas anatômicos (croquis) e a resposta oficial aos quesitos formulados pela autoridade requisitante.
-  /// Também inclui no "Documento Físico" a certificação eletrônica com "Metadados do Perito"
-  /// para conferir autenticidade e "Validação Jurídica" na cadeia de custódia.
+  /// **Executa em isolate.**
+  ///
+  /// Assegura que o processamento pesado de imagens de alta resolução, fontes tipográficas
+  /// e desenho de vetores SVG ocorra em um Isolate separado via `compute(_gerarLaudoPdfIsolate, payload)`,
+  /// mantendo a UI thread livre de congelamentos e engasgos.
+  ///
+  /// Parâmetros:
+  /// - [caso]: Dados cadastrais, identificação, histórico, causa mortis e quesitos respondidos.
+  /// - [achados]: Lista de lesões marcadas com coordenadas nos croquis anatômicos.
+  /// - [perito]: Médico legista com registro CRM, classe funcional e assinatura.
+  /// - [schemas]: Esquemas opcionais de formulário e metadados adicionais.
+  /// - [exames]: Lista legada de requisições de exames periciais.
+  /// - [examesModel]: Lista estruturada e tipada dos exames (Toxicológico, Genético, Histopatológico).
+  /// - [evidenciasGerais]: Fotografias e anexos gerais vinculados ao laudo.
+  ///
+  /// Retorna um [Uint8List] com os bytes finais do arquivo PDF pronto para visualização ou gravação.
   Future<Uint8List> gerarLaudoPdf({
     required Caso caso,
     required List<Achado> achados,
@@ -1549,20 +1554,46 @@ class PdfService {
   }
 }
 
+/// Objeto de transferência de dados (DTO) enviado ao Isolate de geração do PDF.
+///
+/// Encapsula todos os dados do caso, listas de achados, imagens já lidas,
+/// vetores SVG pré-carregados e fontes binárias (Regular e Bold), garantindo que a compilação
+/// ocorra de forma desacoplada da UI e com todos os recursos em memória prontos para renderização.
 class PdfIsolatePayload {
+  /// Entidade com os dados completos do laudo pericial.
   final Caso caso;
+
+  /// Lista de achados e lesões corporais registradas.
   final List<Achado> achados;
+
+  /// Perito responsável pela assinatura e dados funcionais.
   final Usuario perito;
+
+  /// Esquemas de formulário opcionais.
   final Map<String, dynamic>? schemas;
+
+  /// Exames solicitados (modelo legado).
   final List<ExameSolicitado> exames;
+
+  /// Exames estruturados solicitados (Toxicológico, Genético, Histopatológico).
   final List<em.ExameSolicitadoModel>? examesModel;
+
+  /// Evidências e fotografias gerais anexadas ao caso.
   final List<EvidenciaMultimidia> evidenciasGerais;
 
+  /// Bytes da fonte TrueType Roboto Regular.
   final Uint8List fontRegularBytes;
+
+  /// Bytes da fonte TrueType Roboto Bold.
   final Uint8List fontBoldBytes;
+
+  /// Bytes da imagem institucional (brasão/logo do IML/Polícia Civil).
   final Uint8List? logoPoliciaBytes;
+
+  /// Mapa associando o identificador da vista (frente, costas, lateral) ao conteúdo do XML SVG.
   final Map<String, String> svgStrings;
 
+  /// Cria o payload de transporte para o isolate worker.
   PdfIsolatePayload({
     required this.caso,
     required this.achados,

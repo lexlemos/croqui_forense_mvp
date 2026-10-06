@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 
 class ExameSolicitado {
   final String uuid;
@@ -8,6 +9,8 @@ class ExameSolicitado {
   final String numeroLacre;
   final DateTime criadoEm;
   final String status;
+  final StatusConfirmacaoATN statusConfirmacaoAtn;
+  final String? justificativaRecusa;
 
   ExameSolicitado({
     required this.uuid,
@@ -17,6 +20,8 @@ class ExameSolicitado {
     required this.numeroLacre,
     required this.criadoEm,
     this.status = 'aguardando',
+    this.statusConfirmacaoAtn = StatusConfirmacaoATN.PENDENTE,
+    this.justificativaRecusa,
   });
 
   ExameSolicitado.novo({
@@ -25,6 +30,8 @@ class ExameSolicitado {
     this.quantidadeAmostras = 1,
     required this.numeroLacre,
     this.status = 'aguardando',
+    this.statusConfirmacaoAtn = StatusConfirmacaoATN.PENDENTE,
+    this.justificativaRecusa,
   }) : uuid = const Uuid().v4(),
        criadoEm = DateTime.now();
 
@@ -39,8 +46,15 @@ class ExameSolicitado {
           DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
           DateTime.now(),
       status: map['status']?.toString() ?? 'aguardando',
+      statusConfirmacaoAtn: StatusConfirmacaoATN.fromString(
+        map['status_confirmacao_atn']?.toString(),
+      ),
+      justificativaRecusa: map['justificativa_recusa']?.toString(),
     );
   }
+
+  factory ExameSolicitado.fromJson(Map<String, dynamic> json) =>
+      ExameSolicitado.fromMap(json);
 
   Map<String, dynamic> toMap() {
     return {
@@ -51,8 +65,12 @@ class ExameSolicitado {
       'numero_lacre': numeroLacre,
       'criado_em': criadoEm.toIso8601String(),
       'status': status,
+      'status_confirmacao_atn': statusConfirmacaoAtn.toBackendString(),
+      'justificativa_recusa': justificativaRecusa,
     };
   }
+
+  Map<String, dynamic> toJson() => toMap();
 
   ExameSolicitado copyWith({
     String? uuid,
@@ -62,6 +80,8 @@ class ExameSolicitado {
     String? numeroLacre,
     DateTime? criadoEm,
     String? status,
+    StatusConfirmacaoATN? statusConfirmacaoAtn,
+    String? justificativaRecusa,
   }) {
     return ExameSolicitado(
       uuid: uuid ?? this.uuid,
@@ -71,6 +91,8 @@ class ExameSolicitado {
       numeroLacre: numeroLacre ?? this.numeroLacre,
       criadoEm: criadoEm ?? this.criadoEm,
       status: status ?? this.status,
+      statusConfirmacaoAtn: statusConfirmacaoAtn ?? this.statusConfirmacaoAtn,
+      justificativaRecusa: justificativaRecusa ?? this.justificativaRecusa,
     );
   }
 }

@@ -117,6 +117,30 @@ class DatabaseHelper {
     await txn.execute(kCreateAtnsSql);
     await txn.execute(kCreateBalisticasSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
+    await _addColumnIfNotExists(
+      txn,
+      'exames_solicitados',
+      'status_confirmacao_atn',
+      "TEXT NOT NULL DEFAULT 'PENDENTE'",
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'exames_solicitados',
+      'justificativa_recusa',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'balisticas',
+      'status_confirmacao_atn',
+      "TEXT NOT NULL DEFAULT 'PENDENTE'",
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'balisticas',
+      'justificativa_recusa',
+      'TEXT',
+    );
     await DatabaseSeeder(txn).seedAtns();
     await _addColumnIfNotExists(
       txn,

@@ -12,6 +12,8 @@ const String tableEvidenciasMultimidia = 'evidencias_multimidia';
 const String tableLogAuditoria = 'log_auditoria';
 const String tableAtns = 'atns';
 const String tableBalisticas = 'balisticas';
+const String tableBalistica = 'balisticas';
+const String tableExamesSolicitados = 'exames_solicitados';
 
 const String kCreateAtnsSql = '''
 CREATE TABLE IF NOT EXISTS atns (
@@ -193,6 +195,8 @@ CREATE TABLE IF NOT EXISTS exames_solicitados (
     numero_lacre TEXT,
     criado_em TEXT NOT NULL,
     status TEXT DEFAULT 'aguardando',
+    status_confirmacao_atn TEXT NOT NULL DEFAULT 'PENDENTE',
+    justificativa_recusa TEXT,
     FOREIGN KEY (caso_uuid) REFERENCES casos(uuid) ON DELETE CASCADE
 );
 ''';
@@ -282,6 +286,8 @@ CREATE TABLE IF NOT EXISTS balisticas (
     tipo_objeto TEXT,
     numero_lacre TEXT,
     comentario_adicional TEXT,
+    status_confirmacao_atn TEXT NOT NULL DEFAULT 'PENDENTE',
+    justificativa_recusa TEXT,
     FOREIGN KEY (exame_id) REFERENCES casos(uuid) ON DELETE CASCADE
 );
 ''';
@@ -315,7 +321,7 @@ const Map<String, String> kTableScripts = {
   tableAchados: _kCreateAchados,
   tableEvidenciasMultimidia: _kCreateEvidencias,
   tableLogAuditoria: _kCreateLogAuditoria,
-  'exames_solicitados': kCreateExamesSolicitadosSql,
+  tableExamesSolicitados: kCreateExamesSolicitadosSql,
   tableDetalhesToxicologico: kCreateDetalhesToxicologicoSql,
   tableAmostrasGenetica: kCreateAmostrasGeneticaSql,
   tableFrascosAnatomo: kCreateFrascosAnatomoSql,

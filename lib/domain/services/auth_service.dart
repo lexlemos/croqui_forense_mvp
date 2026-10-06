@@ -10,8 +10,10 @@ import 'package:croqui_forense_mvp/data/repositories/usuario_repository.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
-/// Função em nível superior para verificação assíncrona do PIN pericial em segundo plano via [compute],
-/// garantindo que a execução dos cálculos criptográficos não cause travamentos na interface do usuário.
+/// **Executa em isolate.**
+///
+/// Executa a verificação criptográfica do PIN pericial em segundo plano via [compute],
+/// garantindo que os cálculos de hash não causem travamentos na interface do usuário (UI Thread).
 bool _verificarPinEmBackground(Map<String, String> dados) {
   final String pin = dados['pin'] ?? '';
   final String hash = dados['hash'] ?? '';
@@ -19,7 +21,9 @@ bool _verificarPinEmBackground(Map<String, String> dados) {
   return SecurityHelper.verifyPin(pin, hash, salt);
 }
 
-/// Função em nível superior para derivação de chaves e salt criptográfico em segundo plano via [compute],
+/// **Executa em isolate.**
+///
+/// Deriva salt criptográfico e calcula o hash PBKDF2/SHA do PIN em segundo plano via [compute],
 /// empregada durante o provisionamento de credenciais locais para autenticação offline do perito.
 Map<String, String> _gerarCredenciaisEmBackground(String pin) {
   final String salt = SecurityHelper.generateSalt();
@@ -49,7 +53,7 @@ class AuthService {
   Usuario? _usuarioLogado;
   bool _isOfflineSession = false;
 
-  /// Inicializa o serviço de autenticação injetando os repositórios de dados locais,
+  /// Inicializa o serviço de autenticação injetando o repositório de usuários,
   /// o provedor de armazenamento seguro de chaves e a fonte de dados remota.
   AuthService(
     this._usuarioRepository,
@@ -91,16 +95,28 @@ class AuthService {
 
   /// Realiza a autenticação institucional do usuário por meio de credenciais funcionais (matrícula/e-mail e PIN/senha).
   ///
+  /// **Executa em isolate.**
+  ///
+  /// A checagem criptográfica do hash PBKDF2 e validação do PIN offline ocorrem em um
+  /// worker isolate em segundo plano via `compute(_verificarPinEmBackground, ...)`, prevenindo
+  /// congelamento da UI durante operações matemáticas intensivas de hashing.
+  ///
   /// Aplica a estratégia "Network-First com Fallback Offline Local":
-  /// 1. Tenta autenticação remota junto à API central do IML.
-  /// 2. Valida a presença do token e extrai as permissões (roles).
-  /// 3. Aplica a trava estrita de segurança RBAC: apenas perfis 'PERITO', 'MEDICO_LEGISTA' ou 'ADMIN'
+  /// 1. Tenta autenticação remota junto à API central do IML via [_remoteDataSource].
+  /// 2. Valida a presença do token de acesso e extrai as permissões ([Usuario.roles]).
+  /// 3. Aplica a trava estrita de segurança RBAC: apenas perfis `PERITO`, `MEDICO_LEGISTA` ou `ADMIN`
   ///    podem prosseguir. Se o usuário não possuir pelo menos um desses perfis, uma [AuthException]
-  ///    é imediatamente disparada e NENHUM token é persistido no Secure Storage.
+  ///    é imediatamente disparada e nenhum token é persistido no Secure Storage.
   /// 4. Somente após a validação bem-sucedida das roles, os tokens e identificadores são gravados
-  ///    no chaveiro seguro e o perfil é persistido no banco local.
+  ///    no chaveiro seguro ([KeyStorageInterface]) e o perfil é sincronizado no [UsuarioRepository].
   /// 5. Em caso de falha de conectividade (rede/timeout), recorre ao cache local criptografado para
-  ///    validar as credenciais offline do último usuário autenticado no dispositivo.
+  ///    validar as credenciais offline do último usuário autenticado neste tablet.
+  ///
+  /// Throws [AuthException] caso o token de acesso não seja retornado pelo servidor.
+  /// Throws [AuthException] caso o perfil institucional não possua autorização de Perito, Médico Legista ou Administrador.
+  /// Throws [AuthException] caso o dispositivo esteja offline e não haja credencial prévia armazenada para o usuário informado.
+  /// Throws [AuthException] caso a tentativa de login offline seja realizada por usuário diferente do último autenticado no aparelho.
+  /// Throws [AuthException] caso a conta do usuário esteja desativada ou o PIN/senha offline esteja incorreto.
   Future<void> login(String login, String senha) async {
     try {
       final Map<String, dynamic> rawResponse = await _remoteDataSource.login(

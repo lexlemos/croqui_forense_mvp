@@ -1,13 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
+import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
+import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/status_atn_badge.dart';
 
+/// Aba de visualização consolidada dos vestígios balísticos (Projéteis de Arma de Fogo - PAF e estojos)
+/// vinculados às lesões e orifícios cadastrados no croqui corporal.
+///
+/// **Atenção: roda na UI thread.**
+///
+/// ### Lógicas Condicionais e Rastreabilidade:
+/// - **Filtragem Dinâmica**: Varre a lista de [Achado]s e filtra somente as marcações com dados balísticos
+///   preenchidos ([Achado.tipoFerimento], [Achado.tipoObjeto], [Achado.numeroLacre] ou [Achado.comentarioAdicional]).
+/// - **Resolução de Vínculo**: Localiza o [BalisticaModel] correspondente na coleção do caso matriz através
+///   do [Achado.uuid] ou derivado determinístico [deterministicUuidV5].
+/// - **Badge de Conferência ATN ([StatusAtnBadge])**: Sinaliza visualmente se o vestígio já foi aceito,
+///   visualizado, recusado ou está pendente pelo Auxiliar Técnico de Necrópsia.
+/// - **Auditoria de Recusa ([JustificativaRecusaBox])**: Renderizado condicionalmente caso
+///   `statusConfirmacaoAtn == StatusConfirmacaoATN.RECUSADO`, exibindo a razão formal apontada pelo ATN.
+/// - **Navegação Reativa ([onEdit])**: Ao tocar em um card de vestígio, invoca o callback para reabrir
+///   o formulário de edição do ferimento no croqui.
 class BalisticaTab extends StatelessWidget {
   final bool readOnly;
   final void Function(Achado)? onEdit;
 
   const BalisticaTab({super.key, this.readOnly = false, this.onEdit});
+
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +46,7 @@ class BalisticaTab extends StatelessWidget {
             .toList();
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -59,6 +80,20 @@ class BalisticaTab extends StatelessWidget {
                     final String typeLabel =
                         a.dadosPreenchidos['type_label']?.toString() ??
                         a.tipoAchadoId;
+
+                    final balisticaItem = controller.casoAtual.balisticas.firstWhere(
+                      (b) =>
+                          (b.achadoUuid != null && b.achadoUuid == a.uuid) ||
+                          b.id == deterministicUuidV5(a.uuid, 'balistica'),
+                      orElse: () => BalisticaModel(
+                        exameId: controller.casoAtual.uuid,
+                        achadoUuid: a.uuid,
+                        tipoFerimento: a.tipoFerimento,
+                        tipoObjeto: a.tipoObjeto,
+                        numeroLacre: a.numeroLacre,
+                        comentarioAdicional: a.comentarioAdicional,
+                      ),
+                    );
 
                     return Card(
                       elevation: 1,
@@ -97,8 +132,14 @@ class BalisticaTab extends StatelessWidget {
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  StatusAtnBadge(
+                                    status: balisticaItem.statusConfirmacaoAtn,
+                                  ),
+                                  const SizedBox(width: 4),
                                   const Icon(
                                     Icons.chevron_right,
                                     color: Colors.grey,
@@ -118,6 +159,18 @@ class BalisticaTab extends StatelessWidget {
                               if (a.comentarioAdicional != null &&
                                   a.comentarioAdicional!.isNotEmpty)
                                 Text("Comentário: ${a.comentarioAdicional}"),
+                              if (balisticaItem.statusConfirmacaoAtn ==
+                                      StatusConfirmacaoATN.RECUSADO &&
+                                  balisticaItem.justificativaRecusa != null &&
+                                  balisticaItem.justificativaRecusa!
+                                      .trim()
+                                      .isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                JustificativaRecusaBox(
+                                  justificativa:
+                                      balisticaItem.justificativaRecusa!,
+                                ),
+                              ],
                             ],
                           ),
                         ),

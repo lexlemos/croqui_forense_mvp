@@ -5,6 +5,12 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:path/path.dart' as p;
 
+/// Repositório especializado na persistência relacional de lesões corporais e achados periciais ([Achado]) no SQLite criptografado (SQLCipher).
+///
+/// Gerencia o ciclo de vida das marcações do croqui digital, garantindo que cada achado
+/// esteja estritamente vinculado ao laudo ([Caso]) via chave estrangeira UUID (`caso_uuid`).
+/// Coordena a criação e atualização de registros na tabela `evidencias_multimidia` e assegura
+/// que qualquer modificação marque o laudo pai como pendente de sincronização (`is_draft_synced = 0`).
 class AchadoRepository {
   final DatabaseHelper _dbHelper;
 
@@ -12,6 +18,14 @@ class AchadoRepository {
 
   Future<Database> get _db async => _dbHelper.database;
 
+  /// Insere ou atualiza um [Achado] no banco local de forma transacional.
+  ///
+  /// Executa três operações atômicas:
+  /// 1. Upsert do registro na tabela `achados`.
+  /// 2. Sincronização da fotografia da lesão na tabela `evidencias_multimidia` via [_garantirEvidencia].
+  /// 3. Atualização do laudo pai ([Caso]) com `is_draft_synced = 0` para agendamento de push.
+  ///
+  /// Throws [Exception] em caso de falha de persistência no SQLite.
   Future<void> insertAchado(Achado achado) async {
     final db = await _db;
     try {
@@ -37,6 +51,10 @@ class AchadoRepository {
     }
   }
 
+  /// Verifica se o laudo pai ([casoUuid]) possui status `FINALIZADO` no SQLite.
+  ///
+  /// Utilizado como trava de segurança jurídica para impedir alterações retroativas
+  /// em laudos já concluídos formalmente pelo perito.
   Future<bool> isCasoFinalizado(String casoUuid) async {
     final db = await _db;
     final res = await db.query(
@@ -51,6 +69,7 @@ class AchadoRepository {
     return statusStr == 'FINALIZADO';
   }
 
+  /// Recupera um [Achado] específico pelo seu [uuid], hidratando seus atributos balísticos vinculados.
   Future<Achado?> getAchadoByUuid(String uuid) async {
     final db = await _db;
     final res = await db.query(
@@ -106,6 +125,12 @@ class AchadoRepository {
     return achado;
   }
 
+  /// Atualiza os dados de um [Achado] existente no banco local.
+  ///
+  /// Garante que a alteração seja rejeitada caso o laudo vinculado já esteja com status `FINALIZADO`.
+  /// Sincroniza a evidência fotográfica e marca o caso pai como pendente de sincronização.
+  ///
+  /// Throws [Exception] caso o achado não seja encontrado ou o laudo esteja finalizado.
   Future<void> updateAchado(Achado achado) async {
     final db = await _db;
     try {
@@ -133,6 +158,11 @@ class AchadoRepository {
     }
   }
 
+  /// Sincroniza a fotografia associada ao [achado] na tabela `evidencias_multimidia`.
+  ///
+  /// - Se a foto for removida do achado, marca o registro correspondente como `removido = 1`.
+  /// - Se for uma foto inédita, insere o registro com `foto_sincronizada = 0`.
+  /// - Se o caminho físico foi alterado, atualiza o registro e redefine a sincronização pendente.
   Future<void> _garantirEvidencia(DatabaseExecutor db, Achado achado) async {
     final photo = achado.photoPath;
     if (photo == null || photo.isEmpty) {
@@ -190,6 +220,9 @@ class AchadoRepository {
     }
   }
 
+  /// Executa a exclusão lógica (`removido = 1`) de um [Achado] no SQLite e remarca o laudo como pendente de sync.
+  ///
+  /// Throws [Exception] caso o laudo vinculado esteja finalizado ou ocorra falha no banco.
   Future<void> deleteAchado(String uuid) async {
     final achado = await getAchadoByUuid(uuid);
     final db = await _db;
@@ -206,6 +239,7 @@ class AchadoRepository {
     }
   }
 
+  /// Auxiliar que redefine `is_draft_synced = 0` no laudo pai identificado por [casoUuid].
   Future<void> _marcarCasoPendenteSync(
     DatabaseExecutor db,
     String casoUuid,
@@ -222,6 +256,7 @@ class AchadoRepository {
     );
   }
 
+  /// Retorna a lista de todos os achados ativos (`removido = 0`) vinculados a um laudo ([casoUuid]), hidratando balísticas.
   Future<List<Achado>> getAchadosPorCaso(String casoUuid) async {
     final db = await _db;
     final result = await db.query(
@@ -293,6 +328,7 @@ class AchadoRepository {
     }).toList();
   }
 
+  /// Recupera especificamente os orifícios de entrada de PAF cadastrados no laudo para correlação de trajetória balística.
   Future<List<Achado>> getAchadosDeEntradaPorCaso(String casoUuid) async {
     final db = await _db;
     final result = await db.query(

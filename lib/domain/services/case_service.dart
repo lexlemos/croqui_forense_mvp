@@ -9,9 +9,13 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
-
+import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
+/// **Executa em isolate.**
+///
+/// Lê os arquivos físicos de imagem referenciados no laudo e os converte em buffers Base64 de forma assíncrona.
+/// Isola o consumo de memória e a decodificação I/O para evitar travamentos na thread principal de renderização.
 Future<Map<String, dynamic>> _gerarJsonBase64Background(
   Map<String, dynamic> params,
 ) async {
@@ -71,18 +75,17 @@ class CaseService {
     this._remoteDataSource,
   ]);
 
-  /// Consulta os dados cadastrais prévios de um procedimento pericial
-  /// no servidor central a partir do PIC.
-  Future<Map<String, dynamic>?> getDadosPorPic(String pic) async {
+  /// Consulta os dados cadastrais prévios de um procedimento pericial no servidor central a partir do PIC.
+  Future<ProtocoloLookupModel?> getDadosPorPic(String pic) async {
     if (_remoteDataSource == null) return null;
     return await _remoteDataSource.getDadosPorPic(pic);
   }
 
   /// Inicializa e registra um novo [Caso] (Laudo Pericial Oficial) no repositório do dispositivo.
   ///
-  /// Vincula o laudo ao [Perito] criador através de seu identificador funcional.
+  /// Vincula o laudo ao [Usuario] criador através de seu identificador funcional.
   ///
-  /// @throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
+  /// Throws [Exception] caso o repositório falhe na persistência inicial dos dados do laudo.
   Future<Caso> createNewCase({
     required Usuario criador,
     required String numeroLaudo,
@@ -115,6 +118,7 @@ class CaseService {
     return novoCaso;
   }
 
+  /// Persiste um caso recém-criado junto com seu lote de evidências multimídia iniciais.
   Future<void> salvarCasoComEvidenciasLote(
     Caso caso,
     List<EvidenciaMultimidia> evidencias,
@@ -130,12 +134,12 @@ class CaseService {
   Future<Caso?> buscarCasoPorUuid(String uuid) async =>
       _repository.getCaseByUuid(uuid);
 
-  /// Finaliza e congela o [Caso] (Laudo) para auditoria e assinatura eletrônica do [Perito].
+  /// Finaliza e congela o [Caso] (Laudo) para auditoria e assinatura eletrônica do perito.
   ///
-  /// Altera o status do caso para `StatusCaso.finalizado`, bloqueando modificações diretas
+  /// Altera o status do caso para [StatusCaso.finalizado], bloqueando modificações diretas
   /// em lesões e fotos associadas a fim de manter a inalterabilidade da prova técnica.
   ///
-  /// @throws [Exception] se o laudo com o [casoUuid] fornecido não for localizado no banco local.
+  /// Throws [Exception] caso o laudo com o [casoUuid] fornecido não seja localizado no banco local.
   Future<void> finalizarCaso(
     String casoUuid,
     Map<String, dynamic> dadosConclusao,
@@ -155,11 +159,13 @@ class CaseService {
     await _repository.updateCase(casoFinalizado);
   }
 
-  // Métodos de delegação para fotos gerais e exames solicitados
-
+  /// Recupera a lista de evidências multimídia gerais associadas a um laudo ([casoUuid]).
   Future<List<EvidenciaMultimidia>> getEvidenciasGerais(String casoUuid) =>
       _repository.getEvidenciasGerais(casoUuid);
 
+  /// Salva uma nova evidência multimídia geral com trava de imutabilidade forense.
+  ///
+  /// Throws [Exception] caso o laudo já esteja finalizado.
   Future<void> salvarEvidenciaGeral(EvidenciaMultimidia ev) async {
     final caso = await _repository.getCaseByUuid(ev.casoUuid);
     if (caso != null && caso.status == StatusCaso.finalizado) {
@@ -170,8 +176,10 @@ class CaseService {
     await _repository.insertEvidenciaGeral(ev);
   }
 
+  /// Remove uma evidência multimídia geral respeitando a trava de imutabilidade de laudos finalizados.
+  ///
+  /// Throws [Exception] caso o laudo vinculado esteja finalizado.
   Future<void> removerEvidenciaGeral(String uuid) async {
-    // Resolve o caso pai antes de deletar para aplicar a trava de imutabilidade
     final ev = await _repository.getEvidenciaByUuid(uuid);
     if (ev != null) {
       final caso = await _repository.getCaseByUuid(ev.casoUuid);
@@ -184,9 +192,13 @@ class CaseService {
     await _repository.deleteEvidenciaGeral(uuid);
   }
 
+  /// Recupera a lista simplificada de exames solicitados de um laudo.
   Future<List<ExameSolicitado>> getExamesSolicitados(String casoUuid) =>
       _repository.getExamesSolicitados(casoUuid);
 
+  /// Salva ou atualiza os lacres dos exames complementares solicitados.
+  ///
+  /// Throws [Exception] caso o laudo já esteja com status finalizado.
   Future<void> salvarExamesSolicitados({
     required String casoUuid,
     required String? anatomoLacre,
@@ -212,9 +224,9 @@ class CaseService {
   /// Reabre um [Caso] (Laudo) finalizado, restaurando seu status para rascunho.
   ///
   /// Limpa as assinaturas de integridade e incrementa a versão do documento, permitindo
-  /// que o [Perito] altere ou insira novas marcações de lesões antes do fechamento oficial definitivo.
+  /// que o perito altere ou insira novas marcações de lesões antes do fechamento oficial definitivo.
   ///
-  /// @throws [Exception] se o laudo com o [casoUuid] fornecido não for localizado.
+  /// Throws [Exception] caso o laudo com o [casoUuid] fornecido não seja localizado no repositório.
   Future<void> reabrirCaso(String casoUuid) async {
     final casoAtual = await _repository.getCaseByUuid(casoUuid);
     if (casoAtual == null) {
@@ -232,7 +244,7 @@ class CaseService {
 
   /// Persiste as atualizações em modo rascunho de um [Caso] (Laudo).
   ///
-  /// @throws [Exception] caso o laudo já tenha sido finalizado (bloqueado para edição) e
+  /// Throws [Exception] caso o laudo já tenha sido finalizado (bloqueado para edição) e
   /// o perito tente salvar alterações sem antes realizar a reabertura formal.
   Future<void> salvarRascunho(Caso caso) async {
     final casoExistente = await _repository.getCaseByUuid(caso.uuid);
@@ -257,10 +269,11 @@ class CaseService {
 
   /// Atualiza exclusivamente o caminho físico local do PDF gerado.
   ///
-  /// Utilizado pelo PdfReportService para registrar onde o arquivo PDF final foi salvo no disco.
-  /// Isso contorna a trava de 'rascunho' intencionalmente, visto que gerar/exportar
-  /// o PDF não altera as respostas periciais e, logo, não fere a segurança jurídica
-  /// de um caso finalizado.
+  /// Utilizado após a geração do documento em disco para registrar onde o arquivo final foi salvo.
+  /// Contorna a trava de rascunho intencionalmente, pois a exportação física do arquivo não altera
+  /// o mérito probatório nem fere a segurança jurídica de um laudo finalizado.
+  ///
+  /// Throws [Exception] caso o laudo não seja localizado.
   Future<void> atualizarCaminhoPdf(String casoUuid, String pdfPath) async {
     final casoExistente = await _repository.getCaseByUuid(casoUuid);
     if (casoExistente == null) {
@@ -271,13 +284,15 @@ class CaseService {
     await _repository.updateCase(casoAtualizado);
   }
 
+  /// **Executa em isolate.**
+  ///
   /// Exporta o [Caso] (Laudo) em um arquivo JSON consolidado para auditoria externa.
   ///
-  /// Realiza a conversão de todas as [Evidência Fotográfica]s cadastradas para codificação Base64.
-  /// A leitura e codificação de imagens são processadas em segundo plano (background thread/isolate)
-  /// para evitar o travamento da interface visual no tablet do [Perito].
+  /// Realiza a conversão de todas as evidências fotográficas cadastradas para codificação Base64.
+  /// A leitura e codificação de imagens são processadas em segundo plano via `compute()`
+  /// para evitar o travamento da interface visual (UI Thread) no dispositivo do perito.
   ///
-  /// @throws [Exception] caso o laudo com [casoUuid] não exista ou ocorra um erro de leitura
+  /// Throws [Exception] caso o laudo com [casoUuid] não exista ou ocorra um erro de leitura
   /// dos arquivos físicos das evidências de imagem.
   Future<File> exportarJsonUnicoComBase64({
     required String casoUuid,

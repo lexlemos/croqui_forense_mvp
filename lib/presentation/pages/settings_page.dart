@@ -4,7 +4,13 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/app_header.dart';
 
+/// Tela de configurações e dados do perfil institucional do perito médico-legista.
+///
+/// Exibe as credenciais de identificação funcional recuperadas da sessão ativa no [AuthProvider]
+/// (Nome Completo, Matrícula, CRM, Classe Funcional e Perfis de Acesso RBAC) e informações
+/// sobre a versão instalada do sistema ([PackageInfo]).
 class SettingsPage extends StatefulWidget {
+  /// Cria uma instância da tela de configurações.
   const SettingsPage({super.key});
 
   @override
@@ -21,6 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadAppInfo();
   }
 
+  /// Recupera assincronamente a versão do pacote e o número de build do binário nativo.
   Future<void> _loadAppInfo() async {
     final PackageInfo packageInfo = await PackageInfo.fromPlatform();
     setState(() {
@@ -159,6 +166,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Constrói uma linha descritiva com ícone institucional para exibição de dado cadastral.
   Widget _buildProfileRow(
     BuildContext context, {
     required IconData icon,

@@ -1,20 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
+import 'package:croqui_forense_mvp/presentation/widgets/common/status_atn_badge.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/exames/toxicologico_form_widget.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/exames/genetica_form_widget.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/exames/anatomo_form_widget.dart';
 
-/// Aba dedicada exclusivamente ao gerenciamento e requisição de Exames Complementares.
-/// O número do lacre é capturado individualmente dentro de cada formulário de exame,
-/// por amostra/recipiente físico (cadeia de custódia — Lei 13.964/19).
+/// Aba de formulários dedicada exclusivamente à requisição e detalhamento de Exames Complementares.
+///
+/// **Atenção: roda na UI thread.**
+///
+/// ### Arquitetura e Lógicas Condicionais:
+/// - **Controle de Leitura/Edição ([readOnly])**: Avalia se o laudo está em status finalizado ou sincronizado
+///   para desabilitar checkboxes, campos de lacres e formulários aninhados.
+/// - **Badges de Conferência ATN ([StatusAtnBadge])**: Exibidos ao lado do título de cada exame solicitado
+///   para indicar se o Auxiliar Técnico de Necrópsia já confirmou, visualizou, recusou ou se o item está pendente.
+/// - **Auditoria de Recusa ([JustificativaRecusaBox])**: Renderizado condicionalmente caso
+///   `statusConfirmacaoAtn == StatusConfirmacaoATN.RECUSADO` e haja justificativa preenchida, alertando o perito
+///   sobre eventuais inconformidades nas amostras ou recipientes.
+/// - **Persistência Reativa**: Todas as alterações nos formulários invocam [CroquiController.salvarExamesModel],
+///   disparando atualização no SQLite e incremento no motor OCC de sincronização.
 class ExamesTab extends StatelessWidget {
   const ExamesTab({super.key});
+
 
   @override
   Widget build(BuildContext context) {
@@ -100,9 +114,24 @@ class ExamesTab extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 CheckboxListTile(
-                  title: const Text(
-                    'Solicitar Exame Toxicológico',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  title: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Solicitar Exame Toxicológico',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      if (toxicologicoExam != null) ...[
+                        const SizedBox(width: 8),
+                        StatusAtnBadge(
+                          status: toxicologicoExam.statusConfirmacaoAtn,
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: const Text(
                     'Pesquisa de substâncias químicas, drogas, venenos e fármacos',
@@ -144,6 +173,18 @@ class ExamesTab extends StatelessWidget {
                           controller.salvarExamesModel(newList);
                         },
                 ),
+                if (toxicologicoExam != null &&
+                    toxicologicoExam.statusConfirmacaoAtn ==
+                        StatusConfirmacaoATN.RECUSADO &&
+                    toxicologicoExam.justificativaRecusa != null &&
+                    toxicologicoExam.justificativaRecusa!.trim().isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
+                    child: JustificativaRecusaBox(
+                      justificativa: toxicologicoExam.justificativaRecusa!,
+                    ),
+                  ),
+                ],
                 if (solicitarToxicologico) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -249,9 +290,24 @@ class ExamesTab extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 CheckboxListTile(
-                  title: const Text(
-                    'Solicitar Exame Genético e Biológico',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  title: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Solicitar Exame Genético e Biológico',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      if (geneticaExam != null) ...[
+                        const SizedBox(width: 8),
+                        StatusAtnBadge(
+                          status: geneticaExam.statusConfirmacaoAtn,
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: const Text(
                     'Pesquisa de DNA, sêmen e swabs de amostras biológicas',
@@ -289,6 +345,18 @@ class ExamesTab extends StatelessWidget {
                           controller.salvarExamesModel(newList);
                         },
                 ),
+                if (geneticaExam != null &&
+                    geneticaExam.statusConfirmacaoAtn ==
+                        StatusConfirmacaoATN.RECUSADO &&
+                    geneticaExam.justificativaRecusa != null &&
+                    geneticaExam.justificativaRecusa!.trim().isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
+                    child: JustificativaRecusaBox(
+                      justificativa: geneticaExam.justificativaRecusa!,
+                    ),
+                  ),
+                ],
                 if (solicitarGenetica) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -393,9 +461,24 @@ class ExamesTab extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 CheckboxListTile(
-                  title: const Text(
-                    'Solicitar Exame Anátomo-patológico',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  title: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Solicitar Exame Anátomo-patológico',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      if (anatomoExam != null) ...[
+                        const SizedBox(width: 8),
+                        StatusAtnBadge(
+                          status: anatomoExam.statusConfirmacaoAtn,
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: const Text(
                     'Amostras histopatológicas e órgãos acondicionados em frascos',
@@ -433,6 +516,18 @@ class ExamesTab extends StatelessWidget {
                           controller.salvarExamesModel(newList);
                         },
                 ),
+                if (anatomoExam != null &&
+                    anatomoExam.statusConfirmacaoAtn ==
+                        StatusConfirmacaoATN.RECUSADO &&
+                    anatomoExam.justificativaRecusa != null &&
+                    anatomoExam.justificativaRecusa!.trim().isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
+                    child: JustificativaRecusaBox(
+                      justificativa: anatomoExam.justificativaRecusa!,
+                    ),
+                  ),
+                ],
                 if (solicitarAnatomo) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(

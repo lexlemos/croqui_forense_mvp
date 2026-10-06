@@ -48,6 +48,8 @@ class LoginController {
     }
   }
 
+  /// **Atenção: roda na UI thread.**
+  ///
   /// Submete as credenciais do perito para autenticação online ou fallback offline local.
   ///
   /// Em caso de sucesso, persiste o login para uso posterior e executa a carga inicial de casos periciais.
