@@ -98,6 +98,8 @@ class CaseListProvider extends ChangeNotifier {
     required String requisitante,
     String? delegaciaSolicitante,
     String? numeroDeclaracaoObito,
+    String? dataObito,
+    String? horaObito,
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
@@ -130,6 +132,8 @@ class CaseListProvider extends ChangeNotifier {
       requisitante: requisitante,
       delegaciaSolicitante: delegaciaSolicitante,
       numeroDeclaracaoObito: numeroDeclaracaoObito,
+      dataObito: dataObito,
+      horaObito: horaObito,
       atnsIds: atnsIds,
       evidencias: evidencias,
     );

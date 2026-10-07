@@ -59,5 +59,29 @@ void main() {
       final dto = ProtocoloLookupModel.fromMap(jsonVazio);
       expect(dto.exameId, isNull);
     });
+
+    test('extrai dataFato e horaFato a partir do payload de ocorrencia', () {
+      final jsonOcorrencia = {
+        "documento": {
+          "id": "7b54f2d8-fbd2-4262-ad7f-b542bdcb8cb5",
+          "protocolo_interno": "24532026",
+          "protocolo_externo": "14674325A",
+        },
+        "ocorrencia": {
+          "data_fato": "2026-10-06",
+          "hora_fato": "10:01:00",
+        },
+        "vitima": {
+          "nome_completo": "Antonio de Oliveira Pinto",
+        },
+      };
+
+      final dto = ProtocoloLookupModel.fromMap(jsonOcorrencia);
+      expect(dto.dataFato, equals('2026-10-06'));
+      expect(dto.horaFato, equals('10:01:00'));
+      expect(dto.nomeVitima, equals('Antonio de Oliveira Pinto'));
+      expect(dto.numeroPic, equals('14674325A'));
+      expect(dto.numeroRequisicao, equals('24532026'));
+    });
   });
 }

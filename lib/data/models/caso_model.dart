@@ -6,6 +6,7 @@ import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 
 /// Critérios de ordenação para listagem de laudos periciais.
@@ -529,8 +530,20 @@ class Caso {
       sexoBiologicoEstimado: toTitleCase(
         map['sexo_biologico_estimado']?.toString(),
       ),
-      dataObito: map['data_obito']?.toString(),
-      horaObito: map['hora_obito']?.toString(),
+      dataObito: formatarDataBr(
+        map['data_obito']?.toString() ??
+            (map['ocorrencia'] is Map
+                ? (map['ocorrencia']['data_fato']?.toString())
+                : null) ??
+            map['data_fato']?.toString(),
+      ),
+      horaObito: formatarHoraBr(
+        map['hora_obito']?.toString() ??
+            (map['ocorrencia'] is Map
+                ? (map['ocorrencia']['hora_fato']?.toString())
+                : null) ??
+            map['hora_fato']?.toString(),
+      ),
       tipoEstimativaHoraObito: parseEstimativa(
         map['tipo_estimativa_hora_obito']?.toString(),
       ),

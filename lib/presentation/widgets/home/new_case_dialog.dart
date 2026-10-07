@@ -47,6 +47,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   List<AtnModel> _atnsCache = [];
   final ImagePicker _picker = ImagePicker();
   String? _exameId;
+  String? _dataObito;
+  String? _horaObito;
 
   @override
   void dispose() {
@@ -264,6 +266,8 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
             ? 'Não Identificado'
             : _vitimaController.text.trim(),
         'destino': _destinoController.text.trim(),
+        'data_obito': _dataObito,
+        'hora_obito': _horaObito,
         'atns_ids': _selectedAtns,
         'dados_laudo': dadosLaudo,
         'fotos_gerais': _fotosIdentificacao,
@@ -382,8 +386,16 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                               vitimaCtrl: _vitimaController,
                               forcar: true,
                             );
-                            if (dto != null && dto.exameId != null) {
-                              _exameId = dto.exameId;
+                            if (dto != null) {
+                              if (dto.exameId != null) {
+                                _exameId = dto.exameId;
+                              }
+                              if (dto.dataFato != null && dto.dataFato!.isNotEmpty) {
+                                _dataObito = formatarDataBr(dto.dataFato);
+                              }
+                              if (dto.horaFato != null && dto.horaFato!.isNotEmpty) {
+                                _horaObito = formatarHoraBr(dto.horaFato);
+                              }
                             }
                           },
                         );

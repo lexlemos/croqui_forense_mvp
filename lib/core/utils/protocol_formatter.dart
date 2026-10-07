@@ -29,3 +29,28 @@ String sanitizarRequisicao(String? valor) {
   if (valor == null) return '';
   return valor.replaceAll('/', '').trim();
 }
+
+/// Converte datas no formato ISO (`YYYY-MM-DD`) para o formato brasileiro (`DD/MM/YYYY`).
+/// Caso já esteja no padrão ou não tenha formato reconhecido, retorna o valor original.
+String formatarDataBr(String? data) {
+  if (data == null || data.trim().isEmpty) return '';
+  final limpo = data.trim();
+  if (limpo.contains('-')) {
+    final parts = limpo.split('-');
+    if (parts.length == 3 && parts[0].length == 4) {
+      return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}/${parts[0]}';
+    }
+  }
+  return limpo;
+}
+
+/// Converte horários (`HH:MM:SS` ou `HH:MM`) para o formato `HH:MM`.
+String formatarHoraBr(String? hora) {
+  if (hora == null || hora.trim().isEmpty) return '';
+  final limpo = hora.trim();
+  final parts = limpo.split(':');
+  if (parts.length >= 2) {
+    return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+  }
+  return limpo;
+}

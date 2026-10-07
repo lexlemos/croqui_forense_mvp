@@ -27,5 +27,19 @@ void main() {
       expect(sanitizarRequisicao('12342026'), equals('12342026'));
       expect(sanitizarRequisicao(null), equals(''));
     });
+
+    test('formatarDataBr converte YYYY-MM-DD para DD/MM/YYYY', () {
+      expect(formatarDataBr('2026-10-06'), equals('06/10/2026'));
+      expect(formatarDataBr('06/10/2026'), equals('06/10/2026'));
+      expect(formatarDataBr(''), equals(''));
+      expect(formatarDataBr(null), equals(''));
+    });
+
+    test('formatarHoraBr converte HH:MM:SS para HH:MM', () {
+      expect(formatarHoraBr('10:01:00'), equals('10:01'));
+      expect(formatarHoraBr('10:01'), equals('10:01'));
+      expect(formatarHoraBr(''), equals(''));
+      expect(formatarHoraBr(null), equals(''));
+    });
   });
 }

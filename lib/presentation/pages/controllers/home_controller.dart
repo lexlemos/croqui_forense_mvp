@@ -173,10 +173,12 @@ class HomeController extends ChangeNotifier {
       final String nomeVitima = dadosRetornados['nome_vitima'] ?? '';
       final String destino = dadosRetornados['destino'] ?? '';
       final String requisitante = dadosRetornados['requisitante'] ?? '';
-      final String delegaciaSolicitante =
-          dadosRetornados['delegacia_solicitante'] ?? '';
-      final String numeroDeclaracaoObito =
-          dadosRetornados['numero_declaracao_obito'] ?? '';
+      final String? delegaciaSolicitante =
+          dadosRetornados['delegacia_solicitante'];
+      final String? numeroDeclaracaoObito =
+          dadosRetornados['numero_declaracao_obito'];
+      final String? dataObito = dadosRetornados['data_obito'];
+      final String? horaObito = dadosRetornados['hora_obito'];
       final Map<String, dynamic> conteudoJson =
           dadosRetornados['dados_laudo'] ?? {};
       final List<dynamic> fotosGerais = dadosRetornados['fotos_gerais'] ?? [];
@@ -198,6 +200,8 @@ class HomeController extends ChangeNotifier {
           requisitante: requisitante,
           delegaciaSolicitante: delegaciaSolicitante,
           numeroDeclaracaoObito: numeroDeclaracaoObito,
+          dataObito: dataObito,
+          horaObito: horaObito,
           fotosGerais: fotosGerais,
           atnsIds: atnsIds,
         );
@@ -244,6 +248,8 @@ class HomeController extends ChangeNotifier {
     required String requisitante,
     String? delegaciaSolicitante,
     String? numeroDeclaracaoObito,
+    String? dataObito,
+    String? horaObito,
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
@@ -263,6 +269,8 @@ class HomeController extends ChangeNotifier {
         requisitante: requisitante,
         delegaciaSolicitante: delegaciaSolicitante,
         numeroDeclaracaoObito: numeroDeclaracaoObito,
+        dataObito: dataObito,
+        horaObito: horaObito,
         fotosGerais: fotosGerais,
         atnsIds: atnsIds,
       );

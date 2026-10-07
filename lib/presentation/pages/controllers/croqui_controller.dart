@@ -19,6 +19,7 @@ import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/constants/diagram_constants.dart';
 import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 
@@ -1319,9 +1320,12 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
-      if (numeroLaudoCtrl.text.isEmpty && dto.numeroRequisicao != null) {
-        numeroLaudoCtrl.text = dto.numeroRequisicao!;
-        altered = true;
+      if (dto.numeroRequisicao != null && dto.numeroRequisicao!.isNotEmpty) {
+        final reqFmt = formatarRequisicao(dto.numeroRequisicao);
+        if (numeroLaudoCtrl.text.isEmpty || forcar) {
+          numeroLaudoCtrl.text = reqFmt;
+          altered = true;
+        }
       }
 
       if (reqOrigemCtrl.text.isEmpty && dto.requisitante != null) {
@@ -1354,14 +1358,20 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
-      if (dataObitoCtrl.text.isEmpty && dto.dataFato != null) {
-        dataObitoCtrl.text = dto.dataFato!;
-        altered = true;
+      if (dto.dataFato != null && dto.dataFato!.isNotEmpty) {
+        final dtFmt = formatarDataBr(dto.dataFato);
+        if (dataObitoCtrl.text.isEmpty || forcar) {
+          dataObitoCtrl.text = dtFmt;
+          altered = true;
+        }
       }
 
-      if (horaObitoCtrl.text.isEmpty && dto.horaFato != null) {
-        horaObitoCtrl.text = dto.horaFato!;
-        altered = true;
+      if (dto.horaFato != null && dto.horaFato!.isNotEmpty) {
+        final hrFmt = formatarHoraBr(dto.horaFato);
+        if (horaObitoCtrl.text.isEmpty || forcar) {
+          horaObitoCtrl.text = hrFmt;
+          altered = true;
+        }
       }
 
       if (altered) {
