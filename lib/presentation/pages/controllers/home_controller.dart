@@ -8,6 +8,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/home/case_filter_dialog.
 import 'package:croqui_forense_mvp/presentation/pages/croqui_page.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 
@@ -115,7 +116,7 @@ class HomeController extends ChangeNotifier {
       }
 
       if (requisicaoCtrl.text.isEmpty && dto.numeroRequisicao != null) {
-        requisicaoCtrl.text = dto.numeroRequisicao!;
+        requisicaoCtrl.text = formatarRequisicao(dto.numeroRequisicao);
       }
 
       if (autoridadeCtrl.text.isEmpty && dto.requisitante != null) {
@@ -164,11 +165,11 @@ class HomeController extends ChangeNotifier {
 
     if (dadosRetornados != null) {
       final String? uuid = dadosRetornados['uuid'];
-      final String numero = dadosRetornados['numero_laudo'] ?? '';
+      final String numero = sanitizarRequisicao(dadosRetornados['numero_laudo']);
       final String numeroPic = dadosRetornados['numero_pic'] ?? '';
       final String numeroBo = dadosRetornados['numero_bo'] ?? '';
       final String numeroRequisicao =
-          dadosRetornados['numero_requisicao'] ?? '';
+          sanitizarRequisicao(dadosRetornados['numero_requisicao']);
       final String nomeVitima = dadosRetornados['nome_vitima'] ?? '';
       final String destino = dadosRetornados['destino'] ?? '';
       final String requisitante = dadosRetornados['requisitante'] ?? '';

@@ -11,6 +11,7 @@ import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/home_controller.dart';
 
 class NewCaseDialog extends StatefulWidget {
@@ -247,12 +248,15 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'auditoria': null,
       };
 
+      final rawReq = _reqController.text.trim();
+      final reqSanitizada = sanitizarRequisicao(rawReq);
+
       Navigator.pop(context, {
         'uuid': _exameId,
-        'numero_laudo': _reqController.text.trim(),
+        'numero_laudo': reqSanitizada,
         'numero_pic': _picController.text.trim(),
         'numero_bo': _boController.text.trim(),
-        'numero_requisicao': _reqController.text.trim(),
+        'numero_requisicao': reqSanitizada,
         'requisitante': _requisitanteController.text.trim(),
         'delegacia_solicitante': _delegaciaController.text.trim(),
         'numero_declaracao_obito': _declaracaoObitoController.text.trim(),
@@ -410,8 +414,9 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     validator: (val) {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';
-                      if (!RegExp(r'^\d{4}/\d{4}$').hasMatch(v)) {
-                        return 'Formato inválido (ex: 1015/2026)';
+                      final digitos = v.replaceAll(RegExp(r'\D'), '');
+                      if (digitos.length < 6) {
+                        return 'Nº da requisição deve ter no mínimo 6 dígitos';
                       }
                       return null;
                     },
@@ -427,14 +432,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     controller: _boController,
                     label: "Nº. do B.O",
                     icon: Icons.receipt_long,
-                    validator: (val) {
-                      final v = val?.trim() ?? '';
-                      if (v.isEmpty) return null;
-                      if (!RegExp(r'^\d+/\d{4}$').hasMatch(v)) {
-                        return 'Formato inválido (ex: 12345/2026)';
-                      }
-                      return null;
-                    },
+                    validator: null,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -461,18 +459,9 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                 Expanded(
                   child: _buildTextField(
                     controller: _declaracaoObitoController,
-                    label: "Nº.R Declaração de Óbito",
+                    label: "Nº. Declaração de Óbito",
                     icon: Icons.description,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    validator: (val) {
-                      final v = val?.trim() ?? '';
-                      if (v.isEmpty) return null;
-                      if (!RegExp(r'^\d{9}$').hasMatch(v)) {
-                        return 'Nº D.O. deve ter exatamente 9 dígitos numéricos';
-                      }
-                      return null;
-                    },
+                    validator: null,
                   ),
                 ),
               ],

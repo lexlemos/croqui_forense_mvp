@@ -6,6 +6,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
 import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
@@ -107,7 +108,7 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               final String identificador = pic.isNotEmpty
                   ? 'PIC $pic'
                   : (req.isNotEmpty
-                        ? 'Req $req'
+                        ? 'Req ${formatarRequisicao(req)}'
                         : (laudo.isNotEmpty ? 'Laudo $laudo' : 'Novo Caso'));
 
               return Column(

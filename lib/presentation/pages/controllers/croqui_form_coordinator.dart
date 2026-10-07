@@ -4,6 +4,7 @@ import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 
 /// Agrupa os [TextEditingController]s correspondentes a uma cadeia de causa mortis
@@ -78,9 +79,11 @@ class CroquiFormCoordinator {
     final dados = caso.dadosLaudo;
 
     numeroLaudoCtrl = TextEditingController(
-      text: caso.numeroRequisicao.isNotEmpty
-          ? caso.numeroRequisicao
-          : (caso.numeroLaudoExterno ?? ''),
+      text: formatarRequisicao(
+        caso.numeroRequisicao.isNotEmpty
+            ? caso.numeroRequisicao
+            : (caso.numeroLaudoExterno ?? ''),
+      ),
     );
     boCtrl = TextEditingController(text: caso.numeroBo);
     picCtrl = TextEditingController(text: caso.numeroPic);
@@ -267,7 +270,7 @@ class CroquiFormCoordinator {
         )
         .toList();
 
-    final reqNum = numeroLaudoCtrl.text;
+    final reqNum = sanitizarRequisicao(numeroLaudoCtrl.text);
 
     return casoBase.copyWith(
       numeroBo: boCtrl.text,

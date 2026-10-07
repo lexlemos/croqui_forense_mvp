@@ -17,6 +17,7 @@ import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_mode
 import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 
 import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
@@ -196,8 +197,10 @@ class PdfService {
           context,
           logoPolicia,
           payload.caso.numeroRequisicao.isNotEmpty
-              ? payload.caso.numeroRequisicao
-              : payload.caso.numeroLaudoExterno,
+              ? formatarRequisicao(payload.caso.numeroRequisicao)
+              : (payload.caso.numeroLaudoExterno != null
+                    ? formatarRequisicao(payload.caso.numeroLaudoExterno)
+                    : null),
         ),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
         build: (context) {
@@ -292,8 +295,10 @@ class PdfService {
         PdfHelpers.buildLinhaDetalhe(
           "Laudo Pericial Cadavérico nº CD",
           caso.numeroRequisicao.isNotEmpty
-              ? caso.numeroRequisicao
-              : (caso.numeroLaudoExterno ?? 'XXX'),
+              ? formatarRequisicao(caso.numeroRequisicao)
+              : (caso.numeroLaudoExterno != null
+                    ? formatarRequisicao(caso.numeroLaudoExterno)
+                    : 'XXX'),
         ),
         PdfHelpers.buildLinhaDetalhe(
           "Boletim de Ocorrência (B.O.):",
