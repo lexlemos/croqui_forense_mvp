@@ -43,3 +43,15 @@ class AtnModel {
     );
   }
 }
+
+/// Mocks temporários de Auxiliares Técnicos de Necrópsia (ATNs).
+///
+/// Utilizados enquanto a rota remota está desativada e a busca por usuários
+/// com papel [ATN] não foi finalizada.
+const List<Map<String, dynamic>> kMockAtnsRaw = [
+  {'id': 'atn-mock-001', 'nome': 'Carlos Eduardo Santos (ATN)', 'ativo': 1},
+  {'id': 'atn-mock-002', 'nome': 'Mariana Oliveira Lima (ATN)', 'ativo': 1},
+  {'id': 'atn-mock-003', 'nome': 'Roberto Alves de Menezes (ATN)', 'ativo': 1},
+  {'id': 'atn-mock-004', 'nome': 'Fernanda Costa Ribeiro (ATN)', 'ativo': 1},
+  {'id': 'atn-mock-005', 'nome': 'Lucas Gabriel Pereira (ATN)', 'ativo': 1},
+];

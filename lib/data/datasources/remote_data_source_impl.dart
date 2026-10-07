@@ -11,6 +11,7 @@ import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 
 /// Implementação da fonte de dados remota encarregada da comunicação HTTP REST com a API central do IML.
 ///
@@ -129,22 +130,13 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     }
   }
 
-  /// Recupera a lista de Auxiliares Técnicos de Necrópsia (ATNs) no endpoint `GET /croqui/atns`.
+  /// Recupera a lista de Auxiliares Técnicos de Necrópsia (ATNs).
+  ///
+  /// Nota: Rota remota `croqui/atns` desativada temporariamente.
+  /// Retorna mocks locais até a implementação da busca por usuários com role de ATN.
   @override
   Future<List<Map<String, dynamic>>> getAtns() async {
-    try {
-      final response = await _apiClient.dio.get('croqui/atns');
-      if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Resposta inesperada do servidor.');
-      }
-      if (response.data is! List) {
-        throw Exception('Resposta inválida do servidor.');
-      }
-      final list = response.data as List<dynamic>;
-      return list.map((e) => e as Map<String, dynamic>).toList();
-    } on DioException catch (e) {
-      throw Exception('Falha ao buscar ATNs: ${e.message}');
-    }
+    return List<Map<String, dynamic>>.from(kMockAtnsRaw);
   }
 
   /// Envia o pacote textual de laudos e achados (Bulk JSON) no endpoint `POST /croqui/sync/push`.
