@@ -132,11 +132,27 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
 
   /// Recupera a lista de Auxiliares Técnicos de Necrópsia (ATNs).
   ///
-  /// Nota: Rota remota `croqui/atns` desativada temporariamente.
-  /// Retorna mocks locais até a implementação da busca por usuários com role de ATN.
+  /// Consulta `GET /croqui/atns?tamanho_pagina=100`, que retorna usuários
+  /// ativos com o papel TECNICO_NECROPSIA na estrutura paginada `dados`.
+  /// Em caso de falha de conectividade, utiliza mocks como fallback resiliente.
   @override
   Future<List<Map<String, dynamic>>> getAtns() async {
-    return List<Map<String, dynamic>>.from(kMockAtnsRaw);
+    try {
+      final response = await _apiClient.dio.get(
+        'croqui/atns',
+        queryParameters: {'tamanho_pagina': 100},
+      );
+      final raw = response.data;
+      final List list = raw is List
+          ? raw
+          : (raw is Map ? (raw['dados'] as List? ?? []) : []);
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      debugPrint(
+        '[RemoteDataSourceImpl] Falha ao obter ATNs remotos ($e). Usando mocks de fallback.',
+      );
+      return List<Map<String, dynamic>>.from(kMockAtnsRaw);
+    }
   }
 
   /// Envia o pacote textual de laudos e achados (Bulk JSON) no endpoint `POST /croqui/sync/push`.

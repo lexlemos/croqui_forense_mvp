@@ -6,15 +6,28 @@ class AtnModel {
   final String id;
   final String nome;
   final bool ativo;
+  final String? email;
+  final String? cpf;
 
-  AtnModel({required this.id, required this.nome, this.ativo = true});
+  AtnModel({
+    required this.id,
+    required this.nome,
+    this.ativo = true,
+    this.email,
+    this.cpf,
+  });
 
-  AtnModel.novo({required this.nome, this.ativo = true})
-    : id = const Uuid().v4();
+  AtnModel.novo({
+    required this.nome,
+    this.ativo = true,
+    this.email,
+    this.cpf,
+  }) : id = const Uuid().v4();
 
   factory AtnModel.fromMap(Map<String, dynamic> map) {
     final id = map['id']?.toString().trim() ?? '';
-    final nome = map['nome']?.toString().trim() ?? '';
+    final nome =
+        (map['nome_completo'] ?? map['nome'])?.toString().trim() ?? '';
     if (id.isEmpty || nome.isEmpty) {
       throw DatabaseCorruptedException(
         'Registro de ATN inválido no banco local.',
@@ -28,6 +41,8 @@ class AtnModel {
       ativo: map['ativo'] is bool
           ? map['ativo'] as bool
           : (map['ativo'] as int? ?? 1) == 1,
+      email: map['email']?.toString().trim(),
+      cpf: map['cpf']?.toString().trim(),
     );
   }
 
@@ -35,11 +50,19 @@ class AtnModel {
     return {'id': id, 'nome': nome, 'ativo': ativo ? 1 : 0};
   }
 
-  AtnModel copyWith({String? id, String? nome, bool? ativo}) {
+  AtnModel copyWith({
+    String? id,
+    String? nome,
+    bool? ativo,
+    String? email,
+    String? cpf,
+  }) {
     return AtnModel(
       id: id ?? this.id,
       nome: nome ?? this.nome,
       ativo: ativo ?? this.ativo,
+      email: email ?? this.email,
+      cpf: cpf ?? this.cpf,
     );
   }
 }

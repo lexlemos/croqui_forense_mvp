@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
@@ -38,15 +39,25 @@ class DomainSyncService {
 
   /// Sincroniza em lote a lista de A.T.N.s do banco local.
   ///
-  /// Nota: Rota remota desativada temporariamente. Mantém e semeia mocks locais
-  /// até a implementação da consulta de usuários com role de ATN.
+  /// Consulta a API central via [_remoteDataSource.getAtns()] e atualiza
+  /// o cache SQLite via [_atnRepository.sincronizarAtns()].
+  /// Em caso de falha de rede ou lista vazia, mantém os dados locais.
   Future<void> syncAtns() async {
     final repo = _atnRepository;
     if (repo == null) return;
 
-    await repo.semearMocksSeNecessario();
-    debugPrint(
-      '[DomainSync] Catálogo de ATNs inicializado com mocks locais (rota remota desativada).',
-    );
+    try {
+      final jsonList = await _remoteDataSource.getAtns();
+      final atns = jsonList.map((e) => AtnModel.fromMap(e)).toList();
+      if (atns.isNotEmpty) {
+        await repo.sincronizarAtns(atns);
+        debugPrint('[DomainSync] ATNs sincronizados da API: ${atns.length}');
+      } else {
+        await repo.semearMocksSeNecessario();
+      }
+    } catch (e) {
+      debugPrint('[DomainSync] Falha ao sincronizar ATNs da API ($e). Mantendo dados locais.');
+      await repo.semearMocksSeNecessario();
+    }
   }
 }
