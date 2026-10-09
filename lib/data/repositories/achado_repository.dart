@@ -328,7 +328,7 @@ class AchadoRepository {
     }).toList();
   }
 
-  /// Recupera especificamente os orifícios de entrada de PAF cadastrados no laudo para correlação de trajetória balística.
+  /// Recupera especificamente os orifícios de entrada de FAF cadastrados no laudo para correlação de trajetória balística.
   Future<List<Achado>> getAchadosDeEntradaPorCaso(String casoUuid) async {
     final db = await _db;
     final result = await db.query(

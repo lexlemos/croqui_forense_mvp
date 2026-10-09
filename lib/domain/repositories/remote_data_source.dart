@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
@@ -89,6 +91,13 @@ abstract interface class IRemoteDataSource {
     required String balisticaId,
     required StatusConfirmacaoATN status,
     String? justificativaRecusa,
+  });
+
+  /// Faz o download do arquivo Word (.docx) do laudo compilado pelo servidor central.
+  /// Salva os bytes recebidos no arquivo [destinationFile].
+  Future<File> downloadLaudoDocx({
+    required String casoUuid,
+    required File destinationFile,
   });
 
   /// Configura o token Bearer de forma síncrona na memória do cliente HTTP.

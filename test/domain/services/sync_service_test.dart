@@ -19,8 +19,14 @@ class MockAuthService extends Mock implements AuthService {}
 
 class MockKeyStorage extends Mock implements KeyStorageInterface {}
 
+class FakeCaso extends Fake implements Caso {}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    registerFallbackValue(FakeCaso());
+  });
 
   late MockRemoteDataSource mockRemoteDataSource;
   late MockSyncRepository mockSyncRepository;
@@ -182,6 +188,70 @@ void main() {
           () => syncService.execute(),
           throwsA(isA<SyncPushTextualException>()),
         );
+      },
+    );
+
+    test(
+      'Embutir laudo_pacote no payload do caso durante o push com schema laudo-pacote/1',
+      () async {
+        when(
+          () => mockRemoteDataSource.checkHealth(),
+        ).thenAnswer((_) async => true);
+        when(() => mockAuthService.usuario).thenReturn(usuarioTeste);
+        when(() => mockAuthService.isLogged).thenReturn(true);
+        when(
+          () => mockRemoteDataSource.pullCasos(
+            lastSyncTimestamp: any(named: 'lastSyncTimestamp'),
+          ),
+        ).thenAnswer((_) async => <Map<String, dynamic>>[]);
+
+        final casoPendente = Caso.fromMap({
+          'uuid': 'caso-uuid-001',
+          'versao': 5,
+          'id_usuario_criador': 'perito-001',
+          'status': 'FINALIZADO',
+          'numero_pic': 'PIC-123',
+          'numero_bo': 'BO-456',
+          'numero_requisicao': 'REQ-789',
+          'nome_vitima': 'VITIMA TESTE',
+          'destino': 'DESTINO TESTE',
+          'requisitante': 'REQUISITANTE TESTE',
+        });
+
+        when(
+          () => mockSyncRepository.getCasosPendentesSync('perito-001'),
+        ).thenAnswer((_) async => <Caso>[casoPendente]);
+        when(
+          () => mockSyncRepository.getAchadosEmLote(any()),
+        ).thenAnswer((_) async => <String, List<Achado>>{'caso-uuid-001': []});
+        when(
+          () => mockRemoteDataSource.pushTextual(any()),
+        ).thenAnswer((_) async => {'casos_salvos': ['caso-uuid-001'], 'conflitos': []});
+        when(
+          () => mockSyncRepository.marcarCasoComoSincronizado(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockSyncRepository.getAchadosComFotosPendentesEmLote(any()),
+        ).thenAnswer((_) async => <String, List<Achado>>{});
+        when(
+          () => mockSyncRepository.getEvidenciasPendentesPorCaso(any()),
+        ).thenAnswer((_) async => []);
+
+        final result = await syncService.execute();
+
+        expect(result.casosEnviados, 1);
+        final captured = verify(() => mockRemoteDataSource.pushTextual(captureAny())).captured;
+        expect(captured, isNotEmpty);
+        final bulkPayload = captured.first as Map<String, dynamic>;
+        final payloadList = bulkPayload['casos'] as List<dynamic>;
+        final casoPayload = payloadList.first as Map<String, dynamic>;
+
+        expect(casoPayload.containsKey('laudo_pacote'), isTrue);
+        final pacote = casoPayload['laudo_pacote'] as Map<String, dynamic>;
+        expect(pacote['schema'], 'laudo-pacote/1');
+        expect(pacote['versao_laudo'], 5);
+        expect(pacote['perito']['nome'], 'Dr. Perito Legista');
+        expect(pacote['documento']['secoes'], isNotEmpty);
       },
     );
   });

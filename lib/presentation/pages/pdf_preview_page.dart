@@ -13,6 +13,7 @@ import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
+import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
 
 /// Tela de visualização e conferência prévia do Laudo Pericial em PDF.
 ///
@@ -66,6 +67,31 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.description),
+            tooltip: 'Exportar Word (DOCX)',
+            onPressed: () async {
+              try {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Solicitando laudo em Word (.docx) ao servidor...'),
+                  ),
+                );
+                await context
+                    .read<ICaseLifecycleService>()
+                    .shareDocxReport(caso: widget.caso);
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Erro ao exportar Word: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.save_alt),
             tooltip: 'Salvar PDF Localmente',

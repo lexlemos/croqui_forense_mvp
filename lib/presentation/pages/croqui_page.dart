@@ -189,6 +189,13 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                 );
               },
             ),
+            IconButton(
+              icon: const Icon(Icons.description),
+              tooltip: 'Exportar Word (DOCX)',
+              onPressed: controller.isProcessing
+                  ? null
+                  : () => _exportarCasoDocx(context, controller),
+            ),
             if (!controller.isReadOnly)
               Builder(
                 builder: (innerContext) => TextButton.icon(
@@ -217,32 +224,43 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                             handleCroquiFinalization(innerContext, controller),
                 ),
               ),
-            if (controller.isReadOnly)
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'edit') _reabrirCaso(context, controller);
-                  if (value == 'export') _exportarCaso(context, controller);
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  if (controller.casoAtual.status != StatusCaso.sincronizado)
-                    const PopupMenuItem<String>(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit, color: Colors.indigo),
-                        title: Text('Editar Caso'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Mais opções',
+              onSelected: (value) {
+                if (value == 'edit') _reabrirCaso(context, controller);
+                if (value == 'export') _exportarCaso(context, controller);
+                if (value == 'export_docx') _exportarCasoDocx(context, controller);
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                if (controller.isReadOnly &&
+                    controller.casoAtual.status != StatusCaso.sincronizado)
                   const PopupMenuItem<String>(
-                    value: 'export',
+                    value: 'edit',
                     child: ListTile(
-                      leading: Icon(Icons.share, color: Colors.indigo),
-                      title: Text('Exportar'),
+                      leading: Icon(Icons.edit, color: Colors.indigo),
+                      title: Text('Editar Caso'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                ],
-              ),
+                const PopupMenuItem<String>(
+                  value: 'export',
+                  child: ListTile(
+                    leading: Icon(Icons.picture_as_pdf, color: Colors.indigo),
+                    title: Text('Exportar PDF'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'export_docx',
+                  child: ListTile(
+                    leading: Icon(Icons.description, color: Colors.indigo),
+                    title: Text('Exportar Word (DOCX)'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
           ],
           bottom: const TabBar(
             isScrollable: true,
@@ -390,6 +408,13 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
     CroquiController controller,
   ) async {
     await controller.exportarCaso(context);
+  }
+
+  Future<void> _exportarCasoDocx(
+    BuildContext context,
+    CroquiController controller,
+  ) async {
+    await controller.exportarCasoDocx(context);
   }
 
   void _showOperationResult(

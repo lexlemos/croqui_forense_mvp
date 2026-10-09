@@ -167,39 +167,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
     widget.onChanged(model);
   }
 
-  /// Campo de lacre compacto reutilizável.
-  Widget _lacreField({
-    required TextEditingController ctrl,
-    required String label,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 28, right: 0, top: 4, bottom: 8),
-      child: TextFormField(
-        controller: ctrl,
-        enabled: !widget.readOnly,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: 'Nº Lacre — $label *',
-          hintText: 'Ex: 123456',
-          prefixIcon: Icon(
-            Icons.lock_outline,
-            color: Colors.purple.shade600,
-            size: 18,
-          ),
-          border: const OutlineInputBorder(),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          helperText: 'Identifica individualmente este recipiente lacrado',
-          helperStyle: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-        ),
-        onChanged: (_) => _notifyChanges(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -413,8 +380,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                   ),
                 ),
               ),
-              // Lacre individual do tubo de sangue
-              _lacreField(ctrl: _lacreSgCtrl, label: 'Sangue (SG)'),
             ],
 
             // ── UR Urina ──────────────────────────────────────────────────
@@ -438,8 +403,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                       _notifyChanges();
                     },
             ),
-            if (_materialUrina)
-              _lacreField(ctrl: _lacreUrCtrl, label: 'Urina (UR)'),
 
             // ── HV Humor Vítreo ───────────────────────────────────────────
             CheckboxListTile(
@@ -462,8 +425,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                       _notifyChanges();
                     },
             ),
-            if (_materialHumorVitreo)
-              _lacreField(ctrl: _lacreHvCtrl, label: 'Humor Vítreo (HV)'),
 
             // ── CE Estômago ───────────────────────────────────────────────
             CheckboxListTile(
@@ -486,8 +447,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                       _notifyChanges();
                     },
             ),
-            if (_materialEstomago)
-              _lacreField(ctrl: _lacreCeCtrl, label: 'Conteúdo Estomacal (CE)'),
 
             // ── PM Pulmão ─────────────────────────────────────────────────
             CheckboxListTile(
@@ -510,8 +469,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                       _notifyChanges();
                     },
             ),
-            if (_materialPulmao)
-              _lacreField(ctrl: _lacrePmCtrl, label: 'Pulmão (PM)'),
           ],
         ),
       ),

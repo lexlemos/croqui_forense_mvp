@@ -11,6 +11,7 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_finalizati
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/utils/globals.dart';
 import 'package:croqui_forense_mvp/core/utils/image_helper.dart';
+import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/common/evidencia_foto_card.dart';
 
 class CaseInfoTab extends StatefulWidget {
@@ -866,7 +867,11 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline),
+                  icon: Icon(
+                    controller.casoAtual.status == StatusCaso.laudoPendente
+                        ? Icons.check_circle_outline
+                        : Icons.assignment_turned_in,
+                  ),
                   label: _isSaving
                       ? const SizedBox(
                           width: 20,
@@ -876,15 +881,20 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          "SALVAR DADOS E FINALIZAR EXAME",
-                          style: TextStyle(
+                      : Text(
+                          controller.casoAtual.status == StatusCaso.laudoPendente
+                              ? "CONCLUIR LAUDO"
+                              : "FINALIZAR EXAME",
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
+                    backgroundColor:
+                        controller.casoAtual.status == StatusCaso.laudoPendente
+                            ? Colors.green[700]
+                            : Colors.indigo[700],
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

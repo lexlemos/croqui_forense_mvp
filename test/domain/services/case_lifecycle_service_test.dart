@@ -8,10 +8,12 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
+import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
 class MockCaseService extends Mock implements CaseService {}
 class MockPdfReportEngine extends Mock implements IPdfReportEngine {}
 class MockSyncService extends Mock implements SyncService {}
+class MockRemoteDataSource extends Mock implements IRemoteDataSource {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +21,7 @@ void main() {
   late MockCaseService mockCaseService;
   late MockPdfReportEngine mockPdfEngine;
   late MockSyncService mockSyncService;
+  late MockRemoteDataSource mockRemoteDataSource;
   late CaseLifecycleService lifecycleService;
 
   final usuarioPerito = Usuario(
@@ -47,12 +50,14 @@ void main() {
   setUpAll(() {
     registerFallbackValue(casoBase);
     registerFallbackValue(const PdfReportOptions());
+    registerFallbackValue(File('dummy.docx'));
   });
 
   setUp(() {
     mockCaseService = MockCaseService();
     mockPdfEngine = MockPdfReportEngine();
     mockSyncService = MockSyncService();
+    mockRemoteDataSource = MockRemoteDataSource();
 
     when(() => mockCaseService.salvarRascunho(any())).thenAnswer((_) async {});
     when(() => mockSyncService.pushCasoRascunho(any())).thenAnswer((_) async {});
@@ -61,6 +66,8 @@ void main() {
       caseService: mockCaseService,
       pdfEngine: mockPdfEngine,
       syncService: mockSyncService,
+      remoteDataSource: mockRemoteDataSource,
+      tempDirectoryProvider: () async => Directory.systemTemp,
     );
   });
 
@@ -134,6 +141,44 @@ void main() {
       expect(resultado.status, equals(StatusCaso.emAndamento));
       verify(() => mockCaseService.reabrirCaso('caso-uuid-001')).called(1);
       verify(() => mockCaseService.buscarCasoPorUuid('caso-uuid-001')).called(1);
+    });
+
+    test('5. shareDocxReport baixa arquivo via downloadLaudoDocx, executa ação de compartilhamento e limpa arquivo', () async {
+      when(() => mockRemoteDataSource.downloadLaudoDocx(
+            casoUuid: any(named: 'casoUuid'),
+            destinationFile: any(named: 'destinationFile'),
+          )).thenAnswer((invocation) async {
+        final file = invocation.namedArguments[#destinationFile] as File;
+        await file.writeAsString('conteudo simulado docx');
+        return file;
+      });
+
+      bool acaoExecutada = false;
+      await lifecycleService.shareDocxReport(
+        caso: casoBase,
+        shareAction: (file) async {
+          expect(await file.readAsString(), equals('conteudo simulado docx'));
+          acaoExecutada = true;
+        },
+      );
+
+      expect(acaoExecutada, isTrue);
+      verify(() => mockRemoteDataSource.downloadLaudoDocx(
+            casoUuid: 'caso-uuid-001',
+            destinationFile: any(named: 'destinationFile'),
+          )).called(1);
+    });
+
+    test('6. shareDocxReport propaga exceção caso downloadLaudoDocx falhe', () async {
+      when(() => mockRemoteDataSource.downloadLaudoDocx(
+            casoUuid: any(named: 'casoUuid'),
+            destinationFile: any(named: 'destinationFile'),
+          )).thenThrow(Exception('Falha de rede'));
+
+      expect(
+        () => lifecycleService.shareDocxReport(caso: casoBase),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 }

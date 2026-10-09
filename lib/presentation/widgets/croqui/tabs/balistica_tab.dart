@@ -160,15 +160,16 @@ class BalisticaTab extends StatelessWidget {
                                   a.comentarioAdicional!.isNotEmpty)
                                 Text("Comentário: ${a.comentarioAdicional}"),
                               if (balisticaItem.statusConfirmacaoAtn ==
-                                      StatusConfirmacaoATN.RECUSADO &&
-                                  balisticaItem.justificativaRecusa != null &&
-                                  balisticaItem.justificativaRecusa!
-                                      .trim()
-                                      .isNotEmpty) ...[
+                                      StatusConfirmacaoATN.RECUSADO) ...[
                                 const SizedBox(height: 8),
                                 JustificativaRecusaBox(
                                   justificativa:
-                                      balisticaItem.justificativaRecusa!,
+                                      (balisticaItem.justificativaRecusa != null &&
+                                              balisticaItem.justificativaRecusa!
+                                                  .trim()
+                                                  .isNotEmpty)
+                                          ? balisticaItem.justificativaRecusa!
+                                          : 'O vestígio balístico foi recusado pelo A.T.N. no sistema Web.',
                                 ),
                               ],
                             ],

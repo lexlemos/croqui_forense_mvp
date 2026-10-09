@@ -12,6 +12,7 @@ import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dar
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 
 /// Exceção lançada quando uma tentativa de conclusão de laudo é barrada
 /// devido à existência de exames complementares laboratoriais em andamento.
@@ -74,6 +75,16 @@ abstract interface class ICaseLifecycleService {
     List<EvidenciaMultimidia> evidenciasGerais = const [],
     Map<String, dynamic> schemas = const {},
   });
+
+  /// Faz o download do laudo compilado em formato Word (.docx) pelo servidor central do IML
+  /// e despacha o arquivo para o utilitário nativo de compartilhamento ([SharePlus]).
+  ///
+  /// Permite injetar [shareAction] customizado para fins de testes automatizados.
+  /// Requer conectividade com a API central do IML.
+  Future<void> shareDocxReport({
+    required Caso caso,
+    Future<void> Function(File file)? shareAction,
+  });
 }
 
 /// Implementação padrão e profunda de [ICaseLifecycleService].
@@ -81,14 +92,20 @@ class CaseLifecycleService implements ICaseLifecycleService {
   final CaseService _caseService;
   final IPdfReportEngine _pdfEngine;
   final SyncService? _syncService;
+  final IRemoteDataSource? _remoteDataSource;
+  final Future<Directory> Function() _tempDirectoryProvider;
 
   CaseLifecycleService({
     required CaseService caseService,
     required IPdfReportEngine pdfEngine,
     SyncService? syncService,
+    IRemoteDataSource? remoteDataSource,
+    Future<Directory> Function()? tempDirectoryProvider,
   }) : _caseService = caseService,
        _pdfEngine = pdfEngine,
-       _syncService = syncService;
+       _syncService = syncService,
+       _remoteDataSource = remoteDataSource,
+       _tempDirectoryProvider = tempDirectoryProvider ?? getTemporaryDirectory;
 
   @override
   Future<Caso> markPending(Caso caso) async {
@@ -184,7 +201,7 @@ class CaseLifecycleService implements ICaseLifecycleService {
   }) async {
     await _caseService.salvarRascunho(caso);
 
-    final tempDir = await getTemporaryDirectory();
+    final tempDir = await _tempDirectoryProvider();
     final String safeNum = (caso.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
     final tempPdfFile = File('${tempDir.path}/laudo_$safeNum.pdf');
 
@@ -213,6 +230,47 @@ class CaseLifecycleService implements ICaseLifecycleService {
           await tempPdfFile.delete();
           debugPrint(
             '[CaseLifecycleService] 🧹 PDF temporário de exportação limpo: ${tempPdfFile.path}',
+          );
+        } catch (_) {}
+      }
+    }
+  }
+
+  @override
+  Future<void> shareDocxReport({
+    required Caso caso,
+    Future<void> Function(File file)? shareAction,
+  }) async {
+    final remoteDS = _remoteDataSource;
+    if (remoteDS == null) {
+      throw Exception('Serviço de comunicação remota não configurado.');
+    }
+
+    final tempDir = await _tempDirectoryProvider();
+    final String safeNum = (caso.numeroLaudoExterno ?? caso.numeroRequisicao).replaceAll('/', '-');
+    final tempDocxFile = File('${tempDir.path}/laudo_$safeNum.docx');
+
+    try {
+      await remoteDS.downloadLaudoDocx(
+        casoUuid: caso.uuid,
+        destinationFile: tempDocxFile,
+      );
+
+      if (shareAction != null) {
+        await shareAction(tempDocxFile);
+      } else {
+        // ignore: deprecated_member_use
+        await Share.shareXFiles(
+          [XFile(tempDocxFile.path)],
+          subject: 'Laudo Pericial DOCX - ${caso.numeroLaudoExterno ?? caso.numeroRequisicao}',
+        );
+      }
+    } finally {
+      if (tempDocxFile.existsSync()) {
+        try {
+          await tempDocxFile.delete();
+          debugPrint(
+            '[CaseLifecycleService] 🧹 DOCX temporário de exportação limpo: ${tempDocxFile.path}',
           );
         } catch (_) {}
       }

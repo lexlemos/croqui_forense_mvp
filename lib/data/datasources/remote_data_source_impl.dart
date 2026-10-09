@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
@@ -418,6 +419,55 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   @override
   void setBearerToken(String token) {
     _apiClient.setBearerToken(token);
+  }
+
+  /// Faz o download do arquivo Word (.docx) do laudo compilado pelo servidor central.
+  /// Salva os bytes recebidos no arquivo [destinationFile].
+  @override
+  Future<File> downloadLaudoDocx({
+    required String casoUuid,
+    required File destinationFile,
+  }) async {
+    try {
+      final response = await _apiClient.dio.get<List<int>>(
+        'croqui/laudo-docx/$casoUuid',
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(seconds: 45),
+        ),
+      );
+
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception(
+          'Backend retornou status inesperado ao baixar DOCX: ${response.statusCode}',
+        );
+      }
+
+      await destinationFile.writeAsBytes(response.data!);
+      return destinationFile;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        throw Exception(
+          'Permissão negada (403): Seu usuário não possui autorização para baixar laudos DOCX.',
+        );
+      }
+      if (e.response?.statusCode == 404) {
+        throw Exception(
+          'Laudo DOCX não encontrado no servidor. Sincronize o caso antes de exportar.',
+        );
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw Exception(
+          'Dispositivo offline ou instabilidade de rede. Conecte-se para baixar o laudo em Word.',
+        );
+      }
+      throw Exception(
+        'Falha ao baixar o laudo DOCX: ${e.message ?? e.toString()}',
+      );
+    }
   }
 }
 

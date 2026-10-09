@@ -102,6 +102,7 @@ class CaseService {
     String? numeroDeclaracaoObito,
     String? dataObito,
     String? horaObito,
+    String? sexoBiologicoEstimado,
     List<String> atnsIds = const [],
     List<EvidenciaMultimidia> evidencias = const [],
   }) async {
@@ -130,6 +131,7 @@ class CaseService {
       numeroDeclaracaoObito: numeroDeclaracaoObito,
       dataObito: dataObito,
       horaObito: horaObito,
+      sexoBiologicoEstimado: sexoBiologicoEstimado,
       atnsIds: atnsIds,
     );
     if (evidencias.isNotEmpty) {

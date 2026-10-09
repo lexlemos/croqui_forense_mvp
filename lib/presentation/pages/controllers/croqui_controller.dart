@@ -22,6 +22,7 @@ import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -209,6 +210,9 @@ class CroquiController extends ChangeNotifier {
       );
       examesSolicitadosModel = await _caseService.getExamesPorCaso(
         casoAtual.uuid,
+      );
+      casoAtual = casoAtual.copyWith(
+        exames: examesSolicitadosModel,
       );
       atns = await _atnRepository.getAtns();
     } finally {
@@ -790,7 +794,10 @@ class CroquiController extends ChangeNotifier {
         /// A transição para LAUDO_PENDENTE é livre.
         final bool temExamePendente =
             examesSolicitadosModel.any((e) => e.status == 'aguardando') ||
-            examesSolicitados.any((e) => e.status == 'aguardando');
+            examesSolicitados.any((e) => e.status == 'aguardando') ||
+            casoAtual.exames.any(
+              (e) => e.statusConfirmacaoAtn == StatusConfirmacaoATN.PENDENTE,
+            );
         if (temExamePendente) {
           debugPrint(
             '[CroquiController] Abortando finalização: exames complementares pendentes detectados.',
@@ -970,8 +977,58 @@ class CroquiController extends ChangeNotifier {
     }
   }
 
+  /// Faz o download do laudo compilado em Word (.docx) pelo backend e abre o compartilhamento nativo.
+  Future<void> exportarCasoDocx(BuildContext context) async {
+    if (_isProcessing) return;
+    _isProcessing = true;
+    notifyListeners();
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final usuarioLogado = auth.usuario;
+
+    if (usuarioLogado == null) {
+      globalMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text("Usuário não autenticado."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      _isProcessing = false;
+      notifyListeners();
+      return;
+    }
+
+    _snack("Solicitando laudo em Word (.docx) ao servidor...");
+
+    try {
+      if (!isReadOnly) {
+        await _caseService.salvarRascunho(casoAtual);
+      }
+
+      await _lifecycleService.shareDocxReport(caso: casoAtual);
+    } catch (e) {
+      debugPrint("Erro na exportação do DOCX: $e");
+      globalMessengerKey.currentState?.hideCurrentSnackBar();
+      globalMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text("Erro ao gerar Word: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
+    }
+  }
+
   /// Retorna o sexo biológico inferido do examinado ('Feminino', 'Masculino' ou 'Indeterminado').
   String get sexoDoExaminado {
+    final sEstimado = casoAtual.sexoBiologicoEstimado?.trim().toLowerCase();
+    if (sEstimado != null && sEstimado.isNotEmpty) {
+      if (sEstimado.startsWith('f')) return 'Feminino';
+      if (sEstimado.startsWith('m')) return 'Masculino';
+      if (sEstimado.startsWith('i')) return 'Indeterminado';
+    }
     final s = casoAtual.dadosLaudo.identificacao.sexo.trim().toLowerCase();
     if (s.isNotEmpty) {
       return s.startsWith('f') ? 'Feminino' : 'Masculino';
@@ -994,6 +1051,9 @@ class CroquiController extends ChangeNotifier {
     BuildContext context,
     String novoSexo,
   ) async {
+    sexoBiologicoEstimadoCtrl.text = novoSexo;
+    casoAtual = casoAtual.copyWith(sexoBiologicoEstimado: novoSexo);
+
     IdentificacaoModel novaId = casoAtual.dadosLaudo.identificacao.copyWith(
       sexo: novoSexo,
     );

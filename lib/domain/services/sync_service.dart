@@ -22,6 +22,9 @@ import 'package:croqui_forense_mvp/domain/services/auth_service.dart';
 import 'package:croqui_forense_mvp/core/exceptions/auth_exception.dart';
 import 'package:croqui_forense_mvp/core/security/key_storage_interface.dart';
 import 'package:croqui_forense_mvp/core/security/secure_key_storage.dart';
+import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
+import 'package:croqui_forense_mvp/core/utils/storage_path_helper.dart';
+import 'package:croqui_forense_mvp/domain/services/laudo_builder_service.dart';
 import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 
 /// Contrato de repositório local responsável pelas operações de leitura, gravação e integridade
@@ -277,6 +280,7 @@ class SyncService {
   final AuthService? _authService;
   final KeyStorageInterface _keyStorage;
   final IActiveCaseLockService? _activeCaseLockService;
+  final LaudoBuilderService _laudoBuilderService;
 
   SyncService({
     required IRemoteDataSource remoteDataSource,
@@ -284,11 +288,13 @@ class SyncService {
     AuthService? authService,
     KeyStorageInterface? keyStorage,
     IActiveCaseLockService? activeCaseLockService,
+    LaudoBuilderService? laudoBuilderService,
   }) : _remoteDataSource = remoteDataSource,
        _repository = repository,
        _authService = authService,
        _keyStorage = keyStorage ?? SecureKeyStorage(),
-       _activeCaseLockService = activeCaseLockService;
+       _activeCaseLockService = activeCaseLockService,
+       _laudoBuilderService = laudoBuilderService ?? LaudoBuilderService();
 
   final Set<String> _uuidsEmTransito = {};
   final Set<String> _laudosIgnoradosPorEdicaoAtiva = <String>{};
@@ -856,6 +862,31 @@ class SyncService {
     payload['diagramas'] = diagramasJson;
     payload['achados'] = achados.map(_achadoParaJson).toList();
 
+    // Contrato laudo-pacote/1 (Frente B): compilação canônica do laudo para renderização no backend
+    try {
+      final perito = _authService?.usuario ??
+          Usuario(
+            id: caso.idUsuarioCriador,
+            nomeCompleto: 'Perito Médico-Legista',
+            matriculaFuncional: '',
+            roles: const ['PERITO'],
+            ativo: true,
+            hashPinOffline: '',
+            salt: '',
+            criadoEm: caso.criadoEmDispositivo,
+          );
+
+      final pacote = _laudoBuilderService.buildPacote(
+        caso: caso,
+        achados: achados,
+        perito: perito,
+        examesModel: caso.exames,
+      );
+      payload['laudo_pacote'] = pacote.toMap();
+    } catch (e, st) {
+      debugPrint('[SyncService] Aviso: erro ao compilar laudo_pacote para o caso ${caso.uuid}: $e\n$st');
+    }
+
     return payload;
   }
 
@@ -1087,13 +1118,18 @@ List<ParsedSyncPayload> _parseCasosEmBackground(
               'achado-evidencia-${achadoBackend.uuid}',
             );
 
+            final rawPath = achadoBackend.photoPath!;
+            final bool isRemote = StoragePathHelper.isRemoteKeyOrUrl(rawPath);
+
             evidencias.add(
               EvidenciaMultimidia(
                 uuid: evidenciaUuid,
                 casoUuid: casoBackend.uuid,
                 achadoUuid: achadoBackend.uuid,
                 tipo: 'ACHADO',
-                caminhoArquivoEncriptado: achadoBackend.photoPath,
+                caminhoArquivoEncriptado: isRemote ? null : rawPath,
+                chaveStorage: isRemote ? rawPath : null,
+                urlStorage: StoragePathHelper.isHttpUrl(rawPath) ? rawPath : null,
                 fotoSincronizada: true,
                 removido: achadoBackend.removido,
                 versao: achadoBackend.versao,

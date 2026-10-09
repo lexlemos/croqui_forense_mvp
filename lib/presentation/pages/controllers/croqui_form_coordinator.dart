@@ -236,7 +236,9 @@ class CroquiFormCoordinator {
       'identificacao': {
         'vestes': vestesCtrl.text,
         'historico': historicoCtrl.text,
-        'sexo': casoBase.dadosLaudo.identificacao.sexo,
+        'sexo': sexoBiologicoEstimadoCtrl.text.trim().isNotEmpty
+            ? sexoBiologicoEstimadoCtrl.text.trim()
+            : casoBase.dadosLaudo.identificacao.sexo,
       },
       'caracteristicas': {
         'identificacao': caracteristicasCtrl.text,

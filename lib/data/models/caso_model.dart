@@ -528,7 +528,14 @@ class Caso {
       corpoEstado: toTitleCase(map['corpo_estado']?.toString()),
       corpoEstadoOutros: map['corpo_estado_outros']?.toString(),
       sexoBiologicoEstimado: toTitleCase(
-        map['sexo_biologico_estimado']?.toString(),
+        map['sexo_biologico_estimado']?.toString() ??
+            (map['vitima'] is Map
+                ? (map['vitima'] as Map)['sexo_biologico_estimado']?.toString()
+                : null) ??
+            (map['vitimas'] is List && (map['vitimas'] as List).isNotEmpty && (map['vitimas'] as List).first is Map
+                ? ((map['vitimas'] as List).first as Map)['sexo_biologico_estimado']?.toString()
+                : null) ??
+            map['sexo']?.toString(),
       ),
       dataObito: formatarDataBr(
         map['data_obito']?.toString() ??

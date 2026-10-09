@@ -196,11 +196,13 @@ class PdfService {
         header: (context) => PdfHelpers.buildDynamicHeader(
           context,
           logoPolicia,
-          payload.caso.numeroRequisicao.isNotEmpty
-              ? formatarRequisicao(payload.caso.numeroRequisicao)
-              : (payload.caso.numeroLaudoExterno != null
-                    ? formatarRequisicao(payload.caso.numeroLaudoExterno)
-                    : null),
+          payload.caso.numeroPic.isNotEmpty
+              ? formatarPic(payload.caso.numeroPic)
+              : (payload.caso.numeroRequisicao.isNotEmpty
+                  ? formatarRequisicao(payload.caso.numeroRequisicao)
+                  : (payload.caso.numeroLaudoExterno != null
+                      ? formatarRequisicao(payload.caso.numeroLaudoExterno)
+                      : null)),
         ),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
         build: (context) {

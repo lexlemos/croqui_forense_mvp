@@ -254,17 +254,19 @@ class AppRoot extends StatelessWidget {
             mediaStorageService: mediaService,
           ),
         ),
-        ProxyProvider3<
+        ProxyProvider4<
           CaseService,
           IPdfReportEngine,
           SyncService,
+          IRemoteDataSource,
           ICaseLifecycleService
         >(
-          update: (_, caseService, pdfEngine, syncService, __) =>
+          update: (_, caseService, pdfEngine, syncService, remoteDS, __) =>
               CaseLifecycleService(
                 caseService: caseService,
                 pdfEngine: pdfEngine,
                 syncService: syncService,
+                remoteDataSource: remoteDS,
               ),
         ),
         ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(

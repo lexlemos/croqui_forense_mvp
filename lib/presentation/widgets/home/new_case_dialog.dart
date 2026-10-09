@@ -49,6 +49,15 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   String? _exameId;
   String? _dataObito;
   String? _horaObito;
+  String? _sexoBiologicoEstimado;
+
+  String? _formatarSexo(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final r = raw.trim().toLowerCase();
+    if (r.startsWith('f')) return 'Feminino';
+    if (r.startsWith('m')) return 'Masculino';
+    return 'Indeterminado';
+  }
 
   @override
   void dispose() {
@@ -265,6 +274,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'nome_vitima': _vitimaController.text.trim().isEmpty
             ? 'Não Identificado'
             : _vitimaController.text.trim(),
+        'sexo_biologico_estimado': _sexoBiologicoEstimado,
         'destino': _destinoController.text.trim(),
         'data_obito': _dataObito,
         'hora_obito': _horaObito,
@@ -396,6 +406,13 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                               if (dto.horaFato != null && dto.horaFato!.isNotEmpty) {
                                 _horaObito = formatarHoraBr(dto.horaFato);
                               }
+                              if (dto.sexoBiologicoEstimado != null &&
+                                  dto.sexoBiologicoEstimado!.isNotEmpty) {
+                                setState(() {
+                                  _sexoBiologicoEstimado =
+                                      _formatarSexo(dto.sexoBiologicoEstimado);
+                                });
+                              }
                             }
                           },
                         );
@@ -479,11 +496,49 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               ],
             ),
             const SizedBox(height: 24),
-            _buildTextField(
-              controller: _vitimaController,
-              label: "Nome da Vítima",
-              icon: Icons.person,
-              textCapitalization: TextCapitalization.words,
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _buildTextField(
+                    controller: _vitimaController,
+                    label: "Nome da Vítima",
+                    icon: Icons.person,
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('sexo_est_$_sexoBiologicoEstimado'),
+                    initialValue: _sexoBiologicoEstimado,
+                    decoration: const InputDecoration(
+                      labelText: "Sexo Estimado",
+                      prefixIcon: Icon(Icons.transgender, size: 20),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Masculino',
+                        child: Text('Masculino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Feminino',
+                        child: Text('Feminino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Indeterminado',
+                        child: Text('Indeterminado'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      setState(() => _sexoBiologicoEstimado = val);
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             _buildTextField(

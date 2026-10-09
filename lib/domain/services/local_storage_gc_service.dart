@@ -19,11 +19,14 @@ import 'package:croqui_forense_mvp/core/constants/database_constants.dart';
 class LocalStorageGcService {
   final DatabaseHelper _dbHelper;
   final int retentionDays;
+  final Directory? _baseDirectoryOverride;
 
   LocalStorageGcService({
     required DatabaseHelper dbHelper,
     this.retentionDays = 15,
-  }) : _dbHelper = dbHelper;
+    Directory? baseDirectoryOverride,
+  }) : _dbHelper = dbHelper,
+       _baseDirectoryOverride = baseDirectoryOverride;
 
   Future<Database> get _db async => _dbHelper.database;
 
@@ -33,7 +36,7 @@ class LocalStorageGcService {
   /// em caminhos externos ou URLs armazenados como referências remotas.
   Future<int> limparArquivosOrfaos() async {
     final db = await _db;
-    final docsDir = await getApplicationDocumentsDirectory();
+    final docsDir = _baseDirectoryOverride ?? await getApplicationDocumentsDirectory();
     final arquivosRegistrados = <String>{};
 
     String normalizarCaminho(String caminho) {

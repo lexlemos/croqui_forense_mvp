@@ -68,6 +68,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   final ImagePicker _picker = ImagePicker();
   List<InjuryType> _availableTypes = [];
+  List<Achado> _entradasDisponiveis = [];
 
   @override
   void initState() {
@@ -140,7 +141,17 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   }
 
   Future<void> _loadEntradas() async {
-    // Mantido para não quebrar referências futuras caso precisem (mas sem usar a variável de estado)
+    try {
+      final entradas = await widget.achadoRepository.getAchadosDeEntradaPorCaso(
+        widget.casoUuid,
+      );
+      if (!mounted) return;
+      setState(() {
+        _entradasDisponiveis = entradas;
+      });
+    } catch (e) {
+      debugPrint('[InjuryFormModal] Erro ao carregar entradas disponíveis: $e');
+    }
   }
 
   Future<void> _loadTypes({String? initialTypeLabel}) async {
@@ -292,6 +303,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                     DynamicFormBuilder(
                       schema: _selectedType?.schemaFormulario ?? {},
                       initialData: _currentFormData,
+                      entradasDisponiveis: _entradasDisponiveis,
                       onChanged: (data) {
                         _currentFormData = data;
                       },
@@ -795,13 +807,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                 .toList(),
             onChanged: (v) => setState(() => _selectedTipoObjeto = v),
-          ),
-          const SizedBox(height: 12),
-          _buildTextField(
-            _numeroLacreController,
-            "Nº do Lacre",
-            Icons.security,
-            false,
           ),
           const SizedBox(height: 12),
           TextFormField(

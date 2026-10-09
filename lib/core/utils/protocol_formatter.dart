@@ -21,6 +21,17 @@ String formatarRequisicao(String? valor) {
   return limpo;
 }
 
+/// Formata e normaliza o número do PIC (Procedimento Policial / Inquérito).
+/// Remove prefixos redundantes (ex: 'PIC:', 'PIC-') e aplica a formatação anual se necessário.
+String formatarPic(String? valor) {
+  if (valor == null) return '';
+  var limpo = valor.trim();
+  if (limpo.isEmpty) return '';
+  limpo = limpo.replaceFirst(RegExp(r'^(?:PIC\s*[:\-\s]?)\s*', caseSensitive: false), '').trim();
+  if (limpo.isEmpty) return '';
+  return formatarRequisicao(limpo);
+}
+
 /// Sanitiza o número da requisição para persistência no banco de dados e envio à API,
 /// removendo barras e espaços desnecessários.
 ///

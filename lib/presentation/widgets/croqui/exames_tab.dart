@@ -175,49 +175,18 @@ class ExamesTab extends StatelessWidget {
                 ),
                 if (toxicologicoExam != null &&
                     toxicologicoExam.statusConfirmacaoAtn ==
-                        StatusConfirmacaoATN.RECUSADO &&
-                    toxicologicoExam.justificativaRecusa != null &&
-                    toxicologicoExam.justificativaRecusa!.trim().isNotEmpty) ...[
+                        StatusConfirmacaoATN.RECUSADO) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
                     child: JustificativaRecusaBox(
-                      justificativa: toxicologicoExam.justificativaRecusa!,
+                      justificativa: (toxicologicoExam.justificativaRecusa != null &&
+                              toxicologicoExam.justificativaRecusa!.trim().isNotEmpty)
+                          ? toxicologicoExam.justificativaRecusa!
+                          : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
                     ),
                   ),
                 ],
                 if (solicitarToxicologico) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: TextFormField(
-                      key: ValueKey('lacre_tox_${toxicologicoExam.uuid}'),
-                      initialValue: toxicologicoExam.numeroLacre ?? '',
-                      enabled: !readOnly,
-                      decoration: const InputDecoration(
-                        labelText: 'Nº do Lacre (Principal/Envelope)',
-                        prefixIcon: Icon(Icons.lock_outline, size: 18),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (val) {
-                        final newList = List<ExameSolicitadoModel>.from(
-                          controller.casoAtual.exames,
-                        );
-                        final idx = newList.indexWhere(
-                          (e) => e.tipoExame == 'TOXICOLOGICO',
-                        );
-                        if (idx != -1) {
-                          newList[idx] = newList[idx].copyWith(
-                            numeroLacre: val.trim(),
-                          );
-                          controller.salvarExamesModel(newList);
-                          controller.scheduleAutoSave();
-                        }
-                      },
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: ToxicologicoFormWidget(
@@ -347,49 +316,18 @@ class ExamesTab extends StatelessWidget {
                 ),
                 if (geneticaExam != null &&
                     geneticaExam.statusConfirmacaoAtn ==
-                        StatusConfirmacaoATN.RECUSADO &&
-                    geneticaExam.justificativaRecusa != null &&
-                    geneticaExam.justificativaRecusa!.trim().isNotEmpty) ...[
+                        StatusConfirmacaoATN.RECUSADO) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
                     child: JustificativaRecusaBox(
-                      justificativa: geneticaExam.justificativaRecusa!,
+                      justificativa: (geneticaExam.justificativaRecusa != null &&
+                              geneticaExam.justificativaRecusa!.trim().isNotEmpty)
+                          ? geneticaExam.justificativaRecusa!
+                          : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
                     ),
                   ),
                 ],
                 if (solicitarGenetica) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: TextFormField(
-                      key: ValueKey('lacre_gen_${geneticaExam.uuid}'),
-                      initialValue: geneticaExam.numeroLacre ?? '',
-                      enabled: !readOnly,
-                      decoration: const InputDecoration(
-                        labelText: 'Nº do Lacre (Principal/Envelope)',
-                        prefixIcon: Icon(Icons.lock_outline, size: 18),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (val) {
-                        final newList = List<ExameSolicitadoModel>.from(
-                          controller.casoAtual.exames,
-                        );
-                        final idx = newList.indexWhere(
-                          (e) => e.tipoExame == 'GENETICA',
-                        );
-                        if (idx != -1) {
-                          newList[idx] = newList[idx].copyWith(
-                            numeroLacre: val.trim(),
-                          );
-                          controller.salvarExamesModel(newList);
-                          controller.scheduleAutoSave();
-                        }
-                      },
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: GeneticaFormWidget(
@@ -518,49 +456,18 @@ class ExamesTab extends StatelessWidget {
                 ),
                 if (anatomoExam != null &&
                     anatomoExam.statusConfirmacaoAtn ==
-                        StatusConfirmacaoATN.RECUSADO &&
-                    anatomoExam.justificativaRecusa != null &&
-                    anatomoExam.justificativaRecusa!.trim().isNotEmpty) ...[
+                        StatusConfirmacaoATN.RECUSADO) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
                     child: JustificativaRecusaBox(
-                      justificativa: anatomoExam.justificativaRecusa!,
+                      justificativa: (anatomoExam.justificativaRecusa != null &&
+                              anatomoExam.justificativaRecusa!.trim().isNotEmpty)
+                          ? anatomoExam.justificativaRecusa!
+                          : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
                     ),
                   ),
                 ],
                 if (solicitarAnatomo) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: TextFormField(
-                      key: ValueKey('lacre_ana_${anatomoExam.uuid}'),
-                      initialValue: anatomoExam.numeroLacre ?? '',
-                      enabled: !readOnly,
-                      decoration: const InputDecoration(
-                        labelText: 'Nº do Lacre (Principal/Envelope)',
-                        prefixIcon: Icon(Icons.lock_outline, size: 18),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (val) {
-                        final newList = List<ExameSolicitadoModel>.from(
-                          controller.casoAtual.exames,
-                        );
-                        final idx = newList.indexWhere(
-                          (e) => e.tipoExame == 'ANATOMO',
-                        );
-                        if (idx != -1) {
-                          newList[idx] = newList[idx].copyWith(
-                            numeroLacre: val.trim(),
-                          );
-                          controller.salvarExamesModel(newList);
-                          controller.scheduleAutoSave();
-                        }
-                      },
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: AnatomoFormWidget(

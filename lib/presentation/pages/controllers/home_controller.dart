@@ -179,6 +179,8 @@ class HomeController extends ChangeNotifier {
           dadosRetornados['numero_declaracao_obito'];
       final String? dataObito = dadosRetornados['data_obito'];
       final String? horaObito = dadosRetornados['hora_obito'];
+      final String? sexoBiologicoEstimado =
+          dadosRetornados['sexo_biologico_estimado'];
       final Map<String, dynamic> conteudoJson =
           dadosRetornados['dados_laudo'] ?? {};
       final List<dynamic> fotosGerais = dadosRetornados['fotos_gerais'] ?? [];
@@ -202,6 +204,7 @@ class HomeController extends ChangeNotifier {
           numeroDeclaracaoObito: numeroDeclaracaoObito,
           dataObito: dataObito,
           horaObito: horaObito,
+          sexoBiologicoEstimado: sexoBiologicoEstimado,
           fotosGerais: fotosGerais,
           atnsIds: atnsIds,
         );
@@ -250,6 +253,7 @@ class HomeController extends ChangeNotifier {
     String? numeroDeclaracaoObito,
     String? dataObito,
     String? horaObito,
+    String? sexoBiologicoEstimado,
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
@@ -271,6 +275,7 @@ class HomeController extends ChangeNotifier {
         numeroDeclaracaoObito: numeroDeclaracaoObito,
         dataObito: dataObito,
         horaObito: horaObito,
+        sexoBiologicoEstimado: sexoBiologicoEstimado,
         fotosGerais: fotosGerais,
         atnsIds: atnsIds,
       );
