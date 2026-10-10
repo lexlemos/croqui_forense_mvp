@@ -178,11 +178,33 @@ class ExamesTab extends StatelessWidget {
                         StatusConfirmacaoATN.RECUSADO) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
-                    child: JustificativaRecusaBox(
-                      justificativa: (toxicologicoExam.justificativaRecusa != null &&
-                              toxicologicoExam.justificativaRecusa!.trim().isNotEmpty)
-                          ? toxicologicoExam.justificativaRecusa!
-                          : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        JustificativaRecusaBox(
+                          justificativa: (toxicologicoExam.justificativaRecusa != null &&
+                                  toxicologicoExam.justificativaRecusa!.trim().isNotEmpty)
+                              ? toxicologicoExam.justificativaRecusa!
+                              : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text("Retirar Solicitação de Exame"),
+                          onPressed: readOnly
+                              ? null
+                              : () => _confirmarRetirarExame(
+                                    context,
+                                    controller,
+                                    'TOXICOLOGICO',
+                                    'Exame Toxicológico',
+                                  ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -319,11 +341,33 @@ class ExamesTab extends StatelessWidget {
                         StatusConfirmacaoATN.RECUSADO) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
-                    child: JustificativaRecusaBox(
-                      justificativa: (geneticaExam.justificativaRecusa != null &&
-                              geneticaExam.justificativaRecusa!.trim().isNotEmpty)
-                          ? geneticaExam.justificativaRecusa!
-                          : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        JustificativaRecusaBox(
+                          justificativa: (geneticaExam.justificativaRecusa != null &&
+                                  geneticaExam.justificativaRecusa!.trim().isNotEmpty)
+                              ? geneticaExam.justificativaRecusa!
+                              : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text("Retirar Solicitação de Exame"),
+                          onPressed: readOnly
+                              ? null
+                              : () => _confirmarRetirarExame(
+                                    context,
+                                    controller,
+                                    'GENETICA',
+                                    'Exame Genético',
+                                  ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -459,11 +503,33 @@ class ExamesTab extends StatelessWidget {
                         StatusConfirmacaoATN.RECUSADO) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 8.0),
-                    child: JustificativaRecusaBox(
-                      justificativa: (anatomoExam.justificativaRecusa != null &&
-                              anatomoExam.justificativaRecusa!.trim().isNotEmpty)
-                          ? anatomoExam.justificativaRecusa!
-                          : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        JustificativaRecusaBox(
+                          justificativa: (anatomoExam.justificativaRecusa != null &&
+                                  anatomoExam.justificativaRecusa!.trim().isNotEmpty)
+                              ? anatomoExam.justificativaRecusa!
+                              : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text("Retirar Solicitação de Exame"),
+                          onPressed: readOnly
+                              ? null
+                              : () => _confirmarRetirarExame(
+                                    context,
+                                    controller,
+                                    'ANATOMO',
+                                    'Exame Histopatológico',
+                                  ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -530,5 +596,44 @@ class ExamesTab extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmarRetirarExame(
+    BuildContext context,
+    CroquiController controller,
+    String tipoExame,
+    String nomeExame,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Retirar Solicitação de $nomeExame?"),
+        content: const Text(
+          "O A.T.N. recusou esta coleta no sistema Web. Deseja remover este registro de solicitação do laudo?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Sim, retirar"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final newList = List<ExameSolicitadoModel>.from(
+        controller.casoAtual.exames,
+      );
+      newList.removeWhere((e) => e.tipoExame == tipoExame);
+      await controller.salvarExamesModel(newList);
+    }
   }
 }

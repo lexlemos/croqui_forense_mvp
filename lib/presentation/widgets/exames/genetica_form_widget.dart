@@ -49,7 +49,7 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
     debugPrint('Total amostras: ${_amostras.length}');
     for (var a in _amostras) {
       debugPrint(
-        '  Amostra: ${a.tipoAmostra} | lacre: ${a.numeroLacre} | swabs: ${a.quantidadeSwabs}',
+        '  Amostra: ${a.tipoAmostra} | swabs: ${a.quantidadeSwabs}',
       );
       debugPrint('  toMap: ${a.toMap()}');
     }
@@ -220,26 +220,26 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
             ),
             const SizedBox(height: 8),
 
-            // Swabs Vaginal e Anal — cada um com seu campo de lacre individual
-            _buildSwabFixoComLacre(
+            // Swabs Vaginal e Anal
+            _buildSwabFixo(
               tipo: _kSwabVaginalSemen,
               label: 'SWAB VAGINAL - 1 (Pesquisa de sêmen)',
               pesquisaSemen: true,
               pesquisaDna: false,
             ),
-            _buildSwabFixoComLacre(
+            _buildSwabFixo(
               tipo: _kSwabVaginalDna,
               label: 'SWAB VAGINAL - 2 (DNA)',
               pesquisaSemen: false,
               pesquisaDna: true,
             ),
-            _buildSwabFixoComLacre(
+            _buildSwabFixo(
               tipo: _kSwabAnalSemen,
               label: 'SWAB ANAL - 1 (Pesquisa de sêmen)',
               pesquisaSemen: true,
               pesquisaDna: false,
             ),
-            _buildSwabFixoComLacre(
+            _buildSwabFixo(
               tipo: _kSwabAnalDna,
               label: 'SWAB ANAL - 2 (DNA)',
               pesquisaSemen: false,
@@ -317,35 +317,7 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      // Campo de lacre individual obrigatório
-                      TextFormField(
-                        key: ValueKey('lacre_${entry.value.uuid}'),
-                        initialValue: entry.value.numeroLacre ?? '',
-                        enabled: !widget.readOnly,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Nº Lacre do Envelope *',
-                          hintText: 'Ex: 123456',
-                          prefixIcon: Icon(
-                            Icons.lock_outline,
-                            color: Colors.teal.shade700,
-                            size: 18,
-                          ),
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                        onChanged: (v) {
-                          _updateAmostraAt(
-                            entry.key,
-                            entry.value.copyWith(numeroLacre: v.trim()),
-                          );
-                        },
-                      ),
+
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -456,46 +428,7 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      key: const ValueKey('lacre_swab_bucal'),
-                      initialValue: amostraBucal?.numeroLacre ?? '',
-                      enabled: !widget.readOnly,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Nº Lacre do Envelope — Swab Bucal *',
-                        hintText: 'Ex: 123456',
-                        prefixIcon: Icon(
-                          Icons.lock_outline,
-                          color: Colors.teal.shade700,
-                          size: 18,
-                        ),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        helperText:
-                            'Identifica individualmente este envelope lacrado',
-                        helperStyle: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      onChanged: (v) {
-                        final idx = _amostras.indexWhere(
-                          (a) => a.tipoAmostra == _kSwabBucalVitima,
-                        );
-                        if (idx != -1) {
-                          setState(() {
-                            _amostras[idx] = _amostras[idx].copyWith(
-                              numeroLacre: v.trim(),
-                            );
-                          });
-                          _notifyChanges();
-                        }
-                      },
-                    ),
+
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -553,81 +486,33 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
     );
   }
 
-  /// Swab com checkbox + campo de lacre colapável abaixo quando marcado.
-  Widget _buildSwabFixoComLacre({
+  /// Swab com checkbox e seleção.
+  Widget _buildSwabFixo({
     required String tipo,
     required String label,
     required bool pesquisaSemen,
     required bool pesquisaDna,
   }) {
     final marcado = _hasTipo(tipo);
-    final amostra = _getTipo(tipo);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CheckboxListTile(
-          title: Text(
-            label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          value: marcado,
-          enabled: !widget.readOnly,
-          dense: true,
-          activeColor: Colors.teal.shade700,
-          controlAffinity: ListTileControlAffinity.leading,
-          onChanged: widget.readOnly
-              ? null
-              : (val) => _toggleTipoFixa(
-                  tipo,
-                  val ?? false,
-                  pesquisaSemen: pesquisaSemen,
-                  pesquisaDna: pesquisaDna,
-                ),
-        ),
-        if (marcado && amostra != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 52, right: 12, bottom: 8),
-            child: TextFormField(
-              key: ValueKey('lacre_$tipo'),
-              initialValue: amostra.numeroLacre ?? '',
-              enabled: !widget.readOnly,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Nº Lacre do Envelope *',
-                hintText: 'Ex: 123456',
-                prefixIcon: Icon(
-                  Icons.lock_outline,
-                  color: Colors.teal.shade700,
-                  size: 18,
-                ),
-                border: const OutlineInputBorder(),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                helperText: 'Identifica individualmente este envelope lacrado',
-                helperStyle: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              onChanged: (v) {
-                final idx = _amostras.indexWhere((a) => a.tipoAmostra == tipo);
-                if (idx != -1) {
-                  setState(() {
-                    _amostras[idx] = _amostras[idx].copyWith(
-                      numeroLacre: v.trim(),
-                    );
-                  });
-                  _notifyChanges();
-                }
-              },
+    return CheckboxListTile(
+      title: Text(
+        label,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
+      value: marcado,
+      enabled: !widget.readOnly,
+      dense: true,
+      activeColor: Colors.teal.shade700,
+      controlAffinity: ListTileControlAffinity.leading,
+      onChanged: widget.readOnly
+          ? null
+          : (val) => _toggleTipoFixa(
+              tipo,
+              val ?? false,
+              pesquisaSemen: pesquisaSemen,
+              pesquisaDna: pesquisaDna,
             ),
-          ),
-      ],
     );
   }
 }

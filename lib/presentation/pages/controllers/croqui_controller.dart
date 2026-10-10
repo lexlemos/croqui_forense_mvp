@@ -401,7 +401,6 @@ class CroquiController extends ChangeNotifier {
 
       final String? tipoFerimento = result['tipoFerimento']?.toString();
       final String? tipoObjeto = result['tipoObjeto']?.toString();
-      final String? numeroLacre = result['numeroLacre']?.toString();
       final String? comentarioAdicional = result['comentarioAdicional']
           ?.toString();
 
@@ -462,15 +461,17 @@ class CroquiController extends ChangeNotifier {
         localAnatomico: realPartName,
         tipoFerimento: tipoFerimento,
         tipoObjeto: tipoObjeto,
-        numeroLacre: numeroLacre,
+        numeroLacre: null,
         comentarioAdicional: comentarioAdicional,
       );
 
       List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
-      if (tipoFerimento != null ||
-          tipoObjeto != null ||
-          numeroLacre != null ||
-          comentarioAdicional != null) {
+      final bool temBalisticaReal =
+          (tipoFerimento != null && tipoFerimento.trim().isNotEmpty) ||
+          (tipoObjeto != null && tipoObjeto.trim().isNotEmpty) ||
+          (comentarioAdicional != null && comentarioAdicional.trim().isNotEmpty);
+
+      if (temBalisticaReal) {
         final String balisticaId = deterministicUuidV5(
           achadoFinal.uuid,
           'balistica',
@@ -481,7 +482,7 @@ class CroquiController extends ChangeNotifier {
             exameId: casoAtual.uuid,
             tipoFerimento: tipoFerimento,
             tipoObjeto: tipoObjeto,
-            numeroLacre: numeroLacre,
+            numeroLacre: null,
             comentarioAdicional: comentarioAdicional,
           ),
         );
@@ -560,7 +561,6 @@ class CroquiController extends ChangeNotifier {
 
       final String? tipoFerimento = result['tipoFerimento']?.toString();
       final String? tipoObjeto = result['tipoObjeto']?.toString();
-      final String? numeroLacre = result['numeroLacre']?.toString();
       final String? comentarioAdicional = result['comentarioAdicional']
           ?.toString();
 
@@ -612,7 +612,7 @@ class CroquiController extends ChangeNotifier {
         localAnatomico: localNome,
         tipoFerimento: tipoFerimento,
         tipoObjeto: tipoObjeto,
-        numeroLacre: numeroLacre,
+        numeroLacre: null,
         comentarioAdicional: comentarioAdicional,
       );
 
@@ -623,17 +623,19 @@ class CroquiController extends ChangeNotifier {
       );
       novasBalisticas.removeWhere((b) => b.id == balisticaId);
 
-      if (tipoFerimento != null ||
-          tipoObjeto != null ||
-          numeroLacre != null ||
-          comentarioAdicional != null) {
+      final bool temBalisticaReal =
+          (tipoFerimento != null && tipoFerimento.trim().isNotEmpty) ||
+          (tipoObjeto != null && tipoObjeto.trim().isNotEmpty) ||
+          (comentarioAdicional != null && comentarioAdicional.trim().isNotEmpty);
+
+      if (temBalisticaReal) {
         novasBalisticas.add(
           BalisticaModel(
             id: balisticaId,
             exameId: casoAtual.uuid,
             tipoFerimento: tipoFerimento,
             tipoObjeto: tipoObjeto,
-            numeroLacre: numeroLacre,
+            numeroLacre: null,
             comentarioAdicional: comentarioAdicional,
           ),
         );
@@ -674,6 +676,58 @@ class CroquiController extends ChangeNotifier {
       _snack("Achado removido.");
     } catch (e) {
       _snack("Erro ao deletar", color: Colors.red);
+    }
+  }
+
+  /// Remove a solicitação de vestígio balístico vinculada a um achado (ex: após recusa pelo ATN),
+  /// preservando a lesão anatômica no croqui.
+  Future<void> removerSolicitacaoBalistica(
+    BuildContext context,
+    Achado achado,
+  ) async {
+    if (isReadOnly) return;
+
+    final String balisticaId = deterministicUuidV5(achado.uuid, 'balistica');
+    List<BalisticaModel> novasBalisticas = List.from(casoAtual.balisticas);
+    novasBalisticas.removeWhere(
+      (b) => b.id == balisticaId || b.achadoUuid == achado.uuid,
+    );
+    casoAtual = casoAtual.copyWith(balisticas: novasBalisticas);
+
+    final achadoAtualizado = Achado(
+      uuid: achado.uuid,
+      casoUuid: achado.casoUuid,
+      diagramaCasoUuid: achado.diagramaCasoUuid,
+      diagramaNome: achado.diagramaNome,
+      tipoAchadoId: achado.tipoAchadoId,
+      numeroSequencial: achado.numeroSequencial,
+      posX: achado.posX,
+      posY: achado.posY,
+      isInterno: achado.isInterno,
+      achadoRelacionadoUuid: achado.achadoRelacionadoUuid,
+      dadosPreenchidos: achado.dadosPreenchidos,
+      observacoesTexto: achado.observacoesTexto,
+      removido: achado.removido,
+      versao: achado.versao + 1,
+      criadoEm: achado.criadoEm,
+      atualizadoEm: DateTime.now(),
+      deviceId: achado.deviceId,
+      tamanho: achado.tamanho,
+      vistaAnatomica: achado.vistaAnatomica,
+      localAnatomico: achado.localAnatomico,
+      tipoFerimento: null,
+      numeroLacre: null,
+      tipoObjeto: null,
+      comentarioAdicional: null,
+    );
+
+    try {
+      await _achadoService.atualizarAchado(achadoAtualizado);
+      await _bumpRootVersion();
+      await _loadAchados();
+      _snack("Solicitação de balística removida com sucesso.");
+    } catch (e) {
+      _snack("Erro ao remover balística: $e", color: Colors.red);
     }
   }
 

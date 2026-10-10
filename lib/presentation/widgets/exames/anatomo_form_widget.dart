@@ -214,39 +214,6 @@ class _AnatomoFormWidgetState extends State<AnatomoFormWidget> {
             ),
             const SizedBox(height: 10),
 
-            // Campo de Lacre Individual — obrigatório por cadeia de custódia
-            TextFormField(
-              key: ValueKey('lacre_frasco_${frasco.uuid}'),
-              initialValue: frasco.numeroLacre ?? '',
-              enabled: !widget.readOnly,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Nº Lacre do Frasco $numStr *',
-                hintText: 'Ex: 123456',
-                prefixIcon: Icon(
-                  Icons.lock_outline,
-                  color: Colors.indigo.shade700,
-                  size: 18,
-                ),
-                border: const OutlineInputBorder(),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                helperText:
-                    'Identifica individualmente este recipiente lacrado',
-                helperStyle: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              onChanged: (v) {
-                _updateFrascoAt(index, frasco.copyWith(numeroLacre: v.trim()));
-              },
-            ),
-            const SizedBox(height: 12),
-
             // 1. Grid de Órgãos Principais (2 Colunas)
             const Text(
               "Órgãos para Análise Histopatológica",

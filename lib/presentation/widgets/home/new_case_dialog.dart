@@ -807,15 +807,26 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
       inputFormatters: inputFormatters,
       onChanged: onChanged,
       decoration: InputDecoration(
-        labelText: label,
+        label: required
+            ? Text.rich(
+                TextSpan(
+                  text: label,
+                  children: const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Text(label),
         prefixIcon: Icon(icon, size: 20),
         border: const OutlineInputBorder(),
         isDense: true,
-        suffixIcon:
-            suffixIcon ??
-            (required
-                ? const Icon(Icons.star, size: 8, color: Colors.red)
-                : null),
+        suffixIcon: suffixIcon,
       ),
       validator:
           validator ??

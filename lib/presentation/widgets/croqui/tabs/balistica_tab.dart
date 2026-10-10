@@ -34,16 +34,28 @@ class BalisticaTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<CroquiController>(
       builder: (context, controller, child) {
-        final balisticaAchados = controller.achados
-            .where(
-              (a) =>
-                  (a.tipoFerimento != null && a.tipoFerimento!.isNotEmpty) ||
-                  (a.tipoObjeto != null && a.tipoObjeto!.isNotEmpty) ||
-                  (a.numeroLacre != null && a.numeroLacre!.isNotEmpty) ||
-                  (a.comentarioAdicional != null &&
-                      a.comentarioAdicional!.isNotEmpty),
-            )
-            .toList();
+        final balisticaAchados = controller.achados.where((a) {
+          final bool temDadosAchado =
+              (a.tipoFerimento != null && a.tipoFerimento!.trim().isNotEmpty) ||
+              (a.tipoObjeto != null && a.tipoObjeto!.trim().isNotEmpty) ||
+              (a.comentarioAdicional != null &&
+                  a.comentarioAdicional!.trim().isNotEmpty);
+          if (temDadosAchado) return true;
+
+          final b = controller.casoAtual.balisticas
+              .cast<BalisticaModel?>()
+              .firstWhere(
+                (item) =>
+                    (item?.achadoUuid != null && item!.achadoUuid == a.uuid) ||
+                    item?.id == deterministicUuidV5(a.uuid, 'balistica'),
+                orElse: () => null,
+              );
+          if (b == null) return false;
+          return (b.tipoFerimento != null && b.tipoFerimento!.trim().isNotEmpty) ||
+              (b.tipoObjeto != null && b.tipoObjeto!.trim().isNotEmpty) ||
+              (b.comentarioAdicional != null &&
+                  b.comentarioAdicional!.trim().isNotEmpty);
+        }).toList();
 
         return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -90,7 +102,7 @@ class BalisticaTab extends StatelessWidget {
                         achadoUuid: a.uuid,
                         tipoFerimento: a.tipoFerimento,
                         tipoObjeto: a.tipoObjeto,
-                        numeroLacre: a.numeroLacre,
+                        numeroLacre: null,
                         comentarioAdicional: a.comentarioAdicional,
                       ),
                     );
@@ -153,9 +165,6 @@ class BalisticaTab extends StatelessWidget {
                               if (a.tipoObjeto != null &&
                                   a.tipoObjeto!.isNotEmpty)
                                 Text("Tipo de Objeto: ${a.tipoObjeto}"),
-                              if (a.numeroLacre != null &&
-                                  a.numeroLacre!.isNotEmpty)
-                                Text("Nº do Lacre: ${a.numeroLacre}"),
                               if (a.comentarioAdicional != null &&
                                   a.comentarioAdicional!.isNotEmpty)
                                 Text("Comentário: ${a.comentarioAdicional}"),
@@ -170,6 +179,53 @@ class BalisticaTab extends StatelessWidget {
                                                   .isNotEmpty)
                                           ? balisticaItem.justificativaRecusa!
                                           : 'O vestígio balístico foi recusado pelo A.T.N. no sistema Web.',
+                                ),
+                                const SizedBox(height: 10),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.red.shade700,
+                                    side: BorderSide(color: Colors.red.shade300),
+                                  ),
+                                  icon: const Icon(Icons.delete_outline, size: 18),
+                                  label: const Text("Retirar Solicitação de Balística"),
+                                  onPressed: readOnly
+                                      ? null
+                                      : () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text(
+                                                "Retirar Solicitação de Balística?",
+                                              ),
+                                              content: const Text(
+                                                "O A.T.N. recusou esta coleta. Deseja remover este registro de vestígio do laudo? O ferimento corporal no croqui continuará preservado.",
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, false),
+                                                  child: const Text("Cancelar"),
+                                                ),
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                    foregroundColor: Colors.white,
+                                                  ),
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, true),
+                                                  child: const Text("Sim, retirar"),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true && context.mounted) {
+                                            await controller
+                                                .removerSolicitacaoBalistica(
+                                                  context,
+                                                  a,
+                                                );
+                                          }
+                                        },
                                 ),
                               ],
                             ],

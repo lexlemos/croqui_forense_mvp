@@ -196,5 +196,12 @@ void main() {
         expect(mapParaSqlite['comentario_adicional'], equals('Calibre 9mm'));
       },
     );
+
+    test('6. TipoObjeto possui suporte completo para Jaqueta', () {
+      expect(TipoObjeto.jaqueta.valor, equals('Jaqueta'));
+      expect(TipoObjeto.fromString('Jaqueta'), equals(TipoObjeto.jaqueta));
+      expect(TipoObjeto.fromString('jaqueta'), equals(TipoObjeto.jaqueta));
+      expect(TipoObjeto.valores, contains('Jaqueta'));
+    });
   });
 }

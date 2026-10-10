@@ -674,20 +674,20 @@ class PdfService {
     return pw.Column(
       children: [
         PdfHelpers.buildItemComLabel(
-          'Anátomo-Patológico (Nº do Lacre): ',
-          anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO',
+          'Anátomo-Patológico: ',
+          anatomoEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
         PdfHelpers.buildItemComLabel(
-          'Toxicológico (Nº do Lacre): ',
-          toxEx.uuid.isNotEmpty ? toxEx.numeroLacre : 'NÃO SOLICITADO',
+          'Toxicológico: ',
+          toxEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
         PdfHelpers.buildItemComLabel(
-          'Genética (Nº do Lacre): ',
-          genEx.uuid.isNotEmpty ? genEx.numeroLacre : 'NÃO SOLICITADO',
+          'Genética: ',
+          genEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
         PdfHelpers.buildItemComLabel(
-          'Outros (Nº do Lacre): ',
-          outrosEx.uuid.isNotEmpty ? outrosEx.numeroLacre : 'NÃO SOLICITADO',
+          'Outros: ',
+          outrosEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
       ],
     );
@@ -788,11 +788,8 @@ class PdfService {
       if (d.materialSgOutro?.isNotEmpty == true) {
         subs.add('Outro sítio: ${d.materialSgOutro}');
       }
-      final lacreSg = d.numeroLacreSg?.isNotEmpty == true
-          ? (d.numeroLacreSg ?? 'Não informado')
-          : 'Não informado';
       linhas.add(
-        _itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Lacre: $lacreSg'),
+        _itemRecuado('- Sangue (SG) [${subs.join(', ')}]'),
       );
       if (d.quantificacaoDrogas) {
         linhas.add(
@@ -802,28 +799,16 @@ class PdfService {
     }
 
     if (d.materialUrina) {
-      final lacre = d.numeroLacreUr?.isNotEmpty == true
-          ? (d.numeroLacreUr ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Urina (UR) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Urina (UR)'));
     }
     if (d.materialHumorVitreo) {
-      final lacre = d.numeroLacreHv?.isNotEmpty == true
-          ? (d.numeroLacreHv ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Humor Vitreo (HV) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Humor Vitreo (HV)'));
     }
     if (d.materialEstomago) {
-      final lacre = d.numeroLacreCe?.isNotEmpty == true
-          ? (d.numeroLacreCe ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Conteudo Estomacal (CE)'));
     }
     if (d.materialPulmao) {
-      final lacre = d.numeroLacrePm?.isNotEmpty == true
-          ? (d.numeroLacrePm ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Pulmao (PM) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Pulmao (PM)'));
     }
 
     if (!temAlgumMaterial) {
@@ -879,22 +864,16 @@ class PdfService {
         if (a.pesquisaSemen) pesqs.add('Pesquisa de Semen');
         if (a.pesquisaDna) pesqs.add('Pesquisa de DNA');
         final pesqStr = pesqs.isNotEmpty ? ' [${pesqs.join(' + ')}]' : '';
-        final lacre = a.numeroLacre?.isNotEmpty == true
-            ? (a.numeroLacre ?? 'Não informado')
-            : 'Não informado';
-        linhas.add(_itemRecuado('- $desc$pesqStr — Lacre do Envelope: $lacre'));
+        linhas.add(_itemRecuado('- $desc$pesqStr'));
       }
     }
 
     if (referencia.isNotEmpty) {
       linhas.add(_subTitulo('Amostra de Referencia:'));
       for (final a in referencia) {
-        final lacre = a.numeroLacre?.isNotEmpty == true
-            ? (a.numeroLacre ?? 'Não informado')
-            : 'Não informado';
         linhas.add(
           _itemRecuado(
-            '- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Lacre do Envelope: $lacre',
+            '- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s)',
           ),
         );
       }
@@ -954,16 +933,12 @@ class PdfService {
 
     for (final f in frascos) {
       final numStr = f.numeroFrasco.toString().padLeft(2, '0');
-      final lacre = f.numeroLacre?.isNotEmpty == true
-          ? (f.numeroLacre ?? 'Não informado')
-          : 'Não informado';
-
-      // Cabeçalho do frasco: numeracao + lacre
+      // Cabeçalho do frasco: numeracao
       linhas.add(
         pw.Padding(
           padding: const pw.EdgeInsets.only(left: 15, top: 6, bottom: 2),
           child: pw.Text(
-            'Frasco $numStr — Lacre: $lacre',
+            'Frasco $numStr',
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5),
           ),
         ),

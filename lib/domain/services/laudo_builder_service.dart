@@ -367,15 +367,11 @@ class LaudoBuilderService {
     } else {
       if (estruturados != null) {
         for (var e in estruturados) {
-          final lacreStr = e.numeroLacre != null && e.numeroLacre!.isNotEmpty
-              ? ' (Lacre: ${e.numeroLacre})'
-              : '';
-          blocos.add(LaudoItemBloco(label: '${e.tipoExame}: ', valor: '${e.tipoExame}$lacreStr'));
+          blocos.add(LaudoItemBloco(label: '${e.tipoExame}: ', valor: 'SOLICITADO'));
         }
       }
       for (var l in legados) {
-        final lacreStr = l.numeroLacre.isNotEmpty ? ' (Lacre: ${l.numeroLacre})' : 'NÃO SOLICITADO';
-        blocos.add(LaudoItemBloco(label: '${l.tipoExame}: ', valor: lacreStr));
+        blocos.add(LaudoItemBloco(label: '${l.tipoExame}: ', valor: 'SOLICITADO'));
       }
     }
     return LaudoSecao(id: 'exames_complementares', titulo: '5. EXAMES COMPLEMENTARES', blocos: blocos);
