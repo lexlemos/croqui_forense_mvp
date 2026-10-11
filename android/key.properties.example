@@ -1,0 +1,11 @@
+# Exemplo de configuração de assinatura de release para o Croqui Forense MVP.
+# Para utilizar em produção:
+# 1. Copie este arquivo para `android/key.properties` (que está no .gitignore)
+# 2. Gere uma chave segura ou use a chave institucional fornecida pela TI/Polícia Científica:
+#    keytool -genkey -v -keystore release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias croqui_forense
+# 3. Preencha as credenciais reais abaixo:
+
+keyAlias=croqui_forense
+keyPassword=SUA_SENHA_DA_CHAVE
+storeFile=../release-keystore.jks
+storePassword=SUA_SENHA_DO_KEYSTORE

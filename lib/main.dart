@@ -161,8 +161,6 @@ void main() async {
       }
     };
   }, appRunner: () => runApp(SentryWidget(child: const AppRoot())));
-  // TODO: Remove this line after sending the first sample event to sentry.
-  await Sentry.captureException(Exception('This is a sample exception.'));
 }
 
 class AppRoot extends StatelessWidget {

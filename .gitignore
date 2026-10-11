@@ -54,3 +54,7 @@ CLAUDE.md
 
 sentry.properties
 
+# Android keystore / Signing
+*.keystore
+*.jks
+**/android/key.properties
