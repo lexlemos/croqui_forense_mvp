@@ -97,6 +97,64 @@ class ImageResolver {
   /// Resolve e constrói a imagem para um [Achado], priorizando a [EvidenciaMultimidia] oficial
   /// vinculada ao [achado.uuid], com verificação de integridade de arquivo local e
   /// fallback seguro para a rota remota `/media/{evidencia.uuid}.jpg` ou photo_path legado.
+  /// Seleciona a melhor evidência disponível para um achado na coleção fornecida.
+  ///
+  /// Regras de Prioridade (Strict Offline-First & Resiliência Pós-Reinstalação):
+  /// 1. Evidência com arquivo físico local que de fato existe em disco (`File.existsSync()`).
+  /// 2. Evidência que possui caminho de arquivo / chave de storage ou URL válida preenchida,
+  ///    selecionando a mais recente (`versao DESC`, `criadoEm DESC`).
+  /// 3. Se nenhuma possuir caminho gravado, seleciona a evidência mais recente por segurança.
+  static EvidenciaMultimidia? selecionarMelhorEvidenciaParaAchado(
+    String achadoUuid,
+    List<EvidenciaMultimidia> evidencias,
+  ) {
+    final candidatas = evidencias
+        .where((ev) => ev.achadoUuid == achadoUuid && !ev.removido)
+        .toList();
+    if (candidatas.isEmpty) return null;
+
+    // 1. Prioriza arquivo local físico que exista no sistema de arquivos
+    for (final ev in candidatas) {
+      final localPath = ev.caminhoArquivoEncriptado;
+      if (localPath != null && localPath.trim().isNotEmpty) {
+        final cleanPath = localPath.trim().replaceFirst('file://', '');
+        if (File(cleanPath).existsSync()) {
+          return ev;
+        }
+      }
+    }
+
+    // 2. Prioriza evidências com chave remota / storage válida (cenário de pós-reinstalação)
+    final comArquivo = candidatas.where((ev) {
+      final p = ev.caminhoArquivoEncriptado?.trim();
+      final c = ev.chaveStorage?.trim();
+      final u = ev.urlStorage?.trim();
+      return (p != null && p.isNotEmpty) ||
+          (c != null && c.isNotEmpty) ||
+          (u != null && u.isNotEmpty);
+    }).toList();
+
+    if (comArquivo.isNotEmpty) {
+      comArquivo.sort((a, b) {
+        final compVersao = b.versao.compareTo(a.versao);
+        if (compVersao != 0) return compVersao;
+        return b.criadoEm.compareTo(a.criadoEm);
+      });
+      return comArquivo.first;
+    }
+
+    // 3. Fallback: seleciona a evidência mais recente
+    candidatas.sort((a, b) {
+      final compVersao = b.versao.compareTo(a.versao);
+      if (compVersao != 0) return compVersao;
+      return b.criadoEm.compareTo(a.criadoEm);
+    });
+    return candidatas.first;
+  }
+
+  /// Resolve e constrói a imagem para um [Achado], priorizando a [EvidenciaMultimidia] oficial
+  /// vinculada ao [achado.uuid], com verificação de integridade de arquivo local e
+  /// fallback seguro para a rota remota `/media/{evidencia.uuid}.jpg` ou photo_path legado.
   static Widget buildAchadoImage({
     required Achado achado,
     List<EvidenciaMultimidia>? evidencias,
@@ -107,13 +165,7 @@ class ImageResolver {
   }) {
     EvidenciaMultimidia? evidencia;
     if (evidencias != null && evidencias.isNotEmpty) {
-      try {
-        evidencia = evidencias.firstWhere(
-          (ev) => ev.achadoUuid == achado.uuid && !ev.removido,
-        );
-      } catch (_) {
-        evidencia = null;
-      }
+      evidencia = selecionarMelhorEvidenciaParaAchado(achado.uuid, evidencias);
     }
 
     if (evidencia != null) {
@@ -134,7 +186,7 @@ class ImageResolver {
       }
 
       return buildImage(
-        null,
+        evidencia.urlStorage ?? evidencia.caminhoArquivoEncriptado,
         evidenciaUuid: evidencia.uuid,
         fit: fit,
         width: width,
@@ -166,7 +218,7 @@ class ImageResolver {
               }
             }
             return buildImage(
-              null,
+              localPath,
               evidenciaUuid: data['uuid'],
               fit: fit,
               width: width,
@@ -204,15 +256,53 @@ class ImageResolver {
       final db = await DatabaseHelper.instance.database;
       final rows = await db.query(
         'evidencias_multimidia',
-        columns: ['uuid', 'caminho_arquivo_encriptado'],
+        columns: [
+          'uuid',
+          'caminho_arquivo_encriptado',
+          'chave_storage',
+          'url_storage',
+          'versao',
+          'criado_em',
+        ],
         where: 'achado_uuid = ? AND removido = 0',
         whereArgs: [achadoUuid],
-        limit: 1,
+        orderBy: 'versao DESC, criado_em DESC',
       );
       if (rows.isNotEmpty) {
+        // 1. Procura arquivo local que de fato exista no disco
+        for (final r in rows) {
+          final localPath = r['caminho_arquivo_encriptado']?.toString();
+          if (localPath != null && localPath.trim().isNotEmpty) {
+            final cleanPath = localPath.trim().replaceFirst('file://', '');
+            if (File(cleanPath).existsSync()) {
+              return {
+                'uuid': r['uuid']?.toString() ?? '',
+                'caminho': cleanPath,
+              };
+            }
+          }
+        }
+
+        // 2. Prioriza registros com caminho remoto / storage preenchido
+        final comArquivo = rows.where((r) {
+          final p = r['caminho_arquivo_encriptado']?.toString().trim();
+          final c = r['chave_storage']?.toString().trim();
+          final u = r['url_storage']?.toString().trim();
+          return (p != null && p.isNotEmpty) ||
+              (c != null && c.isNotEmpty) ||
+              (u != null && u.isNotEmpty);
+        }).toList();
+
+        final escolhida = comArquivo.isNotEmpty ? comArquivo.first : rows.first;
+        final caminhoEscolhido =
+            escolhida['url_storage']?.toString() ??
+            escolhida['caminho_arquivo_encriptado']?.toString() ??
+            escolhida['chave_storage']?.toString() ??
+            '';
+
         return {
-          'uuid': rows.first['uuid']?.toString() ?? '',
-          'caminho': rows.first['caminho_arquivo_encriptado']?.toString() ?? '',
+          'uuid': escolhida['uuid']?.toString() ?? '',
+          'caminho': caminhoEscolhido,
         };
       }
     } catch (e) {
