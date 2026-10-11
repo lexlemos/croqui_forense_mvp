@@ -45,8 +45,12 @@ android {
 
             if (storeFileProp != null && keyAliasProp != null) {
                 keyAlias = keyAliasProp
-                keyPassword = keyPasswordProp
-                storeFile = file(storeFileProp)
+                val resolvedStoreFile = listOf(
+                    file(storeFileProp),
+                    rootProject.file(storeFileProp),
+                    rootProject.file("app/$storeFileProp")
+                ).firstOrNull { it.exists() } ?: file(storeFileProp)
+                storeFile = resolvedStoreFile
                 storePassword = storePasswordProp
             }
         }
