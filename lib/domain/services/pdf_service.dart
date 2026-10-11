@@ -887,10 +887,10 @@ class PdfService {
 
   String _descricaoAmostraGenetica(AmostraGeneticaModel a) {
     const nomes = {
-      'SWAB_VAGINAL_1': 'SWAB VAGINAL - 1 (Pesquisa de sêmen e DNA)',
-      'SWAB_VAGINAL_2': 'SWAB VAGINAL - 2 (Pesquisa de sêmen e DNA)',
-      'SWAB_ANAL_1': 'SWAB ANAL - 1 (Pesquisa de sêmen e DNA)',
-      'SWAB_ANAL_2': 'SWAB ANAL - 2 (Pesquisa de sêmen e DNA)',
+      'SWAB_VAGINAL_1': 'SWAB VAGINAL - 1',
+      'SWAB_VAGINAL_2': 'SWAB VAGINAL - 2',
+      'SWAB_ANAL_1': 'SWAB ANAL - 1',
+      'SWAB_ANAL_2': 'SWAB ANAL - 2',
       'SWAB_BUCAL_VITIMA': 'Swab Bucal da Vítima',
     };
     if (a.tipoAmostra == 'OUTRO') {

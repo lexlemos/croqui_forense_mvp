@@ -42,8 +42,12 @@ class AuthService {
   /// aplicativo pericial de Necrópsia Digital conforme as diretrizes de governança RBAC.
   static const Set<String> _perfisAutorizados = <String>{
     'PERITO',
+    'PERITO_GERAL',
     'MEDICO_LEGISTA',
     'ADMIN',
+    'CHEFE_PLANTAO',
+    'DIRETOR_GERAL',
+    'TECNICO_NECROPSIA',
   };
 
   final UsuarioRepository _usuarioRepository;
