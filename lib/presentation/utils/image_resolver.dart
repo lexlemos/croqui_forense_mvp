@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/local/database_helper.dart';
@@ -10,10 +11,12 @@ import 'package:croqui_forense_mvp/data/local/database_helper.dart';
 /// e realiza o cruzamento de [Achado] com sua respectiva [EvidenciaMultimidia]
 /// para garantir que requisições de rede utilizem o UUID oficial cadastrado no backend.
 class ImageResolver {
-  static const String _defaultBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://192.168.15.88:8000/api/v1/',
-  );
+  static String get _defaultBaseUrl =>
+      dotenv.env['API_BASE_URL'] ??
+      const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'https://cadeia-de-custodia-iml-back.vercel.app/api/v1/',
+      );
 
   static String get _serverBaseUrl {
     var url = _defaultBaseUrl.trim();
