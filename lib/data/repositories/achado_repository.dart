@@ -328,13 +328,22 @@ class AchadoRepository {
     }).toList();
   }
 
-  /// Recupera especificamente os orifícios de entrada de PAF cadastrados no laudo para correlação de trajetória balística.
+  /// Recupera especificamente os orifícios de entrada de FAF cadastrados no laudo para correlação de trajetória balística.
   Future<List<Achado>> getAchadosDeEntradaPorCaso(String casoUuid) async {
     final db = await _db;
     final result = await db.query(
       'achados',
       where:
-          r"caso_uuid = ? AND removido = 0 AND (json_extract(dados_preenchidos_json, '$.tipo_orificio') = 'Entrada' OR json_extract(dados_preenchidos_json, '$.dynamicFields.tipo_orificio') = 'Entrada')",
+          r"caso_uuid = ? AND removido = 0 AND ("
+          r"json_extract(dados_preenchidos_json, '$.dados_dinamicos_json.tipo_orificio') = 'Entrada' "
+          r"OR json_extract(dados_preenchidos_json, '$.dados_dinamicos_json.tipo_ferimento') = 'Entrada' "
+          r"OR json_extract(dados_preenchidos_json, '$.tipo_orificio') = 'Entrada' "
+          r"OR json_extract(dados_preenchidos_json, '$.dynamicFields.tipo_orificio') = 'Entrada' "
+          r"OR tipo_ferimento = 'Entrada' "
+          r"OR tipo_ferimento = 'entrada' "
+          r"OR dados_preenchidos_json LIKE '%tipo_orificio%Entrada%' "
+          r"OR dados_preenchidos_json LIKE '%tipo_ferimento%Entrada%' "
+          r")",
       whereArgs: [casoUuid],
       orderBy: 'numero_sequencial ASC',
     );

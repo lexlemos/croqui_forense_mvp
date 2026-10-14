@@ -9,11 +9,11 @@ import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart'
     as em;
-import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_report_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
+import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
 
 /// Tela de visualização e conferência prévia do Laudo Pericial em PDF.
 ///
@@ -47,7 +47,7 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
           achadoService.listarAchados(widget.caso.uuid),
           caseService.getEvidenciasGerais(widget.caso.uuid),
           caseService.getExamesSolicitados(widget.caso.uuid),
-          context.read<CasoRepository>().getExamesPorCaso(widget.caso.uuid),
+          caseService.getExamesPorCaso(widget.caso.uuid),
         ]).then((results) {
           return {
             'achados': results[0] as List<Achado>,
@@ -67,6 +67,33 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.description),
+            tooltip: 'Exportar Word (DOCX)',
+            onPressed: () async {
+              try {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Solicitando laudo em Word (.docx) ao servidor...',
+                    ),
+                  ),
+                );
+                await context.read<ICaseLifecycleService>().shareDocxReport(
+                  caso: widget.caso,
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Erro ao exportar Word: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.save_alt),
             tooltip: 'Salvar PDF Localmente',
@@ -106,28 +133,22 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
             return const Center(child: Text('Perito não autenticado.'));
           }
 
-          final reportService = PdfReportService();
+          final engine = context.read<IPdfReportEngine>();
+          final caseService = context.read<CaseService>();
 
           return PdfPreview(
             build: (format) async {
-              final pdfBytes = await reportService.gerarLaudoPdf(
-                caso: widget.caso,
+              return await engine.generatePdfBytes(
+                widget.caso,
                 achados: achados,
-                perito: perito,
-                exames: exames,
-                examesModel: examesModel,
-                evidenciasGerais: evidenciasGerais,
-              );
-
-              if (context.mounted) {
-                final caseService = context.read<CaseService>();
-                await reportService.salvarPdfNoDispositivo(
-                  caso: widget.caso,
-                  pdfBytes: pdfBytes,
+                options: PdfReportOptions(
+                  perito: perito,
+                  exames: exames,
+                  examesModel: examesModel,
+                  evidenciasGerais: evidenciasGerais,
                   caseService: caseService,
-                );
-              }
-              return pdfBytes;
+                ),
+              );
             },
             maxPageWidth: 700,
             dpi: 72,

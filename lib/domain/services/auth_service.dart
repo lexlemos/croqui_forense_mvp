@@ -42,8 +42,12 @@ class AuthService {
   /// aplicativo pericial de Necrópsia Digital conforme as diretrizes de governança RBAC.
   static const Set<String> _perfisAutorizados = <String>{
     'PERITO',
+    'PERITO_GERAL',
     'MEDICO_LEGISTA',
     'ADMIN',
+    'CHEFE_PLANTAO',
+    'DIRETOR_GERAL',
+    'TECNICO_NECROPSIA',
   };
 
   final UsuarioRepository _usuarioRepository;
@@ -229,6 +233,18 @@ class AuthService {
         senha,
       );
 
+      final String? crm = Usuario.formatarCrm(
+        perfil['crm']?.toString() ??
+            perfil['crm_numero']?.toString() ??
+            perfil['numero_crm']?.toString() ??
+            responseData['crm']?.toString(),
+      );
+
+      final String? classe =
+          perfil['classe']?.toString() ??
+          perfil['classe_funcional']?.toString() ??
+          responseData['classe']?.toString();
+
       final Usuario novoUsuario = Usuario(
         id: userId,
         matriculaFuncional: matriculaFuncional,
@@ -239,6 +255,8 @@ class AuthService {
         salt: credenciais['salt'] ?? '',
         criadoEm: DateTime.now(),
         deviceId: perfil['device_id']?.toString(),
+        crm: crm,
+        classe: classe,
       );
 
       await _usuarioRepository.createUsuario(novoUsuario);

@@ -478,7 +478,9 @@ class _DynamicFormBuilderState extends State<DynamicFormBuilder> {
           .map(
             (a) => DropdownMenuItem(
               value: a.uuid,
-              child: Text('Achado #${a.numeroSequencial} - Entrada'),
+              child: Text(
+                'Achado #${a.numeroSequencial} - Entrada (${a.localAnatomico.isNotEmpty ? a.localAnatomico : "Corpo"})',
+              ),
             ),
           )
           .toList(),

@@ -82,24 +82,23 @@ class ExameSolicitadoModel {
     dynamic detalhes,
   }) {
     dynamic parsedDetalhes = detalhes;
+    final tipo = map['tipo_exame']?.toString().toUpperCase() ?? '';
+
+    // Helper para decodificar string JSON se necessário
+    List<dynamic>? getList(String key) {
+      final raw = map[key];
+      if (raw == null) return null;
+      if (raw is List) return raw;
+      if (raw is String && raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) return decoded;
+        } catch (_) {}
+      }
+      return null;
+    }
 
     try {
-      final tipo = map['tipo_exame']?.toString().toUpperCase() ?? '';
-
-      // Helper para decodificar string JSON se necessário
-      List<dynamic>? getList(String key) {
-        final raw = map[key];
-        if (raw == null) return null;
-        if (raw is List) return raw;
-        if (raw is String && raw.isNotEmpty) {
-          try {
-            final decoded = jsonDecode(raw);
-            if (decoded is List) return decoded;
-          } catch (_) {}
-        }
-        return null;
-      }
-
       if (tipo == 'TOXICOLOGICO') {
         final listData = getList('detalhes_toxicologico');
         if (listData != null && listData.isNotEmpty) {
@@ -133,6 +132,66 @@ class ExameSolicitadoModel {
       debugPrint('🚨 ERRO AO LER DETALHES DO EXAME: $e');
     }
 
+    var statusAtn = StatusConfirmacaoATN.fromString(
+      map['status_confirmacao_atn']?.toString(),
+    );
+    String? justificativa = map['justificativa_recusa']?.toString();
+
+    // Se o exame pai estiver PENDENTE (ou nulo no payload), verifica se algum item
+    // filho foi RECUSADO pelo ATN no backend/web e herda o status e a justificativa.
+    if (statusAtn == StatusConfirmacaoATN.PENDENTE) {
+      if (tipo == 'TOXICOLOGICO') {
+        final listData = getList('detalhes_toxicologico');
+        if (listData != null && listData.isNotEmpty) {
+          final first = listData.first;
+          if (first is Map) {
+            final stStr = first['status_confirmacao_atn']?.toString();
+            final itemStatus = StatusConfirmacaoATN.fromString(stStr);
+            if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
+              statusAtn = StatusConfirmacaoATN.RECUSADO;
+              justificativa ??= first['justificativa_recusa']?.toString();
+            } else if (itemStatus != StatusConfirmacaoATN.PENDENTE) {
+              statusAtn = itemStatus;
+            }
+          }
+        }
+      } else if (tipo == 'GENETICA') {
+        final listData = getList('amostras_genetica');
+        if (listData != null && listData.isNotEmpty) {
+          for (final item in listData) {
+            if (item is Map) {
+              final stStr = item['status_confirmacao_atn']?.toString();
+              final itemStatus = StatusConfirmacaoATN.fromString(stStr);
+              if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
+                statusAtn = StatusConfirmacaoATN.RECUSADO;
+                justificativa ??= item['justificativa_recusa']?.toString();
+                break;
+              } else if (itemStatus != StatusConfirmacaoATN.PENDENTE) {
+                statusAtn = itemStatus;
+              }
+            }
+          }
+        }
+      } else if (tipo == 'ANATOMO') {
+        final listData = getList('frascos_anatomo');
+        if (listData != null && listData.isNotEmpty) {
+          for (final item in listData) {
+            if (item is Map) {
+              final stStr = item['status_confirmacao_atn']?.toString();
+              final itemStatus = StatusConfirmacaoATN.fromString(stStr);
+              if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
+                statusAtn = StatusConfirmacaoATN.RECUSADO;
+                justificativa ??= item['justificativa_recusa']?.toString();
+                break;
+              } else if (itemStatus != StatusConfirmacaoATN.PENDENTE) {
+                statusAtn = itemStatus;
+              }
+            }
+          }
+        }
+      }
+    }
+
     return ExameSolicitadoModel(
       uuid: map['uuid']?.toString() ?? '',
       casoUuid:
@@ -140,10 +199,8 @@ class ExameSolicitadoModel {
       tipoExame: map['tipo_exame']?.toString() ?? '',
       numeroLacre: map['numero_lacre']?.toString(),
       status: map['status']?.toString() ?? 'aguardando',
-      statusConfirmacaoAtn: StatusConfirmacaoATN.fromString(
-        map['status_confirmacao_atn']?.toString(),
-      ),
-      justificativaRecusa: map['justificativa_recusa']?.toString(),
+      statusConfirmacaoAtn: statusAtn,
+      justificativaRecusa: justificativa,
       criadoEm: map['criado_em'] != null
           ? (DateTime.tryParse(map['criado_em'].toString()) ?? DateTime.now())
           : DateTime.now(),
@@ -244,4 +301,3 @@ class ExameSolicitadoModel {
     );
   }
 }
-

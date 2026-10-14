@@ -24,8 +24,11 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/domain_sync_service.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
+import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
 import 'package:croqui_forense_mvp/domain/services/user_service.dart';
-import 'package:croqui_forense_mvp/domain/services/pdf_generation_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
+import 'package:croqui_forense_mvp/domain/services/media_storage_service.dart';
+import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
 
 import 'package:croqui_forense_mvp/presentation/providers/auth_provider.dart';
 import 'package:croqui_forense_mvp/presentation/providers/case_list_provider.dart';
@@ -158,8 +161,6 @@ void main() async {
       }
     };
   }, appRunner: () => runApp(SentryWidget(child: const AppRoot())));
-  // TODO: Remove this line after sending the first sample event to sentry.
-  await Sentry.captureException(Exception('This is a sample exception.'));
 }
 
 class AppRoot extends StatelessWidget {
@@ -172,6 +173,7 @@ class AppRoot extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        Provider<DatabaseHelper>.value(value: dbHelper),
         Provider<UsuarioRepository>(create: (_) => UsuarioRepository(dbHelper)),
         Provider<CasoRepository>(create: (_) => CasoRepository(dbHelper)),
         Provider<AchadoRepository>(create: (_) => AchadoRepository(dbHelper)),
@@ -182,6 +184,9 @@ class AppRoot extends StatelessWidget {
           create: (_) => InjuryTypeRepository(dbHelper),
         ),
         Provider<AtnRepository>(create: (_) => AtnRepository(dbHelper)),
+        Provider<IActiveCaseLockService>(
+          create: (_) => ActiveCaseLockService(),
+        ),
 
         Provider<ApiClient>(create: (_) => ApiClient(keyStorage)),
         Provider<IRemoteDataSource>(
@@ -222,19 +227,44 @@ class AppRoot extends StatelessWidget {
                 atnRepository: atnRepo,
               ),
         ),
-        ProxyProvider3<
+        ProxyProvider4<
           IRemoteDataSource,
           CasoRepository,
           AuthService,
+          IActiveCaseLockService,
           SyncService
         >(
-          update: (_, remoteDS, casoRepo, authService, __) => SyncService(
-            remoteDataSource: remoteDS,
-            repository: casoRepo,
-            authService: authService,
-          ),
+          update: (_, remoteDS, casoRepo, authService, lockService, __) =>
+              SyncService(
+                remoteDataSource: remoteDS,
+                repository: casoRepo,
+                authService: authService,
+                activeCaseLockService: lockService,
+              ),
         ),
-        Provider<PdfGenerationService>(create: (_) => PdfGenerationService()),
+        ProxyProvider<ApiClient, IMediaStorageService>(
+          update: (_, apiClient, __) =>
+              MediaStorageService(apiClient: apiClient, dbHelper: dbHelper),
+        ),
+        ProxyProvider<IMediaStorageService, IPdfReportEngine>(
+          update: (_, mediaService, __) =>
+              PdfReportEngine(mediaStorageService: mediaService),
+        ),
+        ProxyProvider4<
+          CaseService,
+          IPdfReportEngine,
+          SyncService,
+          IRemoteDataSource,
+          ICaseLifecycleService
+        >(
+          update: (_, caseService, pdfEngine, syncService, remoteDS, __) =>
+              CaseLifecycleService(
+                caseService: caseService,
+                pdfEngine: pdfEngine,
+                syncService: syncService,
+                remoteDataSource: remoteDS,
+              ),
+        ),
         ChangeNotifierProxyProvider2<AuthService, ApiClient, AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthService>()),
           update: (_, authService, apiClient, previous) {

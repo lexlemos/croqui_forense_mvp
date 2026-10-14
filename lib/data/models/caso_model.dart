@@ -6,6 +6,7 @@ import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/dados_laudo_model.dart';
 import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
 
 /// Critérios de ordenação para listagem de laudos periciais.
@@ -197,6 +198,9 @@ class Caso {
   /// Delegacia de polícia solicitante do procedimento pericial.
   final String? delegaciaSolicitante;
 
+  /// Anotações e rascunhos rápidos do perito (isolado localmente no SQLite, nunca sincronizado).
+  final String? quickNotes;
+
   /// Acesso facilitado aos dados da cadeia de custódia e auditoria do laudo.
   AuditoriaModel get auditoria {
     return dadosLaudo.auditoria;
@@ -243,6 +247,7 @@ class Caso {
     this.horaNecropsia,
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
+    this.quickNotes,
   });
 
   /// Instancia um novo laudo pericial gerando um [uuid] v4 local inédito.
@@ -250,6 +255,7 @@ class Caso {
   /// Inicializa o status em [StatusCaso.emAndamento], com versão `1`, `removido = false`
   /// e timestamps de criação e atualização referenciados no momento da chamada.
   Caso.novo({
+    String? uuid,
     required this.idUsuarioCriador,
     this.numeroLaudoExterno,
     this.deviceId,
@@ -281,7 +287,8 @@ class Caso {
     this.horaNecropsia,
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
-  }) : uuid = const Uuid().v4(),
+    this.quickNotes,
+  }) : uuid = (uuid != null && uuid.isNotEmpty) ? uuid : const Uuid().v4(),
        status = StatusCaso.emAndamento,
        hashIntegridade = null,
        removido = false,
@@ -526,10 +533,33 @@ class Caso {
       corpoEstado: toTitleCase(map['corpo_estado']?.toString()),
       corpoEstadoOutros: map['corpo_estado_outros']?.toString(),
       sexoBiologicoEstimado: toTitleCase(
-        map['sexo_biologico_estimado']?.toString(),
+        map['sexo_biologico_estimado']?.toString() ??
+            (map['vitima'] is Map
+                ? (map['vitima'] as Map)['sexo_biologico_estimado']?.toString()
+                : null) ??
+            (map['vitimas'] is List &&
+                    (map['vitimas'] as List).isNotEmpty &&
+                    (map['vitimas'] as List).first is Map
+                ? ((map['vitimas'] as List).first
+                          as Map)['sexo_biologico_estimado']
+                      ?.toString()
+                : null) ??
+            map['sexo']?.toString(),
       ),
-      dataObito: map['data_obito']?.toString(),
-      horaObito: map['hora_obito']?.toString(),
+      dataObito: formatarDataBr(
+        map['data_obito']?.toString() ??
+            (map['ocorrencia'] is Map
+                ? (map['ocorrencia']['data_fato']?.toString())
+                : null) ??
+            map['data_fato']?.toString(),
+      ),
+      horaObito: formatarHoraBr(
+        map['hora_obito']?.toString() ??
+            (map['ocorrencia'] is Map
+                ? (map['ocorrencia']['hora_fato']?.toString())
+                : null) ??
+            map['hora_fato']?.toString(),
+      ),
       tipoEstimativaHoraObito: parseEstimativa(
         map['tipo_estimativa_hora_obito']?.toString(),
       ),
@@ -587,6 +617,7 @@ class Caso {
       horaNecropsia: map['hora_necropsia']?.toString(),
       numeroDeclaracaoObito: map['numero_declaracao_obito']?.toString(),
       delegaciaSolicitante: delegaciaSolicitanteParsed,
+      quickNotes: map['quick_notes']?.toString(),
     );
   }
 
@@ -631,6 +662,7 @@ class Caso {
     String? horaNecropsia,
     String? numeroDeclaracaoObito,
     String? delegaciaSolicitante,
+    String? quickNotes,
   }) {
     return Caso(
       uuid: uuid ?? this.uuid,
@@ -675,6 +707,7 @@ class Caso {
       numeroDeclaracaoObito:
           numeroDeclaracaoObito ?? this.numeroDeclaracaoObito,
       delegaciaSolicitante: delegaciaSolicitante ?? this.delegaciaSolicitante,
+      quickNotes: quickNotes ?? this.quickNotes,
     );
   }
 
@@ -731,6 +764,7 @@ class Caso {
       'data_necropsia': dataNecropsia,
       'hora_necropsia': horaNecropsia,
       'numero_declaracao_obito': numeroDeclaracaoObito,
+      'quick_notes': quickNotes,
     };
   }
 

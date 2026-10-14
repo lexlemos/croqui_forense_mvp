@@ -38,7 +38,11 @@ class ProtocoloLookupModel {
   /// Número da Declaração de Óbito (D.O.), se preenchido previamente.
   final String? numeroDeclaracaoObito;
 
+  /// Identificador universal único (UUID) do exame já cadastrado no servidor central.
+  final String? exameId;
+
   const ProtocoloLookupModel({
+    this.exameId,
     this.numeroPic,
     this.numeroRequisicao,
     this.numeroBo,
@@ -73,12 +77,27 @@ class ProtocoloLookupModel {
         ? Map<String, dynamic>.from(map['ocorrencia'] as Map)
         : null;
 
-    final picVal = documento?['protocolo_externo'] ??
+    final Map<String, dynamic>? exame = map['exame'] is Map
+        ? Map<String, dynamic>.from(map['exame'] as Map)
+        : null;
+
+    final exameIdVal =
+        documento?['id'] ??
+        exame?['id'] ??
+        map['id'] ??
+        map['uuid'] ??
+        map['exame_id'];
+
+    final picVal =
+        documento?['protocolo_externo'] ??
+        exame?['pic'] ??
         map['protocolo_externo'] ??
         map['pic'] ??
         map['numero_pic'];
 
-    final reqVal = documento?['protocolo_interno'] ??
+    final reqVal =
+        documento?['protocolo_interno'] ??
+        exame?['cd'] ??
         deslocamento?['numero_requisicao'] ??
         map['protocolo_interno'] ??
         map['numero_requisicao'] ??
@@ -86,22 +105,26 @@ class ProtocoloLookupModel {
         map['cd'] ??
         map['numero_laudo'];
 
-    final boVal = deslocamento?['numero_boletim_ocorrencia'] ??
+    final boVal =
+        deslocamento?['numero_boletim_ocorrencia'] ??
         map['numero_boletim_ocorrencia'] ??
         map['numero_bo'] ??
         map['bo'];
 
-    final requisitanteVal = deslocamento?['requisitante'] ??
+    final requisitanteVal =
+        deslocamento?['requisitante'] ??
         map['requisitante'] ??
         map['autoridade'] ??
         map['autoridade_requisitante'];
 
-    final delegaciaVal = deslocamento?['delegacia_solicitante'] ??
+    final delegaciaVal =
+        deslocamento?['delegacia_solicitante'] ??
         map['delegacia_solicitante'] ??
         map['delegacia'] ??
         map['delegacia_origem'];
 
-    final destinoVal = deslocamento?['destino_laudo'] ??
+    final destinoVal =
+        deslocamento?['destino_laudo'] ??
         map['destino_laudo'] ??
         map['destino'];
 
@@ -117,23 +140,24 @@ class ProtocoloLookupModel {
       parsedNomeVitima = (map['nome_vitima'] as String).trim();
     }
 
-    final sexoVal = vitima?['sexo_biologico_estimado'] ??
+    final sexoVal =
+        vitima?['sexo_biologico_estimado'] ??
         map['sexo_biologico_estimado'] ??
         map['sexo'];
 
-    final dataFatoVal = ocorrencia?['data_fato'] ??
-        map['data_fato'] ??
-        map['data_obito'];
+    final dataFatoVal =
+        ocorrencia?['data_fato'] ?? map['data_fato'] ?? map['data_obito'];
 
-    final horaFatoVal = ocorrencia?['hora_fato'] ??
-        map['hora_fato'] ??
-        map['hora_obito'];
+    final horaFatoVal =
+        ocorrencia?['hora_fato'] ?? map['hora_fato'] ?? map['hora_obito'];
 
-    final declaracaoVal = map['numero_declaracao_obito'] ??
+    final declaracaoVal =
+        map['numero_declaracao_obito'] ??
         map['declaracao_obito'] ??
         map['numero_do'];
 
     return ProtocoloLookupModel(
+      exameId: _asNonEmptyString(exameIdVal),
       numeroPic: _asNonEmptyString(picVal),
       numeroRequisicao: _asNonEmptyString(reqVal),
       numeroBo: _asNonEmptyString(boVal),

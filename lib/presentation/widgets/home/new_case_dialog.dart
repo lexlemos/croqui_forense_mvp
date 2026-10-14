@@ -11,6 +11,7 @@ import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.dart';
 
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/home_controller.dart';
 
 class NewCaseDialog extends StatefulWidget {
@@ -45,6 +46,18 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final List<String> _selectedAtns = [];
   List<AtnModel> _atnsCache = [];
   final ImagePicker _picker = ImagePicker();
+  String? _exameId;
+  String? _dataObito;
+  String? _horaObito;
+  String? _sexoBiologicoEstimado;
+
+  String? _formatarSexo(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final r = raw.trim().toLowerCase();
+    if (r.startsWith('f')) return 'Feminino';
+    if (r.startsWith('m')) return 'Masculino';
+    return 'Indeterminado';
+  }
 
   @override
   void dispose() {
@@ -246,18 +259,25 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'auditoria': null,
       };
 
+      final rawReq = _reqController.text.trim();
+      final reqSanitizada = sanitizarRequisicao(rawReq);
+
       Navigator.pop(context, {
-        'numero_laudo': _reqController.text.trim(),
+        'uuid': _exameId,
+        'numero_laudo': reqSanitizada,
         'numero_pic': _picController.text.trim(),
         'numero_bo': _boController.text.trim(),
-        'numero_requisicao': _reqController.text.trim(),
+        'numero_requisicao': reqSanitizada,
         'requisitante': _requisitanteController.text.trim(),
         'delegacia_solicitante': _delegaciaController.text.trim(),
         'numero_declaracao_obito': _declaracaoObitoController.text.trim(),
         'nome_vitima': _vitimaController.text.trim().isEmpty
             ? 'Não Identificado'
             : _vitimaController.text.trim(),
+        'sexo_biologico_estimado': _sexoBiologicoEstimado,
         'destino': _destinoController.text.trim(),
+        'data_obito': _dataObito,
+        'hora_obito': _horaObito,
         'atns_ids': _selectedAtns,
         'dados_laudo': dadosLaudo,
         'fotos_gerais': _fotosIdentificacao,
@@ -363,23 +383,50 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                         return IconButton(
                           icon: const Icon(Icons.search, size: 20),
                           tooltip: 'Buscar dados por PIC / Protocolo',
-                          onPressed: () {
-                            widget.controller?.buscarDadosIniciais(
-                              _picController.text,
-                              context: context,
-                              requisicaoCtrl: _reqController,
-                              boCtrl: _boController,
-                              autoridadeCtrl: _requisitanteController,
-                              delegaciaCtrl: _delegaciaController,
-                              declaracaoCtrl: _declaracaoObitoController,
-                              destinoCtrl: _destinoController,
-                              vitimaCtrl: _vitimaController,
-                              forcar: true,
-                            );
+                          onPressed: () async {
+                            final dto = await widget.controller
+                                ?.buscarDadosIniciais(
+                                  _picController.text,
+                                  context: context,
+                                  requisicaoCtrl: _reqController,
+                                  boCtrl: _boController,
+                                  autoridadeCtrl: _requisitanteController,
+                                  delegaciaCtrl: _delegaciaController,
+                                  declaracaoCtrl: _declaracaoObitoController,
+                                  destinoCtrl: _destinoController,
+                                  vitimaCtrl: _vitimaController,
+                                  forcar: true,
+                                );
+                            if (dto != null) {
+                              if (dto.exameId != null) {
+                                _exameId = dto.exameId;
+                              }
+                              if (dto.dataFato != null &&
+                                  dto.dataFato!.isNotEmpty) {
+                                _dataObito = formatarDataBr(dto.dataFato);
+                              }
+                              if (dto.horaFato != null &&
+                                  dto.horaFato!.isNotEmpty) {
+                                _horaObito = formatarHoraBr(dto.horaFato);
+                              }
+                              if (dto.sexoBiologicoEstimado != null &&
+                                  dto.sexoBiologicoEstimado!.isNotEmpty) {
+                                setState(() {
+                                  _sexoBiologicoEstimado = _formatarSexo(
+                                    dto.sexoBiologicoEstimado,
+                                  );
+                                });
+                              }
+                            }
                           },
                         );
                       },
                     ),
+                    onChanged: (val) {
+                      if (_exameId != null) {
+                        _exameId = null;
+                      }
+                    },
                     validator: (val) {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';
@@ -400,8 +447,9 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     validator: (val) {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';
-                      if (!RegExp(r'^\d{4}/\d{4}$').hasMatch(v)) {
-                        return 'Formato inválido (ex: 1015/2026)';
+                      final digitos = v.replaceAll(RegExp(r'\D'), '');
+                      if (digitos.length < 6) {
+                        return 'Nº da requisição deve ter no mínimo 6 dígitos';
                       }
                       return null;
                     },
@@ -417,14 +465,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                     controller: _boController,
                     label: "Nº. do B.O",
                     icon: Icons.receipt_long,
-                    validator: (val) {
-                      final v = val?.trim() ?? '';
-                      if (v.isEmpty) return null;
-                      if (!RegExp(r'^\d+/\d{4}$').hasMatch(v)) {
-                        return 'Formato inválido (ex: 12345/2026)';
-                      }
-                      return null;
-                    },
+                    validator: null,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -451,28 +492,57 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                 Expanded(
                   child: _buildTextField(
                     controller: _declaracaoObitoController,
-                    label: "Nº.R Declaração de Óbito",
+                    label: "Nº. Declaração de Óbito",
                     icon: Icons.description,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    validator: (val) {
-                      final v = val?.trim() ?? '';
-                      if (v.isEmpty) return null;
-                      if (!RegExp(r'^\d{9}$').hasMatch(v)) {
-                        return 'Nº D.O. deve ter exatamente 9 dígitos numéricos';
-                      }
-                      return null;
-                    },
+                    validator: null,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            _buildTextField(
-              controller: _vitimaController,
-              label: "Nome da Vítima",
-              icon: Icons.person,
-              textCapitalization: TextCapitalization.words,
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _buildTextField(
+                    controller: _vitimaController,
+                    label: "Nome da Vítima",
+                    icon: Icons.person,
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('sexo_est_$_sexoBiologicoEstimado'),
+                    initialValue: _sexoBiologicoEstimado,
+                    decoration: const InputDecoration(
+                      labelText: "Sexo Estimado",
+                      prefixIcon: Icon(Icons.transgender, size: 20),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Masculino',
+                        child: Text('Masculino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Feminino',
+                        child: Text('Feminino'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Indeterminado',
+                        child: Text('Indeterminado'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      setState(() => _sexoBiologicoEstimado = val);
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             _buildTextField(
@@ -741,15 +811,26 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
       inputFormatters: inputFormatters,
       onChanged: onChanged,
       decoration: InputDecoration(
-        labelText: label,
+        label: required
+            ? Text.rich(
+                TextSpan(
+                  text: label,
+                  children: const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Text(label),
         prefixIcon: Icon(icon, size: 20),
         border: const OutlineInputBorder(),
         isDense: true,
-        suffixIcon:
-            suffixIcon ??
-            (required
-                ? const Icon(Icons.star, size: 8, color: Colors.red)
-                : null),
+        suffixIcon: suffixIcon,
       ),
       validator:
           validator ??

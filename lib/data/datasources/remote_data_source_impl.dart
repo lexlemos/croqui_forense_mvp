@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
@@ -11,6 +12,7 @@ import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
 import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
+import 'package:croqui_forense_mvp/data/models/atn_model.dart';
 
 /// Implementação da fonte de dados remota encarregada da comunicação HTTP REST com a API central do IML.
 ///
@@ -129,21 +131,28 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     }
   }
 
-  /// Recupera a lista de Auxiliares Técnicos de Necrópsia (ATNs) no endpoint `GET /croqui/atns`.
+  /// Recupera a lista de Auxiliares Técnicos de Necrópsia (ATNs).
+  ///
+  /// Consulta `GET /croqui/atns?tamanho_pagina=100`, que retorna usuários
+  /// ativos com o papel TECNICO_NECROPSIA na estrutura paginada `dados`.
+  /// Em caso de falha de conectividade, utiliza mocks como fallback resiliente.
   @override
   Future<List<Map<String, dynamic>>> getAtns() async {
     try {
-      final response = await _apiClient.dio.get('croqui/atns');
-      if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Resposta inesperada do servidor.');
-      }
-      if (response.data is! List) {
-        throw Exception('Resposta inválida do servidor.');
-      }
-      final list = response.data as List<dynamic>;
-      return list.map((e) => e as Map<String, dynamic>).toList();
-    } on DioException catch (e) {
-      throw Exception('Falha ao buscar ATNs: ${e.message}');
+      final response = await _apiClient.dio.get(
+        'croqui/atns',
+        queryParameters: {'tamanho_pagina': 100},
+      );
+      final raw = response.data;
+      final List list = raw is List
+          ? raw
+          : (raw is Map ? (raw['dados'] as List? ?? []) : []);
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      debugPrint(
+        '[RemoteDataSourceImpl] Falha ao obter ATNs remotos ($e). Usando mocks de fallback.',
+      );
+      return List<Map<String, dynamic>>.from(kMockAtnsRaw);
     }
   }
 
@@ -411,5 +420,53 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   void setBearerToken(String token) {
     _apiClient.setBearerToken(token);
   }
-}
 
+  /// Faz o download do arquivo Word (.docx) do laudo compilado pelo servidor central.
+  /// Salva os bytes recebidos no arquivo [destinationFile].
+  @override
+  Future<File> downloadLaudoDocx({
+    required String casoUuid,
+    required File destinationFile,
+  }) async {
+    try {
+      final response = await _apiClient.dio.get<List<int>>(
+        'croqui/laudo-docx/$casoUuid',
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(seconds: 45),
+        ),
+      );
+
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception(
+          'Backend retornou status inesperado ao baixar DOCX: ${response.statusCode}',
+        );
+      }
+
+      await destinationFile.writeAsBytes(response.data!);
+      return destinationFile;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        throw Exception(
+          'Permissão negada (403): Seu usuário não possui autorização para baixar laudos DOCX.',
+        );
+      }
+      if (e.response?.statusCode == 404) {
+        throw Exception(
+          'Laudo DOCX não encontrado no servidor. Sincronize o caso antes de exportar.',
+        );
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw Exception(
+          'Dispositivo offline ou instabilidade de rede. Conecte-se para baixar o laudo em Word.',
+        );
+      }
+      throw Exception(
+        'Falha ao baixar o laudo DOCX: ${e.message ?? e.toString()}',
+      );
+    }
+  }
+}

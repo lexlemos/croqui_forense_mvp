@@ -77,5 +77,67 @@ void main() {
         expect(casoFromString.balisticas.first.tipoFerimento, equals('Saída'));
       },
     );
+
+    test(
+      'Decodifica sexo_biologico_estimado direto ou aninhado em vitima/vitimas',
+      () {
+        final casoDireto = Caso.fromMap({
+          'uuid': 'c-1',
+          'sexo_biologico_estimado': 'MASCULINO',
+        });
+        expect(casoDireto.sexoBiologicoEstimado, equals('Masculino'));
+
+        final casoVitimaMap = Caso.fromMap({
+          'uuid': 'c-2',
+          'vitima': {'sexo_biologico_estimado': 'FEMININO'},
+        });
+        expect(casoVitimaMap.sexoBiologicoEstimado, equals('Feminino'));
+
+        final casoVitimasList = Caso.fromMap({
+          'uuid': 'c-3',
+          'vitimas': [
+            {'sexo_biologico_estimado': 'INDETERMINADO'},
+          ],
+        });
+        expect(casoVitimasList.sexoBiologicoEstimado, equals('Indeterminado'));
+
+        final casoFallbackSexo = Caso.fromMap({
+          'uuid': 'c-4',
+          'sexo': 'MASCULINO',
+        });
+        expect(casoFallbackSexo.sexoBiologicoEstimado, equals('Masculino'));
+      },
+    );
+
+    test(
+      'quickNotes é persistido no toMap (SQLite) mas isolado do toSyncMap (API)',
+      () {
+        final caso = Caso.novo(
+          idUsuarioCriador: 'user-001',
+          quickNotes: 'Rascunho de medição provisória',
+        );
+
+        // 1. Verifica no modelo
+        expect(caso.quickNotes, equals('Rascunho de medição provisória'));
+
+        // 2. Verifica round-trip no SQLite (toMap -> fromMap)
+        final sqliteMap = caso.toMap();
+        expect(
+          sqliteMap['quick_notes'],
+          equals('Rascunho de medição provisória'),
+        );
+
+        final casoReconstruido = Caso.fromMap(sqliteMap);
+        expect(
+          casoReconstruido.quickNotes,
+          equals('Rascunho de medição provisória'),
+        );
+
+        // 3. Regra de Isolamento Crítico: toSyncMap NUNCA pode conter quick_notes
+        final syncMap = caso.toSyncMap();
+        expect(syncMap.containsKey('quick_notes'), isFalse);
+        expect(syncMap.containsKey('quickNotes'), isFalse);
+      },
+    );
   });
 }

@@ -52,7 +52,6 @@ class AchadoDetailModal extends StatelessWidget {
     final bool temBalistica =
         (achado.tipoFerimento != null && achado.tipoFerimento!.isNotEmpty) ||
         (achado.tipoObjeto != null && achado.tipoObjeto!.isNotEmpty) ||
-        (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty) ||
         (achado.comentarioAdicional != null &&
             achado.comentarioAdicional!.isNotEmpty);
 
@@ -149,26 +148,7 @@ class AchadoDetailModal extends StatelessWidget {
                 ],
               ),
             ),
-          if (achado.numeroLacre != null && achado.numeroLacre!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  const Text(
-                    "Nº do Lacre: ",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    achado.numeroLacre!,
-                    style: const TextStyle(fontSize: 12, color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
+
           if (achado.comentarioAdicional != null &&
               achado.comentarioAdicional!.isNotEmpty)
             Padding(

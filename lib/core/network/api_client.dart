@@ -52,7 +52,7 @@ class AuthInterceptor extends QueuedInterceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    if (err.response?.statusCode != 401 && err.response?.statusCode != 403) {
+    if (err.response?.statusCode != 401) {
       return handler.next(err);
     }
 

@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
+import 'package:croqui_forense_mvp/core/utils/storage_path_helper.dart';
 
 class EvidenciaMultimidia {
   final String uuid;
@@ -15,6 +16,8 @@ class EvidenciaMultimidia {
   final DateTime criadoEm;
   final DateTime? atualizadoEm;
   final String? descricao; // Campo de descrição adicionado
+  final String? chaveStorage; // Chave de armazenamento no bucket (MinIO/S3)
+  final String? urlStorage; // URL assinada de acesso temporário
 
   EvidenciaMultimidia({
     required this.uuid,
@@ -30,6 +33,8 @@ class EvidenciaMultimidia {
     required this.criadoEm,
     this.atualizadoEm,
     this.descricao,
+    this.chaveStorage,
+    this.urlStorage,
   });
 
   EvidenciaMultimidia.novo({
@@ -39,6 +44,8 @@ class EvidenciaMultimidia {
     this.caminhoArquivoEncriptado,
     this.hashArquivo,
     this.descricao,
+    this.chaveStorage,
+    this.urlStorage,
   }) : uuid =
            (caminhoArquivoEncriptado != null &&
                caminhoArquivoEncriptado.isNotEmpty &&
@@ -53,12 +60,41 @@ class EvidenciaMultimidia {
        atualizadoEm = null;
 
   factory EvidenciaMultimidia.fromMap(Map<String, dynamic> map) {
-    final pathOrUrl =
+    final rawPathOrUrl =
         map['caminho_arquivo_encriptado']?.toString() ??
         map['url']?.toString() ??
         map['path']?.toString() ??
         map['url_foto']?.toString() ??
         map['url_arquivo']?.toString();
+
+    final chave =
+        map['chave_storage']?.toString() ?? map['chaveStorage']?.toString();
+    final urlAssinada =
+        map['url_storage']?.toString() ??
+        map['urlStorage']?.toString() ??
+        map['url_assinada']?.toString() ??
+        map['urlAssinada']?.toString();
+
+    // Invariante 3: referências remotas nunca poluem caminhoArquivoEncriptado.
+    final String? pathLocal = StoragePathHelper.isLocalFilePath(rawPathOrUrl)
+        ? rawPathOrUrl
+        : (StoragePathHelper.isLocalFilePath(
+                map['caminho_arquivo_encriptado']?.toString(),
+              )
+              ? map['caminho_arquivo_encriptado']?.toString()
+              : null);
+
+    final String? chaveFinal =
+        chave ??
+        (StoragePathHelper.isRemoteKeyOrUrl(rawPathOrUrl) &&
+                !rawPathOrUrl!.startsWith('http')
+            ? rawPathOrUrl
+            : null);
+    final String? urlFinal =
+        urlAssinada ??
+        (rawPathOrUrl != null && rawPathOrUrl.startsWith('http')
+            ? rawPathOrUrl
+            : null);
 
     return EvidenciaMultimidia(
       uuid: map['uuid']?.toString() ?? '',
@@ -67,7 +103,7 @@ class EvidenciaMultimidia {
       achadoUuid: map['achado_uuid']?.toString(),
       substituidaPor: map['substituida_por']?.toString(),
       tipo: map['tipo']?.toString() ?? 'ACHADO',
-      caminhoArquivoEncriptado: pathOrUrl,
+      caminhoArquivoEncriptado: pathLocal,
       hashArquivo: map['hash_arquivo']?.toString(),
       fotoSincronizada: map['foto_sincronizada'] is bool
           ? map['foto_sincronizada'] as bool
@@ -83,6 +119,8 @@ class EvidenciaMultimidia {
           ? DateTime.tryParse(map['atualizado_em'].toString())
           : null,
       descricao: map['descricao']?.toString(),
+      chaveStorage: chaveFinal,
+      urlStorage: urlFinal,
     );
   }
 
@@ -101,6 +139,8 @@ class EvidenciaMultimidia {
       'criado_em': criadoEm.toIso8601String(),
       'atualizado_em': updatedDateTimeString(),
       'descricao': descricao,
+      'chave_storage': chaveStorage,
+      'url_storage': urlStorage,
     };
   }
 
@@ -121,6 +161,8 @@ class EvidenciaMultimidia {
       'criado_em': criadoEm.toUtc().toIso8601String(),
       'atualizado_em': (atualizadoEm ?? criadoEm).toUtc().toIso8601String(),
       'descricao': descricao,
+      'chave_storage': chaveStorage,
+      'url_storage': urlStorage,
     };
   }
 
@@ -138,6 +180,8 @@ class EvidenciaMultimidia {
     DateTime? criadoEm,
     DateTime? atualizadoEm,
     String? descricao,
+    String? chaveStorage,
+    String? urlStorage,
   }) {
     return EvidenciaMultimidia(
       uuid: uuid ?? this.uuid,
@@ -154,6 +198,8 @@ class EvidenciaMultimidia {
       criadoEm: criadoEm ?? this.criadoEm,
       atualizadoEm: atualizadoEm ?? this.atualizadoEm,
       descricao: descricao ?? this.descricao,
+      chaveStorage: chaveStorage ?? this.chaveStorage,
+      urlStorage: urlStorage ?? this.urlStorage,
     );
   }
 }

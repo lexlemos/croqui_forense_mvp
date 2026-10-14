@@ -56,6 +56,7 @@ dependencies:
   sentry_dio: ^9.26.0
   flutter_dotenv: ^6.0.1
   mask_text_input_formatter: ^2.9.0
+  wakelock_plus: ^1.5.2
 
 dev_dependencies:
   sentry_dart_plugin: ^3.4.0

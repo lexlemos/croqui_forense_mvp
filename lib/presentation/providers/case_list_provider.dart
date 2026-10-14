@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
@@ -85,9 +86,10 @@ class CaseListProvider extends ChangeNotifier {
   }
 
   Future<Caso> criarCaso({
+    String? uuid,
     required Usuario criador,
     required String numeroLaudo,
-    required Map<String, dynamic> dadosIniciais,
+    Map<String, dynamic> dadosIniciais = const {},
     required String numeroPic,
     required String numeroBo,
     required String numeroRequisicao,
@@ -96,10 +98,31 @@ class CaseListProvider extends ChangeNotifier {
     required String requisitante,
     String? delegaciaSolicitante,
     String? numeroDeclaracaoObito,
+    String? dataObito,
+    String? horaObito,
+    String? sexoBiologicoEstimado,
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
+    final effectiveUuid = (uuid != null && uuid.isNotEmpty)
+        ? uuid
+        : const Uuid().v4();
+
+    final List<EvidenciaMultimidia> evidencias = [];
+    for (final foto in fotosGerais) {
+      final Map<String, dynamic> map = Map<String, dynamic>.from(foto as Map);
+      evidencias.add(
+        EvidenciaMultimidia.novo(
+          casoUuid: effectiveUuid,
+          tipo: 'GERAL',
+          caminhoArquivoEncriptado: map['path'],
+          descricao: map['descricao'],
+        ),
+      );
+    }
+
     final novoCaso = await _caseService.createNewCase(
+      uuid: effectiveUuid,
       criador: criador,
       numeroLaudo: numeroLaudo,
       dadosIniciais: dadosIniciais,
@@ -111,22 +134,12 @@ class CaseListProvider extends ChangeNotifier {
       requisitante: requisitante,
       delegaciaSolicitante: delegaciaSolicitante,
       numeroDeclaracaoObito: numeroDeclaracaoObito,
+      dataObito: dataObito,
+      horaObito: horaObito,
+      sexoBiologicoEstimado: sexoBiologicoEstimado,
       atnsIds: atnsIds,
+      evidencias: evidencias,
     );
-
-    final List<EvidenciaMultimidia> evidencias = [];
-    for (final foto in fotosGerais) {
-      final Map<String, dynamic> map = Map<String, dynamic>.from(foto as Map);
-      evidencias.add(
-        EvidenciaMultimidia.novo(
-          casoUuid: novoCaso.uuid,
-          tipo: 'GERAL',
-          caminhoArquivoEncriptado: map['path'],
-          descricao: map['descricao'],
-        ),
-      );
-    }
-    await _caseService.salvarCasoComEvidenciasLote(novoCaso, evidencias);
 
     // Dispara push silencioso em background sem travar a UI
     _syncService?.pushCasoRascunho(novoCaso).catchError((e) {

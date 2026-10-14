@@ -260,6 +260,15 @@ class CasoRepository implements ISyncRepository {
               mapParaSalvar['criado_em_dispositivo'] = localCriadoEm;
             }
 
+            // Preserva rascunho local de anotações rápidas (Face 2) caso o backend não envie
+            final localQuickNotes = localMap['quick_notes']?.toString();
+            if ((mapParaSalvar['quick_notes'] == null ||
+                    mapParaSalvar['quick_notes'].toString().isEmpty) &&
+                localQuickNotes != null &&
+                localQuickNotes.isNotEmpty) {
+              mapParaSalvar['quick_notes'] = localQuickNotes;
+            }
+
             batch.update(
               tableCasos,
               mapParaSalvar,
@@ -433,20 +442,23 @@ class CasoRepository implements ISyncRepository {
               final String? localPath = localRow['caminho_arquivo_encriptado']
                   ?.toString();
 
-              // Se a foto local existe e NÃƒO estÃ¡ sincronizada (foto_sincronizada == 0)
+              // Invariante 3 (Fase A4): O caminho físico local em disco NUNCA pode ser
+              // sobrescrito por chave de storage ou URL do servidor, mesmo se a foto
+              // já tiver sido sincronizada. Isso impede o expurgo acidental pelo GC local.
+              if (localPath != null &&
+                  localPath.isNotEmpty &&
+                  !localPath.startsWith('http://') &&
+                  !localPath.startsWith('https://')) {
+                evMap['caminho_arquivo_encriptado'] = localPath;
+              }
+
               if (localSincronizada == 0) {
                 evMap['foto_sincronizada'] = 0;
                 if (localRow['uuid'] != null) {
                   evMap['uuid'] = localRow['uuid'];
                 }
-                if (localPath != null &&
-                    localPath.isNotEmpty &&
-                    !localPath.startsWith('http://') &&
-                    !localPath.startsWith('https://')) {
-                  evMap['caminho_arquivo_encriptado'] = localPath;
-                }
                 debugPrint(
-                  '[CasoRepository] ðŸ›¡ï¸ Preservando foto pendente local: '
+                  '[CasoRepository] 🛡️ Preservando foto pendente local: '
                   'uuid=${evMap['uuid']} achado=${evMap['achado_uuid']} com foto_sincronizada = 0',
                 );
               }
@@ -1163,6 +1175,7 @@ class CasoRepository implements ISyncRepository {
     );
     await _marcarCasoPendenteSync(db, evidencia.casoUuid);
   }
+
   Future<void> deleteEvidenciaGeral(String uuid) async {
     final db = await database;
     final ev = await getEvidenciaByUuid(uuid);

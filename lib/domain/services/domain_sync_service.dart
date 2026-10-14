@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 import 'package:croqui_forense_mvp/data/models/atn_model.dart';
+import 'package:croqui_forense_mvp/data/models/injury_type_model.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/atn_repository.dart';
 import 'package:croqui_forense_mvp/domain/repositories/remote_data_source.dart';
@@ -37,19 +37,29 @@ class DomainSyncService {
     debugPrint('[DomainSync] tipos_achados sincronizados: ${types.length}');
   }
 
-  /// Sincroniza em lote a lista oficial de A.T.N.s do backend.
+  /// Sincroniza em lote a lista de A.T.N.s do banco local.
   ///
-  /// Caso o dispositivo esteja offline ou ocorra um erro de rede, a requisição falha silenciosamente
-  /// mantendo a integridade dos A.T.N.s prévios já armazenados no SQLite local.
+  /// Consulta a API central via [_remoteDataSource.getAtns()] e atualiza
+  /// o cache SQLite via [_atnRepository.sincronizarAtns()].
+  /// Em caso de falha de rede ou lista vazia, mantém os dados locais.
   Future<void> syncAtns() async {
     final repo = _atnRepository;
     if (repo == null) return;
 
-    final jsonList = await _remoteDataSource.getAtns();
-    final atnsList = jsonList.map((e) => AtnModel.fromMap(e)).toList();
-    await repo.sincronizarAtns(atnsList);
-    debugPrint(
-      '[DomainSync] ATNs sincronizados com sucesso: ${atnsList.length}',
-    );
+    try {
+      final jsonList = await _remoteDataSource.getAtns();
+      final atns = jsonList.map((e) => AtnModel.fromMap(e)).toList();
+      if (atns.isNotEmpty) {
+        await repo.sincronizarAtns(atns);
+        debugPrint('[DomainSync] ATNs sincronizados da API: ${atns.length}');
+      } else {
+        await repo.semearMocksSeNecessario();
+      }
+    } catch (e) {
+      debugPrint(
+        '[DomainSync] Falha ao sincronizar ATNs da API ($e). Mantendo dados locais.',
+      );
+      await repo.semearMocksSeNecessario();
+    }
   }
 }

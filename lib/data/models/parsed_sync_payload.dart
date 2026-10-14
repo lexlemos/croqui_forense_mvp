@@ -27,4 +27,3 @@ class ParsedSyncPayload {
     required this.rawJson,
   });
 }
-

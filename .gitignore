@@ -48,7 +48,13 @@ app.*.map.json
 
 # CLAUDE
 CLAUDE.md
-/docs
+/docs/CONTEXT/
 /prompts
+/.agents
 
 sentry.properties
+
+# Android keystore / Signing
+*.keystore
+*.jks
+**/android/key.properties

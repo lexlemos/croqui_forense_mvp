@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/core/theme/app_colors.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 
 class CaseCard extends StatelessWidget {
   final Caso caso;
@@ -47,9 +48,11 @@ class CaseCard extends StatelessWidget {
         ? 'N. PIC: ${caso.numeroPic}'
         : 'N. PIC: Não informado';
 
-    final cdOrLaudo = caso.numeroRequisicao.isNotEmpty
-        ? caso.numeroRequisicao
-        : (caso.numeroLaudoExterno ?? '');
+    final cdOrLaudo = formatarRequisicao(
+      caso.numeroRequisicao.isNotEmpty
+          ? caso.numeroRequisicao
+          : (caso.numeroLaudoExterno ?? ''),
+    );
 
     final laudoSub = cdOrLaudo.isNotEmpty
         ? 'CD / Laudo: $cdOrLaudo'

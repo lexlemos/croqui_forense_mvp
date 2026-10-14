@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
 
 /// Widget de formulário isolado para a requisição de exames toxicológicos.
-/// Cada material coletado expõe seu próprio campo de Nº Lacre para
-/// rastreabilidade individual (cadeia de custódia — Lei 13.964/19).
 class ToxicologicoFormWidget extends StatefulWidget {
   final DetalhesToxicologicoModel? initialData;
   final ValueChanged<DetalhesToxicologicoModel> onChanged;
@@ -24,11 +22,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
   // Controladores criados imediatamente (não late) para evitar LateInitializationError.
   final TextEditingController _historicoOutroCtrl = TextEditingController();
   final TextEditingController _materialSgOutroCtrl = TextEditingController();
-  final TextEditingController _lacreSgCtrl = TextEditingController();
-  final TextEditingController _lacreUrCtrl = TextEditingController();
-  final TextEditingController _lacreHvCtrl = TextEditingController();
-  final TextEditingController _lacreCeCtrl = TextEditingController();
-  final TextEditingController _lacrePmCtrl = TextEditingController();
 
   String? _historicoOcorrencia;
   bool _materialSg = false;
@@ -85,29 +78,13 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
         ? (data.materialSgFemoral ||
               data.materialSgCardiaca ||
               (data.materialSgOutro?.isNotEmpty == true) ||
-              (data.numeroLacreSg?.isNotEmpty == true) ||
               data.quantificacaoDrogas)
         : false;
 
-    if (_lacreSgCtrl.text != (data?.numeroLacreSg ?? '')) {
-      _lacreSgCtrl.text = data?.numeroLacreSg ?? '';
-    }
     _materialUrina = data?.materialUrina ?? false;
-    if (_lacreUrCtrl.text != (data?.numeroLacreUr ?? '')) {
-      _lacreUrCtrl.text = data?.numeroLacreUr ?? '';
-    }
     _materialHumorVitreo = data?.materialHumorVitreo ?? false;
-    if (_lacreHvCtrl.text != (data?.numeroLacreHv ?? '')) {
-      _lacreHvCtrl.text = data?.numeroLacreHv ?? '';
-    }
     _materialEstomago = data?.materialEstomago ?? false;
-    if (_lacreCeCtrl.text != (data?.numeroLacreCe ?? '')) {
-      _lacreCeCtrl.text = data?.numeroLacreCe ?? '';
-    }
     _materialPulmao = data?.materialPulmao ?? false;
-    if (_lacrePmCtrl.text != (data?.numeroLacrePm ?? '')) {
-      _lacrePmCtrl.text = data?.numeroLacrePm ?? '';
-    }
     _quantificacaoDrogas = data?.quantificacaoDrogas ?? false;
   }
 
@@ -115,11 +92,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
   void dispose() {
     _historicoOutroCtrl.dispose();
     _materialSgOutroCtrl.dispose();
-    _lacreSgCtrl.dispose();
-    _lacreUrCtrl.dispose();
-    _lacreHvCtrl.dispose();
-    _lacreCeCtrl.dispose();
-    _lacrePmCtrl.dispose();
     super.dispose();
   }
 
@@ -137,67 +109,19 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
           _materialSg && _materialSgOutroCtrl.text.trim().isNotEmpty
           ? _materialSgOutroCtrl.text.trim()
           : null,
-      numeroLacreSg: _materialSg && _lacreSgCtrl.text.trim().isNotEmpty
-          ? _lacreSgCtrl.text.trim()
-          : null,
+      numeroLacreSg: null,
       materialUrina: _materialUrina,
-      numeroLacreUr: _materialUrina && _lacreUrCtrl.text.trim().isNotEmpty
-          ? _lacreUrCtrl.text.trim()
-          : null,
+      numeroLacreUr: null,
       materialHumorVitreo: _materialHumorVitreo,
-      numeroLacreHv: _materialHumorVitreo && _lacreHvCtrl.text.trim().isNotEmpty
-          ? _lacreHvCtrl.text.trim()
-          : null,
+      numeroLacreHv: null,
       materialEstomago: _materialEstomago,
-      numeroLacreCe: _materialEstomago && _lacreCeCtrl.text.trim().isNotEmpty
-          ? _lacreCeCtrl.text.trim()
-          : null,
+      numeroLacreCe: null,
       materialPulmao: _materialPulmao,
-      numeroLacrePm: _materialPulmao && _lacrePmCtrl.text.trim().isNotEmpty
-          ? _lacrePmCtrl.text.trim()
-          : null,
+      numeroLacrePm: null,
       quantificacaoDrogas: _quantificacaoDrogas,
     );
-    debugPrint('--- DUMB TEST (WIDGET TOXICOLOGICO) ---');
-    debugPrint('exameUuid: ${model.exameUuid}');
-    debugPrint('materialSgFemoral: ${model.materialSgFemoral}');
-    debugPrint('materialUrina: ${model.materialUrina}');
-    debugPrint('numeroLacreSg: ${model.numeroLacreSg}');
     debugPrint('toMap: ${model.toMap()}');
     widget.onChanged(model);
-  }
-
-  /// Campo de lacre compacto reutilizável.
-  Widget _lacreField({
-    required TextEditingController ctrl,
-    required String label,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 28, right: 0, top: 4, bottom: 8),
-      child: TextFormField(
-        controller: ctrl,
-        enabled: !widget.readOnly,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: 'Nº Lacre — $label *',
-          hintText: 'Ex: 123456',
-          prefixIcon: Icon(
-            Icons.lock_outline,
-            color: Colors.purple.shade600,
-            size: 18,
-          ),
-          border: const OutlineInputBorder(),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          helperText: 'Identifica individualmente este recipiente lacrado',
-          helperStyle: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-        ),
-        onChanged: (_) => _notifyChanges(),
-      ),
-    );
   }
 
   @override
@@ -308,7 +232,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                           _materialSgFemoral = false;
                           _materialSgCardiaca = false;
                           _materialSgOutroCtrl.clear();
-                          _lacreSgCtrl.clear();
                           _quantificacaoDrogas = false;
                         } else {
                           _materialSgFemoral = true;
@@ -413,8 +336,6 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                   ),
                 ),
               ),
-              // Lacre individual do tubo de sangue
-              _lacreField(ctrl: _lacreSgCtrl, label: 'Sangue (SG)'),
             ],
 
             // ── UR Urina ──────────────────────────────────────────────────
@@ -433,13 +354,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                   : (val) {
                       setState(() {
                         _materialUrina = val ?? false;
-                        if (!_materialUrina) _lacreUrCtrl.clear();
                       });
                       _notifyChanges();
                     },
             ),
-            if (_materialUrina)
-              _lacreField(ctrl: _lacreUrCtrl, label: 'Urina (UR)'),
 
             // ── HV Humor Vítreo ───────────────────────────────────────────
             CheckboxListTile(
@@ -457,13 +375,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                   : (val) {
                       setState(() {
                         _materialHumorVitreo = val ?? false;
-                        if (!_materialHumorVitreo) _lacreHvCtrl.clear();
                       });
                       _notifyChanges();
                     },
             ),
-            if (_materialHumorVitreo)
-              _lacreField(ctrl: _lacreHvCtrl, label: 'Humor Vítreo (HV)'),
 
             // ── CE Estômago ───────────────────────────────────────────────
             CheckboxListTile(
@@ -481,13 +396,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                   : (val) {
                       setState(() {
                         _materialEstomago = val ?? false;
-                        if (!_materialEstomago) _lacreCeCtrl.clear();
                       });
                       _notifyChanges();
                     },
             ),
-            if (_materialEstomago)
-              _lacreField(ctrl: _lacreCeCtrl, label: 'Conteúdo Estomacal (CE)'),
 
             // ── PM Pulmão ─────────────────────────────────────────────────
             CheckboxListTile(
@@ -505,13 +417,10 @@ class _ToxicologicoFormWidgetState extends State<ToxicologicoFormWidget> {
                   : (val) {
                       setState(() {
                         _materialPulmao = val ?? false;
-                        if (!_materialPulmao) _lacrePmCtrl.clear();
                       });
                       _notifyChanges();
                     },
             ),
-            if (_materialPulmao)
-              _lacreField(ctrl: _lacrePmCtrl, label: 'Pulmão (PM)'),
           ],
         ),
       ),

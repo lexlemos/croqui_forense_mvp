@@ -126,6 +126,7 @@ Quando o exame físico do corpo for concluído, você possui duas opções flex�
    - **Opção A — "Deixar Pendente" (Recomendado para plantões intensos):** Encerra a etapa física do corpo e libera a mesa de necropsia, mantendo o laudo em aberto para você redigir a discussão pericial detalhada mais tarde no consultório.
    - **Opção B — "Concluir Laudo Agora":** Compila todo o laudo, gera o documento **PDF oficial com os desenhos anatômicos coloridos, fotos e respostas aos quesitos**, e bloqueia o laudo contra edições acidentais.
 
+
 > [!WARNING]
 > **Trava de Segurança Processual:**
 > O aplicativo não permite **Concluir Laudo Definitivamente** se houver exames laboratoriais com o status de realização pendente no laboratório central. Para esses casos, escolha sempre **"Deixar Pendente"**.
@@ -148,6 +149,8 @@ No canto superior direito da tela inicial, você encontra o botão **Sincronizar
    - **Passo 5:** Envia o PDF oficial compilado e assinado.
 3. Ao término, uma barra verde na parte inferior confirmará: *"Laudos sincronizados com sucesso!"*.
 
+Atenção: Limpeza Automática do Tablet
+Para economizar espaço no dispositivo, o aplicativo remove automaticamente do tablet os laudos que já foram finalizados, sincronizados com sucesso e que tenham mais de 15 dias. Não se preocupe, eles continuam salvos com segurança na central web. O aplicativo nunca apagará rascunhos ou laudos não sincronizados.
 ---
 
 ## 7. Guia de Solução de Problemas (Troubleshooting)

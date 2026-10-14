@@ -73,4 +73,3 @@ class LaudoParserService {
   Map<String, dynamic> _mapOrEmpty(dynamic value) =>
       value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
 }
-

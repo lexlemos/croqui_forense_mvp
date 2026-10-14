@@ -17,6 +17,7 @@ import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_mode
 import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
 import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 
 import 'pdf_constants.dart';
 import 'pdf_helpers.dart';
@@ -195,9 +196,13 @@ class PdfService {
         header: (context) => PdfHelpers.buildDynamicHeader(
           context,
           logoPolicia,
-          payload.caso.numeroRequisicao.isNotEmpty
-              ? payload.caso.numeroRequisicao
-              : payload.caso.numeroLaudoExterno,
+          payload.caso.numeroPic.isNotEmpty
+              ? formatarPic(payload.caso.numeroPic)
+              : (payload.caso.numeroRequisicao.isNotEmpty
+                    ? formatarRequisicao(payload.caso.numeroRequisicao)
+                    : (payload.caso.numeroLaudoExterno != null
+                          ? formatarRequisicao(payload.caso.numeroLaudoExterno)
+                          : null)),
         ),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
         build: (context) {
@@ -292,8 +297,10 @@ class PdfService {
         PdfHelpers.buildLinhaDetalhe(
           "Laudo Pericial Cadavérico nº CD",
           caso.numeroRequisicao.isNotEmpty
-              ? caso.numeroRequisicao
-              : (caso.numeroLaudoExterno ?? 'XXX'),
+              ? formatarRequisicao(caso.numeroRequisicao)
+              : (caso.numeroLaudoExterno != null
+                    ? formatarRequisicao(caso.numeroLaudoExterno)
+                    : 'XXX'),
         ),
         PdfHelpers.buildLinhaDetalhe(
           "Boletim de Ocorrência (B.O.):",
@@ -667,20 +674,20 @@ class PdfService {
     return pw.Column(
       children: [
         PdfHelpers.buildItemComLabel(
-          'Anátomo-Patológico (Nº do Lacre): ',
-          anatomoEx.uuid.isNotEmpty ? anatomoEx.numeroLacre : 'NÃO SOLICITADO',
+          'Anátomo-Patológico: ',
+          anatomoEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
         PdfHelpers.buildItemComLabel(
-          'Toxicológico (Nº do Lacre): ',
-          toxEx.uuid.isNotEmpty ? toxEx.numeroLacre : 'NÃO SOLICITADO',
+          'Toxicológico: ',
+          toxEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
         PdfHelpers.buildItemComLabel(
-          'Genética (Nº do Lacre): ',
-          genEx.uuid.isNotEmpty ? genEx.numeroLacre : 'NÃO SOLICITADO',
+          'Genética: ',
+          genEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
         PdfHelpers.buildItemComLabel(
-          'Outros (Nº do Lacre): ',
-          outrosEx.uuid.isNotEmpty ? outrosEx.numeroLacre : 'NÃO SOLICITADO',
+          'Outros: ',
+          outrosEx.uuid.isNotEmpty ? 'SOLICITADO' : 'NÃO SOLICITADO',
         ),
       ],
     );
@@ -781,12 +788,7 @@ class PdfService {
       if (d.materialSgOutro?.isNotEmpty == true) {
         subs.add('Outro sítio: ${d.materialSgOutro}');
       }
-      final lacreSg = d.numeroLacreSg?.isNotEmpty == true
-          ? (d.numeroLacreSg ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(
-        _itemRecuado('- Sangue (SG) [${subs.join(', ')}] — Lacre: $lacreSg'),
-      );
+      linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}]'));
       if (d.quantificacaoDrogas) {
         linhas.add(
           _itemRecuadoSecundario('Solicita quantificacao de drogas / farmacos'),
@@ -795,28 +797,16 @@ class PdfService {
     }
 
     if (d.materialUrina) {
-      final lacre = d.numeroLacreUr?.isNotEmpty == true
-          ? (d.numeroLacreUr ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Urina (UR) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Urina (UR)'));
     }
     if (d.materialHumorVitreo) {
-      final lacre = d.numeroLacreHv?.isNotEmpty == true
-          ? (d.numeroLacreHv ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Humor Vitreo (HV) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Humor Vitreo (HV)'));
     }
     if (d.materialEstomago) {
-      final lacre = d.numeroLacreCe?.isNotEmpty == true
-          ? (d.numeroLacreCe ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Conteudo Estomacal (CE) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Conteudo Estomacal (CE)'));
     }
     if (d.materialPulmao) {
-      final lacre = d.numeroLacrePm?.isNotEmpty == true
-          ? (d.numeroLacrePm ?? 'Não informado')
-          : 'Não informado';
-      linhas.add(_itemRecuado('- Pulmao (PM) — Lacre: $lacre'));
+      linhas.add(_itemRecuado('- Pulmao (PM)'));
     }
 
     if (!temAlgumMaterial) {
@@ -872,22 +862,16 @@ class PdfService {
         if (a.pesquisaSemen) pesqs.add('Pesquisa de Semen');
         if (a.pesquisaDna) pesqs.add('Pesquisa de DNA');
         final pesqStr = pesqs.isNotEmpty ? ' [${pesqs.join(' + ')}]' : '';
-        final lacre = a.numeroLacre?.isNotEmpty == true
-            ? (a.numeroLacre ?? 'Não informado')
-            : 'Não informado';
-        linhas.add(_itemRecuado('- $desc$pesqStr — Lacre do Envelope: $lacre'));
+        linhas.add(_itemRecuado('- $desc$pesqStr'));
       }
     }
 
     if (referencia.isNotEmpty) {
       linhas.add(_subTitulo('Amostra de Referencia:'));
       for (final a in referencia) {
-        final lacre = a.numeroLacre?.isNotEmpty == true
-            ? (a.numeroLacre ?? 'Não informado')
-            : 'Não informado';
         linhas.add(
           _itemRecuado(
-            '- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s) — Lacre do Envelope: $lacre',
+            '- Swab Bucal da Vitima — Qtd: ${a.quantidadeSwabs} swab(s)',
           ),
         );
       }
@@ -901,10 +885,10 @@ class PdfService {
 
   String _descricaoAmostraGenetica(AmostraGeneticaModel a) {
     const nomes = {
-      'SWAB_VAGINAL_1': 'SWAB VAGINAL - 1 (Pesquisa de sêmen e DNA)',
-      'SWAB_VAGINAL_2': 'SWAB VAGINAL - 2 (Pesquisa de sêmen e DNA)',
-      'SWAB_ANAL_1': 'SWAB ANAL - 1 (Pesquisa de sêmen e DNA)',
-      'SWAB_ANAL_2': 'SWAB ANAL - 2 (Pesquisa de sêmen e DNA)',
+      'SWAB_VAGINAL_1': 'SWAB VAGINAL - 1',
+      'SWAB_VAGINAL_2': 'SWAB VAGINAL - 2',
+      'SWAB_ANAL_1': 'SWAB ANAL - 1',
+      'SWAB_ANAL_2': 'SWAB ANAL - 2',
       'SWAB_BUCAL_VITIMA': 'Swab Bucal da Vítima',
     };
     if (a.tipoAmostra == 'OUTRO') {
@@ -947,16 +931,12 @@ class PdfService {
 
     for (final f in frascos) {
       final numStr = f.numeroFrasco.toString().padLeft(2, '0');
-      final lacre = f.numeroLacre?.isNotEmpty == true
-          ? (f.numeroLacre ?? 'Não informado')
-          : 'Não informado';
-
-      // Cabeçalho do frasco: numeracao + lacre
+      // Cabeçalho do frasco: numeracao
       linhas.add(
         pw.Padding(
           padding: const pw.EdgeInsets.only(left: 15, top: 6, bottom: 2),
           child: pw.Text(
-            'Frasco $numStr — Lacre: $lacre',
+            'Frasco $numStr',
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5),
           ),
         ),
@@ -1188,9 +1168,7 @@ class PdfService {
           if (perito.crm != null && perito.crm!.trim().isNotEmpty) ...[
             pw.SizedBox(height: 1),
             pw.Text(
-              perito.crm!.trim().toUpperCase().startsWith('CRM')
-                  ? perito.crm!.trim()
-                  : 'CRM: ${perito.crm!.trim()}',
+              perito.crmFormatado ?? perito.crm!.trim(),
               style: const pw.TextStyle(
                 fontSize: 8.5,
                 color: PdfColors.grey700,
@@ -1348,19 +1326,54 @@ class PdfService {
   ]);
 
   Future<Uint8List> _comprimirBytesIterativamente(File file) async {
-    final rawBytes = await file.readAsBytes();
+    try {
+      final rawBytes = await file.readAsBytes();
+      return _comprimirBytes(rawBytes);
+    } catch (e) {
+      debugPrint('[PdfService] Erro ao ler arquivo para compressão: $e');
+      return _fallbackImageBytes;
+    }
+  }
+
+  Uint8List _comprimirBytes(Uint8List rawBytes) {
     if (rawBytes.lengthInBytes < 500 * 1024) {
-      return rawBytes; // Já é pequeno (500KB)
+      return rawBytes;
     }
 
-    final decoded = img.decodeImage(rawBytes);
-    if (decoded == null) return rawBytes;
+    try {
+      final decoded = img.decodeImage(rawBytes);
+      if (decoded == null) return rawBytes;
 
-    if (decoded.width <= 1200 && decoded.height <= 1200) return rawBytes;
+      if (decoded.width <= 1200 && decoded.height <= 1200) return rawBytes;
 
-    final resized = img.copyResize(decoded, width: 1200, maintainAspect: true);
-    final compressedBytes = img.encodeJpg(resized, quality: 70);
-    return Uint8List.fromList(compressedBytes);
+      final resized = img.copyResize(
+        decoded,
+        width: 1200,
+        maintainAspect: true,
+      );
+      final compressedBytes = img.encodeJpg(resized, quality: 70);
+      return Uint8List.fromList(compressedBytes);
+    } catch (_) {
+      return rawBytes;
+    }
+  }
+
+  File? _resolverArquivoLocal(String? rawPath) {
+    if (rawPath == null || rawPath.trim().isEmpty) return null;
+    var clean = rawPath.trim();
+    if (clean.startsWith('file://')) {
+      clean = clean.substring(7);
+    }
+    // Trata URIs codificadas (ex: %20 para espaços)
+    try {
+      clean = Uri.decodeFull(clean);
+    } catch (_) {}
+
+    final f = File(clean);
+    if (f.existsSync()) return f;
+
+    // Em alguns casos do Android, o caminho relativo pode residir sob caminhos normalizados
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> _prepararFotos(
@@ -1368,42 +1381,67 @@ class PdfService {
     List<Achado> achados,
     List<EvidenciaMultimidia> evidenciasGerais,
   ) async {
-    List<Map<String, dynamic>> anexos = [];
+    final List<Map<String, dynamic>> anexos = [];
     int contador = 1;
 
+    // 1. Fotos Gerais do Caso
     for (var ev in evidenciasGerais) {
       final path = ev.caminhoArquivoEncriptado ?? '';
-      if (path.isNotEmpty) {
-        final file = File(path);
-        final bool existe = file.existsSync();
-        final Uint8List bytes = existe
-            ? await _comprimirBytesIterativamente(file)
-            : _fallbackImageBytes;
-        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
-        anexos.add({
-          'numero': contador,
-          'bytes': bytes,
-          'label': 'Fotografia $contador$statusTag - Identificação Geral',
-        });
-        contador++;
+      final file = _resolverArquivoLocal(path);
+      final bool existe = file != null;
+
+      Uint8List bytes = _fallbackImageBytes;
+      if (existe) {
+        bytes = await _comprimirBytesIterativamente(file);
       }
+
+      final String statusTag = existe ? '' : ' [IMAGEM NÃO LOCALIZADA]';
+      anexos.add({
+        'numero': contador,
+        'bytes': bytes,
+        'disponivel': existe,
+        'label': 'Fotografia $contador$statusTag - Identificação Geral',
+      });
+      contador++;
     }
 
+    // Mapeamento auxiliar de evidências por achado_uuid para cruzamento inteligente
+    final todasEvidencias = caso.evidenciasMultimidia;
+    final Map<String, EvidenciaMultimidia> evidenciasPorAchado = {
+      for (var ev in todasEvidencias)
+        if (ev.achadoUuid != null && ev.achadoUuid!.isNotEmpty && !ev.removido)
+          ev.achadoUuid!: ev,
+    };
+
+    // 2. Fotos Específicas de Achados
     for (var a in achados) {
-      final path = a.dadosPreenchidos['photo_path'];
-      if (path != null && path.toString().isNotEmpty) {
-        final file = File(path.toString());
-        final bool existe = file.existsSync();
-        final Uint8List bytes = existe
-            ? await _comprimirBytesIterativamente(file)
-            : _fallbackImageBytes;
-        final String statusTag = existe ? '' : ' [IMAGEM INDISPONÍVEL]';
+      String? path = a.dadosPreenchidos['photo_path']?.toString();
+
+      // Cruzamento de fallback: busca na tabela de evidências multimídia se o caminho não estiver no JSON
+      if (path == null || path.trim().isEmpty) {
+        final ev = evidenciasPorAchado[a.uuid];
+        if (ev != null) {
+          path = ev.caminhoArquivoEncriptado;
+        }
+      }
+
+      if (path != null && path.trim().isNotEmpty) {
+        final file = _resolverArquivoLocal(path);
+        final bool existe = file != null;
+
+        Uint8List bytes = _fallbackImageBytes;
+        if (existe) {
+          bytes = await _comprimirBytesIterativamente(file);
+        }
+
+        final String statusTag = existe ? '' : ' [IMAGEM NÃO LOCALIZADA]';
         anexos.add({
           'numero': contador,
           'uuid': a.uuid,
           'bytes': bytes,
+          'disponivel': existe,
           'label':
-              'Fotografia $contador$statusTag - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label']})',
+              'Fotografia $contador$statusTag - Ref. Achado ${a.numeroSequencial} (${a.dadosPreenchidos['type_label'] ?? 'Lesão'})',
         });
         contador++;
       }
@@ -1516,41 +1554,69 @@ class PdfService {
   }
 
   List<pw.Widget> _buildSecaoFotos(List<Map<String, dynamic>> lista) {
-    return lista
-        .map(
-          (foto) => pw.Wrap(
-            children: [
-              pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 20, left: 15),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text(
-                      foto['label'],
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 10,
-                      ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Container(
-                      height: 400,
-                      width: 350,
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.grey),
-                      ),
-                      child: pw.Image(
-                        pw.MemoryImage(foto['bytes']),
-                        fit: pw.BoxFit.contain,
-                      ),
-                    ),
-                  ],
+    return lista.map((foto) {
+      final bool disponivel = foto['disponivel'] != false;
+      final Uint8List bytes = foto['bytes'] as Uint8List;
+
+      return pw.Wrap(
+        children: [
+          pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 20, left: 15),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  foto['label'],
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
+                  ),
                 ),
-              ),
-            ],
+                pw.SizedBox(height: 5),
+                pw.Container(
+                  height: 400,
+                  width: 350,
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(
+                      color: disponivel ? PdfColors.grey : PdfColors.amber700,
+                      width: disponivel ? 1 : 1.5,
+                    ),
+                    color: disponivel ? PdfColors.white : PdfColors.grey100,
+                  ),
+                  child: disponivel
+                      ? pw.Image(pw.MemoryImage(bytes), fit: pw.BoxFit.contain)
+                      : pw.Center(
+                          child: pw.Column(
+                            mainAxisAlignment: pw.MainAxisAlignment.center,
+                            children: [
+                              pw.Text(
+                                "ARQUIVO FOTOGRÁFICO PENDENTE OU EM SINCRONIZAÇÃO",
+                                style: pw.TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.grey800,
+                                ),
+                                textAlign: pw.TextAlign.center,
+                              ),
+                              pw.SizedBox(height: 8),
+                              pw.Text(
+                                "O registro pericial foi autenticado, mas a mídia física não foi localizada no armazenamento local deste dispositivo.",
+                                style: const pw.TextStyle(
+                                  fontSize: 8,
+                                  color: PdfColors.grey600,
+                                ),
+                                textAlign: pw.TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
           ),
-        )
-        .toList();
+        ],
+      );
+    }).toList();
   }
 }
 

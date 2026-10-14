@@ -40,7 +40,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   late final TextEditingController _customSizeController;
   late final TextEditingController _depthController;
   late final TextEditingController _obsController;
-  late final TextEditingController _numeroLacreController;
   late final TextEditingController _comentarioAdicionalController;
 
   String? _selectedTipoFerimento;
@@ -68,6 +67,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
 
   final ImagePicker _picker = ImagePicker();
   List<InjuryType> _availableTypes = [];
+  List<Achado> _entradasDisponiveis = [];
 
   @override
   void initState() {
@@ -86,7 +86,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     );
     _depthController = TextEditingController(text: m?.profundidade ?? '');
     _obsController = TextEditingController(text: m?.description ?? '');
-    _numeroLacreController = TextEditingController(text: m?.numeroLacre ?? '');
     _comentarioAdicionalController = TextEditingController(
       text: m?.comentarioAdicional ?? '',
     );
@@ -119,7 +118,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _hasBalistica =
         (m?.tipoFerimento != null && m!.tipoFerimento!.isNotEmpty) ||
         (m?.tipoObjeto != null && m!.tipoObjeto!.isNotEmpty) ||
-        (m?.numeroLacre != null && m!.numeroLacre!.isNotEmpty) ||
         (m?.comentarioAdicional != null && m!.comentarioAdicional!.isNotEmpty);
 
     _loadTypes(initialTypeLabel: m?.type);
@@ -140,7 +138,17 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
   }
 
   Future<void> _loadEntradas() async {
-    // Mantido para não quebrar referências futuras caso precisem (mas sem usar a variável de estado)
+    try {
+      final entradas = await widget.achadoRepository.getAchadosDeEntradaPorCaso(
+        widget.casoUuid,
+      );
+      if (!mounted) return;
+      setState(() {
+        _entradasDisponiveis = entradas;
+      });
+    } catch (e) {
+      debugPrint('[InjuryFormModal] Erro ao carregar entradas disponíveis: $e');
+    }
   }
 
   Future<void> _loadTypes({String? initialTypeLabel}) async {
@@ -203,7 +211,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
     _customSizeController.dispose();
     _depthController.dispose();
     _obsController.dispose();
-    _numeroLacreController.dispose();
     _comentarioAdicionalController.dispose();
     super.dispose();
   }
@@ -237,10 +244,14 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'isInterno': _isInterno,
         'dados_dinamicos_json': dadosDinamicos,
         'achadoRelacionadoUuid': achadoRelacionadoUuid,
-        'tipoFerimento': _selectedTipoFerimento,
-        'tipoObjeto': _selectedTipoObjeto,
-        'numeroLacre': _numeroLacreController.text.trim(),
-        'comentarioAdicional': _comentarioAdicionalController.text.trim(),
+        'tipoFerimento': _hasBalistica ? _selectedTipoFerimento : null,
+        'tipoObjeto': _hasBalistica ? _selectedTipoObjeto : null,
+        'numeroLacre': null,
+        'comentarioAdicional':
+            (_hasBalistica &&
+                _comentarioAdicionalController.text.trim().isNotEmpty)
+            ? _comentarioAdicionalController.text.trim()
+            : null,
       };
 
       Navigator.pop(context, data);
@@ -292,6 +303,7 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                     DynamicFormBuilder(
                       schema: _selectedType?.schemaFormulario ?? {},
                       initialData: _currentFormData,
+                      entradasDisponiveis: _entradasDisponiveis,
                       onChanged: (data) {
                         _currentFormData = data;
                       },
@@ -763,7 +775,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 // Limpa os campos se desmarcado
                 _selectedTipoFerimento = null;
                 _selectedTipoObjeto = null;
-                _numeroLacreController.clear();
                 _comentarioAdicionalController.clear();
               }
             });
@@ -795,13 +806,6 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
                 .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                 .toList(),
             onChanged: (v) => setState(() => _selectedTipoObjeto = v),
-          ),
-          const SizedBox(height: 12),
-          _buildTextField(
-            _numeroLacreController,
-            "Nº do Lacre",
-            Icons.security,
-            false,
           ),
           const SizedBox(height: 12),
           TextFormField(

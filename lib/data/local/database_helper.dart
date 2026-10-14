@@ -102,6 +102,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'quick_notes', 'TEXT');
     await _addColumnIfNotExists(
       txn,
       'casos',
@@ -182,6 +183,18 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'usuarios', 'classe', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'crm', 'TEXT');
     await _addColumnIfNotExists(txn, 'usuarios', 'roles', 'TEXT');
+    await _addColumnIfNotExists(
+      txn,
+      'evidencias_multimidia',
+      'chave_storage',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'evidencias_multimidia',
+      'url_storage',
+      'TEXT',
+    );
     await txn.execute(
       'CREATE INDEX IF NOT EXISTS idx_casos_usuario_criador ON casos (id_usuario_criador);',
     );
@@ -566,6 +579,31 @@ class DatabaseHelper {
           '[DatabaseHelper] Executando migração para a versão 22 (Tabela Balística 1:N)...',
         );
         await txn.execute(kCreateBalisticasSql);
+        break;
+
+      case 23:
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 23 (Colunas de storage em evidencias_multimidia)...',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'evidencias_multimidia',
+          'chave_storage',
+          'TEXT',
+        );
+        await _addColumnIfNotExists(
+          txn,
+          'evidencias_multimidia',
+          'url_storage',
+          'TEXT',
+        );
+        break;
+
+      case 24:
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 24 (Anotações Rápidas em Casos)...',
+        );
+        await _addColumnIfNotExists(txn, 'casos', 'quick_notes', 'TEXT');
         break;
 
       default:

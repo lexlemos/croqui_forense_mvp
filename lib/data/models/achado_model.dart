@@ -12,7 +12,7 @@ import 'package:uuid/uuid.dart';
 /// - [uuid]: Identificador universal único da lesão gerado localmente no dispositivo.
 /// - [casoUuid]: Chave estrangeira que vincula o achado ao [Caso] mestre.
 /// - [diagramaCasoUuid]: Chave de identificação da vista específica do croqui dentro do caso.
-/// - [achadoRelacionadoUuid]: Chave opcional que conecta ferimentos correlacionados (ex: Entrada ↔ Saída de PAF).
+/// - [achadoRelacionadoUuid]: Chave opcional que conecta ferimentos correlacionados (ex: Entrada ↔ Saída de FAF).
 class Achado {
   /// Identificador universal único do achado (UUID v4).
   final String uuid;
@@ -369,7 +369,7 @@ class Achado {
     };
   }
 
-  /// Rótulo legível do tipo da lesão (ex: "Entrada de PAF", "Equimose").
+  /// Rótulo legível do tipo da lesão (ex: "Entrada de FAF", "Equimose").
   String get type {
     return dadosPreenchidos['type_label']?.toString() ?? 'Não definido';
   }

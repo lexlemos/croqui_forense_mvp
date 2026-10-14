@@ -47,6 +47,9 @@ enum TipoObjeto {
   /// Fragmento metálico, jaqueta ou núcleo desprendido de projétil.
   fragmento('Fragmento'),
 
+  /// Jaqueta ou camisa metálica de projétil.
+  jaqueta('Jaqueta'),
+
   /// Balote de arma de alma lisa (espingarda).
   balote('Balote'),
 
@@ -198,4 +201,3 @@ class BalisticaModel {
   factory BalisticaModel.fromJson(Map<String, dynamic> json) =>
       BalisticaModel.fromMap(json);
 }
-

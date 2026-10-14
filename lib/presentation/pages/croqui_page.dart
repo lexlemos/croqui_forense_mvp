@@ -6,6 +6,7 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/domain/services/achado_service.dart';
 import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
+import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/data/repositories/injury_type_repository.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/achado_detail_modal.dart';
 import 'package:croqui_forense_mvp/presentation/pages/pdf_preview_page.dart';
@@ -22,6 +23,9 @@ import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_details_wi
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/croqui_viewer.dart';
 import 'package:croqui_forense_mvp/core/constants/front_body_data.dart'
     show BodyPartDefinition;
+import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart';
+import 'package:croqui_forense_mvp/domain/services/pdf_report_engine.dart';
+import 'package:croqui_forense_mvp/domain/services/case_lifecycle_service.dart';
 import 'package:croqui_forense_mvp/presentation/widgets/croqui/tabs/body_parts_tabs.dart';
 
 class CroquiPage extends StatelessWidget {
@@ -41,6 +45,9 @@ class CroquiPage extends StatelessWidget {
         ctx.read<AchadoRepository>(),
         ctx.read<CasoRepository>(),
         ctx.read<AtnRepository>(),
+        activeCaseLockService: ctx.read<IActiveCaseLockService>(),
+        pdfEngine: ctx.read<IPdfReportEngine>(),
+        lifecycleService: ctx.read<ICaseLifecycleService>(),
         isReadOnly: isReadOnly,
       ),
       child: const _CroquiView(),
@@ -101,7 +108,7 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               final String identificador = pic.isNotEmpty
                   ? 'PIC $pic'
                   : (req.isNotEmpty
-                        ? 'Req $req'
+                        ? 'Req ${formatarRequisicao(req)}'
                         : (laudo.isNotEmpty ? 'Laudo $laudo' : 'Novo Caso'));
 
               return Column(
@@ -182,6 +189,13 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                 );
               },
             ),
+            IconButton(
+              icon: const Icon(Icons.description),
+              tooltip: 'Exportar Word (DOCX)',
+              onPressed: controller.isProcessing
+                  ? null
+                  : () => _exportarCasoDocx(context, controller),
+            ),
             if (!controller.isReadOnly)
               Builder(
                 builder: (innerContext) => TextButton.icon(
@@ -210,32 +224,49 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                             handleCroquiFinalization(innerContext, controller),
                 ),
               ),
-            if (controller.isReadOnly)
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'edit') _reabrirCaso(context, controller);
-                  if (value == 'export') _exportarCaso(context, controller);
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  if (controller.casoAtual.status != StatusCaso.sincronizado)
-                    const PopupMenuItem<String>(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit, color: Colors.indigo),
-                        title: Text('Editar Caso'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Mais opções',
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _reabrirCaso(context, controller);
+                }
+                if (value == 'export') {
+                  _exportarCaso(context, controller);
+                }
+                if (value == 'export_docx') {
+                  _exportarCasoDocx(context, controller);
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                if (controller.isReadOnly &&
+                    controller.casoAtual.status != StatusCaso.sincronizado)
                   const PopupMenuItem<String>(
-                    value: 'export',
+                    value: 'edit',
                     child: ListTile(
-                      leading: Icon(Icons.share, color: Colors.indigo),
-                      title: Text('Exportar'),
+                      leading: Icon(Icons.edit, color: Colors.indigo),
+                      title: Text('Editar Caso'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                ],
-              ),
+                const PopupMenuItem<String>(
+                  value: 'export',
+                  child: ListTile(
+                    leading: Icon(Icons.picture_as_pdf, color: Colors.indigo),
+                    title: Text('Exportar PDF'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'export_docx',
+                  child: ListTile(
+                    leading: Icon(Icons.description, color: Colors.indigo),
+                    title: Text('Exportar Word (DOCX)'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
           ],
           bottom: const TabBar(
             isScrollable: true,
@@ -309,6 +340,9 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                           achados: c.achados,
                           evidencias: c.casoAtual.evidenciasMultimidia,
                           isReadOnly: c.isReadOnly,
+                          quickNotes: c.casoAtual.quickNotes,
+                          onQuickNotesChanged: (texto) =>
+                              c.atualizarAnotacoesRapidas(texto),
                           onEdit: (achado) =>
                               _showEditOrDetail(context, c, achado),
                           onDelete: (uuid) async {
@@ -383,6 +417,13 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
     CroquiController controller,
   ) async {
     await controller.exportarCaso(context);
+  }
+
+  Future<void> _exportarCasoDocx(
+    BuildContext context,
+    CroquiController controller,
+  ) async {
+    await controller.exportarCasoDocx(context);
   }
 
   void _showOperationResult(

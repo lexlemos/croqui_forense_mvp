@@ -160,7 +160,7 @@ class PdfHelpers {
                 ],
               ),
               pw.Text(
-                "Laudo Cadavérico nº CD ${numLaudo ?? 'XXXX'}",
+                "Laudo Cadavérico nº PIC ${numLaudo ?? 'XXXX'}",
                 style: pw.TextStyle(
                   fontSize: 8,
                   fontWeight: pw.FontWeight.bold,
