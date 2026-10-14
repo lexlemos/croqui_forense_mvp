@@ -108,5 +108,36 @@ void main() {
         expect(casoFallbackSexo.sexoBiologicoEstimado, equals('Masculino'));
       },
     );
+
+    test(
+      'quickNotes é persistido no toMap (SQLite) mas isolado do toSyncMap (API)',
+      () {
+        final caso = Caso.novo(
+          idUsuarioCriador: 'user-001',
+          quickNotes: 'Rascunho de medição provisória',
+        );
+
+        // 1. Verifica no modelo
+        expect(caso.quickNotes, equals('Rascunho de medição provisória'));
+
+        // 2. Verifica round-trip no SQLite (toMap -> fromMap)
+        final sqliteMap = caso.toMap();
+        expect(
+          sqliteMap['quick_notes'],
+          equals('Rascunho de medição provisória'),
+        );
+
+        final casoReconstruido = Caso.fromMap(sqliteMap);
+        expect(
+          casoReconstruido.quickNotes,
+          equals('Rascunho de medição provisória'),
+        );
+
+        // 3. Regra de Isolamento Crítico: toSyncMap NUNCA pode conter quick_notes
+        final syncMap = caso.toSyncMap();
+        expect(syncMap.containsKey('quick_notes'), isFalse);
+        expect(syncMap.containsKey('quickNotes'), isFalse);
+      },
+    );
   });
 }

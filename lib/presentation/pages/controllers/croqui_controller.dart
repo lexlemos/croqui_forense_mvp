@@ -1292,6 +1292,26 @@ class CroquiController extends ChangeNotifier {
   }
 
   Timer? _autoSaveTimer;
+  Timer? _quickNotesDebounceTimer;
+
+  /// Atualiza as anotações rápidas do perito (Face 2) e agenda o salvamento
+  /// local no SQLite com debounce de 1500ms sem bloquear a UI.
+  void atualizarAnotacoesRapidas(String texto) {
+    if (isReadOnly || _isDisposed) return;
+
+    casoAtual = casoAtual.copyWith(quickNotes: texto);
+
+    _quickNotesDebounceTimer?.cancel();
+    _quickNotesDebounceTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!_isDisposed && !isReadOnly) {
+        _casoRepository.updateCase(casoAtual).catchError((e) {
+          debugPrint(
+            '[CroquiController] ⚠️ Erro ao salvar anotações rápidas no SQLite: $e',
+          );
+        });
+      }
+    });
+  }
 
   /// Agenda o salvamento automático com debounce de 1000ms para evitar I/O excessivo durante digitação contínua.
   void scheduleAutoSave() {
@@ -1326,6 +1346,7 @@ class CroquiController extends ChangeNotifier {
   /// Cancela qualquer timer de auto-save pendente e executa a persistência síncrona/imediata no SQLite.
   Future<void> flushAutoSave() async {
     _autoSaveTimer?.cancel();
+    _quickNotesDebounceTimer?.cancel();
     // Agora o flushAutoSave apenas garante a sincronização e o salvamento síncrono.
     if (!isReadOnly) {
       try {
@@ -1346,6 +1367,7 @@ class CroquiController extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _autoSaveTimer?.cancel();
+    _quickNotesDebounceTimer?.cancel();
     _activeCaseLockService?.releaseLock(casoAtual.uuid);
 
     // Sincroniza os controllers de texto com o casoAtual ANTES de liberar

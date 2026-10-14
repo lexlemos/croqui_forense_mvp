@@ -1,5 +1,5 @@
 const String kDatabaseName = 'croqui_forense_mvp.db';
-const int kDatabaseVersion = 23;
+const int kDatabaseVersion = 24;
 
 const String tableUsuarios = 'usuarios';
 const String tablePapeis = 'papeis';
@@ -126,6 +126,7 @@ CREATE TABLE casos (
     data_necropsia TEXT,
     hora_necropsia TEXT,
     numero_declaracao_obito TEXT,
+    quick_notes TEXT,
     FOREIGN KEY (id_usuario_criador) REFERENCES usuarios(id) ON DELETE RESTRICT
 );
 ''';

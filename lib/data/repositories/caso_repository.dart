@@ -260,6 +260,15 @@ class CasoRepository implements ISyncRepository {
               mapParaSalvar['criado_em_dispositivo'] = localCriadoEm;
             }
 
+            // Preserva rascunho local de anotações rápidas (Face 2) caso o backend não envie
+            final localQuickNotes = localMap['quick_notes']?.toString();
+            if ((mapParaSalvar['quick_notes'] == null ||
+                    mapParaSalvar['quick_notes'].toString().isEmpty) &&
+                localQuickNotes != null &&
+                localQuickNotes.isNotEmpty) {
+              mapParaSalvar['quick_notes'] = localQuickNotes;
+            }
+
             batch.update(
               tableCasos,
               mapParaSalvar,

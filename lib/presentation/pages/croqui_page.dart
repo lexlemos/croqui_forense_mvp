@@ -340,6 +340,9 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                           achados: c.achados,
                           evidencias: c.casoAtual.evidenciasMultimidia,
                           isReadOnly: c.isReadOnly,
+                          quickNotes: c.casoAtual.quickNotes,
+                          onQuickNotesChanged: (texto) =>
+                              c.atualizarAnotacoesRapidas(texto),
                           onEdit: (achado) =>
                               _showEditOrDetail(context, c, achado),
                           onDelete: (uuid) async {

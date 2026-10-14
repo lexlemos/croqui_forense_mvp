@@ -198,6 +198,9 @@ class Caso {
   /// Delegacia de polícia solicitante do procedimento pericial.
   final String? delegaciaSolicitante;
 
+  /// Anotações e rascunhos rápidos do perito (isolado localmente no SQLite, nunca sincronizado).
+  final String? quickNotes;
+
   /// Acesso facilitado aos dados da cadeia de custódia e auditoria do laudo.
   AuditoriaModel get auditoria {
     return dadosLaudo.auditoria;
@@ -244,6 +247,7 @@ class Caso {
     this.horaNecropsia,
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
+    this.quickNotes,
   });
 
   /// Instancia um novo laudo pericial gerando um [uuid] v4 local inédito.
@@ -283,6 +287,7 @@ class Caso {
     this.horaNecropsia,
     this.numeroDeclaracaoObito,
     this.delegaciaSolicitante,
+    this.quickNotes,
   }) : uuid = (uuid != null && uuid.isNotEmpty) ? uuid : const Uuid().v4(),
        status = StatusCaso.emAndamento,
        hashIntegridade = null,
@@ -612,6 +617,7 @@ class Caso {
       horaNecropsia: map['hora_necropsia']?.toString(),
       numeroDeclaracaoObito: map['numero_declaracao_obito']?.toString(),
       delegaciaSolicitante: delegaciaSolicitanteParsed,
+      quickNotes: map['quick_notes']?.toString(),
     );
   }
 
@@ -656,6 +662,7 @@ class Caso {
     String? horaNecropsia,
     String? numeroDeclaracaoObito,
     String? delegaciaSolicitante,
+    String? quickNotes,
   }) {
     return Caso(
       uuid: uuid ?? this.uuid,
@@ -700,6 +707,7 @@ class Caso {
       numeroDeclaracaoObito:
           numeroDeclaracaoObito ?? this.numeroDeclaracaoObito,
       delegaciaSolicitante: delegaciaSolicitante ?? this.delegaciaSolicitante,
+      quickNotes: quickNotes ?? this.quickNotes,
     );
   }
 
@@ -756,6 +764,7 @@ class Caso {
       'data_necropsia': dataNecropsia,
       'hora_necropsia': horaNecropsia,
       'numero_declaracao_obito': numeroDeclaracaoObito,
+      'quick_notes': quickNotes,
     };
   }
 

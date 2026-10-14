@@ -102,6 +102,7 @@ class DatabaseHelper {
     await _addColumnIfNotExists(txn, 'casos', 'pdf_local_path', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'pdf_url', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'atns_ids', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'quick_notes', 'TEXT');
     await _addColumnIfNotExists(
       txn,
       'casos',
@@ -596,6 +597,13 @@ class DatabaseHelper {
           'url_storage',
           'TEXT',
         );
+        break;
+
+      case 24:
+        debugPrint(
+          '[DatabaseHelper] Executando migração para a versão 24 (Anotações Rápidas em Casos)...',
+        );
+        await _addColumnIfNotExists(txn, 'casos', 'quick_notes', 'TEXT');
         break;
 
       default:
