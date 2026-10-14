@@ -17,20 +17,20 @@ class LaudoCroquiRef {
   });
 
   Map<String, dynamic> toJson() => {
-        'vista': vista,
-        'ordem': ordem,
-        'artefato_uuid': artefatoUuid,
-        'largura': largura,
-        'altura': altura,
-        'legenda': legenda,
-      };
+    'vista': vista,
+    'ordem': ordem,
+    'artefato_uuid': artefatoUuid,
+    'largura': largura,
+    'altura': altura,
+    'legenda': legenda,
+  };
 
   factory LaudoCroquiRef.fromJson(Map<String, dynamic> json) => LaudoCroquiRef(
-        vista: json['vista'] as String,
-        ordem: (json['ordem'] as num).toInt(),
-        artefatoUuid: json['artefato_uuid'] as String,
-        largura: (json['largura'] as num).toInt(),
-        altura: (json['altura'] as num).toInt(),
-        legenda: json['legenda'] as String,
-      );
+    vista: json['vista'] as String,
+    ordem: (json['ordem'] as num).toInt(),
+    artefatoUuid: json['artefato_uuid'] as String,
+    largura: (json['largura'] as num).toInt(),
+    altura: (json['altura'] as num).toInt(),
+    legenda: json['legenda'] as String,
+  );
 }

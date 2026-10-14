@@ -133,7 +133,8 @@ class MediaStorageService implements IMediaStorageService {
       }
     }
 
-    String? effectiveUuid = (evidenciaUuid != null && evidenciaUuid.trim().isNotEmpty)
+    String? effectiveUuid =
+        (evidenciaUuid != null && evidenciaUuid.trim().isNotEmpty)
         ? evidenciaUuid.trim()
         : extractedUuidFromPath;
 
@@ -167,9 +168,7 @@ class MediaStorageService implements IMediaStorageService {
 
     // 4. Se temos UUID identificado, verifica se o arquivo já existe na pasta evidencias/{uuid}.jpg
     if (effectiveUuid != null && effectiveUuid.isNotEmpty) {
-      final targetFile = File(
-        p.join(evidenciasDir.path, '$effectiveUuid.jpg'),
-      );
+      final targetFile = File(p.join(evidenciasDir.path, '$effectiveUuid.jpg'));
       if (targetFile.existsSync()) {
         return targetFile;
       }
@@ -185,7 +184,8 @@ class MediaStorageService implements IMediaStorageService {
 
     // 6. Fallback se fornecido fallbackUrl
     if (fallbackUrl != null && fallbackUrl.trim().isNotEmpty) {
-      final String fallbackName = effectiveUuid != null && effectiveUuid.isNotEmpty
+      final String fallbackName =
+          effectiveUuid != null && effectiveUuid.isNotEmpty
           ? '$effectiveUuid.jpg'
           : p.basename(fallbackUrl.trim());
       final targetFile = File(p.join(evidenciasDir.path, fallbackName));
@@ -208,7 +208,8 @@ class MediaStorageService implements IMediaStorageService {
     try {
       final dio = _apiClient?.dio ?? Dio();
       final String fullUrl;
-      if (endpointOuUrl.startsWith('http://') || endpointOuUrl.startsWith('https://')) {
+      if (endpointOuUrl.startsWith('http://') ||
+          endpointOuUrl.startsWith('https://')) {
         fullUrl = endpointOuUrl;
       } else {
         final cleanPath = endpointOuUrl.startsWith('/')
@@ -255,7 +256,9 @@ class MediaStorageService implements IMediaStorageService {
         return destinationFile;
       }
     } catch (e) {
-      debugPrint('[MediaStorageService] ⚠️ Falha ao baixar mídia $endpointOuUrl: $e');
+      debugPrint(
+        '[MediaStorageService] ⚠️ Falha ao baixar mídia $endpointOuUrl: $e',
+      );
     }
     return null;
   }
@@ -276,7 +279,9 @@ class MediaStorageService implements IMediaStorageService {
       try {
         return await file.readAsBytes();
       } catch (e) {
-        debugPrint('[MediaStorageService] Erro ao ler bytes do arquivo ${file.path}: $e');
+        debugPrint(
+          '[MediaStorageService] Erro ao ler bytes do arquivo ${file.path}: $e',
+        );
       }
     }
     return null;

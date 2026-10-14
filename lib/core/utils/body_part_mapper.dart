@@ -72,4 +72,3 @@ String resolveBodyPartName(String view, String partId) {
   }
   return partId.replaceAll('_', ' ').toUpperCase();
 }
-

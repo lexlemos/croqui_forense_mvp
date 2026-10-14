@@ -3,7 +3,8 @@ import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/evidencia_multimidia_model.dart';
 import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
-import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart' as em;
+import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart'
+    as em;
 import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/presentation/utils/achado_formatter.dart';
 import 'package:croqui_forense_mvp/domain/models/laudo_documento/laudo_bloco.dart';
@@ -36,9 +37,14 @@ class LaudoBuilderService {
     final ativas = achados.where((a) => !a.removido).toList();
 
     // 1. Numeração canônica das fotografias
-    final fotosGerais = evidenciasGerais ??
+    final fotosGerais =
+        evidenciasGerais ??
         caso.evidenciasMultimidia
-            .where((e) => !e.removido && (e.achadoUuid == null || e.achadoUuid!.isEmpty))
+            .where(
+              (e) =>
+                  !e.removido &&
+                  (e.achadoUuid == null || e.achadoUuid!.isEmpty),
+            )
             .toList();
 
     final List<LaudoFoto> fotografiasOficiais = [];
@@ -79,14 +85,16 @@ class LaudoBuilderService {
       if (path != null && path.trim().isNotEmpty) {
         final evUuid = ev?.uuid ?? a.uuid;
         fotosPorAchadoUuid[a.uuid] = contadorFotos;
-        final labelTipo = a.dadosPreenchidos['type_label']?.toString() ?? 'Lesão';
+        final labelTipo =
+            a.dadosPreenchidos['type_label']?.toString() ?? 'Lesão';
         fotografiasOficiais.add(
           LaudoFoto(
             numero: contadorFotos,
             tipo: 'ACHADO',
             evidenciaUuid: evUuid,
             achadoUuid: a.uuid,
-            legenda: 'Fotografia $contadorFotos - Ref. Achado ${a.numeroSequencial} ($labelTipo)',
+            legenda:
+                'Fotografia $contadorFotos - Ref. Achado ${a.numeroSequencial} ($labelTipo)',
             hashArquivo: ev?.hashArquivo,
           ),
         );
@@ -118,12 +126,17 @@ class LaudoBuilderService {
       geradoEm: geradoEm,
       procedencia: LaudoProcedencia(
         origem: 'APP',
-        deviceId: (caso.deviceId != null && caso.deviceId!.isNotEmpty) ? caso.deviceId! : 'device-unknown',
+        deviceId: (caso.deviceId != null && caso.deviceId!.isNotEmpty)
+            ? caso.deviceId!
+            : 'device-unknown',
       ),
       perito: LaudoPerito(
         id: perito.id,
-        nome: perito.nomeCompleto.isNotEmpty ? perito.nomeCompleto : 'Perito Médico-Legista',
-        crm: perito.crmFormatado ??
+        nome: perito.nomeCompleto.isNotEmpty
+            ? perito.nomeCompleto
+            : 'Perito Médico-Legista',
+        crm:
+            perito.crmFormatado ??
             (perito.crm != null && perito.crm!.trim().isNotEmpty
                 ? perito.crm!.trim()
                 : 'CRM/SE'),
@@ -145,8 +158,8 @@ class LaudoBuilderService {
         valor: caso.numeroRequisicao.isNotEmpty
             ? formatarRequisicao(caso.numeroRequisicao)
             : (caso.numeroLaudoExterno != null
-                ? formatarRequisicao(caso.numeroLaudoExterno)
-                : 'XXX'),
+                  ? formatarRequisicao(caso.numeroLaudoExterno)
+                  : 'XXX'),
       ),
       LaudoItemBloco(
         label: 'Requisitante: Delegado (a)',
@@ -177,8 +190,18 @@ class LaudoBuilderService {
     final data = caso.criadoEmDispositivo.toLocal();
     final dia = data.day.toString().padLeft(2, '0');
     const meses = [
-      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
     ];
     final anoExtenso = PdfHelpers.anoPorExtenso(data.year);
 
@@ -195,9 +218,7 @@ class LaudoBuilderService {
     return LaudoSecao(
       id: 'historico',
       titulo: '1. HISTÓRICO',
-      blocos: [
-        LaudoParagrafoBloco(texto: hist.isNotEmpty ? hist : 'XXX'),
-      ],
+      blocos: [LaudoParagrafoBloco(texto: hist.isNotEmpty ? hist : 'XXX')],
     );
   }
 
@@ -207,13 +228,18 @@ class LaudoBuilderService {
     final blocos = <LaudoBloco>[
       const LaudoTituloBloco(texto: 'I) Vestes:', nivel: 2),
       LaudoParagrafoBloco(texto: id.vestes.isNotEmpty ? id.vestes : 'XXX'),
-      const LaudoTituloBloco(texto: 'II) Características de identificação:', nivel: 2),
+      const LaudoTituloBloco(
+        texto: 'II) Características de identificação:',
+        nivel: 2,
+      ),
       const LaudoParagrafoBloco(
-        texto: 'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.',
+        texto:
+            'Cadáver do sexo XXX, raça XXX, estado nutricional XXX, e idade aparente de XX anos.',
       ),
       const LaudoTituloBloco(texto: 'III) Dados tanatológicos:', nivel: 2),
       const LaudoParagrafoBloco(
-        texto: 'A morte está evidenciada pela presença dos seguintes sinais tanatológicos:',
+        texto:
+            'A morte está evidenciada pela presença dos seguintes sinais tanatológicos:',
       ),
       LaudoItemBloco(
         label: 'A) IMEDIATOS: ',
@@ -221,15 +247,23 @@ class LaudoBuilderService {
       ),
       LaudoItemBloco(
         label: 'B) CONSECUTIVOS: ',
-        valor: carac.tanatoConsecutivo.isNotEmpty ? carac.tanatoConsecutivo : 'XXX',
+        valor: carac.tanatoConsecutivo.isNotEmpty
+            ? carac.tanatoConsecutivo
+            : 'XXX',
       ),
       LaudoItemBloco(
         label: 'COMENTARIOS ADICIONAIS: ',
-        valor: carac.tanatoObservacao.isNotEmpty ? carac.tanatoObservacao : 'XXX',
+        valor: carac.tanatoObservacao.isNotEmpty
+            ? carac.tanatoObservacao
+            : 'XXX',
       ),
     ];
 
-    return LaudoSecao(id: 'identificacao', titulo: '2. IDENTIFICAÇÃO', blocos: blocos);
+    return LaudoSecao(
+      id: 'identificacao',
+      titulo: '2. IDENTIFICAÇÃO',
+      blocos: blocos,
+    );
   }
 
   LaudoSecao _buildSecaoExameExterno(
@@ -245,7 +279,11 @@ class LaudoBuilderService {
       schemas: schemas,
       todosAchados: todosAchados,
     );
-    return LaudoSecao(id: 'exame_externo', titulo: '3. EXAME EXTERNO', blocos: blocos);
+    return LaudoSecao(
+      id: 'exame_externo',
+      titulo: '3. EXAME EXTERNO',
+      blocos: blocos,
+    );
   }
 
   LaudoSecao _buildSecaoExameInterno(
@@ -261,7 +299,11 @@ class LaudoBuilderService {
       schemas: schemas,
       todosAchados: todosAchados,
     );
-    return LaudoSecao(id: 'exame_interno', titulo: '4. EXAME INTERNO (Cavidades)', blocos: blocos);
+    return LaudoSecao(
+      id: 'exame_interno',
+      titulo: '4. EXAME INTERNO (Cavidades)',
+      blocos: blocos,
+    );
   }
 
   List<LaudoBloco> _agruparAchadosAnatomicos(
@@ -286,7 +328,8 @@ class LaudoBuilderService {
           : 'Com evidências de lesões macroscópicas:';
 
       final achadosGrupo = pendentes.where((a) {
-        final localId = a.dadosPreenchidos['local_anatomico_id']
+        final localId =
+            a.dadosPreenchidos['local_anatomico_id']
                 ?.toString()
                 .trim()
                 .toLowerCase() ??
@@ -299,8 +342,11 @@ class LaudoBuilderService {
       final itensAchados = <LaudoAchadoItem>[];
       for (var a in achadosGrupo) {
         final fotoNum = fotosPorAchado[a.uuid];
-        final refFoto = fotoNum != null ? ' [VER REGISTRO FOTOGRÁFICO $fotoNum]' : '';
-        final descTexto = '${a.numeroSequencial}. ${a.dadosPreenchidos['type_label'] ?? 'Lesão'} em ${a.dadosPreenchidos['local_anatomico_nome'] ?? 'Região'}: ${a.observacoesTexto ?? ''}$refFoto';
+        final refFoto = fotoNum != null
+            ? ' [VER REGISTRO FOTOGRÁFICO $fotoNum]'
+            : '';
+        final descTexto =
+            '${a.numeroSequencial}. ${a.dadosPreenchidos['type_label'] ?? 'Lesão'} em ${a.dadosPreenchidos['local_anatomico_nome'] ?? 'Região'}: ${a.observacoesTexto ?? ''}$refFoto';
 
         final camposFormatados = a.obterCamposFormatados(
           schemas?[a.tipoAchadoId],
@@ -313,10 +359,12 @@ class LaudoBuilderService {
             texto: descTexto,
             fotoNumero: fotoNum,
             campos: camposFormatados
-                .map((c) => LaudoCampoExtra(
-                      label: c['label']?.toString() ?? '',
-                      valor: c['valor']?.toString() ?? '',
-                    ))
+                .map(
+                  (c) => LaudoCampoExtra(
+                    label: c['label']?.toString() ?? '',
+                    valor: c['valor']?.toString() ?? '',
+                  ),
+                )
                 .toList(),
           ),
         );
@@ -336,8 +384,11 @@ class LaudoBuilderService {
       final itensOutros = <LaudoAchadoItem>[];
       for (var a in pendentes) {
         final fotoNum = fotosPorAchado[a.uuid];
-        final refFoto = fotoNum != null ? ' [VER REGISTRO FOTOGRÁFICO $fotoNum]' : '';
-        final descTexto = '${a.numeroSequencial}. ${a.dadosPreenchidos['type_label'] ?? 'Lesão'} em ${a.dadosPreenchidos['local_anatomico_nome'] ?? 'Região'} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto';
+        final refFoto = fotoNum != null
+            ? ' [VER REGISTRO FOTOGRÁFICO $fotoNum]'
+            : '';
+        final descTexto =
+            '${a.numeroSequencial}. ${a.dadosPreenchidos['type_label'] ?? 'Lesão'} em ${a.dadosPreenchidos['local_anatomico_nome'] ?? 'Região'} (ID: ${a.dadosPreenchidos['local_anatomico_id']}): ${a.observacoesTexto ?? ''}$refFoto';
 
         itensOutros.add(
           LaudoAchadoItem(
@@ -368,18 +419,30 @@ class LaudoBuilderService {
   ) {
     final blocos = <LaudoBloco>[];
     if ((estruturados == null || estruturados.isEmpty) && legados.isEmpty) {
-      blocos.add(const LaudoParagrafoBloco(texto: 'Sem exames complementares solicitados.'));
+      blocos.add(
+        const LaudoParagrafoBloco(
+          texto: 'Sem exames complementares solicitados.',
+        ),
+      );
     } else {
       if (estruturados != null) {
         for (var e in estruturados) {
-          blocos.add(LaudoItemBloco(label: '${e.tipoExame}: ', valor: 'SOLICITADO'));
+          blocos.add(
+            LaudoItemBloco(label: '${e.tipoExame}: ', valor: 'SOLICITADO'),
+          );
         }
       }
       for (var l in legados) {
-        blocos.add(LaudoItemBloco(label: '${l.tipoExame}: ', valor: 'SOLICITADO'));
+        blocos.add(
+          LaudoItemBloco(label: '${l.tipoExame}: ', valor: 'SOLICITADO'),
+        );
       }
     }
-    return LaudoSecao(id: 'exames_complementares', titulo: '5. EXAMES COMPLEMENTARES', blocos: blocos);
+    return LaudoSecao(
+      id: 'exames_complementares',
+      titulo: '5. EXAMES COMPLEMENTARES',
+      blocos: blocos,
+    );
   }
 
   LaudoSecao _buildSecaoRascunhos(List<LaudoCroquiRef> croquis) {
@@ -391,7 +454,11 @@ class LaudoBuilderService {
         blocos.add(LaudoImagemBloco(ref: 'croqui:${c.vista}'));
       }
     }
-    return LaudoSecao(id: 'rascunhos', titulo: '6. RASCUNHOS E ESQUEMAS DE LESÃO', blocos: blocos);
+    return LaudoSecao(
+      id: 'rascunhos',
+      titulo: '6. RASCUNHOS E ESQUEMAS DE LESÃO',
+      blocos: blocos,
+    );
   }
 
   LaudoSecao _buildSecaoFotografias(List<LaudoFoto> fotos) {
@@ -403,7 +470,11 @@ class LaudoBuilderService {
         blocos.add(LaudoImagemBloco(ref: 'foto:${f.numero}'));
       }
     }
-    return LaudoSecao(id: 'fotos', titulo: '7. REGISTRO FOTOGRÁFICO', blocos: blocos);
+    return LaudoSecao(
+      id: 'fotos',
+      titulo: '7. REGISTRO FOTOGRÁFICO',
+      blocos: blocos,
+    );
   }
 
   LaudoSecao _buildSecaoComentario(Caso caso) {
@@ -411,9 +482,7 @@ class LaudoBuilderService {
     return LaudoSecao(
       id: 'comentario',
       titulo: '8. COMENTÁRIO MÉDICO FORENSE',
-      blocos: [
-        LaudoParagrafoBloco(texto: disc.isNotEmpty ? disc : 'XXX'),
-      ],
+      blocos: [LaudoParagrafoBloco(texto: disc.isNotEmpty ? disc : 'XXX')],
     );
   }
 
@@ -434,7 +503,9 @@ class LaudoBuilderService {
     final blocos = <LaudoBloco>[
       LaudoItemBloco(
         label: '1º) Houve a morte? ',
-        valor: q.quesito1Morte.isNotEmpty ? q.quesito1Morte : 'SIM, CONFORME DESCRITO NO LAUDO.',
+        valor: q.quesito1Morte.isNotEmpty
+            ? q.quesito1Morte
+            : 'SIM, CONFORME DESCRITO NO LAUDO.',
       ),
     ];
 
@@ -445,11 +516,14 @@ class LaudoBuilderService {
         final prefixo = causasList.length > 1 ? 'Causa #${i + 1} - ' : '';
         final imediata = cm.imediata.isNotEmpty ? cm.imediata : 'XXX';
         final devidoA = cm.devidoA.isNotEmpty ? cm.devidoA : 'XXX';
-        final consequencia = cm.consequencia.isNotEmpty ? cm.consequencia : 'XXX';
+        final consequencia = cm.consequencia.isNotEmpty
+            ? cm.consequencia
+            : 'XXX';
         blocos.add(
           LaudoItemBloco(
             label: '2º) Qual a causa da morte? ($prefixo)',
-            valor: 'Imediata: $imediata; Devido a: $devidoA; Consequência: $consequencia',
+            valor:
+                'Imediata: $imediata; Devido a: $devidoA; Consequência: $consequencia',
           ),
         );
       }
@@ -468,22 +542,38 @@ class LaudoBuilderService {
         valor: q.quesito3Instrumento.isNotEmpty ? q.quesito3Instrumento : 'XXX',
       ),
       LaudoItemBloco(
-        label: '4º) Foi produzida por meio de veneno, fogo, explosivo, asfixia ou tortura? ',
+        label:
+            '4º) Foi produzida por meio de veneno, fogo, explosivo, asfixia ou tortura? ',
         valor: q.quesito4Meio.isNotEmpty ? q.quesito4Meio : 'XXX',
       ),
     ]);
 
-    return LaudoSecao(id: 'quesitos', titulo: '10. RESPOSTA AOS QUESITOS', blocos: blocos);
+    return LaudoSecao(
+      id: 'quesitos',
+      titulo: '10. RESPOSTA AOS QUESITOS',
+      blocos: blocos,
+    );
   }
 
   LaudoSecao _buildSecaoFecho(Caso caso, Usuario perito) {
     const meses = [
-      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
     ];
     final dt = caso.criadoEmDispositivo.toLocal();
     final mesStr = meses[dt.month - 1];
-    final dataExtenso = '${dt.day.toString().padLeft(2, '0')} de $mesStr de ${dt.year}';
+    final dataExtenso =
+        '${dt.day.toString().padLeft(2, '0')} de $mesStr de ${dt.year}';
     return LaudoSecao(
       id: 'fecho',
       titulo: null,

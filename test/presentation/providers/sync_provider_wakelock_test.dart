@@ -6,6 +6,7 @@ import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 import 'package:croqui_forense_mvp/presentation/providers/sync_provider.dart';
 
 class MockSyncService extends Mock implements SyncService {}
+
 class MockWakelockManager extends Mock implements IWakelockManager {}
 
 void main() {
@@ -33,9 +34,9 @@ void main() {
     test(
       'Habilita wakelock ao iniciar sincronização e desabilita em caso de sucesso',
       () async {
-        when(() => mockSyncService.execute()).thenAnswer(
-          (_) async => SyncResult.sucesso(casosEnviados: 1),
-        );
+        when(
+          () => mockSyncService.execute(),
+        ).thenAnswer((_) async => SyncResult.sucesso(casosEnviados: 1));
 
         await syncProvider.startSync();
 
@@ -50,9 +51,9 @@ void main() {
     test(
       'Garante desabilitação do wakelock mesmo quando SyncService lança SyncNetworkException',
       () async {
-        when(() => mockSyncService.execute()).thenThrow(
-          const SyncNetworkException('Erro de conectividade'),
-        );
+        when(
+          () => mockSyncService.execute(),
+        ).thenThrow(const SyncNetworkException('Erro de conectividade'));
 
         await syncProvider.startSync();
 
@@ -65,9 +66,9 @@ void main() {
     test(
       'Garante desabilitação do wakelock mesmo quando SyncService lança AuthException',
       () async {
-        when(() => mockSyncService.execute()).thenThrow(
-          const AuthException('Sessão expirada'),
-        );
+        when(
+          () => mockSyncService.execute(),
+        ).thenThrow(const AuthException('Sessão expirada'));
 
         await syncProvider.startSync();
 

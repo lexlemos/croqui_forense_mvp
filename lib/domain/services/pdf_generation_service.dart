@@ -15,7 +15,9 @@ import 'package:croqui_forense_mvp/domain/services/pdf_service.dart';
 ///
 /// @deprecated Utilize [IPdfReportEngine] e [PdfReportEngine] para operações de compilação
 /// e persistência vetorial de laudos com opções unificadas.
-@Deprecated('Use IPdfReportEngine / PdfReportEngine ao invés de PdfGenerationService')
+@Deprecated(
+  'Use IPdfReportEngine / PdfReportEngine ao invés de PdfGenerationService',
+)
 class PdfGenerationService {
   final PdfService _pdfService;
   final PdfReportService _reportService;
@@ -84,4 +86,3 @@ class PdfGenerationService {
     );
   }
 }
-

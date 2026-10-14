@@ -29,7 +29,6 @@ import 'package:croqui_forense_mvp/presentation/widgets/exames/anatomo_form_widg
 class ExamesTab extends StatelessWidget {
   const ExamesTab({super.key});
 
-
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CroquiController>();
@@ -182,8 +181,11 @@ class ExamesTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         JustificativaRecusaBox(
-                          justificativa: (toxicologicoExam.justificativaRecusa != null &&
-                                  toxicologicoExam.justificativaRecusa!.trim().isNotEmpty)
+                          justificativa:
+                              (toxicologicoExam.justificativaRecusa != null &&
+                                  toxicologicoExam.justificativaRecusa!
+                                      .trim()
+                                      .isNotEmpty)
                               ? toxicologicoExam.justificativaRecusa!
                               : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
                         ),
@@ -198,11 +200,11 @@ class ExamesTab extends StatelessWidget {
                           onPressed: readOnly
                               ? null
                               : () => _confirmarRetirarExame(
-                                    context,
-                                    controller,
-                                    'TOXICOLOGICO',
-                                    'Exame Toxicológico',
-                                  ),
+                                  context,
+                                  controller,
+                                  'TOXICOLOGICO',
+                                  'Exame Toxicológico',
+                                ),
                         ),
                       ],
                     ),
@@ -345,8 +347,11 @@ class ExamesTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         JustificativaRecusaBox(
-                          justificativa: (geneticaExam.justificativaRecusa != null &&
-                                  geneticaExam.justificativaRecusa!.trim().isNotEmpty)
+                          justificativa:
+                              (geneticaExam.justificativaRecusa != null &&
+                                  geneticaExam.justificativaRecusa!
+                                      .trim()
+                                      .isNotEmpty)
                               ? geneticaExam.justificativaRecusa!
                               : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
                         ),
@@ -361,11 +366,11 @@ class ExamesTab extends StatelessWidget {
                           onPressed: readOnly
                               ? null
                               : () => _confirmarRetirarExame(
-                                    context,
-                                    controller,
-                                    'GENETICA',
-                                    'Exame Genético',
-                                  ),
+                                  context,
+                                  controller,
+                                  'GENETICA',
+                                  'Exame Genético',
+                                ),
                         ),
                       ],
                     ),
@@ -507,8 +512,11 @@ class ExamesTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         JustificativaRecusaBox(
-                          justificativa: (anatomoExam.justificativaRecusa != null &&
-                                  anatomoExam.justificativaRecusa!.trim().isNotEmpty)
+                          justificativa:
+                              (anatomoExam.justificativaRecusa != null &&
+                                  anatomoExam.justificativaRecusa!
+                                      .trim()
+                                      .isNotEmpty)
                               ? anatomoExam.justificativaRecusa!
                               : 'A coleta foi recusada pelo A.T.N. no sistema Web.',
                         ),
@@ -523,11 +531,11 @@ class ExamesTab extends StatelessWidget {
                           onPressed: readOnly
                               ? null
                               : () => _confirmarRetirarExame(
-                                    context,
-                                    controller,
-                                    'ANATOMO',
-                                    'Exame Histopatológico',
-                                  ),
+                                  context,
+                                  controller,
+                                  'ANATOMO',
+                                  'Exame Histopatológico',
+                                ),
                         ),
                       ],
                     ),

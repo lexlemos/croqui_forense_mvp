@@ -62,11 +62,15 @@ class Usuario {
     final trimmed = rawCrm.trim();
     if (trimmed.isEmpty) return null;
 
-    final match = RegExp(r'\d+').allMatches(trimmed).map((m) => m.group(0)).join();
+    final match = RegExp(
+      r'\d+',
+    ).allMatches(trimmed).map((m) => m.group(0)).join();
     if (match.isNotEmpty) {
       return 'CRM/SE $match';
     }
-    return trimmed.toUpperCase().startsWith('CRM') ? trimmed : 'CRM/SE $trimmed';
+    return trimmed.toUpperCase().startsWith('CRM')
+        ? trimmed
+        : 'CRM/SE $trimmed';
   }
 
   /// Retorna o CRM formatado no padrão institucional 'CRM/SE 0000'.
@@ -164,8 +168,7 @@ class Usuario {
             map['crm_numero']?.toString() ??
             map['numero_crm']?.toString(),
       ),
-      classe: map['classe']?.toString() ??
-          map['classe_funcional']?.toString(),
+      classe: map['classe']?.toString() ?? map['classe_funcional']?.toString(),
     );
   }
 

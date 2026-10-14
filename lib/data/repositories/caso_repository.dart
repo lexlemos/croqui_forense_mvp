@@ -1166,6 +1166,7 @@ class CasoRepository implements ISyncRepository {
     );
     await _marcarCasoPendenteSync(db, evidencia.casoUuid);
   }
+
   Future<void> deleteEvidenciaGeral(String uuid) async {
     final db = await database;
     final ev = await getEvidenciaByUuid(uuid);

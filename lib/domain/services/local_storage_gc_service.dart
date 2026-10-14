@@ -36,7 +36,8 @@ class LocalStorageGcService {
   /// em caminhos externos ou URLs armazenados como referências remotas.
   Future<int> limparArquivosOrfaos() async {
     final db = await _db;
-    final docsDir = _baseDirectoryOverride ?? await getApplicationDocumentsDirectory();
+    final docsDir =
+        _baseDirectoryOverride ?? await getApplicationDocumentsDirectory();
     final arquivosRegistrados = <String>{};
 
     String normalizarCaminho(String caminho) {

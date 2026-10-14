@@ -11,10 +11,15 @@ import 'package:croqui_forense_mvp/domain/services/case_service.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
 
 class MockAchadoService extends Mock implements AchadoService {}
+
 class MockCaseService extends Mock implements CaseService {}
+
 class MockInjuryTypeRepository extends Mock implements InjuryTypeRepository {}
+
 class MockAchadoRepository extends Mock implements AchadoRepository {}
+
 class MockCasoRepository extends Mock implements CasoRepository {}
+
 class MockAtnRepository extends Mock implements AtnRepository {}
 
 void main() {
@@ -48,24 +53,31 @@ void main() {
       mockAtnRepository = MockAtnRepository();
       lockService = ActiveCaseLockService();
 
-      when(() => mockCaseService.salvarRascunho(any()))
-          .thenAnswer((_) async {});
-      when(() => mockAchadoService.listarAchados(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockCaseService.getEvidenciasGerais(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockCaseService.getEvidenciasPorCaso(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockCasoRepository.getEvidenciasPorCaso(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockCaseService.getExamesSolicitados(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockCaseService.getExamesPorCaso(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockCasoRepository.getExamesPorCaso(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockAtnRepository.getAtns())
-          .thenAnswer((_) async => []);
+      when(
+        () => mockCaseService.salvarRascunho(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockAchadoService.listarAchados(any()),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockCaseService.getEvidenciasGerais(any()),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockCaseService.getEvidenciasPorCaso(any()),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockCasoRepository.getEvidenciasPorCaso(any()),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockCaseService.getExamesSolicitados(any()),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockCaseService.getExamesPorCaso(any()),
+      ).thenAnswer((_) async => []);
+      when(
+        () => mockCasoRepository.getExamesPorCaso(any()),
+      ).thenAnswer((_) async => []);
+      when(() => mockAtnRepository.getAtns()).thenAnswer((_) async => []);
     });
 
     test('adquire lock do caso no init e libera o lock no dispose', () async {

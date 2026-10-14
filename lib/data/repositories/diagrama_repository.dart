@@ -18,4 +18,3 @@ class DiagramaRepository {
     return db.query('templates_diagrama');
   }
 }
-

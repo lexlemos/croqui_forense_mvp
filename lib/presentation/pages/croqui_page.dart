@@ -228,9 +228,15 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
               icon: const Icon(Icons.more_vert),
               tooltip: 'Mais opções',
               onSelected: (value) {
-                if (value == 'edit') _reabrirCaso(context, controller);
-                if (value == 'export') _exportarCaso(context, controller);
-                if (value == 'export_docx') _exportarCasoDocx(context, controller);
+                if (value == 'edit') {
+                  _reabrirCaso(context, controller);
+                }
+                if (value == 'export') {
+                  _exportarCaso(context, controller);
+                }
+                if (value == 'export_docx') {
+                  _exportarCasoDocx(context, controller);
+                }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                 if (controller.isReadOnly &&

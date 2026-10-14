@@ -106,29 +106,39 @@ class CroquiController extends ChangeNotifier {
   TextEditingController get boCtrl => formCoordinator.boCtrl;
   TextEditingController get picCtrl => formCoordinator.picCtrl;
   TextEditingController get reqOrigemCtrl => formCoordinator.reqOrigemCtrl;
-  TextEditingController get delegaciaSolicitanteCtrl => formCoordinator.delegaciaSolicitanteCtrl;
+  TextEditingController get delegaciaSolicitanteCtrl =>
+      formCoordinator.delegaciaSolicitanteCtrl;
   TextEditingController get reqDestinoCtrl => formCoordinator.reqDestinoCtrl;
   TextEditingController get nomeVitimaCtrl => formCoordinator.nomeVitimaCtrl;
 
-  TextEditingController get numeroDeclaracaoObitoCtrl => formCoordinator.numeroDeclaracaoObitoCtrl;
+  TextEditingController get numeroDeclaracaoObitoCtrl =>
+      formCoordinator.numeroDeclaracaoObitoCtrl;
   TextEditingController get dataObitoCtrl => formCoordinator.dataObitoCtrl;
   TextEditingController get horaObitoCtrl => formCoordinator.horaObitoCtrl;
-  TextEditingController get tipoEstimativaHoraObitoCtrl => formCoordinator.tipoEstimativaHoraObitoCtrl;
-  TextEditingController get sexoBiologicoEstimadoCtrl => formCoordinator.sexoBiologicoEstimadoCtrl;
+  TextEditingController get tipoEstimativaHoraObitoCtrl =>
+      formCoordinator.tipoEstimativaHoraObitoCtrl;
+  TextEditingController get sexoBiologicoEstimadoCtrl =>
+      formCoordinator.sexoBiologicoEstimadoCtrl;
   TextEditingController get corpoEstadoCtrl => formCoordinator.corpoEstadoCtrl;
-  TextEditingController get corpoEstadoOutrosCtrl => formCoordinator.corpoEstadoOutrosCtrl;
+  TextEditingController get corpoEstadoOutrosCtrl =>
+      formCoordinator.corpoEstadoOutrosCtrl;
 
   TextEditingController get historicoCtrl => formCoordinator.historicoCtrl;
   TextEditingController get vestesCtrl => formCoordinator.vestesCtrl;
-  TextEditingController get caracteristicasCtrl => formCoordinator.caracteristicasCtrl;
-  TextEditingController get tanatoImediatoCtrl => formCoordinator.tanatoImediatoCtrl;
-  TextEditingController get tanatoConsecutivoCtrl => formCoordinator.tanatoConsecutivoCtrl;
-  TextEditingController get tanatoObservacaoCtrl => formCoordinator.tanatoObservacaoCtrl;
+  TextEditingController get caracteristicasCtrl =>
+      formCoordinator.caracteristicasCtrl;
+  TextEditingController get tanatoImediatoCtrl =>
+      formCoordinator.tanatoImediatoCtrl;
+  TextEditingController get tanatoConsecutivoCtrl =>
+      formCoordinator.tanatoConsecutivoCtrl;
+  TextEditingController get tanatoObservacaoCtrl =>
+      formCoordinator.tanatoObservacaoCtrl;
 
   TextEditingController get discussaoCtrl => formCoordinator.discussaoCtrl;
   TextEditingController get conclusaoCtrl => formCoordinator.conclusaoCtrl;
   TextEditingController get quesito1Ctrl => formCoordinator.quesito1Ctrl;
-  List<CausaMorteControllers> get causasMorteCtrls => formCoordinator.causasMorteCtrls;
+  List<CausaMorteControllers> get causasMorteCtrls =>
+      formCoordinator.causasMorteCtrls;
   TextEditingController get quesito3Ctrl => formCoordinator.quesito3Ctrl;
   TextEditingController get quesito4Ctrl => formCoordinator.quesito4Ctrl;
 
@@ -151,7 +161,8 @@ class CroquiController extends ChangeNotifier {
     bool? isReadOnly,
   }) : _activeCaseLockService = activeCaseLockService,
        _pdfEngine = pdfEngine ?? PdfReportEngine(),
-       _lifecycleService = lifecycleService ??
+       _lifecycleService =
+           lifecycleService ??
            CaseLifecycleService(
              caseService: _caseService,
              pdfEngine: pdfEngine ?? PdfReportEngine(),
@@ -183,7 +194,8 @@ class CroquiController extends ChangeNotifier {
   ICaseLifecycleService get lifecycleService => _lifecycleService;
 
   /// Valida se todos os quesitos obrigatórios foram respondidos no laudo.
-  bool validarCamposObrigatorios() => formCoordinator.validarCamposObrigatorios();
+  bool validarCamposObrigatorios() =>
+      formCoordinator.validarCamposObrigatorios();
 
   /// Gera um UUID v4 determinístico baseado em UUID v5 com formato compatível com o backend.
   String _toDeterministicUuidV4(String namespace, String name) {
@@ -211,9 +223,7 @@ class CroquiController extends ChangeNotifier {
       examesSolicitadosModel = await _caseService.getExamesPorCaso(
         casoAtual.uuid,
       );
-      casoAtual = casoAtual.copyWith(
-        exames: examesSolicitadosModel,
-      );
+      casoAtual = casoAtual.copyWith(exames: examesSolicitadosModel);
       atns = await _atnRepository.getAtns();
     } finally {
       isLoading = false;
@@ -327,7 +337,6 @@ class CroquiController extends ChangeNotifier {
     notifyListeners();
     scheduleAutoSave(); // Garante salvamento no SQLite local
   }
-
 
   /// Retorna a lista de [Achado]s registrados filtrados pela projeção ou vista anatômica ([view]).
   List<Achado> getMarkersForView(String view) {
@@ -469,7 +478,8 @@ class CroquiController extends ChangeNotifier {
       final bool temBalisticaReal =
           (tipoFerimento != null && tipoFerimento.trim().isNotEmpty) ||
           (tipoObjeto != null && tipoObjeto.trim().isNotEmpty) ||
-          (comentarioAdicional != null && comentarioAdicional.trim().isNotEmpty);
+          (comentarioAdicional != null &&
+              comentarioAdicional.trim().isNotEmpty);
 
       if (temBalisticaReal) {
         final String balisticaId = deterministicUuidV5(
@@ -626,7 +636,8 @@ class CroquiController extends ChangeNotifier {
       final bool temBalisticaReal =
           (tipoFerimento != null && tipoFerimento.trim().isNotEmpty) ||
           (tipoObjeto != null && tipoObjeto.trim().isNotEmpty) ||
-          (comentarioAdicional != null && comentarioAdicional.trim().isNotEmpty);
+          (comentarioAdicional != null &&
+              comentarioAdicional.trim().isNotEmpty);
 
       if (temBalisticaReal) {
         novasBalisticas.add(
@@ -1139,7 +1150,6 @@ class CroquiController extends ChangeNotifier {
     atualizarDadosLaudoMemoria(novosDados);
   }
 
-
   /// Resolve o nome anatômico da região do corpo a partir da vista e do identificador do polígono.
   String _resolveBodyPartName(String view, String partId) {
     if ((view == 'frente' || view == 'front') &&
@@ -1447,12 +1457,14 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
-      if (delegaciaSolicitanteCtrl.text.isEmpty && dto.delegaciaSolicitante != null) {
+      if (delegaciaSolicitanteCtrl.text.isEmpty &&
+          dto.delegaciaSolicitante != null) {
         delegaciaSolicitanteCtrl.text = dto.delegaciaSolicitante!;
         altered = true;
       }
 
-      if (numeroDeclaracaoObitoCtrl.text.isEmpty && dto.numeroDeclaracaoObito != null) {
+      if (numeroDeclaracaoObitoCtrl.text.isEmpty &&
+          dto.numeroDeclaracaoObito != null) {
         numeroDeclaracaoObitoCtrl.text = dto.numeroDeclaracaoObito!;
         altered = true;
       }
@@ -1467,7 +1479,8 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
-      if (sexoBiologicoEstimadoCtrl.text.isEmpty && dto.sexoBiologicoEstimado != null) {
+      if (sexoBiologicoEstimadoCtrl.text.isEmpty &&
+          dto.sexoBiologicoEstimado != null) {
         sexoBiologicoEstimadoCtrl.text = dto.sexoBiologicoEstimado!;
         altered = true;
       }
@@ -1491,7 +1504,10 @@ class CroquiController extends ChangeNotifier {
       if (altered) {
         sincronizarDadosEmMemoria(null, false);
         scheduleAutoSave();
-        _snack("Dados burocráticos autopreenchidos com sucesso!", color: Colors.teal);
+        _snack(
+          "Dados burocráticos autopreenchidos com sucesso!",
+          color: Colors.teal,
+        );
       }
     } finally {
       _isFetchingPic = false;
@@ -1512,4 +1528,3 @@ class CroquiController extends ChangeNotifier {
     );
   }
 }
-

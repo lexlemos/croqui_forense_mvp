@@ -882,7 +882,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                           ),
                         )
                       : Text(
-                          controller.casoAtual.status == StatusCaso.laudoPendente
+                          controller.casoAtual.status ==
+                                  StatusCaso.laudoPendente
                               ? "CONCLUIR LAUDO"
                               : "FINALIZAR EXAME",
                           style: const TextStyle(
@@ -893,8 +894,8 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
                         controller.casoAtual.status == StatusCaso.laudoPendente
-                            ? Colors.green[700]
-                            : Colors.indigo[700],
+                        ? Colors.green[700]
+                        : Colors.indigo[700],
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

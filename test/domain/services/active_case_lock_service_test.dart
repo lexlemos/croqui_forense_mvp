@@ -53,15 +53,15 @@ void main() {
       expect(lockService.isLocked('caso-b'), isTrue);
     });
 
-    test('lockedCaseUuids retorna conjunto imutável protegendo o estado interno', () {
-      lockService.acquireLock('caso-seguro');
-      final locked = lockService.lockedCaseUuids;
+    test(
+      'lockedCaseUuids retorna conjunto imutável protegendo o estado interno',
+      () {
+        lockService.acquireLock('caso-seguro');
+        final locked = lockService.lockedCaseUuids;
 
-      expect(
-        () => locked.add('caso-malicioso'),
-        throwsUnsupportedError,
-      );
-      expect(lockService.isLocked('caso-malicioso'), isFalse);
-    });
+        expect(() => locked.add('caso-malicioso'), throwsUnsupportedError);
+        expect(lockService.isLocked('caso-malicioso'), isFalse);
+      },
+    );
   });
 }

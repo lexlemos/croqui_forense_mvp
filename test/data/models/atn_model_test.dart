@@ -4,22 +4,25 @@ import 'package:croqui_forense_mvp/core/exceptions/database_corrupted_exception.
 
 void main() {
   group('AtnModel - Unificação de Usuários e ATNs', () {
-    test('instancia corretamente a partir do payload novo do backend (nome_completo, email, cpf)', () {
-      final json = {
-        'id': '140f97d4-b7ce-4cf3-8872-5dda87c4fb70',
-        'nome_completo': 'Carlos Silva',
-        'email': 'carlos.silva@iml.gov.br',
-        'cpf': '12345678901',
-      };
+    test(
+      'instancia corretamente a partir do payload novo do backend (nome_completo, email, cpf)',
+      () {
+        final json = {
+          'id': '140f97d4-b7ce-4cf3-8872-5dda87c4fb70',
+          'nome_completo': 'Carlos Silva',
+          'email': 'carlos.silva@iml.gov.br',
+          'cpf': '12345678901',
+        };
 
-      final atn = AtnModel.fromMap(json);
+        final atn = AtnModel.fromMap(json);
 
-      expect(atn.id, equals('140f97d4-b7ce-4cf3-8872-5dda87c4fb70'));
-      expect(atn.nome, equals('Carlos Silva'));
-      expect(atn.email, equals('carlos.silva@iml.gov.br'));
-      expect(atn.cpf, equals('12345678901'));
-      expect(atn.ativo, isTrue);
-    });
+        expect(atn.id, equals('140f97d4-b7ce-4cf3-8872-5dda87c4fb70'));
+        expect(atn.nome, equals('Carlos Silva'));
+        expect(atn.email, equals('carlos.silva@iml.gov.br'));
+        expect(atn.cpf, equals('12345678901'));
+        expect(atn.ativo, isTrue);
+      },
+    );
 
     test('mantem retrocompatibilidade com payload legado (nome, ativo)', () {
       final jsonLegado = {
@@ -36,16 +39,19 @@ void main() {
       expect(atn.email, isNull);
     });
 
-    test('lanca DatabaseCorruptedException quando id ou nome estiverem vazios', () {
-      expect(
-        () => AtnModel.fromMap({'id': '', 'nome': 'Invalido'}),
-        throwsA(isA<DatabaseCorruptedException>()),
-      );
-      expect(
-        () => AtnModel.fromMap({'id': 'valid-id', 'nome': ''}),
-        throwsA(isA<DatabaseCorruptedException>()),
-      );
-    });
+    test(
+      'lanca DatabaseCorruptedException quando id ou nome estiverem vazios',
+      () {
+        expect(
+          () => AtnModel.fromMap({'id': '', 'nome': 'Invalido'}),
+          throwsA(isA<DatabaseCorruptedException>()),
+        );
+        expect(
+          () => AtnModel.fromMap({'id': 'valid-id', 'nome': ''}),
+          throwsA(isA<DatabaseCorruptedException>()),
+        );
+      },
+    );
 
     test('toMap gera mapa compatível com tabela local SQLite atns', () {
       final atn = AtnModel(

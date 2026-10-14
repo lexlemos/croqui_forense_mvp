@@ -29,11 +29,11 @@ class LaudoFoto {
   }
 
   factory LaudoFoto.fromJson(Map<String, dynamic> json) => LaudoFoto(
-        numero: (json['numero'] as num).toInt(),
-        tipo: json['tipo'] as String,
-        evidenciaUuid: json['evidencia_uuid'] as String,
-        achadoUuid: json['achado_uuid'] as String?,
-        legenda: json['legenda'] as String,
-        hashArquivo: json['hash_arquivo'] as String?,
-      );
+    numero: (json['numero'] as num).toInt(),
+    tipo: json['tipo'] as String,
+    evidenciaUuid: json['evidencia_uuid'] as String,
+    achadoUuid: json['achado_uuid'] as String?,
+    legenda: json['legenda'] as String,
+    hashArquivo: json['hash_arquivo'] as String?,
+  );
 }

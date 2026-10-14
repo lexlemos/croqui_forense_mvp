@@ -37,4 +37,3 @@ enum StatusConfirmacaoATN {
   /// Converte o enum no formato de texto em maiúsculas esperado pelo backend.
   String toBackendString() => name;
 }
-

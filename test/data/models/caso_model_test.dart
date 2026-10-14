@@ -78,32 +78,35 @@ void main() {
       },
     );
 
-    test('Decodifica sexo_biologico_estimado direto ou aninhado em vitima/vitimas', () {
-      final casoDireto = Caso.fromMap({
-        'uuid': 'c-1',
-        'sexo_biologico_estimado': 'MASCULINO',
-      });
-      expect(casoDireto.sexoBiologicoEstimado, equals('Masculino'));
+    test(
+      'Decodifica sexo_biologico_estimado direto ou aninhado em vitima/vitimas',
+      () {
+        final casoDireto = Caso.fromMap({
+          'uuid': 'c-1',
+          'sexo_biologico_estimado': 'MASCULINO',
+        });
+        expect(casoDireto.sexoBiologicoEstimado, equals('Masculino'));
 
-      final casoVitimaMap = Caso.fromMap({
-        'uuid': 'c-2',
-        'vitima': {'sexo_biologico_estimado': 'FEMININO'},
-      });
-      expect(casoVitimaMap.sexoBiologicoEstimado, equals('Feminino'));
+        final casoVitimaMap = Caso.fromMap({
+          'uuid': 'c-2',
+          'vitima': {'sexo_biologico_estimado': 'FEMININO'},
+        });
+        expect(casoVitimaMap.sexoBiologicoEstimado, equals('Feminino'));
 
-      final casoVitimasList = Caso.fromMap({
-        'uuid': 'c-3',
-        'vitimas': [
-          {'sexo_biologico_estimado': 'INDETERMINADO'}
-        ],
-      });
-      expect(casoVitimasList.sexoBiologicoEstimado, equals('Indeterminado'));
+        final casoVitimasList = Caso.fromMap({
+          'uuid': 'c-3',
+          'vitimas': [
+            {'sexo_biologico_estimado': 'INDETERMINADO'},
+          ],
+        });
+        expect(casoVitimasList.sexoBiologicoEstimado, equals('Indeterminado'));
 
-      final casoFallbackSexo = Caso.fromMap({
-        'uuid': 'c-4',
-        'sexo': 'MASCULINO',
-      });
-      expect(casoFallbackSexo.sexoBiologicoEstimado, equals('Masculino'));
-    });
+        final casoFallbackSexo = Caso.fromMap({
+          'uuid': 'c-4',
+          'sexo': 'MASCULINO',
+        });
+        expect(casoFallbackSexo.sexoBiologicoEstimado, equals('Masculino'));
+      },
+    );
   });
 }

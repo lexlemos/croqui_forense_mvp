@@ -7,7 +7,9 @@ import 'package:croqui_forense_mvp/domain/services/active_case_lock_service.dart
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
 class MockRemoteDataSource extends Mock implements IRemoteDataSource {}
+
 class MockSyncRepository extends Mock implements ISyncRepository {}
+
 class MockKeyStorage extends Mock implements KeyStorageInterface {}
 
 class FakeParsedSyncPayload extends Fake implements ParsedSyncPayload {}
@@ -32,14 +34,18 @@ void main() {
       mockKeyStorage = MockKeyStorage();
       lockService = ActiveCaseLockService();
 
-      when(() => mockKeyStorage.read(key: any(named: 'key')))
-          .thenAnswer((_) async => null);
-      when(() => mockKeyStorage.save(
-            key: any(named: 'key'),
-            value: any(named: 'value'),
-          )).thenAnswer((_) async {});
-      when(() => mockSyncRepository.upsertCasoTransaction(any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockKeyStorage.read(key: any(named: 'key')),
+      ).thenAnswer((_) async => null);
+      when(
+        () => mockKeyStorage.save(
+          key: any(named: 'key'),
+          value: any(named: 'value'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockSyncRepository.upsertCasoTransaction(any()),
+      ).thenAnswer((_) async {});
 
       syncService = SyncService(
         remoteDataSource: mockRemoteDataSource,
@@ -80,14 +86,22 @@ void main() {
         // 1. Verifica que upsertCasoTransaction foi chamado para o caso livre
         verify(
           () => mockSyncRepository.upsertCasoTransaction(
-            any(that: predicate<ParsedSyncPayload>((p) => p.caso.uuid == 'caso-livre')),
+            any(
+              that: predicate<ParsedSyncPayload>(
+                (p) => p.caso.uuid == 'caso-livre',
+              ),
+            ),
           ),
         ).called(1);
 
         // 2. Verifica que upsertCasoTransaction NUNCA foi chamado para o caso bloqueado
         verifyNever(
           () => mockSyncRepository.upsertCasoTransaction(
-            any(that: predicate<ParsedSyncPayload>((p) => p.caso.uuid == 'caso-em-edicao-ativa')),
+            any(
+              that: predicate<ParsedSyncPayload>(
+                (p) => p.caso.uuid == 'caso-em-edicao-ativa',
+              ),
+            ),
           ),
         );
 

@@ -131,11 +131,15 @@ class HomeController extends ChangeNotifier {
         declaracaoCtrl.text = dto.numeroDeclaracaoObito!;
       }
 
-      if (destinoCtrl != null && destinoCtrl.text.isEmpty && dto.destinoLaudo != null) {
+      if (destinoCtrl != null &&
+          destinoCtrl.text.isEmpty &&
+          dto.destinoLaudo != null) {
         destinoCtrl.text = dto.destinoLaudo!;
       }
 
-      if (vitimaCtrl != null && vitimaCtrl.text.isEmpty && dto.nomeVitima != null) {
+      if (vitimaCtrl != null &&
+          vitimaCtrl.text.isEmpty &&
+          dto.nomeVitima != null) {
         vitimaCtrl.text = dto.nomeVitima!;
       }
 
@@ -165,11 +169,14 @@ class HomeController extends ChangeNotifier {
 
     if (dadosRetornados != null) {
       final String? uuid = dadosRetornados['uuid'];
-      final String numero = sanitizarRequisicao(dadosRetornados['numero_laudo']);
+      final String numero = sanitizarRequisicao(
+        dadosRetornados['numero_laudo'],
+      );
       final String numeroPic = dadosRetornados['numero_pic'] ?? '';
       final String numeroBo = dadosRetornados['numero_bo'] ?? '';
-      final String numeroRequisicao =
-          sanitizarRequisicao(dadosRetornados['numero_requisicao']);
+      final String numeroRequisicao = sanitizarRequisicao(
+        dadosRetornados['numero_requisicao'],
+      );
       final String nomeVitima = dadosRetornados['nome_vitima'] ?? '';
       final String destino = dadosRetornados['destino'] ?? '';
       final String requisitante = dadosRetornados['requisitante'] ?? '';

@@ -4,18 +4,17 @@ import 'laudo_secao.dart';
 class LaudoDocumento {
   final List<LaudoSecao> secoes;
 
-  const LaudoDocumento({
-    required this.secoes,
-  });
+  const LaudoDocumento({required this.secoes});
 
   Map<String, dynamic> toJson() => {
-        'secoes': secoes.map((s) => s.toJson()).toList(),
-      };
+    'secoes': secoes.map((s) => s.toJson()).toList(),
+  };
 
   factory LaudoDocumento.fromJson(Map<String, dynamic> json) => LaudoDocumento(
-        secoes: (json['secoes'] as List<dynamic>?)
-                ?.map((s) => LaudoSecao.fromJson(s as Map<String, dynamic>))
-                .toList() ??
-            const [],
-      );
+    secoes:
+        (json['secoes'] as List<dynamic>?)
+            ?.map((s) => LaudoSecao.fromJson(s as Map<String, dynamic>))
+            .toList() ??
+        const [],
+  );
 }

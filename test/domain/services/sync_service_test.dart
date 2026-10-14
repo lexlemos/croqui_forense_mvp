@@ -224,9 +224,12 @@ void main() {
         when(
           () => mockSyncRepository.getAchadosEmLote(any()),
         ).thenAnswer((_) async => <String, List<Achado>>{'caso-uuid-001': []});
-        when(
-          () => mockRemoteDataSource.pushTextual(any()),
-        ).thenAnswer((_) async => {'casos_salvos': ['caso-uuid-001'], 'conflitos': []});
+        when(() => mockRemoteDataSource.pushTextual(any())).thenAnswer(
+          (_) async => {
+            'casos_salvos': ['caso-uuid-001'],
+            'conflitos': [],
+          },
+        );
         when(
           () => mockSyncRepository.marcarCasoComoSincronizado(any()),
         ).thenAnswer((_) async {});
@@ -240,7 +243,9 @@ void main() {
         final result = await syncService.execute();
 
         expect(result.casosEnviados, 1);
-        final captured = verify(() => mockRemoteDataSource.pushTextual(captureAny())).captured;
+        final captured = verify(
+          () => mockRemoteDataSource.pushTextual(captureAny()),
+        ).captured;
         expect(captured, isNotEmpty);
         final bulkPayload = captured.first as Map<String, dynamic>;
         final payloadList = bulkPayload['casos'] as List<dynamic>;

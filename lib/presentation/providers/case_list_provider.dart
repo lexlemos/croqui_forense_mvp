@@ -104,8 +104,9 @@ class CaseListProvider extends ChangeNotifier {
     required List<dynamic> fotosGerais,
     required List<String> atnsIds,
   }) async {
-    final effectiveUuid =
-        (uuid != null && uuid.isNotEmpty) ? uuid : const Uuid().v4();
+    final effectiveUuid = (uuid != null && uuid.isNotEmpty)
+        ? uuid
+        : const Uuid().v4();
 
     final List<EvidenciaMultimidia> evidencias = [];
     for (final foto in fotosGerais) {

@@ -6,43 +6,39 @@ class StatusAtnBadge extends StatelessWidget {
   final StatusConfirmacaoATN status;
   final bool showIcon;
 
-  const StatusAtnBadge({
-    super.key,
-    required this.status,
-    this.showIcon = true,
-  });
+  const StatusAtnBadge({super.key, required this.status, this.showIcon = true});
 
   @override
   Widget build(BuildContext context) {
     final _BadgeConfig config = switch (status) {
       StatusConfirmacaoATN.PENDENTE => const _BadgeConfig(
-          label: 'Pendente',
-          icon: Icons.pending_actions,
-          backgroundColor: Color(0xFFFFF3E0), // Orange 50
-          borderColor: Color(0xFFFFCC80), // Orange 200
-          textColor: Color(0xFFE65100), // Orange 900
-        ),
+        label: 'Pendente',
+        icon: Icons.pending_actions,
+        backgroundColor: Color(0xFFFFF3E0), // Orange 50
+        borderColor: Color(0xFFFFCC80), // Orange 200
+        textColor: Color(0xFFE65100), // Orange 900
+      ),
       StatusConfirmacaoATN.VISUALIZADO => const _BadgeConfig(
-          label: 'Visualizado',
-          icon: Icons.visibility,
-          backgroundColor: Color(0xFFE3F2FD), // Blue 50
-          borderColor: Color(0xFF90CAF9), // Blue 200
-          textColor: Color(0xFF0D47A1), // Blue 900
-        ),
+        label: 'Visualizado',
+        icon: Icons.visibility,
+        backgroundColor: Color(0xFFE3F2FD), // Blue 50
+        borderColor: Color(0xFF90CAF9), // Blue 200
+        textColor: Color(0xFF0D47A1), // Blue 900
+      ),
       StatusConfirmacaoATN.CONFIRMADO => const _BadgeConfig(
-          label: 'Confirmado',
-          icon: Icons.check_circle,
-          backgroundColor: Color(0xFFE8F5E9), // Green 50
-          borderColor: Color(0xFFA5D6A7), // Green 200
-          textColor: Color(0xFF1B5E20), // Green 900
-        ),
+        label: 'Confirmado',
+        icon: Icons.check_circle,
+        backgroundColor: Color(0xFFE8F5E9), // Green 50
+        borderColor: Color(0xFFA5D6A7), // Green 200
+        textColor: Color(0xFF1B5E20), // Green 900
+      ),
       StatusConfirmacaoATN.RECUSADO => const _BadgeConfig(
-          label: 'Recusado',
-          icon: Icons.cancel,
-          backgroundColor: Color(0xFFFFEBEE), // Red 50
-          borderColor: Color(0xFFEF9A9A), // Red 200
-          textColor: Color(0xFFB71C1C), // Red 900
-        ),
+        label: 'Recusado',
+        icon: Icons.cancel,
+        backgroundColor: Color(0xFFFFEBEE), // Red 50
+        borderColor: Color(0xFFEF9A9A), // Red 200
+        textColor: Color(0xFFB71C1C), // Red 900
+      ),
     };
 
     return Container(
@@ -79,10 +75,7 @@ class StatusAtnBadge extends StatelessWidget {
 class JustificativaRecusaBox extends StatelessWidget {
   final String justificativa;
 
-  const JustificativaRecusaBox({
-    super.key,
-    required this.justificativa,
-  });
+  const JustificativaRecusaBox({super.key, required this.justificativa});
 
   @override
   Widget build(BuildContext context) {

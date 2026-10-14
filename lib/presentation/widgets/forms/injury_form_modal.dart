@@ -247,7 +247,9 @@ class _InjuryFormModalState extends State<InjuryFormModal> {
         'tipoFerimento': _hasBalistica ? _selectedTipoFerimento : null,
         'tipoObjeto': _hasBalistica ? _selectedTipoObjeto : null,
         'numeroLacre': null,
-        'comentarioAdicional': (_hasBalistica && _comentarioAdicionalController.text.trim().isNotEmpty)
+        'comentarioAdicional':
+            (_hasBalistica &&
+                _comentarioAdicionalController.text.trim().isNotEmpty)
             ? _comentarioAdicionalController.text.trim()
             : null,
       };

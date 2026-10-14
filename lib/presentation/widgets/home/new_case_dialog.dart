@@ -384,33 +384,37 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                           icon: const Icon(Icons.search, size: 20),
                           tooltip: 'Buscar dados por PIC / Protocolo',
                           onPressed: () async {
-                            final dto = await widget.controller?.buscarDadosIniciais(
-                              _picController.text,
-                              context: context,
-                              requisicaoCtrl: _reqController,
-                              boCtrl: _boController,
-                              autoridadeCtrl: _requisitanteController,
-                              delegaciaCtrl: _delegaciaController,
-                              declaracaoCtrl: _declaracaoObitoController,
-                              destinoCtrl: _destinoController,
-                              vitimaCtrl: _vitimaController,
-                              forcar: true,
-                            );
+                            final dto = await widget.controller
+                                ?.buscarDadosIniciais(
+                                  _picController.text,
+                                  context: context,
+                                  requisicaoCtrl: _reqController,
+                                  boCtrl: _boController,
+                                  autoridadeCtrl: _requisitanteController,
+                                  delegaciaCtrl: _delegaciaController,
+                                  declaracaoCtrl: _declaracaoObitoController,
+                                  destinoCtrl: _destinoController,
+                                  vitimaCtrl: _vitimaController,
+                                  forcar: true,
+                                );
                             if (dto != null) {
                               if (dto.exameId != null) {
                                 _exameId = dto.exameId;
                               }
-                              if (dto.dataFato != null && dto.dataFato!.isNotEmpty) {
+                              if (dto.dataFato != null &&
+                                  dto.dataFato!.isNotEmpty) {
                                 _dataObito = formatarDataBr(dto.dataFato);
                               }
-                              if (dto.horaFato != null && dto.horaFato!.isNotEmpty) {
+                              if (dto.horaFato != null &&
+                                  dto.horaFato!.isNotEmpty) {
                                 _horaObito = formatarHoraBr(dto.horaFato);
                               }
                               if (dto.sexoBiologicoEstimado != null &&
                                   dto.sexoBiologicoEstimado!.isNotEmpty) {
                                 setState(() {
-                                  _sexoBiologicoEstimado =
-                                      _formatarSexo(dto.sexoBiologicoEstimado);
+                                  _sexoBiologicoEstimado = _formatarSexo(
+                                    dto.sexoBiologicoEstimado,
+                                  );
                                 });
                               }
                             }

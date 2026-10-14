@@ -278,7 +278,9 @@ class CroquiFormCoordinator {
       numeroBo: boCtrl.text,
       numeroPic: picCtrl.text,
       numeroRequisicao: reqNum,
-      numeroLaudoExterno: reqNum.isNotEmpty ? reqNum : casoBase.numeroLaudoExterno,
+      numeroLaudoExterno: reqNum.isNotEmpty
+          ? reqNum
+          : casoBase.numeroLaudoExterno,
       nomeVitima: nomeVitimaCtrl.text,
       destino: reqDestinoCtrl.text,
       requisitante: reqOrigemCtrl.text,

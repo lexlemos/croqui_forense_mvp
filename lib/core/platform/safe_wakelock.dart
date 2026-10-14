@@ -34,7 +34,9 @@ class SafeWakelock implements IWakelockManager {
       await WakelockPlus.enable();
       debugPrint('[SafeWakelock] ⚡ Wakelock ativado com sucesso.');
     } catch (e) {
-      debugPrint('[SafeWakelock] ⚠️ Falha ao ativar wakelock (ignorado de forma segura): $e');
+      debugPrint(
+        '[SafeWakelock] ⚠️ Falha ao ativar wakelock (ignorado de forma segura): $e',
+      );
     }
   }
 
@@ -44,7 +46,9 @@ class SafeWakelock implements IWakelockManager {
       await WakelockPlus.disable();
       debugPrint('[SafeWakelock] 💤 Wakelock liberado com sucesso.');
     } catch (e) {
-      debugPrint('[SafeWakelock] ⚠️ Falha ao desativar wakelock (ignorado de forma segura): $e');
+      debugPrint(
+        '[SafeWakelock] ⚠️ Falha ao desativar wakelock (ignorado de forma segura): $e',
+      );
     }
   }
 

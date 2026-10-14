@@ -17,17 +17,12 @@ class AtnModel {
     this.cpf,
   });
 
-  AtnModel.novo({
-    required this.nome,
-    this.ativo = true,
-    this.email,
-    this.cpf,
-  }) : id = const Uuid().v4();
+  AtnModel.novo({required this.nome, this.ativo = true, this.email, this.cpf})
+    : id = const Uuid().v4();
 
   factory AtnModel.fromMap(Map<String, dynamic> map) {
     final id = map['id']?.toString().trim() ?? '';
-    final nome =
-        (map['nome_completo'] ?? map['nome'])?.toString().trim() ?? '';
+    final nome = (map['nome_completo'] ?? map['nome'])?.toString().trim() ?? '';
     if (id.isEmpty || nome.isEmpty) {
       throw DatabaseCorruptedException(
         'Registro de ATN inválido no banco local.',

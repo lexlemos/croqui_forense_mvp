@@ -48,10 +48,8 @@ class SyncProvider extends ChangeNotifier {
 
   /// Cria uma nova instância de [SyncProvider], permitindo injetar [wakelockManager]
   /// para testes ou utilizar [SafeWakelock] por padrão (ADR-0001).
-  SyncProvider(
-    this._syncService, {
-    IWakelockManager? wakelockManager,
-  }) : _wakelock = wakelockManager ?? SafeWakelock();
+  SyncProvider(this._syncService, {IWakelockManager? wakelockManager})
+    : _wakelock = wakelockManager ?? SafeWakelock();
 
   @override
   void dispose() {
@@ -275,4 +273,3 @@ class _SyncButtonWidgetState extends State<SyncButtonWidget> {
     );
   }
 }
-

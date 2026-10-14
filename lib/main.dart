@@ -234,23 +234,21 @@ class AppRoot extends StatelessWidget {
           IActiveCaseLockService,
           SyncService
         >(
-          update: (_, remoteDS, casoRepo, authService, lockService, __) => SyncService(
-            remoteDataSource: remoteDS,
-            repository: casoRepo,
-            authService: authService,
-            activeCaseLockService: lockService,
-          ),
+          update: (_, remoteDS, casoRepo, authService, lockService, __) =>
+              SyncService(
+                remoteDataSource: remoteDS,
+                repository: casoRepo,
+                authService: authService,
+                activeCaseLockService: lockService,
+              ),
         ),
         ProxyProvider<ApiClient, IMediaStorageService>(
-          update: (_, apiClient, __) => MediaStorageService(
-            apiClient: apiClient,
-            dbHelper: dbHelper,
-          ),
+          update: (_, apiClient, __) =>
+              MediaStorageService(apiClient: apiClient, dbHelper: dbHelper),
         ),
         ProxyProvider<IMediaStorageService, IPdfReportEngine>(
-          update: (_, mediaService, __) => PdfReportEngine(
-            mediaStorageService: mediaService,
-          ),
+          update: (_, mediaService, __) =>
+              PdfReportEngine(mediaStorageService: mediaService),
         ),
         ProxyProvider4<
           CaseService,

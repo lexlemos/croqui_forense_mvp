@@ -17,55 +17,70 @@ void main() {
   });
 
   group('CroquiFormCoordinator - Gerenciamento de Formulário', () {
-    test('1. Inicializa todos os controladores com os dados originais do caso', () {
-      final coordinator = CroquiFormCoordinator(casoTeste);
+    test(
+      '1. Inicializa todos os controladores com os dados originais do caso',
+      () {
+        final coordinator = CroquiFormCoordinator(casoTeste);
 
-      expect(coordinator.numeroLaudoCtrl.text, equals('REQ-100'));
-      expect(coordinator.boCtrl.text, equals('BO-200'));
-      expect(coordinator.picCtrl.text, equals('PIC-300'));
-      expect(coordinator.nomeVitimaCtrl.text, equals('João da Silva'));
+        expect(coordinator.numeroLaudoCtrl.text, equals('REQ-100'));
+        expect(coordinator.boCtrl.text, equals('BO-200'));
+        expect(coordinator.picCtrl.text, equals('PIC-300'));
+        expect(coordinator.nomeVitimaCtrl.text, equals('João da Silva'));
 
-      coordinator.dispose();
-    });
+        coordinator.dispose();
+      },
+    );
 
-    test('2. validarCamposObrigatorios retorna false se quesito1 estiver incompleto', () {
-      final coordinator = CroquiFormCoordinator(casoTeste);
-      coordinator.quesito1Ctrl.text = 'X';
+    test(
+      '2. validarCamposObrigatorios retorna false se quesito1 estiver incompleto',
+      () {
+        final coordinator = CroquiFormCoordinator(casoTeste);
+        coordinator.quesito1Ctrl.text = 'X';
 
-      expect(coordinator.validarCamposObrigatorios(), isFalse);
+        expect(coordinator.validarCamposObrigatorios(), isFalse);
 
-      coordinator.dispose();
-    });
+        coordinator.dispose();
+      },
+    );
 
-    test('3. extrairCasoAtualizado reflete edições nos controladores com incremento OCC', () {
-      final coordinator = CroquiFormCoordinator(casoTeste);
-      coordinator.nomeVitimaCtrl.text = 'Maria Oliveira';
-      coordinator.conclusaoCtrl.text = 'Laudo pericial conclusivo';
+    test(
+      '3. extrairCasoAtualizado reflete edições nos controladores com incremento OCC',
+      () {
+        final coordinator = CroquiFormCoordinator(casoTeste);
+        coordinator.nomeVitimaCtrl.text = 'Maria Oliveira';
+        coordinator.conclusaoCtrl.text = 'Laudo pericial conclusivo';
 
-      final casoAtualizado = coordinator.extrairCasoAtualizado(
-        casoBase: casoTeste,
-        atns: const [],
-      );
+        final casoAtualizado = coordinator.extrairCasoAtualizado(
+          casoBase: casoTeste,
+          atns: const [],
+        );
 
-      expect(casoAtualizado.nomeVitima, equals('Maria Oliveira'));
-      expect(casoAtualizado.dadosLaudo.conclusao.conclusaoTexto, equals('Laudo pericial conclusivo'));
-      expect(casoAtualizado.versao, equals(2));
-      expect(casoAtualizado.isDraftSynced, isFalse);
+        expect(casoAtualizado.nomeVitima, equals('Maria Oliveira'));
+        expect(
+          casoAtualizado.dadosLaudo.conclusao.conclusaoTexto,
+          equals('Laudo pericial conclusivo'),
+        );
+        expect(casoAtualizado.versao, equals(2));
+        expect(casoAtualizado.isDraftSynced, isFalse);
 
-      coordinator.dispose();
-    });
+        coordinator.dispose();
+      },
+    );
 
-    test('4. adicionarCausaMorte e removerCausaMorte alteram lista de controllers com segurança', () {
-      final coordinator = CroquiFormCoordinator(casoTeste);
-      final qtdInicial = coordinator.causasMorteCtrls.length;
+    test(
+      '4. adicionarCausaMorte e removerCausaMorte alteram lista de controllers com segurança',
+      () {
+        final coordinator = CroquiFormCoordinator(casoTeste);
+        final qtdInicial = coordinator.causasMorteCtrls.length;
 
-      coordinator.adicionarCausaMorte();
-      expect(coordinator.causasMorteCtrls.length, equals(qtdInicial + 1));
+        coordinator.adicionarCausaMorte();
+        expect(coordinator.causasMorteCtrls.length, equals(qtdInicial + 1));
 
-      coordinator.removerCausaMorte(coordinator.causasMorteCtrls.length - 1);
-      expect(coordinator.causasMorteCtrls.length, equals(qtdInicial));
+        coordinator.removerCausaMorte(coordinator.causasMorteCtrls.length - 1);
+        expect(coordinator.causasMorteCtrls.length, equals(qtdInicial));
 
-      coordinator.dispose();
-    });
+        coordinator.dispose();
+      },
+    );
   });
 }

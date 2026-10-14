@@ -29,7 +29,6 @@ class BalisticaTab extends StatelessWidget {
 
   const BalisticaTab({super.key, this.readOnly = false, this.onEdit});
 
-
   @override
   Widget build(BuildContext context) {
     return Consumer<CroquiController>(
@@ -51,14 +50,15 @@ class BalisticaTab extends StatelessWidget {
                 orElse: () => null,
               );
           if (b == null) return false;
-          return (b.tipoFerimento != null && b.tipoFerimento!.trim().isNotEmpty) ||
+          return (b.tipoFerimento != null &&
+                  b.tipoFerimento!.trim().isNotEmpty) ||
               (b.tipoObjeto != null && b.tipoObjeto!.trim().isNotEmpty) ||
               (b.comentarioAdicional != null &&
                   b.comentarioAdicional!.trim().isNotEmpty);
         }).toList();
 
         return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -93,19 +93,21 @@ class BalisticaTab extends StatelessWidget {
                         a.dadosPreenchidos['type_label']?.toString() ??
                         a.tipoAchadoId;
 
-                    final balisticaItem = controller.casoAtual.balisticas.firstWhere(
-                      (b) =>
-                          (b.achadoUuid != null && b.achadoUuid == a.uuid) ||
-                          b.id == deterministicUuidV5(a.uuid, 'balistica'),
-                      orElse: () => BalisticaModel(
-                        exameId: controller.casoAtual.uuid,
-                        achadoUuid: a.uuid,
-                        tipoFerimento: a.tipoFerimento,
-                        tipoObjeto: a.tipoObjeto,
-                        numeroLacre: null,
-                        comentarioAdicional: a.comentarioAdicional,
-                      ),
-                    );
+                    final balisticaItem = controller.casoAtual.balisticas
+                        .firstWhere(
+                          (b) =>
+                              (b.achadoUuid != null &&
+                                  b.achadoUuid == a.uuid) ||
+                              b.id == deterministicUuidV5(a.uuid, 'balistica'),
+                          orElse: () => BalisticaModel(
+                            exameId: controller.casoAtual.uuid,
+                            achadoUuid: a.uuid,
+                            tipoFerimento: a.tipoFerimento,
+                            tipoObjeto: a.tipoObjeto,
+                            numeroLacre: null,
+                            comentarioAdicional: a.comentarioAdicional,
+                          ),
+                        );
 
                     return Card(
                       elevation: 1,
@@ -169,25 +171,33 @@ class BalisticaTab extends StatelessWidget {
                                   a.comentarioAdicional!.isNotEmpty)
                                 Text("Comentário: ${a.comentarioAdicional}"),
                               if (balisticaItem.statusConfirmacaoAtn ==
-                                      StatusConfirmacaoATN.RECUSADO) ...[
+                                  StatusConfirmacaoATN.RECUSADO) ...[
                                 const SizedBox(height: 8),
                                 JustificativaRecusaBox(
                                   justificativa:
-                                      (balisticaItem.justificativaRecusa != null &&
-                                              balisticaItem.justificativaRecusa!
-                                                  .trim()
-                                                  .isNotEmpty)
-                                          ? balisticaItem.justificativaRecusa!
-                                          : 'O vestígio balístico foi recusado pelo A.T.N. no sistema Web.',
+                                      (balisticaItem.justificativaRecusa !=
+                                              null &&
+                                          balisticaItem.justificativaRecusa!
+                                              .trim()
+                                              .isNotEmpty)
+                                      ? balisticaItem.justificativaRecusa!
+                                      : 'O vestígio balístico foi recusado pelo A.T.N. no sistema Web.',
                                 ),
                                 const SizedBox(height: 10),
                                 OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.red.shade700,
-                                    side: BorderSide(color: Colors.red.shade300),
+                                    side: BorderSide(
+                                      color: Colors.red.shade300,
+                                    ),
                                   ),
-                                  icon: const Icon(Icons.delete_outline, size: 18),
-                                  label: const Text("Retirar Solicitação de Balística"),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    "Retirar Solicitação de Balística",
+                                  ),
                                   onPressed: readOnly
                                       ? null
                                       : () async {
@@ -207,18 +217,24 @@ class BalisticaTab extends StatelessWidget {
                                                   child: const Text("Cancelar"),
                                                 ),
                                                 ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.red,
-                                                    foregroundColor: Colors.white,
-                                                  ),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                        backgroundColor:
+                                                            Colors.red,
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                      ),
                                                   onPressed: () =>
                                                       Navigator.pop(ctx, true),
-                                                  child: const Text("Sim, retirar"),
+                                                  child: const Text(
+                                                    "Sim, retirar",
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           );
-                                          if (confirm == true && context.mounted) {
+                                          if (confirm == true &&
+                                              context.mounted) {
                                             await controller
                                                 .removerSolicitacaoBalistica(
                                                   context,

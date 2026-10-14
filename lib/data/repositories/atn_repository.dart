@@ -25,11 +25,7 @@ class AtnRepository {
       );
       if (maps.isEmpty) {
         await semearMocksSeNecessario();
-        maps = await db.query(
-          'atns',
-          where: 'ativo = 1',
-          orderBy: 'nome ASC',
-        );
+        maps = await db.query('atns', where: 'ativo = 1', orderBy: 'nome ASC');
       }
       return maps.map((m) => AtnModel.fromMap(m)).toList();
     } catch (e) {
@@ -44,9 +40,11 @@ class AtnRepository {
   Future<void> semearMocksSeNecessario() async {
     try {
       final db = await database;
-      final count = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM atns'),
-      ) ?? 0;
+      final count =
+          Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM atns'),
+          ) ??
+          0;
       if (count == 0) {
         final batch = db.batch();
         for (final item in kMockAtnsRaw) {

@@ -201,4 +201,3 @@ class BalisticaModel {
   factory BalisticaModel.fromJson(Map<String, dynamic> json) =>
       BalisticaModel.fromMap(json);
 }
-

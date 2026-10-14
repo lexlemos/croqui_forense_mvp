@@ -20,7 +20,8 @@ class ExamesPendentesException implements Exception {
   final String message;
 
   const ExamesPendentesException([
-    this.message = 'O laudo não pode ser finalizado com exames complementares pendentes.',
+    this.message =
+        'O laudo não pode ser finalizado com exames complementares pendentes.',
   ]);
 
   @override
@@ -173,7 +174,9 @@ class CaseLifecycleService implements ICaseLifecycleService {
     await _caseService.salvarRascunho(casoFinalizado);
 
     _syncService?.pushCasoRascunho(casoFinalizado).catchError((e) {
-      debugPrint('[CaseLifecycleService] ⚠️ Erro no push do caso finalizado: $e');
+      debugPrint(
+        '[CaseLifecycleService] ⚠️ Erro no push do caso finalizado: $e',
+      );
     });
 
     return casoFinalizado;
@@ -202,7 +205,10 @@ class CaseLifecycleService implements ICaseLifecycleService {
     await _caseService.salvarRascunho(caso);
 
     final tempDir = await _tempDirectoryProvider();
-    final String safeNum = (caso.numeroLaudoExterno ?? 'sem-numero').replaceAll('/', '-');
+    final String safeNum = (caso.numeroLaudoExterno ?? 'sem-numero').replaceAll(
+      '/',
+      '-',
+    );
     final tempPdfFile = File('${tempDir.path}/laudo_$safeNum.pdf');
 
     try {
@@ -220,10 +226,9 @@ class CaseLifecycleService implements ICaseLifecycleService {
       );
 
       // ignore: deprecated_member_use
-      await Share.shareXFiles(
-        [XFile(tempPdfFile.path)],
-        subject: 'Laudo Pericial PDF - ${caso.numeroLaudoExterno}',
-      );
+      await Share.shareXFiles([
+        XFile(tempPdfFile.path),
+      ], subject: 'Laudo Pericial PDF - ${caso.numeroLaudoExterno}');
     } finally {
       if (tempPdfFile.existsSync()) {
         try {
@@ -247,7 +252,8 @@ class CaseLifecycleService implements ICaseLifecycleService {
     }
 
     final tempDir = await _tempDirectoryProvider();
-    final String safeNum = (caso.numeroLaudoExterno ?? caso.numeroRequisicao).replaceAll('/', '-');
+    final String safeNum = (caso.numeroLaudoExterno ?? caso.numeroRequisicao)
+        .replaceAll('/', '-');
     final tempDocxFile = File('${tempDir.path}/laudo_$safeNum.docx');
 
     try {
@@ -262,7 +268,8 @@ class CaseLifecycleService implements ICaseLifecycleService {
         // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(tempDocxFile.path)],
-          subject: 'Laudo Pericial DOCX - ${caso.numeroLaudoExterno ?? caso.numeroRequisicao}',
+          subject:
+              'Laudo Pericial DOCX - ${caso.numeroLaudoExterno ?? caso.numeroRequisicao}',
         );
       }
     } finally {

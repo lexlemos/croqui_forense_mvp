@@ -57,4 +57,3 @@ class AchadoService {
     await _repository.deleteAchado(uuid);
   }
 }
-

@@ -20,10 +20,12 @@ class StoragePathHelper {
     // 2. Chaves de objeto de bucket (ex: "2026/10/caso/foto.jpg" ou identificadores UUID de objeto)
     // No Windows, caminhos locais contêm "\\" ou letra de drive "C:\". No Linux/Android, começam com "/data" ou "/storage".
     if (Platform.isWindows) {
-      final isWindowsLocal = trimmed.contains('\\') || RegExp(r'^[a-zA-Z]:').hasMatch(trimmed);
+      final isWindowsLocal =
+          trimmed.contains('\\') || RegExp(r'^[a-zA-Z]:').hasMatch(trimmed);
       return !isWindowsLocal;
     } else {
-      final isUnixLocal = trimmed.startsWith('/data/') ||
+      final isUnixLocal =
+          trimmed.startsWith('/data/') ||
           trimmed.startsWith('/storage/') ||
           trimmed.startsWith('/data_mirror/') ||
           trimmed.startsWith('/mnt/') ||

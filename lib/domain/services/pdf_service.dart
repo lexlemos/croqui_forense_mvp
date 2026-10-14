@@ -199,10 +199,10 @@ class PdfService {
           payload.caso.numeroPic.isNotEmpty
               ? formatarPic(payload.caso.numeroPic)
               : (payload.caso.numeroRequisicao.isNotEmpty
-                  ? formatarRequisicao(payload.caso.numeroRequisicao)
-                  : (payload.caso.numeroLaudoExterno != null
-                      ? formatarRequisicao(payload.caso.numeroLaudoExterno)
-                      : null)),
+                    ? formatarRequisicao(payload.caso.numeroRequisicao)
+                    : (payload.caso.numeroLaudoExterno != null
+                          ? formatarRequisicao(payload.caso.numeroLaudoExterno)
+                          : null)),
         ),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
         build: (context) {
@@ -788,9 +788,7 @@ class PdfService {
       if (d.materialSgOutro?.isNotEmpty == true) {
         subs.add('Outro sítio: ${d.materialSgOutro}');
       }
-      linhas.add(
-        _itemRecuado('- Sangue (SG) [${subs.join(', ')}]'),
-      );
+      linhas.add(_itemRecuado('- Sangue (SG) [${subs.join(', ')}]'));
       if (d.quantificacaoDrogas) {
         linhas.add(
           _itemRecuadoSecundario('Solicita quantificacao de drogas / farmacos'),
@@ -1348,7 +1346,11 @@ class PdfService {
 
       if (decoded.width <= 1200 && decoded.height <= 1200) return rawBytes;
 
-      final resized = img.copyResize(decoded, width: 1200, maintainAspect: true);
+      final resized = img.copyResize(
+        decoded,
+        width: 1200,
+        maintainAspect: true,
+      );
       final compressedBytes = img.encodeJpg(resized, quality: 70);
       return Uint8List.fromList(compressedBytes);
     } catch (_) {
@@ -1552,76 +1554,69 @@ class PdfService {
   }
 
   List<pw.Widget> _buildSecaoFotos(List<Map<String, dynamic>> lista) {
-    return lista
-        .map(
-          (foto) {
-            final bool disponivel = foto['disponivel'] != false;
-            final Uint8List bytes = foto['bytes'] as Uint8List;
+    return lista.map((foto) {
+      final bool disponivel = foto['disponivel'] != false;
+      final Uint8List bytes = foto['bytes'] as Uint8List;
 
-            return pw.Wrap(
+      return pw.Wrap(
+        children: [
+          pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 20, left: 15),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 20, left: 15),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      pw.Text(
-                        foto['label'],
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      pw.SizedBox(height: 5),
-                      pw.Container(
-                        height: 400,
-                        width: 350,
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(
-                            color: disponivel ? PdfColors.grey : PdfColors.amber700,
-                            width: disponivel ? 1 : 1.5,
-                          ),
-                          color: disponivel ? PdfColors.white : PdfColors.grey100,
-                        ),
-                        child: disponivel
-                            ? pw.Image(
-                                pw.MemoryImage(bytes),
-                                fit: pw.BoxFit.contain,
-                              )
-                            : pw.Center(
-                                child: pw.Column(
-                                  mainAxisAlignment: pw.MainAxisAlignment.center,
-                                  children: [
-                                    pw.Text(
-                                      "ARQUIVO FOTOGRÁFICO PENDENTE OU EM SINCRONIZAÇÃO",
-                                      style: pw.TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: pw.FontWeight.bold,
-                                        color: PdfColors.grey800,
-                                      ),
-                                      textAlign: pw.TextAlign.center,
-                                    ),
-                                    pw.SizedBox(height: 8),
-                                    pw.Text(
-                                      "O registro pericial foi autenticado, mas a mídia física não foi localizada no armazenamento local deste dispositivo.",
-                                      style: const pw.TextStyle(
-                                        fontSize: 8,
-                                        color: PdfColors.grey600,
-                                      ),
-                                      textAlign: pw.TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                      ),
-                    ],
+                pw.Text(
+                  foto['label'],
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
                   ),
                 ),
+                pw.SizedBox(height: 5),
+                pw.Container(
+                  height: 400,
+                  width: 350,
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(
+                      color: disponivel ? PdfColors.grey : PdfColors.amber700,
+                      width: disponivel ? 1 : 1.5,
+                    ),
+                    color: disponivel ? PdfColors.white : PdfColors.grey100,
+                  ),
+                  child: disponivel
+                      ? pw.Image(pw.MemoryImage(bytes), fit: pw.BoxFit.contain)
+                      : pw.Center(
+                          child: pw.Column(
+                            mainAxisAlignment: pw.MainAxisAlignment.center,
+                            children: [
+                              pw.Text(
+                                "ARQUIVO FOTOGRÁFICO PENDENTE OU EM SINCRONIZAÇÃO",
+                                style: pw.TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.grey800,
+                                ),
+                                textAlign: pw.TextAlign.center,
+                              ),
+                              pw.SizedBox(height: 8),
+                              pw.Text(
+                                "O registro pericial foi autenticado, mas a mídia física não foi localizada no armazenamento local deste dispositivo.",
+                                style: const pw.TextStyle(
+                                  fontSize: 8,
+                                  color: PdfColors.grey600,
+                                ),
+                                textAlign: pw.TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
               ],
-            );
-          },
-        )
-        .toList();
+            ),
+          ),
+        ],
+      );
+    }).toList();
   }
 }
 

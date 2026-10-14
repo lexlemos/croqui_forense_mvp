@@ -67,9 +67,10 @@ class EvidenciaMultimidia {
         map['url_foto']?.toString() ??
         map['url_arquivo']?.toString();
 
-    final chave = map['chave_storage']?.toString() ??
-        map['chaveStorage']?.toString();
-    final urlAssinada = map['url_storage']?.toString() ??
+    final chave =
+        map['chave_storage']?.toString() ?? map['chaveStorage']?.toString();
+    final urlAssinada =
+        map['url_storage']?.toString() ??
         map['urlStorage']?.toString() ??
         map['url_assinada']?.toString() ??
         map['urlAssinada']?.toString();
@@ -77,16 +78,23 @@ class EvidenciaMultimidia {
     // Invariante 3: referências remotas nunca poluem caminhoArquivoEncriptado.
     final String? pathLocal = StoragePathHelper.isLocalFilePath(rawPathOrUrl)
         ? rawPathOrUrl
-        : (StoragePathHelper.isLocalFilePath(map['caminho_arquivo_encriptado']?.toString())
-            ? map['caminho_arquivo_encriptado']?.toString()
-            : null);
+        : (StoragePathHelper.isLocalFilePath(
+                map['caminho_arquivo_encriptado']?.toString(),
+              )
+              ? map['caminho_arquivo_encriptado']?.toString()
+              : null);
 
-    final String? chaveFinal = chave ??
-        (StoragePathHelper.isRemoteKeyOrUrl(rawPathOrUrl) && !rawPathOrUrl!.startsWith('http')
+    final String? chaveFinal =
+        chave ??
+        (StoragePathHelper.isRemoteKeyOrUrl(rawPathOrUrl) &&
+                !rawPathOrUrl!.startsWith('http')
             ? rawPathOrUrl
             : null);
-    final String? urlFinal = urlAssinada ??
-        (rawPathOrUrl != null && rawPathOrUrl.startsWith('http') ? rawPathOrUrl : null);
+    final String? urlFinal =
+        urlAssinada ??
+        (rawPathOrUrl != null && rawPathOrUrl.startsWith('http')
+            ? rawPathOrUrl
+            : null);
 
     return EvidenciaMultimidia(
       uuid: map['uuid']?.toString() ?? '',

@@ -36,26 +36,33 @@ void main() {
       expect(dto.numeroPic, equals('PIC-2026-002'));
     });
 
-    test('extrai exameId quando o backend expõe id ou uuid diretamente na raiz', () {
-      final jsonComId = {
-        'id': '22222222-3333-4444-5555-666666666666',
-        'pic': 'PIC-2026-003',
-      };
-      final dtoComId = ProtocoloLookupModel.fromMap(jsonComId);
-      expect(dtoComId.exameId, equals('22222222-3333-4444-5555-666666666666'));
+    test(
+      'extrai exameId quando o backend expõe id ou uuid diretamente na raiz',
+      () {
+        final jsonComId = {
+          'id': '22222222-3333-4444-5555-666666666666',
+          'pic': 'PIC-2026-003',
+        };
+        final dtoComId = ProtocoloLookupModel.fromMap(jsonComId);
+        expect(
+          dtoComId.exameId,
+          equals('22222222-3333-4444-5555-666666666666'),
+        );
 
-      final jsonComUuid = {
-        'uuid': '33333333-4444-5555-6666-777777777777',
-        'pic': 'PIC-2026-004',
-      };
-      final dtoComUuid = ProtocoloLookupModel.fromMap(jsonComUuid);
-      expect(dtoComUuid.exameId, equals('33333333-4444-5555-6666-777777777777'));
-    });
+        final jsonComUuid = {
+          'uuid': '33333333-4444-5555-6666-777777777777',
+          'pic': 'PIC-2026-004',
+        };
+        final dtoComUuid = ProtocoloLookupModel.fromMap(jsonComUuid);
+        expect(
+          dtoComUuid.exameId,
+          equals('33333333-4444-5555-6666-777777777777'),
+        );
+      },
+    );
 
     test('retorna exameId nulo se nenhum ID for fornecido no payload', () {
-      final jsonVazio = {
-        'pic': 'PIC-MANUAL-001',
-      };
+      final jsonVazio = {'pic': 'PIC-MANUAL-001'};
       final dto = ProtocoloLookupModel.fromMap(jsonVazio);
       expect(dto.exameId, isNull);
     });
@@ -67,13 +74,8 @@ void main() {
           "protocolo_interno": "24532026",
           "protocolo_externo": "14674325A",
         },
-        "ocorrencia": {
-          "data_fato": "2026-10-06",
-          "hora_fato": "10:01:00",
-        },
-        "vitima": {
-          "nome_completo": "Antonio de Oliveira Pinto",
-        },
+        "ocorrencia": {"data_fato": "2026-10-06", "hora_fato": "10:01:00"},
+        "vitima": {"nome_completo": "Antonio de Oliveira Pinto"},
       };
 
       final dto = ProtocoloLookupModel.fromMap(jsonOcorrencia);

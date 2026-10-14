@@ -532,8 +532,12 @@ class Caso {
             (map['vitima'] is Map
                 ? (map['vitima'] as Map)['sexo_biologico_estimado']?.toString()
                 : null) ??
-            (map['vitimas'] is List && (map['vitimas'] as List).isNotEmpty && (map['vitimas'] as List).first is Map
-                ? ((map['vitimas'] as List).first as Map)['sexo_biologico_estimado']?.toString()
+            (map['vitimas'] is List &&
+                    (map['vitimas'] as List).isNotEmpty &&
+                    (map['vitimas'] as List).first is Map
+                ? ((map['vitimas'] as List).first
+                          as Map)['sexo_biologico_estimado']
+                      ?.toString()
                 : null) ??
             map['sexo']?.toString(),
       ),

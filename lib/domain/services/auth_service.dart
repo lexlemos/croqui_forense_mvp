@@ -234,10 +234,10 @@ class AuthService {
       );
 
       final String? crm = Usuario.formatarCrm(
-          perfil['crm']?.toString() ??
-          perfil['crm_numero']?.toString() ??
-          perfil['numero_crm']?.toString() ??
-          responseData['crm']?.toString(),
+        perfil['crm']?.toString() ??
+            perfil['crm_numero']?.toString() ??
+            perfil['numero_crm']?.toString() ??
+            responseData['crm']?.toString(),
       );
 
       final String? classe =

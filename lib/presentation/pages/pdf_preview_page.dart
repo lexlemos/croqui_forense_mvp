@@ -74,12 +74,14 @@ class _PdfPreviewPageState extends State<PdfPreviewPage> {
               try {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Solicitando laudo em Word (.docx) ao servidor...'),
+                    content: Text(
+                      'Solicitando laudo em Word (.docx) ao servidor...',
+                    ),
                   ),
                 );
-                await context
-                    .read<ICaseLifecycleService>()
-                    .shareDocxReport(caso: widget.caso);
+                await context.read<ICaseLifecycleService>().shareDocxReport(
+                  caso: widget.caso,
+                );
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();

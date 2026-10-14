@@ -48,9 +48,7 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
     debugPrint('--- DUMB TEST (WIDGET GENETICA) ---');
     debugPrint('Total amostras: ${_amostras.length}');
     for (var a in _amostras) {
-      debugPrint(
-        '  Amostra: ${a.tipoAmostra} | swabs: ${a.quantidadeSwabs}',
-      );
+      debugPrint('  Amostra: ${a.tipoAmostra} | swabs: ${a.quantidadeSwabs}');
       debugPrint('  toMap: ${a.toMap()}');
     }
     widget.onChanged(List<AmostraGeneticaModel>.from(_amostras));
@@ -428,7 +426,6 @@ class _GeneticaFormWidgetState extends State<GeneticaFormWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     const SizedBox(height: 8),
                     Row(
                       children: [

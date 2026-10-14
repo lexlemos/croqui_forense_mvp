@@ -56,7 +56,9 @@ class DomainSyncService {
         await repo.semearMocksSeNecessario();
       }
     } catch (e) {
-      debugPrint('[DomainSync] Falha ao sincronizar ATNs da API ($e). Mantendo dados locais.');
+      debugPrint(
+        '[DomainSync] Falha ao sincronizar ATNs da API ($e). Mantendo dados locais.',
+      );
       await repo.semearMocksSeNecessario();
     }
   }

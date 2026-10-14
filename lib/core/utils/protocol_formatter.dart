@@ -27,7 +27,9 @@ String formatarPic(String? valor) {
   if (valor == null) return '';
   var limpo = valor.trim();
   if (limpo.isEmpty) return '';
-  limpo = limpo.replaceFirst(RegExp(r'^(?:PIC\s*[:\-\s]?)\s*', caseSensitive: false), '').trim();
+  limpo = limpo
+      .replaceFirst(RegExp(r'^(?:PIC\s*[:\-\s]?)\s*', caseSensitive: false), '')
+      .trim();
   if (limpo.isEmpty) return '';
   return formatarRequisicao(limpo);
 }
