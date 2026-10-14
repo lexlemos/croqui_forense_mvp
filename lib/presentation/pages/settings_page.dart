@@ -87,7 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             context,
                             icon: Icons.medical_information,
                             label: 'CRM',
-                            value: usuario?.crm ?? 'Não preenchido',
+                            value: usuario?.crmFormatado ?? 'Não preenchido',
                           ),
                           const SizedBox(height: 12),
                           _buildProfileRow(

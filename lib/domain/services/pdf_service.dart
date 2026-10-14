@@ -1170,9 +1170,7 @@ class PdfService {
           if (perito.crm != null && perito.crm!.trim().isNotEmpty) ...[
             pw.SizedBox(height: 1),
             pw.Text(
-              perito.crm!.trim().toUpperCase().startsWith('CRM')
-                  ? perito.crm!.trim()
-                  : 'CRM: ${perito.crm!.trim()}',
+              perito.crmFormatado ?? perito.crm!.trim(),
               style: const pw.TextStyle(
                 fontSize: 8.5,
                 color: PdfColors.grey700,

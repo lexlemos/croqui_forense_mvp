@@ -123,8 +123,13 @@ class LaudoBuilderService {
       perito: LaudoPerito(
         id: perito.id,
         nome: perito.nomeCompleto.isNotEmpty ? perito.nomeCompleto : 'Perito Médico-Legista',
-        crm: 'CRM/SE', // Em produção, extraído de credenciais
-        classe: 'Classe I',
+        crm: perito.crmFormatado ??
+            (perito.crm != null && perito.crm!.trim().isNotEmpty
+                ? perito.crm!.trim()
+                : 'CRM/SE'),
+        classe: (perito.classe != null && perito.classe!.trim().isNotEmpty)
+            ? perito.classe!.trim()
+            : '1ª Classe',
       ),
       atns: caso.atnsIds.map((id) => LaudoAtn(id: id, nome: id)).toList(),
       documento: documento,

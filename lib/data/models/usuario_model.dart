@@ -53,6 +53,25 @@ class Usuario {
     this.classe,
   });
 
+  /// Formata qualquer entrada de CRM no padrão canônico institucional: 'CRM/SE <digitos>'.
+  /// Caso a entrada já contenha 'CRM/SE' ou apenas dígitos (ex: 1234, 12345),
+  /// extrai os números e prefixa com 'CRM/SE '. Se não houver números válidos,
+  /// retorna a string original ou null.
+  static String? formatarCrm(String? rawCrm) {
+    if (rawCrm == null) return null;
+    final trimmed = rawCrm.trim();
+    if (trimmed.isEmpty) return null;
+
+    final match = RegExp(r'\d+').allMatches(trimmed).map((m) => m.group(0)).join();
+    if (match.isNotEmpty) {
+      return 'CRM/SE $match';
+    }
+    return trimmed.toUpperCase().startsWith('CRM') ? trimmed : 'CRM/SE $trimmed';
+  }
+
+  /// Retorna o CRM formatado no padrão institucional 'CRM/SE 0000'.
+  String? get crmFormatado => formatarCrm(crm);
+
   /// Verifica se o usuário possui determinado perfil de autorização ([roleName]).
   ///
   /// A comparação é insensível a maiúsculas/minúsculas (`case-insensitive`).
@@ -140,8 +159,13 @@ class Usuario {
           DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
           DateTime.now(),
       deviceId: map['device_id']?.toString(),
-      crm: map['crm']?.toString(),
-      classe: map['classe']?.toString(),
+      crm: formatarCrm(
+        map['crm']?.toString() ??
+            map['crm_numero']?.toString() ??
+            map['numero_crm']?.toString(),
+      ),
+      classe: map['classe']?.toString() ??
+          map['classe_funcional']?.toString(),
     );
   }
 

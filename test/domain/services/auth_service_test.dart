@@ -70,6 +70,8 @@ void main() {
               'id': 'usr-001',
               'nome': 'Dr. Perito Oficial',
               'roles': <String>['PERITO'],
+              'crm': '12345',
+              'classe': '1ª Classe',
             },
           },
         );
@@ -78,6 +80,8 @@ void main() {
 
         expect(authService.isLogged, isTrue);
         expect(authService.usuario?.id, equals('usr-001'));
+        expect(authService.usuario?.crm, equals('CRM/SE 12345'));
+        expect(authService.usuario?.classe, equals('1ª Classe'));
         verify(
           () => mockKeyStorage.save(
             key: 'access_token',
