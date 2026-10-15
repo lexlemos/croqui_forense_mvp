@@ -3,22 +3,27 @@ import 'package:croqui_forense_mvp/data/models/protocolo_lookup_model.dart';
 
 void main() {
   group('ProtocoloLookupModel - Extração do ID Oficial do Exame', () {
-    test('extrai exameId a partir de documento.id', () {
-      final json = {
-        'documento': {
-          'id': '09fff950-a98f-4ae6-ab7f-b5028647969c',
-          'protocolo_externo': 'PIC-2026-001',
-          'protocolo_interno': 'CD-1320821',
-        },
-        'status': 'ENTRADA_CUSTODIA',
-      };
+    test(
+      'extrai exameId a partir de documento.id e diferencia CD de Requisição',
+      () {
+        final json = {
+          'documento': {
+            'id': '09fff950-a98f-4ae6-ab7f-b5028647969c',
+            'protocolo_externo': 'PIC-2026-001',
+            'protocolo_interno': 'CD-1320821',
+          },
+          'deslocamento': {'numero_requisicao': 'REQ-998877'},
+          'status': 'ENTRADA_CUSTODIA',
+        };
 
-      final dto = ProtocoloLookupModel.fromMap(json);
+        final dto = ProtocoloLookupModel.fromMap(json);
 
-      expect(dto.exameId, equals('09fff950-a98f-4ae6-ab7f-b5028647969c'));
-      expect(dto.numeroPic, equals('PIC-2026-001'));
-      expect(dto.numeroRequisicao, equals('CD-1320821'));
-    });
+        expect(dto.exameId, equals('09fff950-a98f-4ae6-ab7f-b5028647969c'));
+        expect(dto.numeroPic, equals('PIC-2026-001'));
+        expect(dto.numeroCd, equals('CD-1320821'));
+        expect(dto.numeroRequisicao, equals('REQ-998877'));
+      },
+    );
 
     test('extrai exameId a partir de exame.id com fallback seguro', () {
       final json = {
@@ -83,7 +88,7 @@ void main() {
       expect(dto.horaFato, equals('10:01:00'));
       expect(dto.nomeVitima, equals('Antonio de Oliveira Pinto'));
       expect(dto.numeroPic, equals('14674325A'));
-      expect(dto.numeroRequisicao, equals('24532026'));
+      expect(dto.numeroCd, equals('24532026'));
     });
   });
 }

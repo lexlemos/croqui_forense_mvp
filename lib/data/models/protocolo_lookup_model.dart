@@ -8,7 +8,10 @@ class ProtocoloLookupModel {
   /// Código do procedimento externo (PIC).
   final String? numeroPic;
 
-  /// Código digital do exame / requisição interna (CD).
+  /// Código digital interno do exame / laudo (CD).
+  final String? numeroCd;
+
+  /// Número da Requisição pericial policial/judicial.
   final String? numeroRequisicao;
 
   /// Número do Boletim de Ocorrência policial.
@@ -44,6 +47,7 @@ class ProtocoloLookupModel {
   const ProtocoloLookupModel({
     this.exameId,
     this.numeroPic,
+    this.numeroCd,
     this.numeroRequisicao,
     this.numeroBo,
     this.requisitante,
@@ -95,15 +99,18 @@ class ProtocoloLookupModel {
         map['pic'] ??
         map['numero_pic'];
 
-    final reqVal =
+    final cdVal =
         documento?['protocolo_interno'] ??
         exame?['cd'] ??
-        deslocamento?['numero_requisicao'] ??
         map['protocolo_interno'] ??
-        map['numero_requisicao'] ??
-        map['requisicao'] ??
         map['cd'] ??
+        map['numero_laudo_externo'] ??
         map['numero_laudo'];
+
+    final reqVal =
+        deslocamento?['numero_requisicao'] ??
+        map['numero_requisicao'] ??
+        map['requisicao'];
 
     final boVal =
         deslocamento?['numero_boletim_ocorrencia'] ??
@@ -159,6 +166,7 @@ class ProtocoloLookupModel {
     return ProtocoloLookupModel(
       exameId: _asNonEmptyString(exameIdVal),
       numeroPic: _asNonEmptyString(picVal),
+      numeroCd: _asNonEmptyString(cdVal),
       numeroRequisicao: _asNonEmptyString(reqVal),
       numeroBo: _asNonEmptyString(boVal),
       requisitante: _asNonEmptyString(requisitanteVal),

@@ -103,6 +103,8 @@ class CroquiController extends ChangeNotifier {
   late final CroquiFormCoordinator formCoordinator;
 
   TextEditingController get numeroLaudoCtrl => formCoordinator.numeroLaudoCtrl;
+  TextEditingController get numeroRequisicaoCtrl =>
+      formCoordinator.numeroRequisicaoCtrl;
   TextEditingController get boCtrl => formCoordinator.boCtrl;
   TextEditingController get picCtrl => formCoordinator.picCtrl;
   TextEditingController get reqOrigemCtrl => formCoordinator.reqOrigemCtrl;
@@ -1219,6 +1221,7 @@ class CroquiController extends ChangeNotifier {
     String numeroBo = '',
     String numeroPic = '',
     String numeroRequisicao = '',
+    String? numeroLaudoExterno,
     String nomeVitima = '',
     String destino = '',
     String requisitante = '',
@@ -1240,9 +1243,7 @@ class CroquiController extends ChangeNotifier {
       numeroBo: numeroBo,
       numeroPic: numeroPic,
       numeroRequisicao: numeroRequisicao,
-      numeroLaudoExterno: numeroRequisicao.isNotEmpty
-          ? numeroRequisicao
-          : casoAtual.numeroLaudoExterno,
+      numeroLaudoExterno: numeroLaudoExterno ?? casoAtual.numeroLaudoExterno,
       isDraftSynced: false,
       nomeVitima: nomeVitima,
       destino: destino,
@@ -1466,10 +1467,18 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
+      if (dto.numeroCd != null && dto.numeroCd!.isNotEmpty) {
+        final cdFmt = formatarRequisicao(dto.numeroCd);
+        if (numeroLaudoCtrl.text.isEmpty || forcar) {
+          numeroLaudoCtrl.text = cdFmt;
+          altered = true;
+        }
+      }
+
       if (dto.numeroRequisicao != null && dto.numeroRequisicao!.isNotEmpty) {
         final reqFmt = formatarRequisicao(dto.numeroRequisicao);
-        if (numeroLaudoCtrl.text.isEmpty || forcar) {
-          numeroLaudoCtrl.text = reqFmt;
+        if (numeroRequisicaoCtrl.text.isEmpty || forcar) {
+          numeroRequisicaoCtrl.text = reqFmt;
           altered = true;
         }
       }

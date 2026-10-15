@@ -198,10 +198,11 @@ class PdfService {
           logoPolicia,
           payload.caso.numeroPic.isNotEmpty
               ? formatarPic(payload.caso.numeroPic)
-              : (payload.caso.numeroRequisicao.isNotEmpty
-                    ? formatarRequisicao(payload.caso.numeroRequisicao)
-                    : (payload.caso.numeroLaudoExterno != null
-                          ? formatarRequisicao(payload.caso.numeroLaudoExterno)
+              : (payload.caso.numeroLaudoExterno != null &&
+                        payload.caso.numeroLaudoExterno!.isNotEmpty
+                    ? formatarRequisicao(payload.caso.numeroLaudoExterno)
+                    : (payload.caso.numeroRequisicao.isNotEmpty
+                          ? formatarRequisicao(payload.caso.numeroRequisicao)
                           : null)),
         ),
         footer: (context) => PdfHelpers.buildInstitucionalFooter(context),
@@ -296,12 +297,17 @@ class PdfService {
       children: [
         PdfHelpers.buildLinhaDetalhe(
           "Laudo Pericial Cadavérico nº CD",
-          caso.numeroRequisicao.isNotEmpty
-              ? formatarRequisicao(caso.numeroRequisicao)
-              : (caso.numeroLaudoExterno != null
-                    ? formatarRequisicao(caso.numeroLaudoExterno)
+          caso.numeroLaudoExterno != null && caso.numeroLaudoExterno!.isNotEmpty
+              ? formatarRequisicao(caso.numeroLaudoExterno)
+              : (caso.numeroRequisicao.isNotEmpty
+                    ? formatarRequisicao(caso.numeroRequisicao)
                     : 'XXX'),
         ),
+        if (caso.numeroRequisicao.isNotEmpty)
+          PdfHelpers.buildLinhaDetalhe(
+            "Requisição nº:",
+            formatarRequisicao(caso.numeroRequisicao),
+          ),
         PdfHelpers.buildLinhaDetalhe(
           "Boletim de Ocorrência (B.O.):",
           caso.numeroBo.isNotEmpty ? caso.numeroBo : 'XXX',

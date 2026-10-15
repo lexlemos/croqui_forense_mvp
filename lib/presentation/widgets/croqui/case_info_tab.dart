@@ -265,8 +265,14 @@ class _CaseInfoTabState extends State<CaseInfoTab> {
             ),
 
             _buildTextField(
-              "Número da Requisição / CD",
+              "Nº. CD",
               controller.numeroLaudoCtrl,
+              readOnly: readOnly,
+            ),
+
+            _buildTextField(
+              "Nº. da Requisição",
+              controller.numeroRequisicaoCtrl,
               readOnly: readOnly,
             ),
 

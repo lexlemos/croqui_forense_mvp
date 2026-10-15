@@ -28,6 +28,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   final _formKey = GlobalKey<FormState>();
 
   final _picController = TextEditingController();
+  final _cdController = TextEditingController();
   final _reqController = TextEditingController();
   final _boController = TextEditingController();
   final _requisitanteController = TextEditingController();
@@ -62,6 +63,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
   @override
   void dispose() {
     _picController.dispose();
+    _cdController.dispose();
     _reqController.dispose();
     _boController.dispose();
     _requisitanteController.dispose();
@@ -259,12 +261,15 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
         'auditoria': null,
       };
 
+      final rawCd = _cdController.text.trim();
+      final cdSanitizado = sanitizarRequisicao(rawCd);
+
       final rawReq = _reqController.text.trim();
       final reqSanitizada = sanitizarRequisicao(rawReq);
 
       Navigator.pop(context, {
         'uuid': _exameId,
-        'numero_laudo': reqSanitizada,
+        'numero_laudo': cdSanitizado,
         'numero_pic': _picController.text.trim(),
         'numero_bo': _boController.text.trim(),
         'numero_requisicao': reqSanitizada,
@@ -388,6 +393,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                                 ?.buscarDadosIniciais(
                                   _picController.text,
                                   context: context,
+                                  cdCtrl: _cdController,
                                   requisicaoCtrl: _reqController,
                                   boCtrl: _boController,
                                   autoridadeCtrl: _requisitanteController,
@@ -431,7 +437,7 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';
                       if (v.length < 6 || v.length > 20) {
-                        return 'Protocolo (PIC/CD) deve ter entre 6 e 20 caracteres';
+                        return 'Protocolo (PIC) deve ter entre 6 e 20 caracteres';
                       }
                       return null;
                     },
@@ -440,16 +446,16 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildTextField(
-                    controller: _reqController,
-                    label: "Nº. Requisição (CD)",
-                    icon: Icons.assignment,
+                    controller: _cdController,
+                    label: "Nº. CD",
+                    icon: Icons.tag,
                     required: true,
                     validator: (val) {
                       final v = val?.trim() ?? '';
                       if (v.isEmpty) return 'Campo obrigatório';
                       final digitos = v.replaceAll(RegExp(r'\D'), '');
-                      if (digitos.length < 6) {
-                        return 'Nº da requisição deve ter no mínimo 6 dígitos';
+                      if (digitos.length < 4) {
+                        return 'Nº do CD deve ter no mínimo 4 dígitos';
                       }
                       return null;
                     },
@@ -462,13 +468,26 @@ class _NewCaseDialogState extends State<NewCaseDialog> {
               children: [
                 Expanded(
                   child: _buildTextField(
+                    controller: _reqController,
+                    label: "Nº. da Requisição",
+                    icon: Icons.assignment,
+                    validator: null,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
                     controller: _boController,
                     label: "Nº. do B.O",
                     icon: Icons.receipt_long,
                     validator: null,
                   ),
                 ),
-                const SizedBox(width: 16),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
                 Expanded(
                   child: _buildTextField(
                     controller: _requisitanteController,

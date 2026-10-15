@@ -48,15 +48,19 @@ class CaseCard extends StatelessWidget {
         ? 'N. PIC: ${caso.numeroPic}'
         : 'N. PIC: Não informado';
 
-    final cdOrLaudo = formatarRequisicao(
-      caso.numeroRequisicao.isNotEmpty
-          ? caso.numeroRequisicao
-          : (caso.numeroLaudoExterno ?? ''),
-    );
+    final cdFormatado = formatarRequisicao(caso.numeroLaudoExterno ?? '');
+    final reqFormatada = formatarRequisicao(caso.numeroRequisicao);
 
-    final laudoSub = cdOrLaudo.isNotEmpty
-        ? 'CD / Laudo: $cdOrLaudo'
-        : 'Laudo: Pendente';
+    final String laudoSub;
+    if (cdFormatado.isNotEmpty && reqFormatada.isNotEmpty) {
+      laudoSub = 'CD: $cdFormatado | Req: $reqFormatada';
+    } else if (cdFormatado.isNotEmpty) {
+      laudoSub = 'CD: $cdFormatado';
+    } else if (reqFormatada.isNotEmpty) {
+      laudoSub = 'Req: $reqFormatada';
+    } else {
+      laudoSub = 'Laudo: Pendente';
+    }
 
     return Container(
       decoration: BoxDecoration(
