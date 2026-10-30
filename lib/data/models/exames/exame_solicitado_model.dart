@@ -84,31 +84,46 @@ class ExameSolicitadoModel {
     dynamic parsedDetalhes = detalhes;
     final tipo = map['tipo_exame']?.toString().toUpperCase() ?? '';
 
-    // Helper para decodificar string JSON se necessário
+    // Helper para decodificar lista ou mapa único JSON se necessário
     List<dynamic>? getList(String key) {
       final raw = map[key];
       if (raw == null) return null;
       if (raw is List) return raw;
+      if (raw is Map) return [raw];
       if (raw is String && raw.isNotEmpty) {
         try {
           final decoded = jsonDecode(raw);
           if (decoded is List) return decoded;
+          if (decoded is Map) return [decoded];
         } catch (_) {}
       }
       return null;
     }
 
+    final rawToxicList =
+        getList('detalhes_toxicologico') ??
+        getList('detalhe_toxicologico') ??
+        (tipo == 'TOXICOLOGICO' ? getList('detalhes') : null);
+    final rawGeneticaList =
+        getList('amostras_genetica') ??
+        getList('amostras') ??
+        (tipo == 'GENETICA' ? getList('detalhes') : null);
+    final rawAnatomoList =
+        getList('frascos_anatomo') ??
+        getList('frascos') ??
+        (tipo == 'ANATOMO' ? getList('detalhes') : null);
+
     try {
       if (tipo == 'TOXICOLOGICO') {
-        final listData = getList('detalhes_toxicologico');
-        if (listData != null && listData.isNotEmpty) {
-          final firstItem = Map<String, dynamic>.from(listData.first as Map);
+        if (rawToxicList != null && rawToxicList.isNotEmpty) {
+          final firstItem = Map<String, dynamic>.from(
+            rawToxicList.first as Map,
+          );
           parsedDetalhes = DetalhesToxicologicoModel.fromMap(firstItem);
         }
       } else if (tipo == 'GENETICA') {
-        final listData = getList('amostras_genetica');
-        if (listData != null && listData.isNotEmpty) {
-          parsedDetalhes = listData
+        if (rawGeneticaList != null && rawGeneticaList.isNotEmpty) {
+          parsedDetalhes = rawGeneticaList
               .map(
                 (e) => AmostraGeneticaModel.fromMap(
                   Map<String, dynamic>.from(e as Map),
@@ -117,9 +132,8 @@ class ExameSolicitadoModel {
               .toList();
         }
       } else if (tipo == 'ANATOMO') {
-        final listData = getList('frascos_anatomo');
-        if (listData != null && listData.isNotEmpty) {
-          parsedDetalhes = listData
+        if (rawAnatomoList != null && rawAnatomoList.isNotEmpty) {
+          parsedDetalhes = rawAnatomoList
               .map(
                 (e) => FrascoAnatomoModel.fromMap(
                   Map<String, dynamic>.from(e as Map),
@@ -132,64 +146,89 @@ class ExameSolicitadoModel {
       debugPrint('🚨 ERRO AO LER DETALHES DO EXAME: $e');
     }
 
-    var statusAtn = StatusConfirmacaoATN.fromString(
-      map['status_confirmacao_atn']?.toString(),
-    );
-    String? justificativa = map['justificativa_recusa']?.toString();
+    final rawStatusAtn =
+        map['status_confirmacao_atn'] ??
+        map['statusConfirmacaoAtn'] ??
+        map['status_atn'];
+    var statusAtn = StatusConfirmacaoATN.fromString(rawStatusAtn?.toString());
+    String? justificativa =
+        (map['justificativa_recusa'] ?? map['justificativaRecusa'])
+            ?.toString();
 
-    // Se o exame pai estiver PENDENTE (ou nulo no payload), verifica se algum item
-    // filho foi RECUSADO pelo ATN no backend/web e herda o status e a justificativa.
-    if (statusAtn == StatusConfirmacaoATN.PENDENTE) {
-      if (tipo == 'TOXICOLOGICO') {
-        final listData = getList('detalhes_toxicologico');
-        if (listData != null && listData.isNotEmpty) {
-          final first = listData.first;
-          if (first is Map) {
-            final stStr = first['status_confirmacao_atn']?.toString();
-            final itemStatus = StatusConfirmacaoATN.fromString(stStr);
-            if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
-              statusAtn = StatusConfirmacaoATN.RECUSADO;
-              justificativa ??= first['justificativa_recusa']?.toString();
-            } else if (itemStatus != StatusConfirmacaoATN.PENDENTE) {
-              statusAtn = itemStatus;
-            }
-          }
+    void rollUpFromChildren(List<dynamic>? listData) {
+      if (listData == null || listData.isEmpty) return;
+      final childMaps = listData.whereType<Map>().toList();
+      if (childMaps.isEmpty) return;
+
+      bool hasRecusado = false;
+      bool allConfirmado = true;
+      bool hasPendente = false;
+      bool hasAnyExplicitStatus = false;
+
+      for (final item in childMaps) {
+        final stRaw =
+            item['status_confirmacao_atn'] ??
+            item['statusConfirmacaoAtn'] ??
+            item['status_atn'];
+        if (stRaw != null && stRaw.toString().trim().isNotEmpty) {
+          hasAnyExplicitStatus = true;
         }
-      } else if (tipo == 'GENETICA') {
-        final listData = getList('amostras_genetica');
-        if (listData != null && listData.isNotEmpty) {
-          for (final item in listData) {
-            if (item is Map) {
-              final stStr = item['status_confirmacao_atn']?.toString();
-              final itemStatus = StatusConfirmacaoATN.fromString(stStr);
-              if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
-                statusAtn = StatusConfirmacaoATN.RECUSADO;
-                justificativa ??= item['justificativa_recusa']?.toString();
-                break;
-              } else if (itemStatus != StatusConfirmacaoATN.PENDENTE) {
-                statusAtn = itemStatus;
-              }
-            }
-          }
-        }
-      } else if (tipo == 'ANATOMO') {
-        final listData = getList('frascos_anatomo');
-        if (listData != null && listData.isNotEmpty) {
-          for (final item in listData) {
-            if (item is Map) {
-              final stStr = item['status_confirmacao_atn']?.toString();
-              final itemStatus = StatusConfirmacaoATN.fromString(stStr);
-              if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
-                statusAtn = StatusConfirmacaoATN.RECUSADO;
-                justificativa ??= item['justificativa_recusa']?.toString();
-                break;
-              } else if (itemStatus != StatusConfirmacaoATN.PENDENTE) {
-                statusAtn = itemStatus;
-              }
-            }
-          }
+        final itemStatus = StatusConfirmacaoATN.fromString(stRaw?.toString());
+        if (itemStatus == StatusConfirmacaoATN.RECUSADO) {
+          hasRecusado = true;
+          justificativa ??=
+              (item['justificativa_recusa'] ?? item['justificativaRecusa'])
+                  ?.toString();
+          allConfirmado = false;
+        } else if (itemStatus == StatusConfirmacaoATN.CONFIRMADO) {
+          // Mantém allConfirmado elegível caso todos os irmãos também sejam CONFIRMADO
+        } else if (itemStatus == StatusConfirmacaoATN.VISUALIZADO) {
+          allConfirmado = false;
+        } else {
+          hasPendente = true;
+          allConfirmado = false;
         }
       }
+
+      if (!hasAnyExplicitStatus) return;
+
+      if (hasRecusado) {
+        statusAtn = StatusConfirmacaoATN.RECUSADO;
+      } else if (allConfirmado) {
+        statusAtn = StatusConfirmacaoATN.CONFIRMADO;
+      } else if (!hasPendente) {
+        statusAtn = StatusConfirmacaoATN.VISUALIZADO;
+      } else {
+        statusAtn = StatusConfirmacaoATN.PENDENTE;
+      }
+    }
+
+    // Se o exame pai estiver PENDENTE (ou nulo no payload), consolida deterministicamente
+    // o status dos itens filhos (RECUSADO > PENDENTE > VISUALIZADO > CONFIRMADO).
+    if (statusAtn == StatusConfirmacaoATN.PENDENTE) {
+      if (tipo == 'TOXICOLOGICO') {
+        rollUpFromChildren(rawToxicList);
+      } else if (tipo == 'GENETICA') {
+        rollUpFromChildren(rawGeneticaList);
+      } else if (tipo == 'ANATOMO') {
+        rollUpFromChildren(rawAnatomoList);
+      }
+    }
+
+    final rawStatus = map['status']?.toString();
+    final String resolvedStatus;
+    if (statusAtn == StatusConfirmacaoATN.CONFIRMADO &&
+        (rawStatus == null ||
+            rawStatus.trim().isEmpty ||
+            rawStatus.trim().toLowerCase() == 'aguardando')) {
+      resolvedStatus = 'confirmado';
+    } else if (statusAtn == StatusConfirmacaoATN.RECUSADO &&
+        (rawStatus == null ||
+            rawStatus.trim().isEmpty ||
+            rawStatus.trim().toLowerCase() == 'aguardando')) {
+      resolvedStatus = 'recusado';
+    } else {
+      resolvedStatus = rawStatus ?? 'aguardando';
     }
 
     return ExameSolicitadoModel(
@@ -198,7 +237,7 @@ class ExameSolicitadoModel {
           map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
       tipoExame: map['tipo_exame']?.toString() ?? '',
       numeroLacre: map['numero_lacre']?.toString(),
-      status: map['status']?.toString() ?? 'aguardando',
+      status: resolvedStatus,
       statusConfirmacaoAtn: statusAtn,
       justificativaRecusa: justificativa,
       criadoEm: map['criado_em'] != null

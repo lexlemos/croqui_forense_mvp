@@ -190,7 +190,11 @@ class BalisticaModel {
           (map['comentario_adicional'] ?? map['comentarioAdicional'])
               ?.toString(),
       statusConfirmacaoAtn: StatusConfirmacaoATN.fromString(
-        map['status_confirmacao_atn']?.toString(),
+        (map['status_confirmacao_atn'] ??
+                map['statusConfirmacaoAtn'] ??
+                map['status_atn'] ??
+                map['status'])
+            ?.toString(),
       ),
       justificativaRecusa:
           (map['justificativa_recusa'] ?? map['justificativaRecusa'])

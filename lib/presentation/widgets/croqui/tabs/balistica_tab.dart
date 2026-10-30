@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
-import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/data/models/achado_model.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/presentation/pages/controllers/croqui_controller.dart';
@@ -41,14 +40,10 @@ class BalisticaTab extends StatelessWidget {
                   a.comentarioAdicional!.trim().isNotEmpty);
           if (temDadosAchado) return true;
 
-          final b = controller.casoAtual.balisticas
-              .cast<BalisticaModel?>()
-              .firstWhere(
-                (item) =>
-                    (item?.achadoUuid != null && item!.achadoUuid == a.uuid) ||
-                    item?.id == deterministicUuidV5(a.uuid, 'balistica'),
-                orElse: () => null,
-              );
+          final b = controller.casoAtual.obterBalisticaPorAchado(
+            a,
+            criarSeAusente: false,
+          );
           if (b == null) return false;
           return (b.tipoFerimento != null &&
                   b.tipoFerimento!.trim().isNotEmpty) ||
@@ -93,21 +88,8 @@ class BalisticaTab extends StatelessWidget {
                         a.dadosPreenchidos['type_label']?.toString() ??
                         a.tipoAchadoId;
 
-                    final balisticaItem = controller.casoAtual.balisticas
-                        .firstWhere(
-                          (b) =>
-                              (b.achadoUuid != null &&
-                                  b.achadoUuid == a.uuid) ||
-                              b.id == deterministicUuidV5(a.uuid, 'balistica'),
-                          orElse: () => BalisticaModel(
-                            exameId: controller.casoAtual.uuid,
-                            achadoUuid: a.uuid,
-                            tipoFerimento: a.tipoFerimento,
-                            tipoObjeto: a.tipoObjeto,
-                            numeroLacre: null,
-                            comentarioAdicional: a.comentarioAdicional,
-                          ),
-                        );
+                    final balisticaItem =
+                        controller.casoAtual.obterBalisticaPorAchado(a)!;
 
                     return Card(
                       elevation: 1,

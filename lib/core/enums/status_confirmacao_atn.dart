@@ -36,4 +36,26 @@ enum StatusConfirmacaoATN {
 
   /// Converte o enum no formato de texto em maiúsculas esperado pelo backend.
   String toBackendString() => name;
+
+  /// Indica se a requisição ainda aguarda validação ou decisão final do ATN.
+  bool get isPendente =>
+      this == StatusConfirmacaoATN.PENDENTE ||
+      this == StatusConfirmacaoATN.VISUALIZADO;
+
+  /// Indica se o ATN concluiu o fluxo de custódia (aceitando ou recusando formalmente com justificativa).
+  bool get isConcluido =>
+      this == StatusConfirmacaoATN.CONFIRMADO ||
+      this == StatusConfirmacaoATN.RECUSADO;
+
+  /// Resolve a representação textual legada de status ('confirmado', 'recusado' ou fallback).
+  String toLegacyProcessualStatus([String fallback = 'pendente']) {
+    switch (this) {
+      case StatusConfirmacaoATN.CONFIRMADO:
+        return 'confirmado';
+      case StatusConfirmacaoATN.RECUSADO:
+        return 'recusado';
+      default:
+        return fallback;
+    }
+  }
 }

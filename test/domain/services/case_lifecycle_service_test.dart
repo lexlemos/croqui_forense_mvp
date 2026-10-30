@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
+import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/data/models/caso_model.dart';
 import 'package:croqui_forense_mvp/data/models/usuario_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
@@ -125,6 +127,121 @@ void main() {
         );
 
         verifyZeroInteractions(mockPdfEngine);
+      },
+    );
+
+    test(
+      '2b. concludeCase permite finalizar quando exames possuem status legado "aguardando" mas statusConfirmacaoAtn é CONFIRMADO',
+      () async {
+        final fakePdfFile = File('dummy/laudo_confirmado.pdf');
+        when(
+          () => mockPdfEngine.generatePdfFile(
+            any(),
+            achados: any(named: 'achados'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer((_) async => fakePdfFile);
+
+        final List<ExameSolicitadoModel> examesConfirmados = [
+          ExameSolicitadoModel(
+            uuid: 'exame-01',
+            casoUuid: casoBase.uuid,
+            tipoExame: 'TOXICOLOGICO',
+            status: 'aguardando',
+            statusConfirmacaoAtn: StatusConfirmacaoATN.CONFIRMADO,
+            criadoEm: DateTime.now(),
+          ),
+        ];
+
+        final casoComBalisticaConfirmada = casoBase.copyWith(
+          balisticas: [
+            BalisticaModel(
+              id: 'bal-01',
+              exameId: casoBase.uuid,
+              achadoUuid: 'achado-01',
+              statusConfirmacaoAtn: StatusConfirmacaoATN.CONFIRMADO,
+            ),
+          ],
+        );
+
+        final resultado = await lifecycleService.concludeCase(
+          caso: casoComBalisticaConfirmada,
+          perito: usuarioPerito,
+          examesModel: examesConfirmados,
+        );
+
+        expect(resultado.status, equals(StatusCaso.finalizado));
+      },
+    );
+
+    test(
+      '2c. concludeCase bloqueia quando balística ainda está com statusConfirmacaoAtn PENDENTE',
+      () async {
+        final casoComBalisticaPendente = casoBase.copyWith(
+          balisticas: [
+            BalisticaModel(
+              id: 'bal-01',
+              exameId: casoBase.uuid,
+              achadoUuid: 'achado-01',
+              statusConfirmacaoAtn: StatusConfirmacaoATN.PENDENTE,
+            ),
+          ],
+        );
+
+        expect(
+          () => lifecycleService.concludeCase(
+            caso: casoComBalisticaPendente,
+            perito: usuarioPerito,
+            examesModel: const [],
+          ),
+          throwsA(isA<ExamesPendentesException>()),
+        );
+      },
+    );
+
+    test(
+      '2d. concludeCase permite finalizar quando exames e balísticas estão com statusConfirmacaoAtn RECUSADO com justificativa',
+      () async {
+        final fakePdfFile = File('dummy/laudo_recusado.pdf');
+        when(
+          () => mockPdfEngine.generatePdfFile(
+            any(),
+            achados: any(named: 'achados'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer((_) async => fakePdfFile);
+
+        final List<ExameSolicitadoModel> examesRecusados = [
+          ExameSolicitadoModel(
+            uuid: 'exame-02',
+            casoUuid: casoBase.uuid,
+            tipoExame: 'TOXICOLOGICO',
+            status: 'recusado',
+            statusConfirmacaoAtn: StatusConfirmacaoATN.RECUSADO,
+            justificativaRecusa: 'Frasco violado',
+            criadoEm: DateTime.now(),
+          ),
+        ];
+
+        final casoComBalisticaRecusada = casoBase.copyWith(
+          balisticas: [
+            BalisticaModel(
+              id: 'bal-02',
+              exameId: casoBase.uuid,
+              achadoUuid: 'achado-02',
+              statusConfirmacaoAtn: StatusConfirmacaoATN.RECUSADO,
+              justificativaRecusa: 'Sem vestígio recolhido',
+            ),
+          ],
+        );
+
+        final resultado = await lifecycleService.concludeCase(
+          caso: casoComBalisticaRecusada,
+          perito: usuarioPerito,
+          examesModel: examesRecusados,
+        );
+
+        expect(resultado.status, equals(StatusCaso.finalizado));
       },
     );
 

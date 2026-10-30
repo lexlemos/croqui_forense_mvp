@@ -168,7 +168,10 @@ class AchadoRepository {
     if (photo == null || photo.isEmpty) {
       await db.update(
         'evidencias_multimidia',
-        {'removido': 1},
+        {
+          'removido': 1,
+          'atualizado_em': DateTime.now().toUtc().toIso8601String(),
+        },
         where: 'achado_uuid = ?',
         whereArgs: [achado.uuid],
       );
@@ -227,13 +230,34 @@ class AchadoRepository {
     final achado = await getAchadoByUuid(uuid);
     final db = await _db;
     try {
-      await db.rawUpdate(
-        "UPDATE achados SET removido = 1 WHERE uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
-        [uuid],
-      );
-      if (achado != null) {
-        await _marcarCasoPendenteSync(db, achado.casoUuid);
-      }
+      await db.transaction((txn) async {
+        await txn.rawUpdate(
+          "UPDATE achados SET removido = 1 WHERE uuid = ? AND caso_uuid IN (SELECT uuid FROM casos WHERE UPPER(status) != 'FINALIZADO')",
+          [uuid],
+        );
+        await txn.update(
+          'evidencias_multimidia',
+          {
+            'removido': 1,
+            'atualizado_em': DateTime.now().toUtc().toIso8601String(),
+          },
+          where: 'achado_uuid = ?',
+          whereArgs: [uuid],
+        );
+        final detBalisticaIdV5 =
+            deterministicUuidV5(uuid, 'balistica').toLowerCase();
+        final detBalisticaIdV4 =
+            deterministicUuidV4(uuid, 'balistica').toLowerCase();
+        final cleanAchadoUuid = uuid.trim().toLowerCase();
+        await txn.delete(
+          'balisticas',
+          where: 'LOWER(id) = ? OR LOWER(id) = ? OR LOWER(achado_uuid) = ?',
+          whereArgs: [detBalisticaIdV5, detBalisticaIdV4, cleanAchadoUuid],
+        );
+        if (achado != null) {
+          await _marcarCasoPendenteSync(txn, achado.casoUuid);
+        }
+      });
     } catch (e) {
       throw Exception('Erro de persistência ao remover achado: $e');
     }

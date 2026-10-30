@@ -8,6 +8,9 @@ import 'package:croqui_forense_mvp/data/models/causa_morte_model.dart';
 import 'package:croqui_forense_mvp/data/models/balistica_model.dart';
 import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/data/models/achado_model.dart';
+import 'package:croqui_forense_mvp/data/models/exame_solicitado_model.dart';
+import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 
 /// Critérios de ordenação para listagem de laudos periciais.
 enum SortCriteria {
@@ -855,5 +858,61 @@ class Caso {
       case StatusCaso.arquivado:
         return 'CONCLUIDO';
     }
+  }
+
+  /// Localiza ou inicializa o modelo de [BalisticaModel] associado deterministicamente a um [Achado].
+  BalisticaModel? obterBalisticaPorAchado(
+    Achado achado, {
+    bool criarSeAusente = true,
+  }) {
+    final achadoUuidLower = achado.uuid.trim().toLowerCase();
+    final detV5Lower =
+        deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
+    final detV4Lower =
+        deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+
+    try {
+      return balisticas.firstWhere(
+        (b) {
+          final bIdLower = b.id.trim().toLowerCase();
+          final bAchadoLower = b.achadoUuid?.trim().toLowerCase();
+          final bExameLower = b.exameId.trim().toLowerCase();
+          return (bAchadoLower != null && bAchadoLower == achadoUuidLower) ||
+              bIdLower == detV5Lower ||
+              bIdLower == detV4Lower ||
+              bExameLower == achadoUuidLower ||
+              bIdLower == achadoUuidLower;
+        },
+      );
+    } on StateError {
+      if (!criarSeAusente) return null;
+      return BalisticaModel(
+        exameId: uuid,
+        achadoUuid: achado.uuid,
+        tipoFerimento: achado.tipoFerimento,
+        tipoObjeto: achado.tipoObjeto,
+        numeroLacre: achado.numeroLacre,
+        comentarioAdicional: achado.comentarioAdicional,
+      );
+    }
+  }
+
+  /// Verifica se há exames complementares ou vestígios balísticos com status de confirmação ATN pendente.
+  bool temPendenciasAtn({
+    List<ExameSolicitadoModel>? examesModel,
+    List<ExameSolicitado>? examesLegados,
+  }) {
+    final List<ExameSolicitadoModel> modelos =
+        (examesModel != null && examesModel.isNotEmpty) ? examesModel : exames;
+
+    final bool examePendente = modelos.isNotEmpty
+        ? modelos.any((e) => e.statusConfirmacaoAtn.isPendente)
+        : (examesLegados != null &&
+            examesLegados.any((e) => e.statusConfirmacaoAtn.isPendente));
+
+    final bool balisticaPendente =
+        balisticas.any((b) => b.statusConfirmacaoAtn.isPendente);
+
+    return examePendente || balisticaPendente;
   }
 }

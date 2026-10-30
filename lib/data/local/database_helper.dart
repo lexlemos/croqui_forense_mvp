@@ -133,6 +133,12 @@ class DatabaseHelper {
     await _addColumnIfNotExists(
       txn,
       'balisticas',
+      'achado_uuid',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(
+      txn,
+      'balisticas',
       'status_confirmacao_atn',
       "TEXT NOT NULL DEFAULT 'PENDENTE'",
     );

@@ -135,6 +135,75 @@ void main() {
           model.statusConfirmacaoAtn,
           equals(StatusConfirmacaoATN.CONFIRMADO),
         );
+        expect(model.status, equals('confirmado'));
+      },
+    );
+
+    test(
+      'não promove pai para CONFIRMADO se apenas uma das amostras de genética foi confirmada e outra segue PENDENTE',
+      () {
+        final map = {
+          'uuid': 'exame-gen-parcial',
+          'caso_uuid': 'caso-1',
+          'tipo_exame': 'GENETICA',
+          'status_confirmacao_atn': 'PENDENTE',
+          'amostras_genetica': [
+            {
+              'uuid': 'amostra-1',
+              'exame_uuid': 'exame-gen-parcial',
+              'tipo_amostra': 'SWAB_BUCAL_VITIMA',
+              'status_confirmacao_atn': 'CONFIRMADO',
+            },
+            {
+              'uuid': 'amostra-2',
+              'exame_uuid': 'exame-gen-parcial',
+              'tipo_amostra': 'SWAB_VAGINAL_1',
+              'status_confirmacao_atn': 'PENDENTE',
+            },
+          ],
+        };
+
+        final model = ExameSolicitadoModel.fromMap(map);
+
+        expect(
+          model.statusConfirmacaoAtn,
+          equals(StatusConfirmacaoATN.PENDENTE),
+        );
+      },
+    );
+
+    test(
+      'promove pai para CONFIRMADO e atualiza status legado quando todas as amostras de genética estão CONFIRMADAS',
+      () {
+        final map = {
+          'uuid': 'exame-gen-total',
+          'caso_uuid': 'caso-1',
+          'tipo_exame': 'GENETICA',
+          'status': 'aguardando',
+          'status_confirmacao_atn': 'PENDENTE',
+          'amostras_genetica': [
+            {
+              'uuid': 'amostra-1',
+              'exame_uuid': 'exame-gen-total',
+              'tipo_amostra': 'SWAB_BUCAL_VITIMA',
+              'status_confirmacao_atn': 'CONFIRMADO',
+            },
+            {
+              'uuid': 'amostra-2',
+              'exame_uuid': 'exame-gen-total',
+              'tipo_amostra': 'SWAB_VAGINAL_1',
+              'status_confirmacao_atn': 'CONFIRMADO',
+            },
+          ],
+        };
+
+        final model = ExameSolicitadoModel.fromMap(map);
+
+        expect(
+          model.statusConfirmacaoAtn,
+          equals(StatusConfirmacaoATN.CONFIRMADO),
+        );
+        expect(model.status, equals('confirmado'));
       },
     );
   });
