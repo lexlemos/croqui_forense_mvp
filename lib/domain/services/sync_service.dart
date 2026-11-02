@@ -77,7 +77,13 @@ abstract interface class ISyncRepository {
   Future<List<Map<String, dynamic>>> getTodasEvidenciasPendentesGlobais();
 
   /// Marca uma evidência multimídia como sincronizada pelo seu [uuid].
-  Future<void> marcarEvidenciaComoSincronizada(String uuid);
+  Future<void> marcarEvidenciaComoSincronizada(
+    String uuid, {
+    String? chaveStorage,
+  });
+
+  /// Invalida (soft-delete) uma evidência multimídia órfã cujo arquivo físico não existe mais em disco.
+  Future<void> invalidarEvidenciaOrfa(String uuid);
 
   /// Atualiza a URL remota do documento PDF (`pdf_url`) no SQLite após upload bem-sucedido.
   Future<void> atualizarPdfUrl(String casoUuid, String pdfUrl);
@@ -314,6 +320,11 @@ class SyncService {
         return true;
       }
     }
+    if (error is SyncUploadEvidenciaException) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        return true;
+      }
+    }
     if (error is SessionExpiredException) return true;
     return false;
   }
@@ -428,17 +439,28 @@ class SyncService {
 
           for (final ev in evidenciasPendentes) {
             try {
+              final evidenciaUuid = ev['evidencia_uuid'] as String? ?? '';
               final filePath =
                   ev['caminho_arquivo_encriptado'] as String? ?? '';
-              if (filePath.isEmpty) continue;
+              if (filePath.isEmpty || evidenciaUuid.isEmpty) continue;
 
               final file = File(filePath);
               if (!await file.exists()) {
-                debugPrint(
-                  '[SyncService] Arquivo de evidência não encontrado em disco: $filePath',
-                );
-                falhaNoCaso = true;
-                totalFotosFalhas++;
+                final trimmedPath = filePath.trim();
+                final isExplicitRemoteKey =
+                    StoragePathHelper.isHttpUrl(trimmedPath) ||
+                    trimmedPath.startsWith('evidencias_multimidia/') ||
+                    trimmedPath.startsWith('casos/');
+                if (isExplicitRemoteKey) {
+                  await _repository.marcarEvidenciaComoSincronizada(
+                    evidenciaUuid,
+                  );
+                } else {
+                  debugPrint(
+                    '[SyncService] Arquivo de evidência órfão não encontrado em disco ($filePath). Invalidando referência zumbi ($evidenciaUuid).',
+                  );
+                  await _repository.invalidarEvidenciaOrfa(evidenciaUuid);
+                }
                 continue;
               }
 
@@ -448,29 +470,33 @@ class SyncService {
                 hash = sha256.convert(bytes).toString();
               }
 
-              await _remoteDataSource.uploadEvidencia(
+              final chaveStorage = await _remoteDataSource.uploadEvidencia(
                 casoUuid: caso.uuid,
                 achadoUuid: ev['achado_uuid'] as String?,
-                evidenciaUuid: ev['evidencia_uuid'] as String,
+                evidenciaUuid: evidenciaUuid,
                 hash: hash,
                 filePath: filePath,
               );
 
               await _repository.marcarEvidenciaComoSincronizada(
-                ev['evidencia_uuid'] as String,
+                evidenciaUuid,
+                chaveStorage: chaveStorage,
               );
               totalFotosEnviadas++;
             } on DioException catch (e, stackTrace) {
-              falhaNoCaso = true;
-              totalFotosFalhas++;
               if (_isSessionExpiredError(e)) {
                 rethrow;
               }
+              falhaNoCaso = true;
+              totalFotosFalhas++;
               debugPrint(
                 '[SyncService] Falha de rede ao subir mídia ${ev['evidencia_uuid']}: $e',
               );
               await Sentry.captureException(e, stackTrace: stackTrace);
             } catch (e, stackTrace) {
+              if (_isSessionExpiredError(e)) {
+                rethrow;
+              }
               falhaNoCaso = true;
               totalFotosFalhas++;
               debugPrint(
@@ -709,15 +735,29 @@ class SyncService {
         return;
       }
 
+      bool todasFotosSincronizadas = true;
       final evidenciasPendentes = await _repository
           .getEvidenciasPendentesPorCaso(caso.uuid);
       for (final ev in evidenciasPendentes) {
         try {
+          final evidenciaUuid = ev['evidencia_uuid'] as String? ?? '';
           final filePath = ev['caminho_arquivo_encriptado'] as String? ?? '';
-          if (filePath.isEmpty) continue;
+          if (filePath.isEmpty || evidenciaUuid.isEmpty) continue;
 
           final file = File(filePath);
-          if (!await file.exists()) continue;
+          if (!await file.exists()) {
+            final trimmedPath = filePath.trim();
+            final isExplicitRemoteKey =
+                StoragePathHelper.isHttpUrl(trimmedPath) ||
+                trimmedPath.startsWith('evidencias_multimidia/') ||
+                trimmedPath.startsWith('casos/');
+            if (isExplicitRemoteKey) {
+              await _repository.marcarEvidenciaComoSincronizada(evidenciaUuid);
+            } else {
+              await _repository.invalidarEvidenciaOrfa(evidenciaUuid);
+            }
+            continue;
+          }
 
           var hash = (ev['hash_arquivo'] as String?) ?? '';
           if (hash.isEmpty) {
@@ -725,18 +765,23 @@ class SyncService {
             hash = sha256.convert(bytes).toString();
           }
 
-          await _remoteDataSource.uploadEvidencia(
+          final chaveStorage = await _remoteDataSource.uploadEvidencia(
             casoUuid: caso.uuid,
             achadoUuid: ev['achado_uuid'] as String?,
-            evidenciaUuid: ev['evidencia_uuid'] as String,
+            evidenciaUuid: evidenciaUuid,
             hash: hash,
             filePath: filePath,
           );
 
           await _repository.marcarEvidenciaComoSincronizada(
-            ev['evidencia_uuid'] as String,
+            evidenciaUuid,
+            chaveStorage: chaveStorage,
           );
         } catch (e, stackTrace) {
+          if (_isSessionExpiredError(e)) {
+            rethrow;
+          }
+          todasFotosSincronizadas = false;
           debugPrint(
             '[SyncService] ⚠️ Erro no upload de mídia de rascunho ${ev['evidencia_uuid']}: $e',
           );
@@ -746,10 +791,12 @@ class SyncService {
 
       await _sincronizarPdfCaso(caso);
 
-      await _repository.marcarRascunhoComoSincronizado(caso.uuid);
-      debugPrint(
-        '[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.',
-      );
+      if (todasFotosSincronizadas) {
+        await _repository.marcarRascunhoComoSincronizado(caso.uuid);
+        debugPrint(
+          '[SyncService] ✅ Push silencioso do rascunho ${caso.uuid} concluído e marcado como sincronizado.',
+        );
+      }
     } catch (e, stackTrace) {
       if (_isSessionExpiredError(e)) {
         debugPrint(

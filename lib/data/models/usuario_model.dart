@@ -176,10 +176,14 @@ class Usuario {
   ///
   /// Serializa [roles] como JSON array e o booleano [ativo] como inteiro binário (`1`/`0`).
   Map<String, dynamic> toMap() {
+    final bool isAdmin = roles.any((r) => r.toUpperCase() == 'ADMIN');
     return {
       'id': id,
       'matricula_funcional': matriculaFuncional,
       'nome_completo': nomeCompleto,
+      'papel_id': isAdmin
+          ? '11111111-2222-3333-4444-555555555555'
+          : '8f9a3361-d3f3-4f8c-a89a-44998a3047e0',
       'roles': jsonEncode(roles),
       'hash_pin_offline': hashPinOffline,
       'ativo': ativo ? 1 : 0,

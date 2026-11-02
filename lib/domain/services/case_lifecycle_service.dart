@@ -136,9 +136,10 @@ class CaseLifecycleService implements ICaseLifecycleService {
     List<ExameSolicitado> exames = const [],
     List<EvidenciaMultimidia> evidenciasGerais = const [],
   }) async {
-    final bool temExamePendente =
-        examesModel.any((e) => e.status == 'aguardando') ||
-        exames.any((e) => e.status == 'aguardando');
+    final bool temExamePendente = caso.temPendenciasAtn(
+      examesModel: examesModel,
+      examesLegados: exames,
+    );
 
     if (temExamePendente) {
       debugPrint(

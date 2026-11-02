@@ -14,6 +14,7 @@ import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dar
 import 'package:croqui_forense_mvp/data/models/exames/detalhes_toxicologico_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/amostra_genetica_model.dart';
 import 'package:croqui_forense_mvp/data/models/exames/frasco_anatomo_model.dart';
+import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/domain/services/sync_service.dart';
 
@@ -32,6 +33,59 @@ class CasoRepository implements ISyncRepository {
   @override
   Future<Database> get database async => _dbHelper.database;
 
+  /// Garante que o identificador do perito criador exista na tabela `usuarios`
+  /// para evitar falhas de Foreign Key (`SQLITE_CONSTRAINT_FOREIGNKEY`) no SQLite.
+  Future<void> _garantirUsuarioCriadorExiste(
+    DatabaseExecutor txn,
+    String? idUsuarioCriador,
+  ) async {
+    if (idUsuarioCriador == null || idUsuarioCriador.trim().isEmpty) return;
+    final cleanId = idUsuarioCriador.trim();
+    final rows = await txn.query(
+      tableUsuarios,
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [cleanId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      const defaultRole = '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
+      // Garante que o papel exista antes de associar ao usuário
+      final papelRows = await txn.query(
+        tablePapeis,
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [defaultRole],
+        limit: 1,
+      );
+      if (papelRows.isEmpty) {
+        await txn.insert(tablePapeis, {
+          'id': defaultRole,
+          'nome': 'PERITO_GERAL',
+          'descricao': 'Médico Perito',
+          'e_padrao': 1,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+
+      final matriculaUnica =
+          'usr_${cleanId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}';
+      await txn.rawInsert(
+        '''
+        INSERT OR REPLACE INTO $tableUsuarios (id, matricula_funcional, nome_completo, papel_id, ativo, roles, criado_em)
+        VALUES (?, ?, ?, ?, 1, ?, ?)
+        ''',
+        [
+          cleanId,
+          matriculaUnica,
+          'Perito Criador',
+          defaultRole,
+          jsonEncode(['PERITO']),
+          DateTime.now().toUtc().toIso8601String(),
+        ],
+      );
+    }
+  }
+
   /// Insere ou atualiza um laudo pericial ([Caso]) no banco local em transação atômica.
   ///
   /// Estratégia de persistência local:
@@ -43,6 +97,7 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       await db.transaction((txn) async {
+        await _garantirUsuarioCriadorExiste(txn, novoCaso.idUsuarioCriador);
         final map = novoCaso.toMap()..['is_draft_synced'] = 0;
         map.remove('balisticas');
         map.remove('exames');
@@ -57,7 +112,7 @@ class CasoRepository implements ISyncRepository {
           await txn.insert(
             tableCasos,
             map,
-            conflictAlgorithm: ConflictAlgorithm.ignore,
+            conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
 
@@ -79,7 +134,8 @@ class CasoRepository implements ISyncRepository {
         }
         await salvarExames(novoCaso.uuid, novoCaso.exames, executor: txn);
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[CasoRepository] ❌ Erro ao inserir caso: $e\n$stackTrace');
       throw Exception('Erro de persistência ao inserir caso: $e');
     }
   }
@@ -97,6 +153,7 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       await db.transaction((txn) async {
+        await _garantirUsuarioCriadorExiste(txn, novoCaso.idUsuarioCriador);
         final map = novoCaso.toMap()..['is_draft_synced'] = 0;
         map.remove('balisticas');
         map.remove('exames');
@@ -201,6 +258,10 @@ class CasoRepository implements ISyncRepository {
         final batch = txn.batch();
 
         if (deveAtualizarCaso) {
+          await _garantirUsuarioCriadorExiste(
+            txn,
+            casoBackend.idUsuarioCriador,
+          );
           final mapParaSalvar = casoBackend.toMap()..['is_draft_synced'] = 1;
           mapParaSalvar.remove('balisticas');
           mapParaSalvar.remove('exames');
@@ -277,7 +338,7 @@ class CasoRepository implements ISyncRepository {
             );
           }
 
-          // Coleta todas as balÃ­sticas do caso (tanto de casoBackend quanto do rawJson)
+          // Coleta todas as balísticas do caso (tanto de casoBackend quanto do rawJson)
           final List<BalisticaModel> todasBalisticas = [];
           todasBalisticas.addAll(casoBackend.balisticas);
 
@@ -297,16 +358,60 @@ class CasoRepository implements ISyncRepository {
             }
           }
 
+          final existingBalisticasRows = await txn.query(
+            tableBalisticas,
+            where: 'exame_id = ?',
+            whereArgs: [casoBackend.uuid],
+          );
+          final Map<String, Map<String, dynamic>> existingBalisticaById = {
+            for (final r in existingBalisticasRows)
+              if (r['id'] != null) r['id'].toString().trim().toLowerCase(): r,
+          };
+
+          final Map<String, String> achadoUuidByDetBalisticaId = {};
+          for (final achado in payload.achados) {
+            final detV5 = deterministicUuidV5(
+              achado.uuid,
+              'balistica',
+            ).toLowerCase();
+            final detV4 = deterministicUuidV4(
+              achado.uuid,
+              'balistica',
+            ).toLowerCase();
+            achadoUuidByDetBalisticaId[detV5] = achado.uuid;
+            achadoUuidByDetBalisticaId[detV4] = achado.uuid;
+          }
+
           batch.delete(
             tableBalisticas,
             where: 'exame_id = ?',
             whereArgs: [casoBackend.uuid],
           );
           for (final b in todasBalisticas) {
-            final balisticaFinal =
-                (b.exameId.isEmpty || b.exameId != casoBackend.uuid)
-                ? b.copyWith(exameId: casoBackend.uuid)
-                : b;
+            final bIdLower = b.id.trim().toLowerCase();
+            final resolvedAchadoUuid =
+                b.achadoUuid ?? achadoUuidByDetBalisticaId[bIdLower];
+            final existingRow = existingBalisticaById[bIdLower];
+            final existingStatus = StatusConfirmacaoATN.fromString(
+              existingRow?['status_confirmacao_atn']?.toString(),
+            );
+            final shouldKeepExistingAtn =
+                b.statusConfirmacaoAtn == StatusConfirmacaoATN.PENDENTE &&
+                existingStatus != StatusConfirmacaoATN.PENDENTE;
+
+            final balisticaFinal = b.copyWith(
+              exameId: casoBackend.uuid,
+              achadoUuid: resolvedAchadoUuid,
+              statusConfirmacaoAtn: shouldKeepExistingAtn
+                  ? existingStatus
+                  : b.statusConfirmacaoAtn,
+              justificativaRecusa: shouldKeepExistingAtn
+                  ? (b.justificativaRecusa ??
+                        existingRow?['justificativa_recusa']?.toString())
+                  : b.justificativaRecusa,
+              numeroLacre:
+                  b.numeroLacre ?? existingRow?['numero_lacre']?.toString(),
+            );
             batch.insert(
               tableBalisticas,
               balisticaFinal.toMap(),
@@ -439,6 +544,7 @@ class CasoRepository implements ISyncRepository {
             if (localRow != null) {
               final int localSincronizada =
                   (localRow['foto_sincronizada'] as int?) ?? 0;
+              final int localRemovido = (localRow['removido'] as int?) ?? 0;
               final String? localPath = localRow['caminho_arquivo_encriptado']
                   ?.toString();
 
@@ -452,7 +558,14 @@ class CasoRepository implements ISyncRepository {
                 evMap['caminho_arquivo_encriptado'] = localPath;
               }
 
-              if (localSincronizada == 0) {
+              // Tombstone local vence: impede que o Passo 1 (Pull) ressuscite uma foto
+              // que o perito acabou de deletar localmente antes do Passo 2 (Push).
+              if (localRemovido == 1) {
+                evMap['removido'] = 1;
+                if (localRow['uuid'] != null) {
+                  evMap['uuid'] = localRow['uuid'];
+                }
+              } else if (localSincronizada == 0) {
                 evMap['foto_sincronizada'] = 0;
                 if (localRow['uuid'] != null) {
                   evMap['uuid'] = localRow['uuid'];
@@ -468,6 +581,108 @@ class CasoRepository implements ISyncRepository {
               tableEvidenciasMultimidia,
               evMap,
               conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        } else {
+          // Quando deveAtualizarCaso == false (rascunho local pendente é mais recente),
+          // preservamos os dados clínicos locais do perito, mas reconciliamos os campos
+          // de custódia do ATN (status_confirmacao_atn, justificativa_recusa, numero_lacre)
+          // vindos do servidor para não bloquear o fechamento do laudo nem sobrescrever o ATN no Push.
+          final List<BalisticaModel> todasBalisticasRemotas = [
+            ...casoBackend.balisticas,
+          ];
+          if (payload.rawJson['balisticas'] is List) {
+            for (final rawB in (payload.rawJson['balisticas'] as List)) {
+              if (rawB is! Map) continue;
+              final bModel = BalisticaModel.fromMap(
+                Map<String, dynamic>.from(rawB),
+              );
+              if (bModel.id.isNotEmpty &&
+                  !todasBalisticasRemotas.any(
+                    (b) =>
+                        b.id.trim().toLowerCase() ==
+                        bModel.id.trim().toLowerCase(),
+                  )) {
+                todasBalisticasRemotas.add(bModel);
+              }
+            }
+          }
+
+          for (final remoteB in todasBalisticasRemotas) {
+            final hasAtnUpdate =
+                remoteB.statusConfirmacaoAtn != StatusConfirmacaoATN.PENDENTE ||
+                (remoteB.justificativaRecusa != null &&
+                    remoteB.justificativaRecusa!.isNotEmpty) ||
+                (remoteB.numeroLacre != null &&
+                    remoteB.numeroLacre!.isNotEmpty);
+            if (!hasAtnUpdate) continue;
+
+            final updateValues = <String, dynamic>{
+              'status_confirmacao_atn': remoteB.statusConfirmacaoAtn
+                  .toBackendString(),
+              if (remoteB.justificativaRecusa != null)
+                'justificativa_recusa': remoteB.justificativaRecusa,
+              if (remoteB.numeroLacre != null &&
+                  remoteB.numeroLacre!.isNotEmpty)
+                'numero_lacre': remoteB.numeroLacre,
+              if (remoteB.achadoUuid != null && remoteB.achadoUuid!.isNotEmpty)
+                'achado_uuid': remoteB.achadoUuid,
+            };
+
+            final remoteIdLower = remoteB.id.trim().toLowerCase();
+            final remoteAchadoLower = remoteB.achadoUuid?.trim().toLowerCase();
+            if (remoteAchadoLower != null && remoteAchadoLower.isNotEmpty) {
+              batch.update(
+                tableBalisticas,
+                updateValues,
+                where:
+                    'exame_id = ? AND (LOWER(id) = ? OR LOWER(achado_uuid) = ?)',
+                whereArgs: [casoBackend.uuid, remoteIdLower, remoteAchadoLower],
+              );
+            } else {
+              batch.update(
+                tableBalisticas,
+                updateValues,
+                where: 'exame_id = ? AND LOWER(id) = ?',
+                whereArgs: [casoBackend.uuid, remoteIdLower],
+              );
+            }
+          }
+
+          for (final remoteExame in payload.caso.exames) {
+            final hasAtnUpdate =
+                remoteExame.statusConfirmacaoAtn !=
+                    StatusConfirmacaoATN.PENDENTE ||
+                (remoteExame.justificativaRecusa != null &&
+                    remoteExame.justificativaRecusa!.isNotEmpty) ||
+                (remoteExame.numeroLacre != null &&
+                    remoteExame.numeroLacre!.isNotEmpty);
+            if (!hasAtnUpdate) continue;
+
+            final resolvedStatus = remoteExame.statusConfirmacaoAtn
+                .toLegacyProcessualStatus(remoteExame.status);
+
+            final updateExameValues = <String, dynamic>{
+              'status_confirmacao_atn': remoteExame.statusConfirmacaoAtn
+                  .toBackendString(),
+              'status': resolvedStatus,
+              if (remoteExame.justificativaRecusa != null)
+                'justificativa_recusa': remoteExame.justificativaRecusa,
+              if (remoteExame.numeroLacre != null &&
+                  remoteExame.numeroLacre!.isNotEmpty)
+                'numero_lacre': remoteExame.numeroLacre,
+            };
+
+            batch.update(
+              'exames_solicitados',
+              updateExameValues,
+              where:
+                  'caso_uuid = ? AND (uuid = ? OR UPPER(TRIM(tipo_exame)) = ?)',
+              whereArgs: [
+                casoBackend.uuid,
+                remoteExame.uuid,
+                remoteExame.tipoExame.trim().toUpperCase(),
+              ],
             );
           }
         }
@@ -514,15 +729,55 @@ class CasoRepository implements ISyncRepository {
           whereArgs: [caso.uuid],
         );
 
+        final existingBalisticasRows = await txn.query(
+          tableBalisticas,
+          where: 'exame_id = ?',
+          whereArgs: [caso.uuid],
+        );
+        final Map<String, Map<String, dynamic>> existingBalisticaById = {
+          for (final r in existingBalisticasRows)
+            if (r['id'] != null) r['id'].toString().trim().toLowerCase(): r,
+        };
+        final Map<String, Map<String, dynamic>> existingBalisticaByAchado = {
+          for (final r in existingBalisticasRows)
+            if (r['achado_uuid'] != null &&
+                r['achado_uuid'].toString().trim().isNotEmpty)
+              r['achado_uuid'].toString().trim().toLowerCase(): r,
+        };
+
         await txn.delete(
           tableBalisticas,
           where: 'exame_id = ?',
           whereArgs: [caso.uuid],
         );
         for (final b in caso.balisticas) {
-          final balisticaFinal = (b.exameId.isEmpty || b.exameId != caso.uuid)
-              ? b.copyWith(exameId: caso.uuid)
-              : b;
+          final bIdLower = b.id.trim().toLowerCase();
+          final bAchadoLower = b.achadoUuid?.trim().toLowerCase();
+          final existingRow =
+              existingBalisticaById[bIdLower] ??
+              (bAchadoLower != null
+                  ? existingBalisticaByAchado[bAchadoLower]
+                  : null);
+          final existingStatus = StatusConfirmacaoATN.fromString(
+            existingRow?['status_confirmacao_atn']?.toString(),
+          );
+          final shouldKeepExistingAtn =
+              b.statusConfirmacaoAtn == StatusConfirmacaoATN.PENDENTE &&
+              existingStatus != StatusConfirmacaoATN.PENDENTE;
+
+          final balisticaFinal = b.copyWith(
+            exameId: caso.uuid,
+            achadoUuid: b.achadoUuid ?? existingRow?['achado_uuid']?.toString(),
+            statusConfirmacaoAtn: shouldKeepExistingAtn
+                ? existingStatus
+                : b.statusConfirmacaoAtn,
+            justificativaRecusa: shouldKeepExistingAtn
+                ? (b.justificativaRecusa ??
+                      existingRow?['justificativa_recusa']?.toString())
+                : b.justificativaRecusa,
+            numeroLacre:
+                b.numeroLacre ?? existingRow?['numero_lacre']?.toString(),
+          );
           await txn.insert(
             tableBalisticas,
             balisticaFinal.toMap(),
@@ -785,7 +1040,23 @@ class CasoRepository implements ISyncRepository {
     final maps = await db.query(
       tableCasos,
       where:
-          "(id_usuario_criador = ? OR id_usuario_criador IS NULL OR id_usuario_criador = '') AND UPPER(status) IN ('EM_ANDAMENTO', 'EMANDAMENTO', 'NAO_INICIADO', 'RASCUNHO', 'LAUDO_PENDENTE', 'LAUDOPENDENTE', 'FINALIZADO', 'CONCLUIDO') AND (is_draft_synced IS NULL OR is_draft_synced = 0) AND removido = 0",
+          "(id_usuario_criador = ? OR id_usuario_criador IS NULL OR id_usuario_criador = '') "
+          "AND UPPER(status) IN ('EM_ANDAMENTO', 'EMANDAMENTO', 'NAO_INICIADO', 'RASCUNHO', 'LAUDO_PENDENTE', 'LAUDOPENDENTE', 'FINALIZADO', 'CONCLUIDO') "
+          "AND ("
+          "  is_draft_synced IS NULL "
+          "  OR is_draft_synced = 0 "
+          "  OR EXISTS ("
+          "    SELECT 1 FROM $tableEvidenciasMultimidia e "
+          "    LEFT JOIN $tableAchados a ON e.achado_uuid = a.uuid "
+          "    WHERE (e.caso_uuid = $tableCasos.uuid OR a.caso_uuid = $tableCasos.uuid) "
+          "      AND e.removido = 0 "
+          "      AND e.foto_sincronizada = 0 "
+          "      AND e.caminho_arquivo_encriptado IS NOT NULL "
+          "      AND e.caminho_arquivo_encriptado != '' "
+          "      AND (e.achado_uuid IS NULL OR COALESCE(a.removido, 0) = 0)"
+          "  )"
+          ") "
+          "AND removido = 0",
       whereArgs: [usuarioId],
       orderBy: 'criado_em_dispositivo ASC',
     );
@@ -1004,6 +1275,7 @@ class CasoRepository implements ISyncRepository {
         LEFT JOIN $tableAchados a ON e.achado_uuid = a.uuid
         WHERE (e.caso_uuid = ? OR a.caso_uuid = ?)
           AND e.removido = 0
+          AND (e.achado_uuid IS NULL OR COALESCE(a.removido, 0) = 0)
           AND e.caminho_arquivo_encriptado IS NOT NULL
           AND e.caminho_arquivo_encriptado != ''
           AND e.foto_sincronizada = 0
@@ -1033,6 +1305,7 @@ class CasoRepository implements ISyncRepository {
       FROM evidencias_multimidia e
       LEFT JOIN achados a ON e.achado_uuid = a.uuid
       WHERE e.removido = 0
+        AND (e.achado_uuid IS NULL OR COALESCE(a.removido, 0) = 0)
         AND e.caminho_arquivo_encriptado IS NOT NULL
         AND e.caminho_arquivo_encriptado != ''
         AND e.foto_sincronizada = 0
@@ -1100,13 +1373,38 @@ class CasoRepository implements ISyncRepository {
     }
   }
 
-  /// Define `foto_sincronizada = 1` para a evidência multimídia correspondente ao [uuid].
+  /// Define `foto_sincronizada = 1` para a evidência multimídia correspondente ao [uuid],
+  /// persistindo também sua [chaveStorage] e `url_storage` remota caso informada.
   @override
-  Future<void> marcarEvidenciaComoSincronizada(String uuid) async {
+  Future<void> marcarEvidenciaComoSincronizada(
+    String uuid, {
+    String? chaveStorage,
+  }) async {
+    final db = await database;
+    final Map<String, dynamic> values = {'foto_sincronizada': 1};
+    if (chaveStorage != null && chaveStorage.trim().isNotEmpty) {
+      values['chave_storage'] = chaveStorage.trim();
+      values['url_storage'] = chaveStorage.trim();
+    }
+    await db.update(
+      tableEvidenciasMultimidia,
+      values,
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+    );
+  }
+
+  /// Invalida (soft-delete) uma evidência multimídia órfã cujo arquivo físico não existe em disco.
+  @override
+  Future<void> invalidarEvidenciaOrfa(String uuid) async {
     final db = await database;
     await db.update(
       tableEvidenciasMultimidia,
-      {'foto_sincronizada': 1},
+      {
+        'removido': 1,
+        'foto_sincronizada': 1,
+        'atualizado_em': DateTime.now().toUtc().toIso8601String(),
+      },
       where: 'uuid = ?',
       whereArgs: [uuid],
     );
@@ -1294,6 +1592,21 @@ class CasoRepository implements ISyncRepository {
     bool isSyncPull = false,
   }) async {
     Future<void> executarOperacoes(DatabaseExecutor targetDb) async {
+      final existingExamesRows = await targetDb.query(
+        'exames_solicitados',
+        where: 'caso_uuid = ?',
+        whereArgs: [casoUuid],
+      );
+      final Map<String, Map<String, dynamic>> existingByUuid = {
+        for (final r in existingExamesRows)
+          if (r['uuid'] != null) r['uuid'].toString().trim(): r,
+      };
+      final Map<String, Map<String, dynamic>> existingByTipo = {
+        for (final r in existingExamesRows)
+          if (r['tipo_exame'] != null)
+            r['tipo_exame'].toString().trim().toUpperCase(): r,
+      };
+
       final batch = targetDb.batch();
 
       const subQueryExames =
@@ -1320,7 +1633,35 @@ class CasoRepository implements ISyncRepository {
       );
 
       for (final exame in exames) {
-        final mapExame = exame.toMap();
+        final tipoUpper = exame.tipoExame.trim().toUpperCase();
+        final existingRow =
+            existingByUuid[exame.uuid.trim()] ?? existingByTipo[tipoUpper];
+        final existingStatusAtn = StatusConfirmacaoATN.fromString(
+          existingRow?['status_confirmacao_atn']?.toString(),
+        );
+        final shouldPreserveExistingAtn =
+            !isSyncPull &&
+            exame.statusConfirmacaoAtn == StatusConfirmacaoATN.PENDENTE &&
+            existingStatusAtn != StatusConfirmacaoATN.PENDENTE;
+
+        final exameParaSalvar = shouldPreserveExistingAtn
+            ? exame.copyWith(
+                statusConfirmacaoAtn: existingStatusAtn,
+                justificativaRecusa:
+                    exame.justificativaRecusa ??
+                    existingRow?['justificativa_recusa']?.toString(),
+                status: existingStatusAtn == StatusConfirmacaoATN.CONFIRMADO
+                    ? 'confirmado'
+                    : (existingStatusAtn == StatusConfirmacaoATN.RECUSADO
+                          ? 'recusado'
+                          : exame.status),
+                numeroLacre:
+                    exame.numeroLacre ??
+                    existingRow?['numero_lacre']?.toString(),
+              )
+            : exame;
+
+        final mapExame = exameParaSalvar.toMap();
         mapExame.remove('detalhes');
         mapExame.remove('amostras_genetica');
         mapExame.remove('frascos_anatomo');

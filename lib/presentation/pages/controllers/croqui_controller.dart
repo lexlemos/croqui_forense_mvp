@@ -22,7 +22,6 @@ import 'package:croqui_forense_mvp/core/utils/uuid_helper.dart';
 import 'package:croqui_forense_mvp/core/utils/protocol_formatter.dart';
 
 import 'package:croqui_forense_mvp/data/models/exames/exame_solicitado_model.dart';
-import 'package:croqui_forense_mvp/core/enums/status_confirmacao_atn.dart';
 
 import 'package:croqui_forense_mvp/data/repositories/achado_repository.dart';
 import 'package:croqui_forense_mvp/data/repositories/caso_repository.dart';
@@ -103,6 +102,8 @@ class CroquiController extends ChangeNotifier {
   late final CroquiFormCoordinator formCoordinator;
 
   TextEditingController get numeroLaudoCtrl => formCoordinator.numeroLaudoCtrl;
+  TextEditingController get numeroRequisicaoCtrl =>
+      formCoordinator.numeroRequisicaoCtrl;
   TextEditingController get boCtrl => formCoordinator.boCtrl;
   TextEditingController get picCtrl => formCoordinator.picCtrl;
   TextEditingController get reqOrigemCtrl => formCoordinator.reqOrigemCtrl;
@@ -223,7 +224,16 @@ class CroquiController extends ChangeNotifier {
       examesSolicitadosModel = await _caseService.getExamesPorCaso(
         casoAtual.uuid,
       );
-      casoAtual = casoAtual.copyWith(exames: examesSolicitadosModel);
+      final casoPersistido = await _caseService.buscarCasoPorUuid(
+        casoAtual.uuid,
+      );
+      casoAtual = casoAtual.copyWith(
+        exames: examesSolicitadosModel,
+        balisticas:
+            (casoPersistido != null && casoPersistido.balisticas.isNotEmpty)
+            ? casoPersistido.balisticas
+            : casoAtual.balisticas,
+      );
       atns = await _atnRepository.getAtns();
     } finally {
       isLoading = false;
@@ -490,6 +500,7 @@ class CroquiController extends ChangeNotifier {
           BalisticaModel(
             id: balisticaId,
             exameId: casoAtual.uuid,
+            achadoUuid: achadoFinal.uuid,
             tipoFerimento: tipoFerimento,
             tipoObjeto: tipoObjeto,
             numeroLacre: null,
@@ -502,8 +513,8 @@ class CroquiController extends ChangeNotifier {
 
       try {
         await _achadoService.salvarAchado(achadoFinal);
-        await _bumpRootVersion();
         await _loadAchados();
+        await _bumpRootVersion();
 
         globalMessengerKey.currentState?.hideCurrentSnackBar();
         globalMessengerKey.currentState?.showSnackBar(
@@ -631,7 +642,25 @@ class CroquiController extends ChangeNotifier {
         achadoAtualizado.uuid,
         'balistica',
       );
-      novasBalisticas.removeWhere((b) => b.id == balisticaId);
+      final achadoUuidLower = achadoAtualizado.uuid.trim().toLowerCase();
+      final balisticaIdLower = balisticaId.toLowerCase();
+
+      BalisticaModel? balisticaExistente;
+      for (final b in novasBalisticas) {
+        if (b.id.trim().toLowerCase() == balisticaIdLower ||
+            (b.achadoUuid != null &&
+                b.achadoUuid!.trim().toLowerCase() == achadoUuidLower)) {
+          balisticaExistente = b;
+          break;
+        }
+      }
+
+      novasBalisticas.removeWhere(
+        (b) =>
+            b.id.trim().toLowerCase() == balisticaIdLower ||
+            (b.achadoUuid != null &&
+                b.achadoUuid!.trim().toLowerCase() == achadoUuidLower),
+      );
 
       final bool temBalisticaReal =
           (tipoFerimento != null && tipoFerimento.trim().isNotEmpty) ||
@@ -640,24 +669,36 @@ class CroquiController extends ChangeNotifier {
               comentarioAdicional.trim().isNotEmpty);
 
       if (temBalisticaReal) {
-        novasBalisticas.add(
-          BalisticaModel(
-            id: balisticaId,
-            exameId: casoAtual.uuid,
-            tipoFerimento: tipoFerimento,
-            tipoObjeto: tipoObjeto,
-            numeroLacre: null,
-            comentarioAdicional: comentarioAdicional,
-          ),
-        );
+        if (balisticaExistente != null) {
+          novasBalisticas.add(
+            balisticaExistente.copyWith(
+              achadoUuid: achadoAtualizado.uuid,
+              tipoFerimento: tipoFerimento,
+              tipoObjeto: tipoObjeto,
+              comentarioAdicional: comentarioAdicional,
+            ),
+          );
+        } else {
+          novasBalisticas.add(
+            BalisticaModel(
+              id: balisticaId,
+              exameId: casoAtual.uuid,
+              achadoUuid: achadoAtualizado.uuid,
+              tipoFerimento: tipoFerimento,
+              tipoObjeto: tipoObjeto,
+              numeroLacre: achado.numeroLacre,
+              comentarioAdicional: comentarioAdicional,
+            ),
+          );
+        }
       }
 
       casoAtual = casoAtual.copyWith(balisticas: novasBalisticas);
 
       try {
         await _achadoService.atualizarAchado(achadoAtualizado);
-        await _bumpRootVersion();
         await _loadAchados();
+        await _bumpRootVersion();
         _snack("Achado atualizado!");
       } catch (e) {
         _snack("Erro ao atualizar: $e", color: Colors.red);
@@ -682,8 +723,8 @@ class CroquiController extends ChangeNotifier {
 
     try {
       await _achadoService.removerAchado(uuid);
-      await _bumpRootVersion();
       await _loadAchados();
+      await _bumpRootVersion();
       _snack("Achado removido.");
     } catch (e) {
       _snack("Erro ao deletar", color: Colors.red);
@@ -854,15 +895,13 @@ class CroquiController extends ChangeNotifier {
         if (!context.mounted) return;
         await _processarDeixarPendente(context);
       } else if (opcaoSelecionada == "CONCLUIR") {
-        /// Trava Processual: Exames Complementares Pendentes
+        /// Trava Processual: Exames Complementares e Balística Pendentes de Confirmação ATN
         /// Bloqueio apenas se o perito tentar FINALIZAR o laudo.
         /// A transição para LAUDO_PENDENTE é livre.
-        final bool temExamePendente =
-            examesSolicitadosModel.any((e) => e.status == 'aguardando') ||
-            examesSolicitados.any((e) => e.status == 'aguardando') ||
-            casoAtual.exames.any(
-              (e) => e.statusConfirmacaoAtn == StatusConfirmacaoATN.PENDENTE,
-            );
+        final bool temExamePendente = casoAtual.temPendenciasAtn(
+          examesModel: examesSolicitadosModel,
+          examesLegados: examesSolicitados,
+        );
         if (temExamePendente) {
           debugPrint(
             '[CroquiController] Abortando finalização: exames complementares pendentes detectados.',
@@ -1199,15 +1238,15 @@ class CroquiController extends ChangeNotifier {
       caminhoArquivoEncriptado: path,
     );
     await _caseService.salvarEvidenciaGeral(ev);
-    await _bumpRootVersion();
     await _loadAchados();
+    await _bumpRootVersion();
   }
 
   /// Remove uma fotografia geral de necropsia pelo seu identificador [uuid].
   Future<void> removerFotoGeral(String uuid) async {
     await _caseService.removerEvidenciaGeral(uuid);
-    await _bumpRootVersion();
     await _loadAchados();
+    await _bumpRootVersion();
   }
 
   /// Atualiza os campos textuais, burocráticos e clínicos do laudo e agenda o salvamento automático.
@@ -1219,6 +1258,7 @@ class CroquiController extends ChangeNotifier {
     String numeroBo = '',
     String numeroPic = '',
     String numeroRequisicao = '',
+    String? numeroLaudoExterno,
     String nomeVitima = '',
     String destino = '',
     String requisitante = '',
@@ -1240,9 +1280,7 @@ class CroquiController extends ChangeNotifier {
       numeroBo: numeroBo,
       numeroPic: numeroPic,
       numeroRequisicao: numeroRequisicao,
-      numeroLaudoExterno: numeroRequisicao.isNotEmpty
-          ? numeroRequisicao
-          : casoAtual.numeroLaudoExterno,
+      numeroLaudoExterno: numeroLaudoExterno ?? casoAtual.numeroLaudoExterno,
       isDraftSynced: false,
       nomeVitima: nomeVitima,
       destino: destino,
@@ -1286,8 +1324,8 @@ class CroquiController extends ChangeNotifier {
         descricao: descricao,
       );
       await _caseService.salvarEvidenciaGeral(evAtualizada);
-      await _bumpRootVersion();
       await _loadAchados();
+      await _bumpRootVersion();
     }
   }
 
@@ -1466,10 +1504,18 @@ class CroquiController extends ChangeNotifier {
         altered = true;
       }
 
+      if (dto.numeroCd != null && dto.numeroCd!.isNotEmpty) {
+        final cdFmt = formatarRequisicao(dto.numeroCd);
+        if (numeroLaudoCtrl.text.isEmpty || forcar) {
+          numeroLaudoCtrl.text = cdFmt;
+          altered = true;
+        }
+      }
+
       if (dto.numeroRequisicao != null && dto.numeroRequisicao!.isNotEmpty) {
         final reqFmt = formatarRequisicao(dto.numeroRequisicao);
-        if (numeroLaudoCtrl.text.isEmpty || forcar) {
-          numeroLaudoCtrl.text = reqFmt;
+        if (numeroRequisicaoCtrl.text.isEmpty || forcar) {
+          numeroRequisicaoCtrl.text = reqFmt;
           altered = true;
         }
       }

@@ -155,12 +155,19 @@ class LaudoBuilderService {
     final blocos = <LaudoBloco>[
       LaudoItemBloco(
         label: 'Laudo Pericial Cadavérico nº CD',
-        valor: caso.numeroRequisicao.isNotEmpty
-            ? formatarRequisicao(caso.numeroRequisicao)
-            : (caso.numeroLaudoExterno != null
-                  ? formatarRequisicao(caso.numeroLaudoExterno)
+        valor:
+            caso.numeroLaudoExterno != null &&
+                caso.numeroLaudoExterno!.isNotEmpty
+            ? formatarRequisicao(caso.numeroLaudoExterno)
+            : (caso.numeroRequisicao.isNotEmpty
+                  ? formatarRequisicao(caso.numeroRequisicao)
                   : 'XXX'),
       ),
+      if (caso.numeroRequisicao.isNotEmpty)
+        LaudoItemBloco(
+          label: 'Requisição nº:',
+          valor: formatarRequisicao(caso.numeroRequisicao),
+        ),
       LaudoItemBloco(
         label: 'Requisitante: Delegado (a)',
         valor: caso.requisitante.isNotEmpty ? caso.requisitante : 'XXX',

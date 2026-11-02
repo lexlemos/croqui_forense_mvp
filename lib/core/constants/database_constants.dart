@@ -285,6 +285,7 @@ const String kCreateBalisticasSql = '''
 CREATE TABLE IF NOT EXISTS balisticas (
     id TEXT PRIMARY KEY,
     exame_id TEXT NOT NULL,
+    achado_uuid TEXT,
     tipo_ferimento TEXT,
     tipo_objeto TEXT,
     numero_lacre TEXT,

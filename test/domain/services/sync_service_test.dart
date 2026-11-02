@@ -259,6 +259,80 @@ void main() {
         expect(pacote['documento']['secoes'], isNotEmpty);
       },
     );
+
+    test(
+      'Auto-cura mídia zumbi (arquivo ausente em disco) via invalidarEvidenciaOrfa sem abortar a conclusão do laudo',
+      () async {
+        when(
+          () => mockRemoteDataSource.checkHealth(),
+        ).thenAnswer((_) async => true);
+        when(() => mockAuthService.usuario).thenReturn(usuarioTeste);
+        when(() => mockAuthService.isLogged).thenReturn(true);
+        when(
+          () => mockRemoteDataSource.pullCasos(
+            lastSyncTimestamp: any(named: 'lastSyncTimestamp'),
+          ),
+        ).thenAnswer((_) async => <Map<String, dynamic>>[]);
+
+        final casoPendente = Caso.fromMap({
+          'uuid': 'caso-zumbi-001',
+          'versao': 2,
+          'id_usuario_criador': 'perito-001',
+          'status': 'EM_ANDAMENTO',
+        });
+
+        when(
+          () => mockSyncRepository.getCasosPendentesSync('perito-001'),
+        ).thenAnswer((_) async => <Caso>[casoPendente]);
+        when(
+          () => mockSyncRepository.getAchadosEmLote(any()),
+        ).thenAnswer((_) async => <String, List<Achado>>{'caso-zumbi-001': []});
+        when(() => mockRemoteDataSource.pushTextual(any())).thenAnswer(
+          (_) async => {
+            'casos_salvos': ['caso-zumbi-001'],
+            'conflitos': [],
+          },
+        );
+        when(
+          () => mockSyncRepository.getEvidenciasPendentesPorCaso(
+            'caso-zumbi-001',
+          ),
+        ).thenAnswer(
+          (_) async => [
+            {
+              'evidencia_uuid': 'ev-fantasma-01',
+              'caso_uuid': 'caso-zumbi-001',
+              'caminho_arquivo_encriptado':
+                  '/caminho/inexistente/fantasma_deletado.jpg',
+              'hash_arquivo': '',
+              'achado_uuid': 'achado-deletado-01',
+            },
+          ],
+        );
+        when(
+          () => mockSyncRepository.invalidarEvidenciaOrfa('ev-fantasma-01'),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockSyncRepository.marcarRascunhoComoSincronizado(
+            'caso-zumbi-001',
+          ),
+        ).thenAnswer((_) async {});
+
+        final result = await syncService.execute();
+
+        expect(result.casosEnviados, equals(1));
+        expect(result.fotosFalhas, equals(0));
+        expect(result.temPendencias, isFalse);
+        verify(
+          () => mockSyncRepository.invalidarEvidenciaOrfa('ev-fantasma-01'),
+        ).called(1);
+        verify(
+          () => mockSyncRepository.marcarRascunhoComoSincronizado(
+            'caso-zumbi-001',
+          ),
+        ).called(1);
+      },
+    );
   });
 
   group('SyncProvider - Notificação de Estado e Feedback de UI', () {

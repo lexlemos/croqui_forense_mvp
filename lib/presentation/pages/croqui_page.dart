@@ -102,14 +102,18 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
           title: Consumer<CroquiController>(
             builder: (context, c, _) {
               final pic = c.casoAtual.numeroPic.trim();
+              final cd = (c.casoAtual.numeroLaudoExterno ?? '').trim();
               final req = c.casoAtual.numeroRequisicao.trim();
-              final laudo = (c.casoAtual.numeroLaudoExterno ?? '').trim();
 
               final String identificador = pic.isNotEmpty
-                  ? 'PIC $pic'
-                  : (req.isNotEmpty
-                        ? 'Req ${formatarRequisicao(req)}'
-                        : (laudo.isNotEmpty ? 'Laudo $laudo' : 'Novo Caso'));
+                  ? (cd.isNotEmpty
+                        ? 'PIC $pic / CD ${formatarRequisicao(cd)}'
+                        : 'PIC $pic')
+                  : (cd.isNotEmpty
+                        ? 'CD ${formatarRequisicao(cd)}'
+                        : (req.isNotEmpty
+                              ? 'Req ${formatarRequisicao(req)}'
+                              : 'Novo Caso'));
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,7 +165,11 @@ class _CroquiViewState extends State<_CroquiView> with WidgetsBindingObserver {
                     ],
                   ),
                   Text(
-                    "Laudo: ${laudo.isNotEmpty ? laudo : (req.isNotEmpty ? 'Req: $req' : 'Pendente')}",
+                    cd.isNotEmpty
+                        ? "CD: ${formatarRequisicao(cd)}"
+                        : (req.isNotEmpty
+                              ? "Req: ${formatarRequisicao(req)}"
+                              : "Laudo: Pendente"),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w300,

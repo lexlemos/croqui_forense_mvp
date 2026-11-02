@@ -8,6 +8,7 @@ void main() {
   final casoTeste = Caso.fromMap({
     'uuid': 'caso-form-123',
     'id_usuario_criador': 'perito-01',
+    'numero_laudo_externo': 'CD-100',
     'numero_requisicao': 'REQ-100',
     'numero_bo': 'BO-200',
     'numero_pic': 'PIC-300',
@@ -22,7 +23,8 @@ void main() {
       () {
         final coordinator = CroquiFormCoordinator(casoTeste);
 
-        expect(coordinator.numeroLaudoCtrl.text, equals('REQ-100'));
+        expect(coordinator.numeroLaudoCtrl.text, equals('CD-100'));
+        expect(coordinator.numeroRequisicaoCtrl.text, equals('REQ-100'));
         expect(coordinator.boCtrl.text, equals('BO-200'));
         expect(coordinator.picCtrl.text, equals('PIC-300'));
         expect(coordinator.nomeVitimaCtrl.text, equals('João da Silva'));

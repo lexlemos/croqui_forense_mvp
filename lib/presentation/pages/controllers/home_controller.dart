@@ -72,6 +72,7 @@ class HomeController extends ChangeNotifier {
   Future<ProtocoloLookupModel?> buscarDadosIniciais(
     String pic, {
     required BuildContext context,
+    TextEditingController? cdCtrl,
     required TextEditingController requisicaoCtrl,
     required TextEditingController boCtrl,
     required TextEditingController autoridadeCtrl,
@@ -113,6 +114,10 @@ class HomeController extends ChangeNotifier {
 
       if (boCtrl.text.isEmpty && dto.numeroBo != null) {
         boCtrl.text = dto.numeroBo!;
+      }
+
+      if (cdCtrl != null && cdCtrl.text.isEmpty && dto.numeroCd != null) {
+        cdCtrl.text = formatarRequisicao(dto.numeroCd);
       }
 
       if (requisicaoCtrl.text.isEmpty && dto.numeroRequisicao != null) {

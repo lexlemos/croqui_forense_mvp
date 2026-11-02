@@ -115,6 +115,36 @@ class DatabaseHelper {
       'sync_error',
       'INTEGER NOT NULL DEFAULT 0',
     );
+    await _addColumnIfNotExists(txn, 'casos', 'corpo_estado', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'corpo_estado_outros', 'TEXT');
+    await _addColumnIfNotExists(
+      txn,
+      'casos',
+      'sexo_biologico_estimado',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(txn, 'casos', 'data_obito', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'hora_obito', 'TEXT');
+    await _addColumnIfNotExists(
+      txn,
+      'casos',
+      'tipo_estimativa_hora_obito',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(txn, 'casos', 'causa_morte', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'exames_solicitados', 'INTEGER');
+    await _addColumnIfNotExists(txn, 'casos', 'descricao_exames', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'objeto_retirado', 'INTEGER');
+    await _addColumnIfNotExists(txn, 'casos', 'descricao_objeto', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'data_necropsia', 'TEXT');
+    await _addColumnIfNotExists(txn, 'casos', 'hora_necropsia', 'TEXT');
+    await _addColumnIfNotExists(
+      txn,
+      'casos',
+      'numero_declaracao_obito',
+      'TEXT',
+    );
+    await _addColumnIfNotExists(txn, 'casos', 'delegacia_solicitante', 'TEXT');
     await txn.execute(kCreateAtnsSql);
     await txn.execute(kCreateBalisticasSql);
     await _addColumnIfNotExists(txn, 'atns', 'ativo', 'INTEGER DEFAULT 1');
@@ -130,6 +160,7 @@ class DatabaseHelper {
       'justificativa_recusa',
       'TEXT',
     );
+    await _addColumnIfNotExists(txn, 'balisticas', 'achado_uuid', 'TEXT');
     await _addColumnIfNotExists(
       txn,
       'balisticas',
@@ -142,7 +173,7 @@ class DatabaseHelper {
       'justificativa_recusa',
       'TEXT',
     );
-    await DatabaseSeeder(txn).seedAtns();
+    await DatabaseSeeder(txn).seedAll();
     await _addColumnIfNotExists(
       txn,
       'amostras_genetica',
@@ -430,7 +461,7 @@ class DatabaseHelper {
         );
         await _addColumnIfNotExists(txn, 'casos', 'atn_responsavel', 'TEXT');
         await txn.execute(kCreateAtnsSql);
-        await DatabaseSeeder(txn).seedAtns();
+        await DatabaseSeeder(txn).seedAll();
         break;
 
       case 11:

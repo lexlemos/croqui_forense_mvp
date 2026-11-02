@@ -37,7 +37,8 @@ class CausaMorteControllers {
 /// do exame físico e dos quesitos legais, além de consolidar os dados para o [DadosLaudoModel].
 class CroquiFormCoordinator {
   // Identificação e Requisição Policial
-  late final TextEditingController numeroLaudoCtrl;
+  late final TextEditingController numeroLaudoCtrl; // Código Digital (CD)
+  late final TextEditingController numeroRequisicaoCtrl; // Número da Requisição
   late final TextEditingController boCtrl;
   late final TextEditingController picCtrl;
   late final TextEditingController reqOrigemCtrl;
@@ -79,11 +80,10 @@ class CroquiFormCoordinator {
     final dados = caso.dadosLaudo;
 
     numeroLaudoCtrl = TextEditingController(
-      text: formatarRequisicao(
-        caso.numeroRequisicao.isNotEmpty
-            ? caso.numeroRequisicao
-            : (caso.numeroLaudoExterno ?? ''),
-      ),
+      text: formatarRequisicao(caso.numeroLaudoExterno ?? ''),
+    );
+    numeroRequisicaoCtrl = TextEditingController(
+      text: formatarRequisicao(caso.numeroRequisicao),
     );
     boCtrl = TextEditingController(text: caso.numeroBo);
     picCtrl = TextEditingController(text: caso.numeroPic);
@@ -272,14 +272,15 @@ class CroquiFormCoordinator {
         )
         .toList();
 
-    final reqNum = sanitizarRequisicao(numeroLaudoCtrl.text);
+    final cdNum = sanitizarRequisicao(numeroLaudoCtrl.text);
+    final reqNum = sanitizarRequisicao(numeroRequisicaoCtrl.text);
 
     return casoBase.copyWith(
       numeroBo: boCtrl.text,
       numeroPic: picCtrl.text,
       numeroRequisicao: reqNum,
-      numeroLaudoExterno: reqNum.isNotEmpty
-          ? reqNum
+      numeroLaudoExterno: cdNum.isNotEmpty
+          ? cdNum
           : casoBase.numeroLaudoExterno,
       nomeVitima: nomeVitimaCtrl.text,
       destino: reqDestinoCtrl.text,
@@ -305,6 +306,7 @@ class CroquiFormCoordinator {
   /// Descarta todos os controladores de texto ativos.
   void dispose() {
     numeroLaudoCtrl.dispose();
+    numeroRequisicaoCtrl.dispose();
     boCtrl.dispose();
     picCtrl.dispose();
     reqOrigemCtrl.dispose();

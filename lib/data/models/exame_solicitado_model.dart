@@ -36,20 +36,43 @@ class ExameSolicitado {
        criadoEm = DateTime.now();
 
   factory ExameSolicitado.fromMap(Map<String, dynamic> map) {
+    final statusAtn = StatusConfirmacaoATN.fromString(
+      (map['status_confirmacao_atn'] ??
+              map['statusConfirmacaoAtn'] ??
+              map['status_atn'])
+          ?.toString(),
+    );
+    final rawStatus = map['status']?.toString();
+    final String resolvedStatus;
+    if (statusAtn == StatusConfirmacaoATN.CONFIRMADO &&
+        (rawStatus == null ||
+            rawStatus.trim().isEmpty ||
+            rawStatus.trim().toLowerCase() == 'aguardando')) {
+      resolvedStatus = 'confirmado';
+    } else if (statusAtn == StatusConfirmacaoATN.RECUSADO &&
+        (rawStatus == null ||
+            rawStatus.trim().isEmpty ||
+            rawStatus.trim().toLowerCase() == 'aguardando')) {
+      resolvedStatus = 'recusado';
+    } else {
+      resolvedStatus = rawStatus ?? 'aguardando';
+    }
+
     return ExameSolicitado(
       uuid: map['uuid']?.toString() ?? '',
-      casoUuid: map['caso_uuid']?.toString() ?? '',
+      casoUuid:
+          map['caso_uuid']?.toString() ?? map['exame_id']?.toString() ?? '',
       tipoExame: map['tipo_exame']?.toString() ?? '',
       quantidadeAmostras: map['quantidade_amostras'] as int? ?? 1,
       numeroLacre: map['numero_lacre']?.toString() ?? '',
       criadoEm:
           DateTime.tryParse(map['criado_em']?.toString() ?? '') ??
           DateTime.now(),
-      status: map['status']?.toString() ?? 'aguardando',
-      statusConfirmacaoAtn: StatusConfirmacaoATN.fromString(
-        map['status_confirmacao_atn']?.toString(),
-      ),
-      justificativaRecusa: map['justificativa_recusa']?.toString(),
+      status: resolvedStatus,
+      statusConfirmacaoAtn: statusAtn,
+      justificativaRecusa:
+          (map['justificativa_recusa'] ?? map['justificativaRecusa'])
+              ?.toString(),
     );
   }
 
