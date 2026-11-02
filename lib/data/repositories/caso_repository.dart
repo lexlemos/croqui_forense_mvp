@@ -33,6 +33,63 @@ class CasoRepository implements ISyncRepository {
   @override
   Future<Database> get database async => _dbHelper.database;
 
+  /// Garante que o identificador do perito criador exista na tabela `usuarios`
+  /// para evitar falhas de Foreign Key (`SQLITE_CONSTRAINT_FOREIGNKEY`) no SQLite.
+  Future<void> _garantirUsuarioCriadorExiste(
+    DatabaseExecutor txn,
+    String? idUsuarioCriador,
+  ) async {
+    if (idUsuarioCriador == null || idUsuarioCriador.trim().isEmpty) return;
+    final cleanId = idUsuarioCriador.trim();
+    final rows = await txn.query(
+      tableUsuarios,
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [cleanId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      const defaultRole = '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
+      // Garante que o papel exista antes de associar ao usuário
+      final papelRows = await txn.query(
+        tablePapeis,
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [defaultRole],
+        limit: 1,
+      );
+      if (papelRows.isEmpty) {
+        await txn.insert(
+          tablePapeis,
+          {
+            'id': defaultRole,
+            'nome': 'PERITO_GERAL',
+            'descricao': 'Médico Perito',
+            'e_padrao': 1,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+
+      final matriculaUnica =
+          'usr_${cleanId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}';
+      await txn.rawInsert(
+        '''
+        INSERT OR REPLACE INTO $tableUsuarios (id, matricula_funcional, nome_completo, papel_id, ativo, roles, criado_em)
+        VALUES (?, ?, ?, ?, 1, ?, ?)
+        ''',
+        [
+          cleanId,
+          matriculaUnica,
+          'Perito Criador',
+          defaultRole,
+          jsonEncode(['PERITO']),
+          DateTime.now().toUtc().toIso8601String(),
+        ],
+      );
+    }
+  }
+
   /// Insere ou atualiza um laudo pericial ([Caso]) no banco local em transação atômica.
   ///
   /// Estratégia de persistência local:
@@ -44,6 +101,7 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       await db.transaction((txn) async {
+        await _garantirUsuarioCriadorExiste(txn, novoCaso.idUsuarioCriador);
         final map = novoCaso.toMap()..['is_draft_synced'] = 0;
         map.remove('balisticas');
         map.remove('exames');
@@ -58,7 +116,7 @@ class CasoRepository implements ISyncRepository {
           await txn.insert(
             tableCasos,
             map,
-            conflictAlgorithm: ConflictAlgorithm.ignore,
+            conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
 
@@ -80,7 +138,8 @@ class CasoRepository implements ISyncRepository {
         }
         await salvarExames(novoCaso.uuid, novoCaso.exames, executor: txn);
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[CasoRepository] ❌ Erro ao inserir caso: $e\n$stackTrace');
       throw Exception('Erro de persistência ao inserir caso: $e');
     }
   }
@@ -98,6 +157,7 @@ class CasoRepository implements ISyncRepository {
     final db = await database;
     try {
       await db.transaction((txn) async {
+        await _garantirUsuarioCriadorExiste(txn, novoCaso.idUsuarioCriador);
         final map = novoCaso.toMap()..['is_draft_synced'] = 0;
         map.remove('balisticas');
         map.remove('exames');
@@ -202,6 +262,10 @@ class CasoRepository implements ISyncRepository {
         final batch = txn.batch();
 
         if (deveAtualizarCaso) {
+          await _garantirUsuarioCriadorExiste(
+            txn,
+            casoBackend.idUsuarioCriador,
+          );
           final mapParaSalvar = casoBackend.toMap()..['is_draft_synced'] = 1;
           mapParaSalvar.remove('balisticas');
           mapParaSalvar.remove('exames');
@@ -1313,13 +1377,22 @@ class CasoRepository implements ISyncRepository {
     }
   }
 
-  /// Define `foto_sincronizada = 1` para a evidência multimídia correspondente ao [uuid].
+  /// Define `foto_sincronizada = 1` para a evidência multimídia correspondente ao [uuid],
+  /// persistindo também sua [chaveStorage] e `url_storage` remota caso informada.
   @override
-  Future<void> marcarEvidenciaComoSincronizada(String uuid) async {
+  Future<void> marcarEvidenciaComoSincronizada(
+    String uuid, {
+    String? chaveStorage,
+  }) async {
     final db = await database;
+    final Map<String, dynamic> values = {'foto_sincronizada': 1};
+    if (chaveStorage != null && chaveStorage.trim().isNotEmpty) {
+      values['chave_storage'] = chaveStorage.trim();
+      values['url_storage'] = chaveStorage.trim();
+    }
     await db.update(
       tableEvidenciasMultimidia,
-      {'foto_sincronizada': 1},
+      values,
       where: 'uuid = ?',
       whereArgs: [uuid],
     );

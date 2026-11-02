@@ -230,7 +230,7 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
   /// Timeout estendido de 120 segundos para suportar transmissão em redes móveis de baixa velocidade.
   /// Throws [SyncUploadEvidenciaException] em caso de falha na transmissão.
   @override
-  Future<void> uploadEvidencia({
+  Future<String?> uploadEvidencia({
     required String casoUuid,
     required String? achadoUuid,
     required String evidenciaUuid,
@@ -240,7 +240,9 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
     try {
       final Map<String, dynamic> formDataMap = {
         'uuid': evidenciaUuid,
+        'evidencia_uuid': evidenciaUuid,
         'caso_uuid': casoUuid,
+        'exame_id': casoUuid,
         'hash_arquivo': hash,
         'hash_cifrado': hash,
         'salt_base64': '',
@@ -280,6 +282,13 @@ class RemoteDataSourceImpl implements IRemoteDataSource {
           statusCode: response.statusCode,
         );
       }
+
+      if (response.data is Map) {
+        final data = response.data as Map;
+        return data['url_storage']?.toString() ??
+            data['urlStorage']?.toString();
+      }
+      return null;
     } on DioException catch (e) {
       throw SyncUploadEvidenciaException(
         'Falha de rede: ${e.message}',

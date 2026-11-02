@@ -147,13 +147,20 @@ class EvidenciaMultimidia {
   String? updatedDateTimeString() => atualizadoEm?.toIso8601String();
 
   Map<String, dynamic> toSyncMap() {
+    final String? caminhoRemotoOuLocal =
+        (chaveStorage != null && chaveStorage!.trim().isNotEmpty)
+            ? chaveStorage!.trim()
+            : (urlStorage != null && urlStorage!.trim().isNotEmpty)
+            ? urlStorage!.trim()
+            : caminhoArquivoEncriptado;
+
     return {
       'uuid': uuid,
       'caso_uuid': casoUuid,
       'achado_uuid': achadoUuid,
       'substituida_por': substituidaPor,
       'tipo': tipo,
-      'caminho_arquivo_encriptado': caminhoArquivoEncriptado,
+      'caminho_arquivo_encriptado': caminhoRemotoOuLocal,
       'hash_arquivo': hashArquivo,
       'foto_sincronizada': fotoSincronizada,
       'removido': removido,

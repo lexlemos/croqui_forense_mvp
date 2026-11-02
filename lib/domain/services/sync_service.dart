@@ -77,7 +77,10 @@ abstract interface class ISyncRepository {
   Future<List<Map<String, dynamic>>> getTodasEvidenciasPendentesGlobais();
 
   /// Marca uma evidência multimídia como sincronizada pelo seu [uuid].
-  Future<void> marcarEvidenciaComoSincronizada(String uuid);
+  Future<void> marcarEvidenciaComoSincronizada(
+    String uuid, {
+    String? chaveStorage,
+  });
 
   /// Invalida (soft-delete) uma evidência multimídia órfã cujo arquivo físico não existe mais em disco.
   Future<void> invalidarEvidenciaOrfa(String uuid);
@@ -467,7 +470,7 @@ class SyncService {
                 hash = sha256.convert(bytes).toString();
               }
 
-              await _remoteDataSource.uploadEvidencia(
+              final chaveStorage = await _remoteDataSource.uploadEvidencia(
                 casoUuid: caso.uuid,
                 achadoUuid: ev['achado_uuid'] as String?,
                 evidenciaUuid: evidenciaUuid,
@@ -475,7 +478,10 @@ class SyncService {
                 filePath: filePath,
               );
 
-              await _repository.marcarEvidenciaComoSincronizada(evidenciaUuid);
+              await _repository.marcarEvidenciaComoSincronizada(
+                evidenciaUuid,
+                chaveStorage: chaveStorage,
+              );
               totalFotosEnviadas++;
             } on DioException catch (e, stackTrace) {
               if (_isSessionExpiredError(e)) {
@@ -759,7 +765,7 @@ class SyncService {
             hash = sha256.convert(bytes).toString();
           }
 
-          await _remoteDataSource.uploadEvidencia(
+          final chaveStorage = await _remoteDataSource.uploadEvidencia(
             casoUuid: caso.uuid,
             achadoUuid: ev['achado_uuid'] as String?,
             evidenciaUuid: evidenciaUuid,
@@ -767,7 +773,10 @@ class SyncService {
             filePath: filePath,
           );
 
-          await _repository.marcarEvidenciaComoSincronizada(evidenciaUuid);
+          await _repository.marcarEvidenciaComoSincronizada(
+            evidenciaUuid,
+            chaveStorage: chaveStorage,
+          );
         } catch (e, stackTrace) {
           if (_isSessionExpiredError(e)) {
             rethrow;

@@ -62,7 +62,7 @@ abstract interface class IRemoteDataSource {
   ///
   /// @throws [SyncUploadEvidenciaException] se o servidor rejeitar o arquivo,
   /// houver divergência de hash na recepção ou o arquivo físico falhar.
-  Future<void> uploadEvidencia({
+  Future<String?> uploadEvidencia({
     required String casoUuid,
     required String? achadoUuid,
     required String evidenciaUuid,
