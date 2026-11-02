@@ -59,16 +59,12 @@ class CasoRepository implements ISyncRepository {
         limit: 1,
       );
       if (papelRows.isEmpty) {
-        await txn.insert(
-          tablePapeis,
-          {
-            'id': defaultRole,
-            'nome': 'PERITO_GERAL',
-            'descricao': 'Médico Perito',
-            'e_padrao': 1,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+        await txn.insert(tablePapeis, {
+          'id': defaultRole,
+          'nome': 'PERITO_GERAL',
+          'descricao': 'Médico Perito',
+          'e_padrao': 1,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
 
       final matriculaUnica =

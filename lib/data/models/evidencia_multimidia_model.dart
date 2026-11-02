@@ -149,10 +149,10 @@ class EvidenciaMultimidia {
   Map<String, dynamic> toSyncMap() {
     final String? caminhoRemotoOuLocal =
         (chaveStorage != null && chaveStorage!.trim().isNotEmpty)
-            ? chaveStorage!.trim()
-            : (urlStorage != null && urlStorage!.trim().isNotEmpty)
-            ? urlStorage!.trim()
-            : caminhoArquivoEncriptado;
+        ? chaveStorage!.trim()
+        : (urlStorage != null && urlStorage!.trim().isNotEmpty)
+        ? urlStorage!.trim()
+        : caminhoArquivoEncriptado;
 
     return {
       'uuid': uuid,

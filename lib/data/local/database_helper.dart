@@ -132,12 +132,7 @@ class DatabaseHelper {
       'TEXT',
     );
     await _addColumnIfNotExists(txn, 'casos', 'causa_morte', 'TEXT');
-    await _addColumnIfNotExists(
-      txn,
-      'casos',
-      'exames_solicitados',
-      'INTEGER',
-    );
+    await _addColumnIfNotExists(txn, 'casos', 'exames_solicitados', 'INTEGER');
     await _addColumnIfNotExists(txn, 'casos', 'descricao_exames', 'TEXT');
     await _addColumnIfNotExists(txn, 'casos', 'objeto_retirado', 'INTEGER');
     await _addColumnIfNotExists(txn, 'casos', 'descricao_objeto', 'TEXT');
@@ -165,12 +160,7 @@ class DatabaseHelper {
       'justificativa_recusa',
       'TEXT',
     );
-    await _addColumnIfNotExists(
-      txn,
-      'balisticas',
-      'achado_uuid',
-      'TEXT',
-    );
+    await _addColumnIfNotExists(txn, 'balisticas', 'achado_uuid', 'TEXT');
     await _addColumnIfNotExists(
       txn,
       'balisticas',

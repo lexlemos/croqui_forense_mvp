@@ -244,10 +244,14 @@ class AchadoRepository {
           where: 'achado_uuid = ?',
           whereArgs: [uuid],
         );
-        final detBalisticaIdV5 =
-            deterministicUuidV5(uuid, 'balistica').toLowerCase();
-        final detBalisticaIdV4 =
-            deterministicUuidV4(uuid, 'balistica').toLowerCase();
+        final detBalisticaIdV5 = deterministicUuidV5(
+          uuid,
+          'balistica',
+        ).toLowerCase();
+        final detBalisticaIdV4 = deterministicUuidV4(
+          uuid,
+          'balistica',
+        ).toLowerCase();
         final cleanAchadoUuid = uuid.trim().toLowerCase();
         await txn.delete(
           'balisticas',

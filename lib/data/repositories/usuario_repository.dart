@@ -106,8 +106,8 @@ class UsuarioRepository {
   Future<void> createUsuario(Usuario usuario) async {
     final db = await database;
     final map = usuario.toMap();
-    final papelId = map['papel_id']?.toString() ??
-        '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
+    final papelId =
+        map['papel_id']?.toString() ?? '8f9a3361-d3f3-4f8c-a89a-44998a3047e0';
     map['papel_id'] = papelId;
 
     // Garante que o papel referenciado exista na tabela papeis para satisfazer a FK
@@ -119,18 +119,14 @@ class UsuarioRepository {
       limit: 1,
     );
     if (papelExists.isEmpty) {
-      await db.insert(
-        'papeis',
-        {
-          'id': papelId,
-          'nome': papelId == '11111111-2222-3333-4444-555555555555'
-              ? 'ADMIN'
-              : 'PERITO_GERAL',
-          'descricao': 'Perfil Institucional',
-          'e_padrao': 1,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      await db.insert('papeis', {
+        'id': papelId,
+        'nome': papelId == '11111111-2222-3333-4444-555555555555'
+            ? 'ADMIN'
+            : 'PERITO_GERAL',
+        'descricao': 'Perfil Institucional',
+        'e_padrao': 1,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
 
     final rowsAffected = await db.update(

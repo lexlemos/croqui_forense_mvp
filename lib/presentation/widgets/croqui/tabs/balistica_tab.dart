@@ -88,8 +88,8 @@ class BalisticaTab extends StatelessWidget {
                         a.dadosPreenchidos['type_label']?.toString() ??
                         a.tipoAchadoId;
 
-                    final balisticaItem =
-                        controller.casoAtual.obterBalisticaPorAchado(a)!;
+                    final balisticaItem = controller.casoAtual
+                        .obterBalisticaPorAchado(a)!;
 
                     return Card(
                       elevation: 1,

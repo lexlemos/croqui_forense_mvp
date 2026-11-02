@@ -152,8 +152,7 @@ class ExameSolicitadoModel {
         map['status_atn'];
     var statusAtn = StatusConfirmacaoATN.fromString(rawStatusAtn?.toString());
     String? justificativa =
-        (map['justificativa_recusa'] ?? map['justificativaRecusa'])
-            ?.toString();
+        (map['justificativa_recusa'] ?? map['justificativaRecusa'])?.toString();
 
     void rollUpFromChildren(List<dynamic>? listData) {
       if (listData == null || listData.isEmpty) return;

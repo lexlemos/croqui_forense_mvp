@@ -866,24 +866,26 @@ class Caso {
     bool criarSeAusente = true,
   }) {
     final achadoUuidLower = achado.uuid.trim().toLowerCase();
-    final detV5Lower =
-        deterministicUuidV5(achado.uuid, 'balistica').toLowerCase();
-    final detV4Lower =
-        deterministicUuidV4(achado.uuid, 'balistica').toLowerCase();
+    final detV5Lower = deterministicUuidV5(
+      achado.uuid,
+      'balistica',
+    ).toLowerCase();
+    final detV4Lower = deterministicUuidV4(
+      achado.uuid,
+      'balistica',
+    ).toLowerCase();
 
     try {
-      return balisticas.firstWhere(
-        (b) {
-          final bIdLower = b.id.trim().toLowerCase();
-          final bAchadoLower = b.achadoUuid?.trim().toLowerCase();
-          final bExameLower = b.exameId.trim().toLowerCase();
-          return (bAchadoLower != null && bAchadoLower == achadoUuidLower) ||
-              bIdLower == detV5Lower ||
-              bIdLower == detV4Lower ||
-              bExameLower == achadoUuidLower ||
-              bIdLower == achadoUuidLower;
-        },
-      );
+      return balisticas.firstWhere((b) {
+        final bIdLower = b.id.trim().toLowerCase();
+        final bAchadoLower = b.achadoUuid?.trim().toLowerCase();
+        final bExameLower = b.exameId.trim().toLowerCase();
+        return (bAchadoLower != null && bAchadoLower == achadoUuidLower) ||
+            bIdLower == detV5Lower ||
+            bIdLower == detV4Lower ||
+            bExameLower == achadoUuidLower ||
+            bIdLower == achadoUuidLower;
+      });
     } on StateError {
       if (!criarSeAusente) return null;
       return BalisticaModel(
@@ -908,10 +910,11 @@ class Caso {
     final bool examePendente = modelos.isNotEmpty
         ? modelos.any((e) => e.statusConfirmacaoAtn.isPendente)
         : (examesLegados != null &&
-            examesLegados.any((e) => e.statusConfirmacaoAtn.isPendente));
+              examesLegados.any((e) => e.statusConfirmacaoAtn.isPendente));
 
-    final bool balisticaPendente =
-        balisticas.any((b) => b.statusConfirmacaoAtn.isPendente);
+    final bool balisticaPendente = balisticas.any(
+      (b) => b.statusConfirmacaoAtn.isPendente,
+    );
 
     return examePendente || balisticaPendente;
   }
